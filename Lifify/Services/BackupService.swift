@@ -36,6 +36,7 @@ struct BackupDocument: FileDocument {
     }
 }
 
+@MainActor
 enum BackupService {
     static func exportData(
         accounts: [Account],

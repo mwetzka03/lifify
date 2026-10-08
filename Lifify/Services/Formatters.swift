@@ -16,7 +16,14 @@ enum Money {
         let cleaned = text
             .replacingOccurrences(of: "€", with: "")
             .replacingOccurrences(of: " ", with: "")
-        let decimalSeparator = cleaned.lastIndex(of: ",") ?? cleaned.lastIndex(of: ".")
+        let comma = cleaned.lastIndex(of: ",")
+        let dot = cleaned.lastIndex(of: ".")
+        let decimalSeparator: String.Index?
+        if let comma, let dot {
+            decimalSeparator = max(comma, dot)
+        } else {
+            decimalSeparator = comma ?? dot
+        }
         let normalized: String
         if let decimalSeparator {
             let whole = cleaned[..<decimalSeparator].replacingOccurrences(of: ".", with: "").replacingOccurrences(of: ",", with: "")

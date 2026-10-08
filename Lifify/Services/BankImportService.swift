@@ -1,6 +1,5 @@
 import CryptoKit
 import Foundation
-import FoundationXML
 
 struct ImportedTransaction: Identifiable {
     let id = UUID()
@@ -147,7 +146,7 @@ private final class CAMTParserDelegate: NSObject, XMLParserDelegate {
     private var title = ""
     private var iban = ""
 
-    func parser(_ parser: XMLParser, didStartElement elementName: String, namespaceURI: String?, qualifiedName: String?, attributes attributeDict: [String: String] = [:]) {
+    func parser(_ parser: XMLParser, didStartElement elementName: String, namespaceURI: String?, qualifiedName: String?, attributes attributeDict: [String: String]) {
         let name = elementName.components(separatedBy: ":").last ?? elementName
         path.append(name)
         text = ""

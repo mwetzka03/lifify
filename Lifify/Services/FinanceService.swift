@@ -1,5 +1,6 @@
 import Foundation
 
+@MainActor
 enum FinanceService {
     static func balance(
         for account: Account,
@@ -77,9 +78,7 @@ enum FinanceService {
         splits: [TransactionSplit]
     ) -> Int {
         guard pool.isScalable else { return 0 }
-        let keys = Set(splits.filter { $0.kind == .budgetPool && $0.targetID == pool.id }.map(\.periodKey))
-            .union([currentPeriodKey])
-            .sorted()
+        let keys = CalendarService.periodKeys(from: pool.createdAt, through: .now, pool: pool)
         var carry = 0
         for key in keys {
             if key == currentPeriodKey { return carry }

@@ -1,5 +1,6 @@
 import Foundation
 
+@MainActor
 enum CalendarService {
     private static var calendar: Calendar {
         var value = Calendar(identifier: .gregorian)
@@ -54,6 +55,21 @@ enum CalendarService {
         let nextMonth = calendar.date(byAdding: .month, value: 1, to: start)!
         let end = calendar.date(byAdding: .day, value: -1, to: nextMonth)!
         return "\(start.dayKey):\(end.dayKey)"
+    }
+
+    static func periodKeys(from startDate: Date, through endDate: Date, pool: BudgetPool) -> [String] {
+        var result: [String] = []
+        var cursor = startDate
+        let component: Calendar.Component = pool.periodMode == .calendarYear ? .year : .month
+        while cursor <= endDate {
+            let key = periodKey(for: cursor, pool: pool)
+            if result.last != key { result.append(key) }
+            guard let next = calendar.date(byAdding: component, value: 1, to: cursor), next > cursor else { break }
+            cursor = next
+        }
+        let finalKey = periodKey(for: endDate, pool: pool)
+        if result.last != finalKey { result.append(finalKey) }
+        return result
     }
 
     static func nextOccurrences(

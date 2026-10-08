@@ -1,3 +1,4 @@
+import Combine
 import Foundation
 import SwiftData
 
@@ -20,7 +21,7 @@ final class DataImportViewModel: ObservableObject {
             }
             let data = try Data(contentsOf: url)
             let rows = try BankImportService.parse(data: data, fileExtension: url.pathExtension)
-            let known = Set(existingEntries.compactMap(\.importFingerprint))
+            var known = Set(existingEntries.compactMap(\.importFingerprint))
             var imported = 0
             for row in rows where !known.contains(row.fingerprint) {
                 let kind: LedgerKind = row.amountCents < 0 ? .expense : .income
@@ -33,6 +34,7 @@ final class DataImportViewModel: ObservableObject {
                     accountID: accountID,
                     importFingerprint: row.fingerprint
                 ))
+                known.insert(row.fingerprint)
                 imported += 1
             }
             try context.save()
