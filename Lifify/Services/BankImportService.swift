@@ -2,13 +2,31 @@ import CryptoKit
 import Foundation
 
 struct ImportedTransaction: Identifiable {
-    let id = UUID()
+    let id: UUID
     let date: Date
     let title: String
     let notes: String
     let amountCents: Int
     let iban: String
     let fingerprint: String
+
+    init(
+        id: UUID = UUID(),
+        date: Date,
+        title: String,
+        notes: String,
+        amountCents: Int,
+        iban: String,
+        fingerprint: String
+    ) {
+        self.id = id
+        self.date = date
+        self.title = title
+        self.notes = notes
+        self.amountCents = amountCents
+        self.iban = iban
+        self.fingerprint = fingerprint
+    }
 }
 
 enum BankImportError: LocalizedError {

@@ -19,19 +19,19 @@ struct RootView: View {
     var body: some View {
         TabView(selection: $selectedTab) {
             NavigationStack { HomeView() }
-                .tabItem { Label(L("Home", "Home"), systemImage: "house") }
+                .tabItem { Image(systemName: "house").accessibilityLabel(L("Home", "Home")) }
                 .tag(0)
             NavigationStack { DashboardView(isMainTab: true) }
-                .tabItem { Label(L("Finanzen", "Finance"), systemImage: "eurosign.circle") }
+                .tabItem { Image(systemName: "eurosign.circle").accessibilityLabel(L("Finanzen", "Finance")) }
                 .tag(1)
             NavigationStack { ChallengesView() }
-                .tabItem { Label(L("Challenges", "Challenges"), systemImage: "target") }
+                .tabItem { Image(systemName: "target").accessibilityLabel(L("Challenges", "Challenges")) }
                 .tag(2)
             NavigationStack { HealthView() }
-                .tabItem { Label(L("Gesundheit", "Health"), systemImage: "apple.logo") }
+                .tabItem { Text("🍎").accessibilityLabel(L("Gesundheit", "Health")) }
                 .tag(3)
             NavigationStack { SettingsView() }
-                .tabItem { Label(L("Einstellungen", "Settings"), systemImage: "gear") }
+                .tabItem { Image(systemName: "gear").accessibilityLabel(L("Einstellungen", "Settings")) }
                 .tag(4)
         }
         .id(language)

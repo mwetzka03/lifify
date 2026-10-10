@@ -6,15 +6,23 @@ struct HomeView: View {
     @Query private var pools: [BudgetPool]
     @Query private var entries: [LedgerEntry]
     @Query private var splits: [TransactionSplit]
+    @Query private var forecasts: [IncomeForecast]
     @Query private var calendarEvents: [ChallengeCalendarEvent]
     @Query private var challenges: [ChallengeItem]
     @Query private var completions: [ChallengeCompletion]
     @State private var mode = ChallengeCalendarViewMode.day
     @State private var selectedDate = Date.now
+    @AppStorage("userName") private var userName = ""
+    @AppStorage("dashboardPeriodMode") private var dashboardPeriod = DashboardPeriodMode.calendarMonth.rawValue
 
     var body: some View {
         ScrollView {
             VStack(spacing: 16) {
+                if !userName.isEmpty {
+                    Text("\(L("Willkommen zurück", "Welcome back")), \(userName)")
+                        .font(.title2.bold())
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
                 NavigationLink {
                     DashboardView()
                 } label: {
@@ -98,9 +106,8 @@ struct HomeView: View {
                         Image(systemName: IconPreferenceStore.icon(for: challenge.id, fallback: "target"))
                         Text(challenge.title)
                         Spacer()
-                        Text("+\(challenge.rewardCoins) 🪙")
+                        CoinAmountView(amount: challenge.rewardCoins, showsPlus: true)
                             .font(.caption)
-                            .foregroundStyle(.orange)
                         Image(systemName: ChallengeService.isCompleted(challenge, on: selectedDate, completions: completions) ? "checkmark.circle.fill" : "circle")
                             .foregroundStyle(ChallengeService.isCompleted(challenge, on: selectedDate, completions: completions) ? .green : .secondary)
                     }
@@ -193,11 +200,31 @@ struct HomeView: View {
     }
 
     private var plannedBudget: Int {
+        let activeForecasts = forecasts.filter(\.isActive)
+        if !activeForecasts.isEmpty {
+            return activeForecasts.reduce(0) { total, forecast in
+                let occurrences = CalendarService.nextOccurrences(
+                    firstDate: forecast.firstPaymentDate,
+                    cadence: forecast.cadence,
+                    rule: forecast.dueRule,
+                    day: forecast.dayOfMonth,
+                    endDate: forecast.endPaymentDate,
+                    through: budgetPeriodEnd
+                )
+                .filter { $0 >= budgetPeriodStart && $0 <= budgetPeriodEnd }
+                return total + occurrences.count * abs(forecast.amountCents)
+            }
+        }
         variableBudgets.reduce(0) { $0 + $1.monthlyAmountCents } +
         pools.filter(\.isActive).reduce(0) { $0 + $1.amountCents }
     }
 
     private var spentBudget: Int {
+        if forecasts.contains(where: \.isActive) {
+            return entries
+                .filter { $0.kind == .expense && $0.date >= budgetPeriodStart && $0.date <= .now }
+                .reduce(0) { $0 + abs($1.amountCents) }
+        }
         let variable = variableBudgets.reduce(0) {
             $0 + FinanceService.variableSpent(budgetID: $1.id, monthKey: Date.now.monthKey, entries: entries, splits: splits)
         }
@@ -206,6 +233,73 @@ struct HomeView: View {
             return $0 + FinanceService.poolSpent(pool: $1, periodKey: key, splits: splits)
         }
         return variable + pool
+    }
+
+    private var budgetPeriodStart: Date {
+        let calendar = Calendar.current
+        guard DashboardPeriodMode(rawValue: dashboardPeriod) == .salaryPeriod,
+              let idString = UserDefaults.standard.string(forKey: "primaryIncomeForecastID"),
+              let id = UUID(uuidString: idString),
+              let forecast = forecasts.first(where: { $0.id == id })
+        else {
+            return calendar.date(
+                from: calendar.dateComponents([.year, .month], from: .now)
+            ) ?? calendar.startOfDay(for: .now)
+        }
+        let now = Date.now
+        let occurrences = CalendarService.nextOccurrences(
+            firstDate: forecast.firstPaymentDate,
+            cadence: forecast.cadence,
+            rule: forecast.dueRule,
+            day: forecast.dayOfMonth,
+            endDate: forecast.endPaymentDate,
+            through: now
+        )
+        if let latest = occurrences.last(where: { $0 <= now }) {
+            return latest
+        }
+        let current = calendar.dateComponents([.year, .month], from: now)
+        let candidate = CalendarService.dueDate(
+            year: current.year ?? calendar.component(.year, from: now),
+            month: current.month ?? calendar.component(.month, from: now),
+            day: forecast.dayOfMonth,
+            rule: forecast.dueRule
+        )
+        if candidate <= now { return candidate }
+        let previousMonth = calendar.date(byAdding: .month, value: -1, to: now) ?? now
+        let previous = calendar.dateComponents([.year, .month], from: previousMonth)
+        return CalendarService.dueDate(
+            year: previous.year ?? calendar.component(.year, from: previousMonth),
+            month: previous.month ?? calendar.component(.month, from: previousMonth),
+            day: forecast.dayOfMonth,
+            rule: forecast.dueRule
+        )
+    }
+
+    private var budgetPeriodEnd: Date {
+        let calendar = Calendar.current
+        let fallback = calendar.date(byAdding: .month, value: 1, to: budgetPeriodStart)
+            .flatMap { calendar.date(byAdding: .second, value: -1, to: $0) }
+            ?? budgetPeriodStart
+        guard DashboardPeriodMode(rawValue: dashboardPeriod) == .salaryPeriod,
+              let idString = UserDefaults.standard.string(forKey: "primaryIncomeForecastID"),
+              let id = UUID(uuidString: idString),
+              let forecast = forecasts.first(where: { $0.id == id }),
+              let limit = calendar.date(byAdding: .year, value: 2, to: budgetPeriodStart)
+        else {
+            return fallback
+        }
+        let nextOccurrence = CalendarService.nextOccurrences(
+            firstDate: forecast.firstPaymentDate,
+            cadence: forecast.cadence,
+            rule: forecast.dueRule,
+            day: forecast.dayOfMonth,
+            endDate: forecast.endPaymentDate,
+            through: limit
+        )
+        .first { $0 > budgetPeriodStart }
+        guard let nextOccurrence else { return fallback }
+        return calendar.date(byAdding: .second, value: -1, to: nextOccurrence) ?? fallback
     }
 
     private var periodTitle: String {

@@ -72,9 +72,16 @@ struct ChallengesView: View {
                     } label: {
                         VStack(alignment: .leading) {
                             Text(group.title).font(.headline)
-                            Text("\(groupMembers(group).count) \(L("Challenges", "challenges"))")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+                            ForEach(groupMembers(group).prefix(3)) { challenge in
+                                Label(challenge.title, systemImage: "arrow.turn.down.right")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            if groupMembers(group).count > 3 {
+                                Text("+\(groupMembers(group).count - 3)")
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            }
                         }
                     }
                 }
@@ -96,9 +103,7 @@ struct ChallengesView: View {
                                 .frame(width: 24)
                             VStack(alignment: .leading) {
                                 Text(challenge.title).foregroundStyle(.primary)
-                                Text(challengeMeta(challenge))
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
+                                challengeMeta(challenge)
                             }
                             Spacer()
                             Image(systemName: ChallengeService.isCompleted(challenge, on: .now, completions: completions) ? "checkmark.circle.fill" : "circle")
@@ -108,17 +113,19 @@ struct ChallengesView: View {
                     .buttonStyle(.plain)
                     .disabled(challenge.isReadOnly)
                     .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                        Button(role: .destructive) {
+                            deleteChallenge(challenge)
+                        } label: {
+                            Label(L("Löschen", "Delete"), systemImage: "trash")
+                        }
+                    }
+                    .swipeActions(edge: .leading, allowsFullSwipe: false) {
                         Button {
                             edited = challenge
                         } label: {
                             Label(L("Bearbeiten", "Edit"), systemImage: "pencil")
                         }
                         .tint(.blue)
-                        Button(role: .destructive) {
-                            deleteChallenge(challenge)
-                        } label: {
-                            Label(L("Löschen", "Delete"), systemImage: "trash")
-                        }
                     }
                 }
             }
@@ -136,12 +143,8 @@ struct ChallengesView: View {
                     HStack(spacing: 7) {
                         Image(systemName: "gift.fill")
                             .foregroundStyle(.blue)
-                        Text("\(ChallengeService.walletBalance(transactions: transactions))")
-                            .foregroundStyle(.primary)
+                        CoinAmountView(amount: ChallengeService.walletBalance(transactions: transactions))
                     }
-                    .padding(.horizontal, 11)
-                    .padding(.vertical, 7)
-                    .background(.thinMaterial, in: Capsule())
                 }
             }
             ToolbarItem(placement: .topBarTrailing) {
@@ -165,7 +168,7 @@ struct ChallengesView: View {
         challenges.filter { challenge in
             let done = challenge.isArchived ||
                 ChallengeService.isCompleted(challenge, on: .now, completions: completions)
-            return done == completedTab && (filter != .single || challenge.groupID == nil)
+            return done == completedTab && challenge.groupID == nil
         }
     }
 
@@ -188,10 +191,19 @@ struct ChallengesView: View {
         try? context.save()
     }
 
-    private func challengeMeta(_ challenge: ChallengeItem) -> String {
+    private func challengeMeta(_ challenge: ChallengeItem) -> some View {
         let streak = ChallengeService.streak(for: challenge, endingOn: .now, completions: completions)
         let target = challenge.streakTarget > 0 ? "/\(challenge.streakTarget)" : ""
-        return "\(challenge.recurrence.label) · +\(challenge.rewardCoins) · 🔥 \(streak)\(target)"
+        return HStack(spacing: 7) {
+            Text(challenge.recurrence.label)
+            CoinAmountView(amount: challenge.rewardCoins, showsPlus: true)
+            if challenge.recurrence != .none {
+                Label("\(streak)\(target)", systemImage: "flame.fill")
+                    .foregroundStyle(.orange)
+            }
+        }
+        .font(.caption)
+        .foregroundStyle(.secondary)
     }
 }
 
@@ -423,17 +435,19 @@ private struct ChallengeGroupDetailView: View {
                 }
                 .disabled(challenge.isReadOnly)
                 .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                    Button(role: .destructive) {
+                        deleteChallenge(challenge)
+                    } label: {
+                        Label(L("Löschen", "Delete"), systemImage: "trash")
+                    }
+                }
+                .swipeActions(edge: .leading, allowsFullSwipe: false) {
                     Button {
                         edited = challenge
                     } label: {
                         Label(L("Bearbeiten", "Edit"), systemImage: "pencil")
                     }
                     .tint(.blue)
-                    Button(role: .destructive) {
-                        deleteChallenge(challenge)
-                    } label: {
-                        Label(L("Löschen", "Delete"), systemImage: "trash")
-                    }
                 }
             }
         }

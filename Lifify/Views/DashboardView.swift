@@ -63,7 +63,7 @@ struct DashboardView: View {
                     NavigationLink {
                         VariableBudgetsView()
                     } label: {
-                        Label(L("Variable Monatsbudgets", "Variable monthly budgets"), systemImage: "gauge.with.dots.needle.67percent")
+                        Label(L("Variable Kosten", "Variable costs"), systemImage: "gauge.with.dots.needle.67percent")
                     }
                     NavigationLink {
                         BudgetPoolsView()

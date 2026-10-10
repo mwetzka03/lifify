@@ -14,7 +14,11 @@ struct ShopView: View {
     var body: some View {
         List {
             Section {
-                LabeledContent(L("Guthaben", "Balance"), value: "\(ChallengeService.walletBalance(transactions: transactions)) 🪙")
+                LabeledContent {
+                    CoinAmountView(amount: ChallengeService.walletBalance(transactions: transactions))
+                } label: {
+                    Text(L("Guthaben", "Balance"))
+                }
                 LabeledContent(L("Verdient", "Earned"), value: "\(transactions.filter { $0.amount > 0 }.reduce(0) { $0 + $1.amount })")
                 LabeledContent(L("Ausgegeben", "Spent"), value: "\(abs(transactions.filter { $0.amount < 0 }.reduce(0) { $0 + $1.amount }))")
                 LabeledContent(L("Käufe", "Purchases"), value: "\(purchases.count)")
@@ -39,7 +43,7 @@ struct ShopView: View {
                                 }
                             }
                             Spacer()
-                            Text("\(reward.price) 🪙").foregroundStyle(.orange)
+                            CoinAmountView(amount: reward.price)
                         }
                     }
                     .swipeActions(edge: .leading) {
@@ -78,7 +82,11 @@ struct ShopView: View {
             }
             Section(L("Käufe", "Purchases")) {
                 ForEach(purchases) { purchase in
-                    LabeledContent(purchase.title, value: "\(purchase.price) 🪙")
+                    LabeledContent {
+                        CoinAmountView(amount: purchase.price)
+                    } label: {
+                        Text(purchase.title)
+                    }
                 }
             }
         }
@@ -120,7 +128,12 @@ private struct RewardForm: View {
             Form {
                 TextField(L("Titel", "Title"), text: $title)
                 TextField(L("Beschreibung", "Description"), text: $details, axis: .vertical)
-                Stepper("\(L("Preis", "Price")): \(price) 🪙", value: $price, in: 0...100_000)
+                Stepper(value: $price, in: 0...100_000) {
+                    HStack {
+                        Text("\(L("Preis", "Price")):")
+                        CoinAmountView(amount: price)
+                    }
+                }
                 TextField("URL", text: $url).keyboardType(.URL).textInputAutocapitalization(.never)
                 SymbolPicker(title: L("Symbol", "Icon"), selection: $icon)
             }

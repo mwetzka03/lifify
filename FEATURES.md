@@ -21,7 +21,7 @@ iPhone-App mit SwiftUI und SwiftData.
   oder zweiwöchentlicher Wiederholung
 - Fälligkeit am Kalendertag sowie am ersten oder letzten Bankarbeitstag in
   Rheinland-Pfalz (inklusive gesetzlicher Feiertage)
-- Variable Monatsbudgets und Budgetpools pro Gehaltszeitraum oder Kalenderjahr;
+- Variable Kosten und Budgetpools pro Gehaltszeitraum oder Kalenderjahr;
   skalierbare Pools übertragen den Rest in die nächste Periode
 - Einkaufszettel, Schulden, Ausgabengruppen und Depotpositionen mit ISIN,
   automatischem Kursabruf und manuellem Fallback
@@ -38,8 +38,11 @@ iPhone-App mit SwiftUI und SwiftData.
   Erledigt-Status wird anschließend zurück zu Apple Erinnerungen geschrieben
 - Belohnungsshop und Wallet mit Coin-Transaktionen und Kaufhistorie
 - Frei wählbare SF-Symbole für Buchungen, Fixkosten, Challenges und Belohnungen
-- Vollständiges lokales Löschen aller Daten und Zurücksetzen der App
+- Getrenntes Löschen der Inhaltsdaten sowie vollständiges Zurücksetzen der App
+  einschließlich Konten und Ersteinrichtung
 - Platzhalter-Tab „Gesundheit/Health“ für einen späteren Funktionsausbau
+- Mehrstufige Ersteinrichtung für Sprache, Backup/Neustart, Begrüßungsname,
+  Dashboard-Zeitraum, Hauptkonto, optionalen Bankimport und Einnahmeprognosen
 - Lokal gespeicherte Bucketlist-Daten; die Oberfläche ist vorerst ausgeblendet
 - Optionaler Import aus iOS-Kalendern und Erinnerungen über EventKit
 
@@ -109,6 +112,16 @@ iPhone-App mit SwiftUI und SwiftData.
     Nutzerwunsch entfernt. Das alte SwiftData-Modell bleibt ausschließlich als
     Kompatibilitätsplatzhalter erhalten, damit vorhandene Entwicklungsstores
     weiterhin geöffnet werden können.
+17. **Ersteinrichtung und Budget:** Das Hauptkonto ist verpflichtend und später
+    nicht löschbar. Ein optionaler Bankimport legt den angegebenen Kontostand
+    am Vortag des ersten Exporteintrags als Saldo-Anker an. Ausgewählte Haupt-
+    und Nebeneinnahmen erzeugen monatliche Prognosen; deren tatsächliche
+    Vorkommen bilden das Budget im gewählten Kalender- oder Gehaltszeitraum.
+    IBAN-Zuordnungen werden nur lokal gespeichert.
+18. **Löschen versus Reset:** „Alle Daten löschen“ entfernt Finanz-, Challenge-
+    und Shopinhalte, behält aber Konten und Einstellungen. „App zurücksetzen“
+    entfernt zusätzlich Konten und Einstellungen und startet anschließend die
+    Ersteinrichtung.
 
 ## Technische Leitplanken
 

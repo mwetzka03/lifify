@@ -1,12 +1,40 @@
 import Foundation
 import SwiftData
 
+struct StockSuggestion: Identifiable, Hashable {
+    let symbol: String
+    let name: String
+    let exchange: String
+
+    var id: String { symbol }
+}
+
+enum MarketSymbolStore {
+    static func symbol(for holdingID: UUID) -> String? {
+        UserDefaults.standard.string(forKey: "market.symbol.\(holdingID.uuidString)")
+    }
+
+    static func set(_ symbol: String, for holdingID: UUID) {
+        UserDefaults.standard.set(symbol, forKey: "market.symbol.\(holdingID.uuidString)")
+    }
+
+    static func remove(for holdingID: UUID) {
+        UserDefaults.standard.removeObject(forKey: "market.symbol.\(holdingID.uuidString)")
+    }
+}
+
 @MainActor
 enum MarketDataService {
     static func refresh(holdings: [PortfolioHolding], context: ModelContext) async {
         var changed = false
         for holding in holdings where isValidISIN(holding.symbol) {
-            guard let cents = try? await currentPriceCents(for: holding.symbol) else {
+            let cents: Int?
+            if let marketSymbol = MarketSymbolStore.symbol(for: holding.id) {
+                cents = try? await currentPriceCents(forMarketSymbol: marketSymbol)
+            } else {
+                cents = try? await currentPriceCents(for: holding.symbol)
+            }
+            guard let cents else {
                 continue
             }
             holding.currentPriceCents = cents
@@ -17,6 +45,12 @@ enum MarketDataService {
     }
 
     static func currentPriceCents(for isin: String) async throws -> Int {
+        let matches = try await suggestions(for: isin)
+        guard matches.count == 1 else { throw MarketDataError.instrumentNotFound }
+        return try await currentPriceCents(for: matches[0])
+    }
+
+    static func suggestions(for isin: String) async throws -> [StockSuggestion] {
         let normalizedISIN = isin
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .uppercased()
@@ -29,14 +63,26 @@ enum MarketDataService {
             URLQueryItem(name: "newsCount", value: "0")
         ]
         let search: YahooSearchResponse = try await request(components.url!)
-        let eligibleQuotes = search.quotes.filter {
-            ["EQUITY", "ETF", "MUTUALFUND"].contains($0.quoteType ?? "")
-                && $0.isYahooFinance == true
+        return search.quotes.compactMap { quote in
+            guard ["EQUITY", "ETF", "MUTUALFUND"].contains(quote.quoteType ?? ""),
+                  quote.isYahooFinance == true,
+                  let symbol = quote.symbol
+            else {
+                return nil
+            }
+            return StockSuggestion(
+                symbol: symbol,
+                name: quote.longname ?? quote.shortname ?? symbol,
+                exchange: quote.exchDisp ?? quote.exchange ?? ""
+            )
         }
-        guard eligibleQuotes.count == 1, let symbol = eligibleQuotes[0].symbol else {
-            throw MarketDataError.instrumentNotFound
-        }
+    }
 
+    static func currentPriceCents(for suggestion: StockSuggestion) async throws -> Int {
+        try await currentPriceCents(forMarketSymbol: suggestion.symbol)
+    }
+
+    private static func currentPriceCents(forMarketSymbol symbol: String) async throws -> Int {
         let quote = try await chart(symbol: symbol)
         guard let price = quote.price, price > 0 else { throw MarketDataError.priceUnavailable }
         let sourceCurrency = quote.currency ?? "EUR"
@@ -127,6 +173,10 @@ private struct YahooSearchQuote: Decodable {
     let symbol: String?
     let quoteType: String?
     let isYahooFinance: Bool?
+    let longname: String?
+    let shortname: String?
+    let exchange: String?
+    let exchDisp: String?
 }
 
 private struct YahooChartResponse: Decodable {

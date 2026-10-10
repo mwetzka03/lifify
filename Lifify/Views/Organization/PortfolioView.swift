@@ -39,7 +39,10 @@ struct PortfolioView: View {
                 }
             }
             .onDelete { offsets in
-                offsets.map { holdings[$0] }.forEach(context.delete)
+                offsets.map { holdings[$0] }.forEach {
+                    MarketSymbolStore.remove(for: $0.id)
+                    context.delete($0)
+                }
                 try? context.save()
             }
         }
@@ -79,6 +82,9 @@ private struct HoldingForm: View {
     @State private var purchasePrice: String
     @State private var currentPrice: String
     @State private var validationMessage: String?
+    @State private var suggestions: [StockSuggestion] = []
+    @State private var selectedSuggestion: StockSuggestion?
+    @State private var isSearching = false
 
     init(holding: PortfolioHolding?) {
         existing = holding
@@ -88,6 +94,13 @@ private struct HoldingForm: View {
         _quantity = State(initialValue: holding.map { String($0.quantity) } ?? "")
         _purchasePrice = State(initialValue: holding.map { String(format: "%.2f", Double($0.purchasePriceCents) / 100) } ?? "")
         _currentPrice = State(initialValue: holding.map { String(format: "%.2f", Double($0.currentPriceCents) / 100) } ?? "")
+        _selectedSuggestion = State(initialValue: holding.map {
+            StockSuggestion(
+                symbol: MarketSymbolStore.symbol(for: $0.id) ?? "",
+                name: $0.name,
+                exchange: ""
+            )
+        })
     }
 
     var body: some View {
@@ -97,10 +110,49 @@ private struct HoldingForm: View {
                     Text(L("Keins", "None")).tag(Optional<UUID>.none)
                     ForEach(accounts.filter { $0.kind == .portfolio }) { Text($0.name).tag(Optional($0.id)) }
                 }
-                TextField(L("Name", "Name"), text: $name)
                 TextField("ISIN", text: $symbol)
                     .textInputAutocapitalization(.characters)
                     .autocorrectionDisabled()
+                    .onChange(of: symbol) {
+                        suggestions = []
+                        selectedSuggestion = nil
+                        name = ""
+                    }
+                Button {
+                    Task { await search() }
+                } label: {
+                    if isSearching {
+                        ProgressView()
+                    } else {
+                        Label(L("Aktie suchen", "Search stock"), systemImage: "magnifyingglass")
+                    }
+                }
+                .disabled(isSearching || !MarketDataService.isValidISIN(symbol))
+
+                ForEach(suggestions) { suggestion in
+                    Button {
+                        Task { await select(suggestion) }
+                    } label: {
+                        HStack {
+                            VStack(alignment: .leading) {
+                                Text(suggestion.name).foregroundStyle(.primary)
+                                Text("\(suggestion.symbol) · \(suggestion.exchange)")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            if selectedSuggestion == suggestion {
+                                Image(systemName: "checkmark.circle.fill")
+                            }
+                        }
+                    }
+                }
+                if let selectedSuggestion {
+                    LabeledContent(
+                        L("Ausgewählt", "Selected"),
+                        value: selectedSuggestion.name
+                    )
+                }
                 TextField(L("Stückzahl", "Quantity"), text: $quantity).keyboardType(.decimalPad)
                 TextField(L("Kaufkurs", "Purchase price"), text: $purchasePrice).keyboardType(.decimalPad)
                 TextField(L("Aktueller Kurs (Fallback)", "Current price (fallback)"), text: $currentPrice).keyboardType(.decimalPad)
@@ -137,19 +189,31 @@ private struct HoldingForm: View {
                             validationMessage = L("Bitte eine gültige zwölfstellige ISIN eingeben.", "Enter a valid twelve-character ISIN.")
                             return
                         }
-                        let holding = existing ?? PortfolioHolding(name: name, quantity: count, purchasePriceCents: purchase, currentPriceCents: current)
+                        guard let selectedSuggestion else {
+                            validationMessage = L("Bitte zuerst eine Aktie aus den Vorschlägen auswählen.", "Select a stock from the suggestions first.")
+                            return
+                        }
+                        let holding = existing ?? PortfolioHolding(name: selectedSuggestion.name, quantity: count, purchasePriceCents: purchase, currentPriceCents: current)
                         holding.accountID = accountID
-                        holding.name = name
+                        holding.name = selectedSuggestion.name
                         holding.symbol = normalizedISIN
                         holding.quantity = count
                         holding.purchasePriceCents = purchase
                         holding.currentPriceCents = current
                         holding.updatedAt = .now
                         if existing == nil { context.insert(holding) }
+                        if !selectedSuggestion.symbol.isEmpty {
+                            MarketSymbolStore.set(selectedSuggestion.symbol, for: holding.id)
+                        }
                         try? context.save()
                         Task {
                             do {
-                                let cents = try await MarketDataService.currentPriceCents(for: normalizedISIN)
+                                let cents: Int
+                                if selectedSuggestion.symbol.isEmpty {
+                                    cents = try await MarketDataService.currentPriceCents(for: normalizedISIN)
+                                } else {
+                                    cents = try await MarketDataService.currentPriceCents(for: selectedSuggestion)
+                                }
                                 holding.currentPriceCents = cents
                                 holding.updatedAt = .now
                                 try? context.save()
@@ -161,6 +225,33 @@ private struct HoldingForm: View {
                     }
                 }
             }
+        }
+    }
+
+    @MainActor
+    private func search() async {
+        isSearching = true
+        validationMessage = nil
+        defer { isSearching = false }
+        do {
+            suggestions = try await MarketDataService.suggestions(for: symbol)
+            if suggestions.isEmpty {
+                validationMessage = L("Keine passende Aktie gefunden.", "No matching stock found.")
+            }
+        } catch {
+            validationMessage = L("Die Aktiensuche ist fehlgeschlagen.", "The stock search failed.")
+        }
+    }
+
+    @MainActor
+    private func select(_ suggestion: StockSuggestion) async {
+        selectedSuggestion = suggestion
+        name = suggestion.name
+        do {
+            let cents = try await MarketDataService.currentPriceCents(for: suggestion)
+            currentPrice = String(format: "%.2f", Double(cents) / 100)
+        } catch {
+            validationMessage = L("Der aktuelle Kurs konnte nicht geladen werden.", "The current price could not be loaded.")
         }
     }
 }

@@ -41,7 +41,7 @@ struct LififyApp: App {
         WindowGroup {
             switch containerResult {
             case .success(let container):
-                RootView()
+                AppEntryView()
                     .modelContainer(container)
             case .failure(let error):
                 ContentUnavailableView(

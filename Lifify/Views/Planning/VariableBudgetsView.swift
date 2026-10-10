@@ -33,10 +33,10 @@ struct VariableBudgetsView: View {
         }
         .overlay {
             if budgets.isEmpty {
-                ContentUnavailableView(L("Keine variablen Budgets", "No variable budgets"), systemImage: "gauge.with.dots.needle.67percent")
+                ContentUnavailableView(L("Keine variablen Kosten", "No variable costs"), systemImage: "gauge.with.dots.needle.67percent")
             }
         }
-        .navigationTitle(L("Monatsbudgets", "Monthly budgets"))
+        .navigationTitle(L("Variable Kosten", "Variable costs"))
         .toolbar { Button { showingNew = true } label: { Image(systemName: "plus") } }
         .sheet(isPresented: $showingNew) { VariableBudgetForm() }
     }
@@ -62,7 +62,7 @@ private struct VariableBudgetForm: View {
                 }
                 TextField(L("Notiz", "Note"), text: $notes, axis: .vertical)
             }
-            .navigationTitle(L("Neues Budget", "New budget"))
+            .navigationTitle(L("Neue variable Kosten", "New variable cost"))
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button(L("Abbrechen", "Cancel")) { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {

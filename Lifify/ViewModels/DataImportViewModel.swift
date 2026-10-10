@@ -25,7 +25,7 @@ final class DataImportViewModel: ObservableObject {
             var imported = 0
             for row in rows where !known.contains(row.fingerprint) {
                 let kind: LedgerKind = row.amountCents < 0 ? .expense : .income
-                context.insert(LedgerEntry(
+                let entry = LedgerEntry(
                     date: row.date,
                     title: row.title,
                     notes: row.notes,
@@ -33,7 +33,12 @@ final class DataImportViewModel: ObservableObject {
                     kind: kind,
                     accountID: accountID,
                     importFingerprint: row.fingerprint
-                ))
+                )
+                context.insert(entry)
+                if row.amountCents > 0,
+                   let forecastID = IncomeAssignmentStore.forecastID(for: row.iban) {
+                    IncomeAssignmentStore.assign(entryID: entry.id, to: forecastID)
+                }
                 known.insert(row.fingerprint)
                 imported += 1
             }
@@ -49,7 +54,18 @@ final class DataImportViewModel: ObservableObject {
         defer { if accessing { url.stopAccessingSecurityScopedResource() } }
         do {
             try BackupService.restore(data: Data(contentsOf: url), into: context)
-            message = L("Sicherung erfolgreich wiederhergestellt.", "Backup restored successfully.")
+            let accounts = try context.fetch(FetchDescriptor<Account>())
+            if accounts.contains(where: \.isMain) {
+                message = L("Sicherung erfolgreich wiederhergestellt.", "Backup restored successfully.")
+            } else {
+                UserDefaults.standard.set(false, forKey: "hasCompletedOnboarding")
+                UserDefaults.standard.set(false, forKey: "onboardingInProgress")
+                UserDefaults.standard.set(4, forKey: "onboardingStep")
+                message = L(
+                    "Die Sicherung enthält kein Hauptkonto. Die Einrichtung wird fortgesetzt.",
+                    "The backup contains no main account. Setup will continue."
+                )
+            }
         } catch {
             message = error.localizedDescription
         }

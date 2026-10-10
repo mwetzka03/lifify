@@ -5,7 +5,12 @@ struct SettingsView: View {
     @Environment(\.modelContext) private var context
     @AppStorage("appLanguage") private var language = "de"
     @AppStorage("appTheme") private var theme = AppTheme.system.rawValue
-    @State private var showingResetConfirmation = false
+    @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
+    @AppStorage("onboardingInProgress") private var onboardingInProgress = false
+    @AppStorage("userName") private var userName = ""
+    @AppStorage("dashboardPeriodMode") private var dashboardPeriod = DashboardPeriodMode.calendarMonth.rawValue
+    @AppStorage("onboardingStep") private var onboardingStep = 0
+    @State private var destructiveAction: DestructiveAction?
     @State private var resetError: String?
 
     var body: some View {
@@ -36,9 +41,14 @@ struct SettingsView: View {
                     Label(L("Kalender & Erinnerungen", "Calendar & Reminders"), systemImage: "arrow.triangle.2.circlepath")
                 }
                 Button(role: .destructive) {
-                    showingResetConfirmation = true
+                    destructiveAction = .deleteData
                 } label: {
-                    Label(L("Alle Daten löschen & App zurücksetzen", "Delete all data & reset app"), systemImage: "trash")
+                    Label(L("Alle Daten löschen", "Delete all data"), systemImage: "trash")
+                }
+                Button(role: .destructive) {
+                    destructiveAction = .resetApp
+                } label: {
+                    Label(L("App zurücksetzen", "Reset app"), systemImage: "arrow.counterclockwise")
                 }
             }
             Section(L("Über Lifify", "About Lifify")) {
@@ -52,25 +62,38 @@ struct SettingsView: View {
             }
         }
         .confirmationDialog(
-            L("Alle Daten löschen?", "Delete all data?"),
-            isPresented: $showingResetConfirmation,
+            destructiveAction?.title ?? "",
+            isPresented: Binding(
+                get: { destructiveAction != nil },
+                set: { if !$0 { destructiveAction = nil } }
+            ),
             titleVisibility: .visible
         ) {
             Button(L("Abbrechen", "Cancel"), role: .cancel) {}
             Button(L("Endgültig löschen", "Delete permanently"), role: .destructive) {
                 do {
-                    try BackupService.deleteAllData(from: context)
-                    language = "de"
-                    theme = AppTheme.system.rawValue
+                    switch destructiveAction {
+                    case .deleteData:
+                        try BackupService.deleteUserData(from: context)
+                    case .resetApp:
+                        try BackupService.resetApp(from: context)
+                        language = "de"
+                        theme = AppTheme.system.rawValue
+                        userName = ""
+                        dashboardPeriod = DashboardPeriodMode.calendarMonth.rawValue
+                        onboardingStep = 0
+                        onboardingInProgress = false
+                        hasCompletedOnboarding = false
+                    case nil:
+                        break
+                    }
+                    destructiveAction = nil
                 } catch {
                     resetError = error.localizedDescription
                 }
             }
         } message: {
-            Text(L(
-                "Konten, Buchungen, Budgets, Challenges, Shopdaten und alle weiteren lokalen Daten werden unwiderruflich gelöscht.",
-                "Accounts, transactions, budgets, challenges, shop data, and all other local data will be permanently deleted."
-            ))
+            Text(destructiveAction?.message ?? "")
         }
         .alert(L("Zurücksetzen fehlgeschlagen", "Reset failed"), isPresented: Binding(
             get: { resetError != nil },
@@ -79,6 +102,33 @@ struct SettingsView: View {
             Button("OK") { resetError = nil }
         } message: {
             Text(resetError ?? "")
+        }
+    }
+}
+
+private enum DestructiveAction {
+    case deleteData
+    case resetApp
+
+    var title: String {
+        switch self {
+        case .deleteData: L("Alle Daten löschen?", "Delete all data?")
+        case .resetApp: L("App vollständig zurücksetzen?", "Reset the entire app?")
+        }
+    }
+
+    var message: String {
+        switch self {
+        case .deleteData:
+            L(
+                "Buchungen, Budgets, Challenges und weitere Inhalte werden gelöscht. Deine Konten und App-Einstellungen bleiben erhalten.",
+                "Transactions, budgets, challenges, and other content will be deleted. Accounts and app settings remain."
+            )
+        case .resetApp:
+            L(
+                "Auch Konten und Einstellungen werden gelöscht. Danach beginnt die Ersteinrichtung erneut.",
+                "Accounts and settings will also be deleted. Initial setup starts again afterward."
+            )
         }
     }
 }

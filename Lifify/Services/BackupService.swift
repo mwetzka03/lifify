@@ -129,6 +129,11 @@ enum BackupService {
         records += holdings.map {
             BackupRecord(type: "holding", id: $0.id, strings: [$0.name, $0.symbol], integers: [$0.purchasePriceCents, $0.currentPriceCents], doubles: [$0.quantity], dates: [$0.updatedAt], uuids: [$0.accountID])
         }
+        records += holdings.compactMap { holding in
+            MarketSymbolStore.symbol(for: holding.id).map {
+                BackupRecord(type: "marketSymbol", id: holding.id, strings: [$0])
+            }
+        }
         records += calendarEvents.map {
             BackupRecord(type: "challengeEvent", id: $0.id, strings: [$0.title, $0.details, $0.colorHex, $0.icon, $0.externalIdentifier ?? ""], booleans: [$0.isAllDay, $0.isReadOnly], dates: [$0.startDate, $0.endDate], uuids: [$0.linkedChallengeID, $0.linkedChallengeGroupID, $0.linkedRewardID])
         }
@@ -172,6 +177,39 @@ enum BackupService {
                 BackupRecord(type: "iconPreference", id: id, strings: [$0])
             }
         }
+        let defaults = UserDefaults.standard
+        if let forecastID = defaults.string(forKey: "primaryIncomeForecastID").flatMap(UUID.init(uuidString:)) {
+            records.append(BackupRecord(
+                type: "primaryIncome",
+                id: forecastID,
+                strings: [defaults.string(forKey: "primaryIncomeIBAN") ?? ""]
+            ))
+        }
+        let secondary = defaults.dictionary(forKey: "secondaryIncomeMappings") as? [String: String] ?? [:]
+        records += secondary.compactMap { iban, forecastID in
+            UUID(uuidString: forecastID).map {
+                BackupRecord(type: "secondaryIncome", id: $0, strings: [iban])
+            }
+        }
+        let assignments = defaults.dictionary(forKey: "incomeEntryAssignments") as? [String: String] ?? [:]
+        records += assignments.compactMap { entryID, forecastID in
+            guard let entryID = UUID(uuidString: entryID),
+                  let forecastID = UUID(uuidString: forecastID)
+            else {
+                return nil
+            }
+            return BackupRecord(type: "incomeAssignment", id: entryID, uuids: [forecastID])
+        }
+        records.append(BackupRecord(
+            type: "appPreferences",
+            id: UUID(),
+            strings: [
+                defaults.string(forKey: "userName") ?? "",
+                defaults.string(forKey: "dashboardPeriodMode") ?? DashboardPeriodMode.calendarMonth.rawValue,
+                defaults.string(forKey: "appLanguage") ?? "de",
+                defaults.string(forKey: "appTheme") ?? AppTheme.system.rawValue
+            ]
+        ))
         let backup = LififyBackup(version: 1, exportedAt: .now, records: records)
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
@@ -185,28 +223,47 @@ enum BackupService {
         decoder.dateDecodingStrategy = .iso8601
         let backup = try decoder.decode(LififyBackup.self, from: data)
         guard backup.version == 1 else { throw CocoaError(.fileReadUnsupportedScheme) }
-        try clear(context)
-        for record in backup.records { insert(record, into: context) }
+        let oldSideStores = try sideStoreKeys(in: context)
+        try clear(context, includingAccounts: true)
+        let sideTypes = Set([
+            "iconPreference", "reminderRecurrence", "marketSymbol",
+            "primaryIncome", "secondaryIncome", "incomeAssignment", "appPreferences"
+        ])
+        for record in backup.records where !sideTypes.contains(record.type) {
+            insert(record, into: context)
+        }
         try context.save()
+        clearSideStores(oldSideStores)
+        IncomeAssignmentStore.reset()
+        for record in backup.records where sideTypes.contains(record.type) {
+            insert(record, into: context)
+        }
     }
 
-    static func deleteAllData(from context: ModelContext) throws {
-        try clear(context)
+    static func deleteUserData(from context: ModelContext) throws {
+        let sideStores = try sideStoreKeys(in: context)
+        try clear(context, includingAccounts: false)
         try context.save()
+        clearSideStores(sideStores)
+        IncomeAssignmentStore.reset()
+    }
+
+    static func resetApp(from context: ModelContext) throws {
+        let sideStores = try sideStoreKeys(in: context)
+        try clear(context, includingAccounts: true)
+        try context.save()
+        clearSideStores(sideStores)
+        IncomeAssignmentStore.reset()
     }
 
     @MainActor
-    private static func clear(_ context: ModelContext) throws {
+    private static func clear(_ context: ModelContext, includingAccounts: Bool) throws {
         try context.fetch(FetchDescriptor<TransactionSplit>()).forEach { context.delete($0) }
-        try context.fetch(FetchDescriptor<LedgerEntry>()).forEach {
-            IconPreferenceStore.remove(for: $0.id)
-            context.delete($0)
+        try context.fetch(FetchDescriptor<LedgerEntry>()).forEach { context.delete($0) }
+        if includingAccounts {
+            try context.fetch(FetchDescriptor<Account>()).forEach { context.delete($0) }
         }
-        try context.fetch(FetchDescriptor<Account>()).forEach { context.delete($0) }
-        try context.fetch(FetchDescriptor<FixedCost>()).forEach {
-            IconPreferenceStore.remove(for: $0.id)
-            context.delete($0)
-        }
+        try context.fetch(FetchDescriptor<FixedCost>()).forEach { context.delete($0) }
         try context.fetch(FetchDescriptor<VariableBudget>()).forEach { context.delete($0) }
         try context.fetch(FetchDescriptor<BudgetPool>()).forEach { context.delete($0) }
         try context.fetch(FetchDescriptor<IncomeForecast>()).forEach { context.delete($0) }
@@ -216,23 +273,40 @@ enum BackupService {
         try context.fetch(FetchDescriptor<ExpenseGroup>()).forEach { context.delete($0) }
         try context.fetch(FetchDescriptor<PortfolioHolding>()).forEach { context.delete($0) }
         try context.fetch(FetchDescriptor<SavedArticle>()).forEach { context.delete($0) }
-        try context.fetch(FetchDescriptor<ChallengeCalendarEvent>()).forEach {
-            if $0.isReminderSuggestion {
-                ReminderLinkStore.remove(for: $0.externalIdentifier)
-            }
-            context.delete($0)
-        }
+        try context.fetch(FetchDescriptor<ChallengeCalendarEvent>()).forEach { context.delete($0) }
         try context.fetch(FetchDescriptor<ChallengeCompletion>()).forEach { context.delete($0) }
-        try context.fetch(FetchDescriptor<ChallengeItem>()).forEach {
-            IconPreferenceStore.remove(for: $0.id)
-            ReminderLinkStore.remove(for: $0.externalIdentifier)
-            context.delete($0)
-        }
+        try context.fetch(FetchDescriptor<ChallengeItem>()).forEach { context.delete($0) }
         try context.fetch(FetchDescriptor<ChallengeGroup>()).forEach { context.delete($0) }
         try context.fetch(FetchDescriptor<CoinTransaction>()).forEach { context.delete($0) }
         try context.fetch(FetchDescriptor<RewardPurchase>()).forEach { context.delete($0) }
         try context.fetch(FetchDescriptor<RewardItem>()).forEach { context.delete($0) }
         try context.fetch(FetchDescriptor<BucketListItem>()).forEach { context.delete($0) }
+    }
+
+    private struct SideStoreKeys {
+        var iconIDs: [UUID] = []
+        var reminderIdentifiers: [String] = []
+        var holdingIDs: [UUID] = []
+    }
+
+    private static func sideStoreKeys(in context: ModelContext) throws -> SideStoreKeys {
+        var keys = SideStoreKeys()
+        keys.iconIDs += try context.fetch(FetchDescriptor<LedgerEntry>()).map(\.id)
+        keys.iconIDs += try context.fetch(FetchDescriptor<FixedCost>()).map(\.id)
+        let challenges = try context.fetch(FetchDescriptor<ChallengeItem>())
+        keys.iconIDs += challenges.map(\.id)
+        keys.reminderIdentifiers += challenges.compactMap(\.externalIdentifier)
+        keys.reminderIdentifiers += try context.fetch(FetchDescriptor<ChallengeCalendarEvent>())
+            .filter(\.isReminderSuggestion)
+            .compactMap(\.externalIdentifier)
+        keys.holdingIDs = try context.fetch(FetchDescriptor<PortfolioHolding>()).map(\.id)
+        return keys
+    }
+
+    private static func clearSideStores(_ keys: SideStoreKeys) {
+        keys.iconIDs.forEach { IconPreferenceStore.remove(for: $0) }
+        keys.reminderIdentifiers.forEach { ReminderLinkStore.remove(for: $0) }
+        keys.holdingIDs.forEach { MarketSymbolStore.remove(for: $0) }
     }
 
     @MainActor
@@ -268,6 +342,8 @@ enum BackupService {
             if let group = uuid(0) { context.insert(ExpenseGroupLine(id: r.id, groupID: group, name: string(0), amountCents: int(0), sortOrder: int(1))) }
         case "holding":
             context.insert(PortfolioHolding(id: r.id, accountID: uuid(0), name: string(0), symbol: string(1), quantity: r.doubles.first ?? 0, purchasePriceCents: int(0), currentPriceCents: int(1), updatedAt: date(0) ?? .now))
+        case "marketSymbol":
+            if !string(0).isEmpty { MarketSymbolStore.set(string(0), for: r.id) }
         case "challengeEvent":
             context.insert(ChallengeCalendarEvent(id: r.id, title: string(0), details: string(1), startDate: date(0) ?? .now, endDate: date(1) ?? .now, isAllDay: bool(0), colorHex: string(2), icon: string(3), linkedChallengeID: uuid(0), linkedChallengeGroupID: uuid(1), linkedRewardID: uuid(2), externalIdentifier: string(4).isEmpty ? nil : string(4), isReadOnly: bool(1)))
         case "challenge":
@@ -300,6 +376,21 @@ enum BackupService {
             }
         case "iconPreference":
             if !string(0).isEmpty { IconPreferenceStore.set(string(0), for: r.id) }
+        case "primaryIncome":
+            IncomeAssignmentStore.setPrimary(iban: string(0), forecastID: r.id)
+        case "secondaryIncome":
+            var mapping = UserDefaults.standard.dictionary(forKey: "secondaryIncomeMappings") as? [String: String] ?? [:]
+            if !string(0).isEmpty { mapping[string(0)] = r.id.uuidString }
+            UserDefaults.standard.set(mapping, forKey: "secondaryIncomeMappings")
+        case "incomeAssignment":
+            if let forecastID = uuid(0) {
+                IncomeAssignmentStore.assign(entryID: r.id, to: forecastID)
+            }
+        case "appPreferences":
+            UserDefaults.standard.set(string(0), forKey: "userName")
+            UserDefaults.standard.set(string(1), forKey: "dashboardPeriodMode")
+            UserDefaults.standard.set(string(2), forKey: "appLanguage")
+            UserDefaults.standard.set(string(3), forKey: "appTheme")
         default:
             break
         }

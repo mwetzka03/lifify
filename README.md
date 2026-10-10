@@ -5,6 +5,11 @@ Konten, Buchungen und Budgets treffen auf Kalender, Challenges, Belohnungsshop
 und Coin-Wallet. Sie verwendet SwiftUI und SwiftData und benötigt weder Backend
 noch Benutzerkonto.
 
+Beim ersten Start führt Lifify durch Sprache, Begrüßungsname, Budgetzeitraum,
+Hauptkonto und optionalen Bankimport. Ein vollständiger App-Reset startet diese
+Einrichtung erneut; das separate Löschen der Inhaltsdaten behält Konten und
+Einstellungen.
+
 Der fachliche Umfang und die gegenüber FinanzBuddy v0.3.6 getroffenen Annahmen
 stehen in [FEATURES.md](FEATURES.md).
 

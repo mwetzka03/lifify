@@ -8,6 +8,7 @@ struct TransactionsView: View {
     @State private var search = ""
     @State private var showingNew = false
     @State private var editing: LedgerEntry?
+    @State private var selected: LedgerEntry?
 
     private var filtered: [LedgerEntry] {
         guard !search.isEmpty else { return entries }
@@ -21,13 +22,27 @@ struct TransactionsView: View {
         List {
             ForEach(filtered) { entry in
                 Button {
-                    editing = entry
+                    selected = entry
                 } label: {
                     TransactionRow(entry: entry)
                 }
                 .buttonStyle(.plain)
+                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                    Button(role: .destructive) {
+                        delete(entry)
+                    } label: {
+                        Label(L("Löschen", "Delete"), systemImage: "trash")
+                    }
+                }
+                .swipeActions(edge: .leading, allowsFullSwipe: false) {
+                    Button {
+                        editing = entry
+                    } label: {
+                        Label(L("Bearbeiten", "Edit"), systemImage: "pencil")
+                    }
+                    .tint(.blue)
+                }
             }
-            .onDelete(perform: delete)
         }
         .overlay {
             if entries.isEmpty {
@@ -53,15 +68,15 @@ struct TransactionsView: View {
         .sheet(item: $editing) { entry in
             TransactionFormView(entry: entry, splits: splits)
         }
+        .sheet(item: $selected) { entry in
+            TransactionDetailView(entry: entry)
+        }
     }
 
-    private func delete(at offsets: IndexSet) {
-        for offset in offsets {
-            let entry = filtered[offset]
-            splits.filter { $0.transactionID == entry.id }.forEach { context.delete($0) }
-            IconPreferenceStore.remove(for: entry.id)
-            context.delete(entry)
-        }
+    private func delete(_ entry: LedgerEntry) {
+        splits.filter { $0.transactionID == entry.id }.forEach { context.delete($0) }
+        IconPreferenceStore.remove(for: entry.id)
+        context.delete(entry)
         try? context.save()
     }
 }
@@ -105,6 +120,78 @@ private struct TransactionRow: View {
         case .transfer: .blue
         case .adjustment: .orange
         }
+    }
+}
+
+private struct TransactionDetailView: View {
+    @Environment(\.dismiss) private var dismiss
+    @Query private var accounts: [Account]
+    let entry: LedgerEntry
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    LabeledContent(L("Art", "Type"), value: entry.kind.label)
+                    LabeledContent(L("Betrag", "Amount"), value: Money.string(cents: displayAmount))
+                    LabeledContent(
+                        L("Datum", "Date"),
+                        value: entry.date.formatted(date: .long, time: .omitted)
+                    )
+                }
+                Section(L("Konten", "Accounts")) {
+                    if let account = account(entry.accountID) {
+                        LabeledContent(L("Konto", "Account"), value: account.name)
+                        if !account.iban.isEmpty {
+                            LabeledContent("IBAN", value: account.iban)
+                        }
+                    }
+                    if let account = account(entry.fromAccountID) {
+                        LabeledContent(L("Von", "From"), value: account.name)
+                    }
+                    if let account = account(entry.toAccountID) {
+                        LabeledContent(L("Nach", "To"), value: account.name)
+                    }
+                }
+                if !entry.notes.isEmpty {
+                    Section(L("Buchungsdetails", "Transaction details")) {
+                        Text(entry.notes)
+                            .textSelection(.enabled)
+                        if let iban = counterpartyIBAN {
+                            LabeledContent(L("Gegenkonto-IBAN", "Counterparty IBAN"), value: iban)
+                        }
+                    }
+                }
+            }
+            .navigationTitle(entry.title)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(L("Fertig", "Done")) { dismiss() }
+                }
+            }
+        }
+    }
+
+    private func account(_ id: UUID?) -> Account? {
+        accounts.first { $0.id == id }
+    }
+
+    private var counterpartyIBAN: String? {
+        let candidate = entry.notes
+            .replacingOccurrences(of: " ", with: "")
+            .uppercased()
+        guard (15...34).contains(candidate.count),
+              candidate.prefix(2).allSatisfy(\.isLetter),
+              candidate.dropFirst(2).allSatisfy({ $0.isLetter || $0.isNumber })
+        else {
+            return nil
+        }
+        return candidate
+    }
+
+    private var displayAmount: Int {
+        entry.kind == .expense ? -abs(entry.amountCents) : abs(entry.amountCents)
     }
 }
 

@@ -156,9 +156,8 @@ private struct DayAgendaCard: View {
                         Image(systemName: IconPreferenceStore.icon(for: challenge.id, fallback: "target"))
                         Text(challenge.title)
                         Spacer()
-                        Text("+\(challenge.rewardCoins)")
+                        CoinAmountView(amount: challenge.rewardCoins, showsPlus: true)
                             .font(.caption)
-                            .foregroundStyle(.orange)
                         Image(systemName: completed ? "checkmark.circle.fill" : "circle")
                             .foregroundStyle(completed ? .green : .secondary)
                     }

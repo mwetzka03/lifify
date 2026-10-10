@@ -25,9 +25,12 @@ struct AccountsSettingsView: View {
                         Image(systemName: account.isLiquid ? "drop.fill" : "drop")
                     }
                 }
+                .deleteDisabled(account.isMain)
             }
             .onDelete { offsets in
-                offsets.map { accounts[$0] }.forEach(context.delete)
+                offsets.map { accounts[$0] }
+                    .filter { !$0.isMain }
+                    .forEach(context.delete)
                 try? context.save()
             }
         }
