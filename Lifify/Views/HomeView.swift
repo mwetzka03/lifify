@@ -215,8 +215,8 @@ struct HomeView: View {
                 return total + occurrences.count * abs(forecast.amountCents)
             }
         }
-        variableBudgets.reduce(0) { $0 + $1.monthlyAmountCents } +
-        pools.filter(\.isActive).reduce(0) { $0 + $1.amountCents }
+        return variableBudgets.reduce(0) { $0 + $1.monthlyAmountCents } +
+            pools.filter(\.isActive).reduce(0) { $0 + $1.amountCents }
     }
 
     private var spentBudget: Int {
