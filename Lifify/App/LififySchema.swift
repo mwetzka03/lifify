@@ -1,7 +1,7 @@
 import SwiftData
 
 enum LififySchemaV1: VersionedSchema {
-    static var versionIdentifier = Schema.Version(1, 0, 0)
+    static let versionIdentifier = Schema.Version(1, 0, 0)
     static var models: [any PersistentModel.Type] {
         [
             Account.self,
@@ -22,7 +22,7 @@ enum LififySchemaV1: VersionedSchema {
 }
 
 enum LififySchemaV2: VersionedSchema {
-    static var versionIdentifier = Schema.Version(2, 0, 0)
+    static let versionIdentifier = Schema.Version(2, 0, 0)
     static var models: [any PersistentModel.Type] {
         LififySchemaV1.models + [
             LifeCalendarEvent.self,
