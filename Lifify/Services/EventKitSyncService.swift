@@ -236,7 +236,8 @@ final class EventKitSyncService: ObservableObject {
                     guard !reminder.isCompleted else { return nil }
                     let calendar = Calendar(identifier: .gregorian)
                     let dueDate = reminder.dueDateComponents.flatMap { calendar.date(from: $0) }
-                    let recurrence = reminder.recurrenceRules?.first.flatMap { rule in
+                    let recurrence: ReminderRecurrenceMetadata? =
+                        reminder.recurrenceRules?.first.flatMap { rule -> ReminderRecurrenceMetadata? in
                         let recurrence: ChallengeRecurrence
                         switch rule.frequency {
                         case .daily: recurrence = .daily
