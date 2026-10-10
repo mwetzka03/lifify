@@ -134,8 +134,8 @@ enum BankImportService {
         let recipientIBAN = normalizeIBAN(recipientIBAN)
         let iban = amount >= 0 ? senderIBAN : recipientIBAN
         let notes = ibanNotes(sender: senderIBAN, recipient: recipientIBAN)
-        let fingerprint = fingerprint(date: date, amount: amount, title: title, iban: iban)
-        let legacyFingerprint = fingerprint(
+        let fingerprint = makeFingerprint(date: date, amount: amount, title: title, iban: iban)
+        let legacyFingerprint = makeFingerprint(
             date: date,
             amount: amount,
             title: title,
@@ -154,7 +154,7 @@ enum BankImportService {
         )
     }
 
-    fileprivate static func fingerprint(date: Date, amount: Int, title: String, iban: String) -> String {
+    fileprivate static func makeFingerprint(date: Date, amount: Int, title: String, iban: String) -> String {
         let source = "\(date.dayKey)|\(amount)|\(title)|\(iban)"
         return SHA256.hash(data: Data(source.utf8))
             .map { String(format: "%02x", $0) }
@@ -315,13 +315,13 @@ private final class CAMTParserDelegate: NSObject, XMLParserDelegate {
                 senderIBAN = senderIBAN.replacingOccurrences(of: " ", with: "").uppercased()
                 recipientIBAN = recipientIBAN.replacingOccurrences(of: " ", with: "").uppercased()
                 let iban = amount >= 0 ? senderIBAN : recipientIBAN
-                let fingerprint = BankImportService.fingerprint(
+                let fingerprint = BankImportService.makeFingerprint(
                     date: date,
                     amount: amount,
                     title: title,
                     iban: iban
                 )
-                let legacyFingerprint = BankImportService.fingerprint(
+                let legacyFingerprint = BankImportService.makeFingerprint(
                     date: date,
                     amount: amount,
                     title: title,
