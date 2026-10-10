@@ -1,7 +1,7 @@
 import Foundation
 import SwiftData
 
-enum LifeCalendarViewMode: String, CaseIterable, Identifiable {
+enum ChallengeCalendarViewMode: String, CaseIterable, Identifiable {
     case day
     case week
     case month
@@ -16,7 +16,7 @@ enum LifeCalendarViewMode: String, CaseIterable, Identifiable {
     }
 }
 
-enum LifeRecurrence: String, Codable, CaseIterable, Identifiable {
+enum ChallengeRecurrence: String, Codable, CaseIterable, Identifiable {
     case none
     case irregular
     case daily
@@ -34,7 +34,6 @@ enum LifeRecurrence: String, Codable, CaseIterable, Identifiable {
         }
     }
 }
-
 enum ChallengeCategory: String, Codable, CaseIterable, Identifiable {
     case health
     case habit
@@ -53,28 +52,8 @@ enum ChallengeCategory: String, Codable, CaseIterable, Identifiable {
         }
     }
 }
-
-enum VisionElementType: String, Codable, CaseIterable, Identifiable {
-    case text
-    case rectangle
-    case circle
-    case image
-    case arrow
-
-    var id: String { rawValue }
-    var label: String {
-        switch self {
-        case .text: L("Text", "Text")
-        case .rectangle: L("Rechteck", "Rectangle")
-        case .circle: L("Kreis", "Circle")
-        case .image: L("Bild", "Image")
-        case .arrow: L("Pfeil", "Arrow")
-        }
-    }
-}
-
 @Model
-final class LifeCalendarEvent {
+final class ChallengeCalendarEvent {
     @Attribute(.unique) var id: UUID
     var title: String
     var details: String
@@ -119,9 +98,8 @@ final class LifeCalendarEvent {
         self.isReadOnly = isReadOnly
     }
 }
-
 @Model
-final class LifeChallenge {
+final class ChallengeItem {
     @Attribute(.unique) var id: UUID
     var title: String
     var details: String
@@ -142,8 +120,8 @@ final class LifeChallenge {
         get { ChallengeCategory(rawValue: categoryRaw) ?? .other }
         set { categoryRaw = newValue.rawValue }
     }
-    var recurrence: LifeRecurrence {
-        get { LifeRecurrence(rawValue: recurrenceRaw) ?? .none }
+    var recurrence: ChallengeRecurrence {
+        get { ChallengeRecurrence(rawValue: recurrenceRaw) ?? .none }
         set { recurrenceRaw = newValue.rawValue }
     }
     var weekdaySet: Set<Int> {
@@ -156,7 +134,7 @@ final class LifeChallenge {
         title: String,
         details: String = "",
         category: ChallengeCategory = .habit,
-        recurrence: LifeRecurrence = .none,
+        recurrence: ChallengeRecurrence = .none,
         startDate: Date? = .now,
         endDate: Date? = nil,
         weeklyDays: Set<Int> = [],
@@ -185,7 +163,6 @@ final class LifeChallenge {
         self.createdAt = createdAt
     }
 }
-
 @Model
 final class ChallengeCompletion {
     @Attribute(.unique) var id: UUID
@@ -200,9 +177,8 @@ final class ChallengeCompletion {
         self.earnedCoins = earnedCoins
     }
 }
-
 @Model
-final class LifeChallengeGroup {
+final class ChallengeGroup {
     @Attribute(.unique) var id: UUID
     var title: String
     var details: String
@@ -312,66 +288,4 @@ final class BucketListItem {
         self.linkedRewardID = linkedRewardID
     }
 }
-
-@Model
-final class VisionBoard {
-    @Attribute(.unique) var id: UUID
-    var title: String
-    var backgroundHex: String
-    var backgroundOpacity: Double
-    var createdAt: Date
-
-    init(id: UUID = UUID(), title: String, backgroundHex: String = "#EEF2F6", backgroundOpacity: Double = 1, createdAt: Date = .now) {
-        self.id = id
-        self.title = title
-        self.backgroundHex = backgroundHex
-        self.backgroundOpacity = backgroundOpacity
-        self.createdAt = createdAt
-    }
-}
-
-@Model
-final class VisionBoardElement {
-    @Attribute(.unique) var id: UUID
-    var boardID: UUID
-    var typeRaw: String
-    var text: String
-    var x: Double
-    var y: Double
-    var width: Double
-    var height: Double
-    var colorHex: String
-    var rotation: Double
-    @Attribute(.externalStorage) var imageData: Data?
-
-    var type: VisionElementType {
-        get { VisionElementType(rawValue: typeRaw) ?? .text }
-        set { typeRaw = newValue.rawValue }
-    }
-
-    init(
-        id: UUID = UUID(),
-        boardID: UUID,
-        type: VisionElementType,
-        text: String = "",
-        x: Double = 140,
-        y: Double = 180,
-        width: Double = 130,
-        height: Double = 80,
-        colorHex: String = "#89A8C7",
-        rotation: Double = 0,
-        imageData: Data? = nil
-    ) {
-        self.id = id
-        self.boardID = boardID
-        self.typeRaw = type.rawValue
-        self.text = text
-        self.x = x
-        self.y = y
-        self.width = width
-        self.height = height
-        self.colorHex = colorHex
-        self.rotation = rotation
-        self.imageData = imageData
-    }
-}
+// End of challenge models.

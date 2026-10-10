@@ -3,8 +3,8 @@ import SwiftUI
 
 struct SystemCalendarSyncView: View {
     @Environment(\.modelContext) private var context
-    @Query private var events: [LifeCalendarEvent]
-    @Query private var challenges: [LifeChallenge]
+    @Query private var events: [ChallengeCalendarEvent]
+    @Query private var challenges: [ChallengeItem]
     @StateObject private var service = EventKitSyncService()
 
     var body: some View {

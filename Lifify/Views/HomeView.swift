@@ -6,55 +6,52 @@ struct HomeView: View {
     @Query private var pools: [BudgetPool]
     @Query private var entries: [LedgerEntry]
     @Query private var splits: [TransactionSplit]
-    @Query private var lifeEvents: [LifeCalendarEvent]
-    @Query private var challenges: [LifeChallenge]
+    @Query private var calendarEvents: [ChallengeCalendarEvent]
+    @Query private var challenges: [ChallengeItem]
     @Query private var completions: [ChallengeCompletion]
-    @State private var mode = LifeCalendarViewMode.day
+    @State private var mode = ChallengeCalendarViewMode.day
     @State private var selectedDate = Date.now
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 18) {
+            VStack(spacing: 16) {
                 NavigationLink {
                     DashboardView()
                 } label: {
-                    BudgetSummaryCard(
-                        planned: plannedBudget,
-                        spent: spentBudget
-                    )
+                    BudgetSummaryCard(planned: plannedBudget, spent: spentBudget)
                 }
                 .buttonStyle(.plain)
 
                 Picker(L("Zeitraum", "Period"), selection: $mode) {
-                    ForEach(LifeCalendarViewMode.allCases) { Text($0.label).tag($0) }
+                    ForEach(ChallengeCalendarViewMode.allCases) { Text($0.label).tag($0) }
                 }
                 .pickerStyle(.segmented)
 
                 HStack {
                     Button { move(by: -1) } label: { Image(systemName: "chevron.left") }
                     Spacer()
-                    Text(periodTitle(selectedDate))
-                        .font(.headline)
+                    Button {
+                        withAnimation { selectedDate = .now }
+                    } label: {
+                        Text(periodTitle)
+                            .font(.headline)
+                            .foregroundStyle(.primary)
+                    }
                     Spacer()
                     Button { move(by: 1) } label: { Image(systemName: "chevron.right") }
                 }
 
-                HStack(alignment: .top, spacing: 8) {
-                    ForEach(Array(periodDates.enumerated()), id: \.offset) { index, date in
-                        NavigationLink {
-                            LifeCalendarView(initialDate: date, initialMode: mode)
-                        } label: {
-                            HomePeriodColumn(
-                                title: columnTitle(index: index, date: date),
-                                date: date,
-                                eventCount: eventCount(for: date),
-                                challengeCount: challengeCount(for: date)
-                            )
-                        }
-                        .buttonStyle(.plain)
+                Group {
+                    switch mode {
+                    case .day:
+                        dayView
+                    case .week:
+                        weekView
+                    case .month:
+                        monthView
                     }
                 }
-                .frame(minHeight: 260)
+                .frame(minHeight: 310, alignment: .top)
 
                 HStack(spacing: 12) {
                     NavigationLink {
@@ -76,13 +73,131 @@ struct HomeView: View {
             }
             .padding()
         }
-        .navigationTitle(L("Home", "Home"))
         .simultaneousGesture(
             DragGesture(minimumDistance: 40).onEnded { value in
                 if value.translation.width < -60 { move(by: 1) }
                 if value.translation.width > 60 { move(by: -1) }
             }
         )
+    }
+
+    private var dayView: some View {
+        NavigationLink {
+            ChallengeCalendarView(initialDate: selectedDate, initialMode: .day)
+        } label: {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Text(selectedDate, format: .dateTime.weekday(.wide).day().month().year())
+                        .font(.title3.bold())
+                    Spacer()
+                    if Calendar.current.isDateInToday(selectedDate) {
+                        Text(L("Heute", "Today"))
+                            .font(.caption.bold())
+                            .foregroundStyle(.red)
+                    }
+                }
+                Divider()
+                let dayEvents = events(on: selectedDate)
+                let dayChallenges = dueChallenges(on: selectedDate)
+                if dayEvents.isEmpty && dayChallenges.isEmpty {
+                    ContentUnavailableView(
+                        L("Keine Einträge", "No entries"),
+                        systemImage: "calendar",
+                        description: Text(L("Tippe, um den Kalender zu öffnen.", "Tap to open the calendar."))
+                    )
+                }
+                ForEach(dayEvents.prefix(5)) { event in
+                    Label(event.title, systemImage: event.icon)
+                }
+                ForEach(dayChallenges.prefix(5)) { challenge in
+                    Label(challenge.title, systemImage: ChallengeService.isCompleted(challenge, on: selectedDate, completions: completions) ? "checkmark.circle.fill" : "circle")
+                        .foregroundStyle(ChallengeService.isCompleted(challenge, on: selectedDate, completions: completions) ? .green : .primary)
+                }
+                Spacer(minLength: 0)
+            }
+            .foregroundStyle(.primary)
+            .padding()
+            .frame(maxWidth: .infinity, minHeight: 300, alignment: .topLeading)
+            .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 18))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var weekView: some View {
+        VStack(spacing: 7) {
+            ForEach(ChallengeService.days(for: .week, around: selectedDate), id: \.self) { day in
+                NavigationLink {
+                    ChallengeCalendarView(initialDate: day, initialMode: .day)
+                } label: {
+                    HStack(spacing: 12) {
+                        VStack {
+                            Text(day, format: .dateTime.weekday(.abbreviated))
+                                .font(.caption)
+                            Text(day, format: .dateTime.day())
+                                .font(.title3.bold())
+                                .foregroundStyle(Calendar.current.isDateInToday(day) ? .red : .primary)
+                        }
+                        .frame(width: 44)
+                        Divider()
+                        Label("\(events(on: day).count)", systemImage: "calendar")
+                        Label("\(dueChallenges(on: day).count)", systemImage: "target")
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(Calendar.current.isDateInToday(day) ? Color.red.opacity(0.09) : Color.secondary.opacity(0.07), in: RoundedRectangle(cornerRadius: 13))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    private var monthView: some View {
+        VStack(spacing: 8) {
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 7), spacing: 4) {
+                ForEach(Calendar.current.veryShortWeekdaySymbols.shiftedForMonday, id: \.self) {
+                    Text($0).font(.caption2).foregroundStyle(.secondary)
+                }
+                ForEach(Array(monthGrid.enumerated()), id: \.offset) { _, date in
+                    if let date {
+                        NavigationLink {
+                            ChallengeCalendarView(initialDate: date, initialMode: .day)
+                        } label: {
+                            VStack(spacing: 3) {
+                                Text(date, format: .dateTime.day())
+                                    .font(.subheadline)
+                                    .foregroundStyle(Calendar.current.isDateInToday(date) ? .white : .primary)
+                                    .frame(width: 28, height: 28)
+                                    .background(Calendar.current.isDateInToday(date) ? Color.red : .clear, in: Circle())
+                                HStack(spacing: 2) {
+                                    if !events(on: date).isEmpty {
+                                        Circle().fill(.blue).frame(width: 4, height: 4)
+                                    }
+                                    if !dueChallenges(on: date).isEmpty {
+                                        Circle().fill(.green).frame(width: 4, height: 4)
+                                    }
+                                }
+                                .frame(height: 5)
+                            }
+                            .frame(maxWidth: .infinity, minHeight: 42)
+                        }
+                        .buttonStyle(.plain)
+                    } else {
+                        Color.clear.frame(height: 42)
+                    }
+                }
+            }
+            HStack(spacing: 14) {
+                Label(L("Termine", "Events"), systemImage: "circle.fill").foregroundStyle(.blue)
+                Label(L("Challenges", "Challenges"), systemImage: "circle.fill").foregroundStyle(.green)
+                Spacer()
+            }
+            .font(.caption)
+        }
+        .padding(10)
+        .background(Color.secondary.opacity(0.06), in: RoundedRectangle(cornerRadius: 16))
     }
 
     private var plannedBudget: Int {
@@ -101,59 +216,43 @@ struct HomeView: View {
         return variable + pool
     }
 
-    private var periodDates: [Date] {
-        [-1, 0, 1].compactMap { offsetDate(selectedDate, by: $0) }
+    private var periodTitle: String {
+        switch mode {
+        case .day:
+            return selectedDate.formatted(.dateTime.day().month(.wide).year())
+        case .week:
+            let days = ChallengeService.days(for: .week, around: selectedDate)
+            return "\(days.first?.formatted(.dateTime.day().month()) ?? "") – \(days.last?.formatted(.dateTime.day().month().year()) ?? "")"
+        case .month:
+            return selectedDate.formatted(.dateTime.month(.wide).year())
+        }
     }
 
-    private func offsetDate(_ date: Date, by value: Int) -> Date? {
-        switch mode {
-        case .day: Calendar.current.date(byAdding: .day, value: value, to: date)
-        case .week: Calendar.current.date(byAdding: .weekOfYear, value: value, to: date)
-        case .month: Calendar.current.date(byAdding: .month, value: value, to: date)
+    private var monthGrid: [Date?] {
+        let calendar = Calendar.current
+        let first = calendar.date(from: calendar.dateComponents([.year, .month], from: selectedDate))!
+        let weekday = calendar.component(.weekday, from: first)
+        let leading = weekday == 1 ? 6 : weekday - 2
+        let days = calendar.range(of: .day, in: .month, for: first) ?? 1..<2
+        return Array(repeating: nil, count: leading) + days.map {
+            calendar.date(byAdding: .day, value: $0 - 1, to: first)
         }
+    }
+
+    private func events(on day: Date) -> [ChallengeCalendarEvent] {
+        let start = Calendar.current.startOfDay(for: day)
+        let end = Calendar.current.date(byAdding: .day, value: 1, to: start)!
+        return calendarEvents.filter { $0.startDate < end && $0.endDate >= start }
+    }
+
+    private func dueChallenges(on day: Date) -> [ChallengeItem] {
+        challenges.filter { ChallengeService.isDue($0, on: day) }
     }
 
     private func move(by value: Int) {
-        if let date = offsetDate(selectedDate, by: value) {
+        let component: Calendar.Component = mode == .day ? .day : (mode == .week ? .weekOfYear : .month)
+        if let date = Calendar.current.date(byAdding: component, value: value, to: selectedDate) {
             withAnimation { selectedDate = date }
-        }
-    }
-
-    private func periodTitle(_ date: Date) -> String {
-        switch mode {
-        case .day:
-            return date.formatted(date: .complete, time: .omitted)
-        case .week:
-            let days = LiveLifeService.days(for: .week, around: date)
-            return "\(days.first?.formatted(.dateTime.day().month()) ?? "") – \(days.last?.formatted(.dateTime.day().month().year()) ?? "")"
-        case .month:
-            return date.formatted(.dateTime.month(.wide).year())
-        }
-    }
-
-    private func columnTitle(index: Int, date: Date) -> String {
-        if mode == .day {
-            return [L("Gestern", "Yesterday"), L("Heute", "Today"), L("Morgen", "Tomorrow")][index]
-        }
-        return periodTitle(date)
-    }
-
-    private func dates(in periodDate: Date) -> [Date] {
-        LiveLifeService.days(for: mode, around: periodDate)
-    }
-
-    private func eventCount(for periodDate: Date) -> Int {
-        let days = dates(in: periodDate)
-        return lifeEvents.filter { event in days.contains { Calendar.current.isDate($0, inSameDayAs: event.startDate) } }.count
-    }
-
-    private func challengeCount(for periodDate: Date) -> Int {
-        let days = dates(in: periodDate)
-        return days.reduce(0) { partial, day in
-            partial + challenges.filter {
-                LiveLifeService.isDue($0, on: day) &&
-                !LiveLifeService.isCompleted($0, on: day, completions: completions)
-            }.count
         }
     }
 }
@@ -188,31 +287,6 @@ private struct BudgetSummaryCard: View {
     }
 }
 
-private struct HomePeriodColumn: View {
-    let title: String
-    let date: Date
-    let eventCount: Int
-    let challengeCount: Int
-
-    var body: some View {
-        VStack(spacing: 10) {
-            Text(title).font(.caption.bold()).lineLimit(2)
-            Text(date, format: .dateTime.day().month())
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-            Divider()
-            Label("\(eventCount)", systemImage: "calendar")
-            Label("\(challengeCount)", systemImage: "target")
-            Spacer()
-            Image(systemName: "chevron.right.circle")
-                .foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(10)
-        .background(Calendar.current.isDateInToday(date) ? Color.accentColor.opacity(0.14) : Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 16))
-    }
-}
-
 private struct HomeShortcut: View {
     let title: String
     let icon: String
@@ -226,5 +300,12 @@ private struct HomeShortcut: View {
         .frame(maxWidth: .infinity)
         .padding(.vertical, 12)
         .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 14))
+    }
+}
+
+private extension Array where Element == String {
+    var shiftedForMonday: [String] {
+        guard count == 7 else { return self }
+        return Array(self[1...]) + [self[0]]
     }
 }

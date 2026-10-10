@@ -2,8 +2,8 @@ import Foundation
 import SwiftData
 
 @MainActor
-enum LiveLifeService {
-    static func isDue(_ challenge: LifeChallenge, on date: Date) -> Bool {
+enum ChallengeService {
+    static func isDue(_ challenge: ChallengeItem, on date: Date) -> Bool {
         guard !challenge.isArchived else { return false }
         let calendar = Calendar.current
         let day = calendar.startOfDay(for: date)
@@ -24,11 +24,11 @@ enum LiveLifeService {
         }
     }
 
-    static func isCompleted(_ challenge: LifeChallenge, on date: Date, completions: [ChallengeCompletion]) -> Bool {
+    static func isCompleted(_ challenge: ChallengeItem, on date: Date, completions: [ChallengeCompletion]) -> Bool {
         completions.contains { $0.challengeID == challenge.id && Calendar.current.isDate($0.date, inSameDayAs: date) }
     }
 
-    static func streak(for challenge: LifeChallenge, endingOn date: Date, completions: [ChallengeCompletion]) -> Int {
+    static func streak(for challenge: ChallengeItem, endingOn date: Date, completions: [ChallengeCompletion]) -> Int {
         let calendar = Calendar.current
         let completedDays = Set(completions.filter { $0.challengeID == challenge.id }.map { calendar.startOfDay(for: $0.date) })
         var cursor = calendar.startOfDay(for: date)
@@ -46,7 +46,7 @@ enum LiveLifeService {
     }
 
     static func toggleCompletion(
-        challenge: LifeChallenge,
+        challenge: ChallengeItem,
         date: Date,
         completions: [ChallengeCompletion],
         transactions: [CoinTransaction],
@@ -85,7 +85,7 @@ enum LiveLifeService {
         return true
     }
 
-    static func days(for mode: LifeCalendarViewMode, around selectedDate: Date) -> [Date] {
+    static func days(for mode: ChallengeCalendarViewMode, around selectedDate: Date) -> [Date] {
         let calendar = Calendar.current
         switch mode {
         case .day:

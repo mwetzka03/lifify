@@ -25,16 +25,14 @@ enum LififySchemaV2: VersionedSchema {
     static let versionIdentifier = Schema.Version(2, 0, 0)
     static var models: [any PersistentModel.Type] {
         LififySchemaV1.models + [
-            LifeCalendarEvent.self,
-            LifeChallenge.self,
+            ChallengeCalendarEvent.self,
+            ChallengeItem.self,
             ChallengeCompletion.self,
-            LifeChallengeGroup.self,
+            ChallengeGroup.self,
             CoinTransaction.self,
             RewardItem.self,
             RewardPurchase.self,
-            BucketListItem.self,
-            VisionBoard.self,
-            VisionBoardElement.self
+            BucketListItem.self
         ]
     }
 }

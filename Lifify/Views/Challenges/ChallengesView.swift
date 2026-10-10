@@ -3,15 +3,15 @@ import SwiftUI
 
 struct ChallengesView: View {
     @Environment(\.modelContext) private var context
-    @Query(sort: \LifeChallenge.createdAt, order: .reverse) private var challenges: [LifeChallenge]
-    @Query(sort: \LifeChallengeGroup.title) private var groups: [LifeChallengeGroup]
+    @Query(sort: \ChallengeItem.createdAt, order: .reverse) private var challenges: [ChallengeItem]
+    @Query(sort: \ChallengeGroup.title) private var groups: [ChallengeGroup]
     @Query private var completions: [ChallengeCompletion]
     @Query private var transactions: [CoinTransaction]
     @State private var completedTab = false
     @State private var filter = ChallengeFilter.all
     @State private var showingNewChallenge = false
     @State private var showingNewGroup = false
-    @State private var edited: LifeChallenge?
+    @State private var edited: ChallengeItem?
 
     var body: some View {
         List {
@@ -25,6 +25,17 @@ struct ChallengesView: View {
                     ForEach(ChallengeFilter.allCases) { Text($0.label).tag($0) }
                 }
                 .pickerStyle(.segmented)
+                HStack {
+                    Label("\(ChallengeService.walletBalance(transactions: transactions))", systemImage: "circle.fill")
+                        .foregroundStyle(.orange)
+                    Spacer()
+                    NavigationLink {
+                        ShopView()
+                    } label: {
+                        Label(L("Shop", "Shop"), systemImage: "gift.fill")
+                    }
+                    .fixedSize()
+                }
             }
 
             if filter != .single {
@@ -46,7 +57,7 @@ struct ChallengesView: View {
                 ForEach(filteredChallenges) { challenge in
                     HStack {
                         Button {
-                            LiveLifeService.toggleCompletion(
+                            ChallengeService.toggleCompletion(
                                 challenge: challenge,
                                 date: .now,
                                 completions: completions,
@@ -54,7 +65,7 @@ struct ChallengesView: View {
                                 context: context
                             )
                         } label: {
-                            Image(systemName: LiveLifeService.isCompleted(challenge, on: .now, completions: completions) ? "checkmark.circle.fill" : "circle")
+                            Image(systemName: ChallengeService.isCompleted(challenge, on: .now, completions: completions) ? "checkmark.circle.fill" : "circle")
                                 .foregroundStyle(.green)
                         }
                         .disabled(challenge.isReadOnly)
@@ -79,7 +90,6 @@ struct ChallengesView: View {
                 ContentUnavailableView(L("Keine Challenges", "No challenges"), systemImage: "target")
             }
         }
-        .navigationTitle(L("Challenges", "Challenges"))
         .toolbar {
             Menu {
                 Button(L("Challenge", "Challenge")) { showingNewChallenge = true }
@@ -93,7 +103,7 @@ struct ChallengesView: View {
         .sheet(item: $edited) { ChallengeForm(challenge: $0) }
     }
 
-    private var filteredChallenges: [LifeChallenge] {
+    private var filteredChallenges: [ChallengeItem] {
         challenges.filter { challenge in
             let done = challenge.isArchived ||
                 (challenge.recurrence == .none && completions.contains { $0.challengeID == challenge.id })
@@ -101,7 +111,7 @@ struct ChallengesView: View {
         }
     }
 
-    private func groupMembers(_ group: LifeChallengeGroup) -> [LifeChallenge] {
+    private func groupMembers(_ group: ChallengeGroup) -> [ChallengeItem] {
         challenges.filter { $0.groupID == group.id }
     }
 
@@ -116,8 +126,8 @@ struct ChallengesView: View {
         try? context.save()
     }
 
-    private func challengeMeta(_ challenge: LifeChallenge) -> String {
-        let streak = LiveLifeService.streak(for: challenge, endingOn: .now, completions: completions)
+    private func challengeMeta(_ challenge: ChallengeItem) -> String {
+        let streak = ChallengeService.streak(for: challenge, endingOn: .now, completions: completions)
         let target = challenge.streakTarget > 0 ? "/\(challenge.streakTarget)" : ""
         return "\(challenge.recurrence.label) · +\(challenge.rewardCoins) · 🔥 \(streak)\(target)"
     }
@@ -140,12 +150,12 @@ private enum ChallengeFilter: String, CaseIterable, Identifiable {
 private struct ChallengeForm: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
-    @Query(sort: \LifeChallengeGroup.title) private var groups: [LifeChallengeGroup]
-    private let existing: LifeChallenge?
+    @Query(sort: \ChallengeGroup.title) private var groups: [ChallengeGroup]
+    private let existing: ChallengeItem?
     @State private var title: String
     @State private var details: String
     @State private var category: ChallengeCategory
-    @State private var recurrence: LifeRecurrence
+    @State private var recurrence: ChallengeRecurrence
     @State private var startDate: Date
     @State private var hasEndDate: Bool
     @State private var endDate: Date
@@ -154,7 +164,7 @@ private struct ChallengeForm: View {
     @State private var streakTarget: Int
     @State private var groupID: UUID?
 
-    init(challenge: LifeChallenge?) {
+    init(challenge: ChallengeItem?) {
         existing = challenge
         _title = State(initialValue: challenge?.title ?? "")
         _details = State(initialValue: challenge?.details ?? "")
@@ -182,7 +192,7 @@ private struct ChallengeForm: View {
                     ForEach(ChallengeCategory.allCases) { Text($0.label).tag($0) }
                 }
                 Picker(L("Wiederholung", "Recurrence"), selection: $recurrence) {
-                    ForEach(LifeRecurrence.allCases) { Text($0.label).tag($0) }
+                    ForEach(ChallengeRecurrence.allCases) { Text($0.label).tag($0) }
                 }
                 DatePicker(L("Start", "Start"), selection: $startDate, displayedComponents: .date)
                 Toggle(L("Enddatum", "End date"), isOn: $hasEndDate)
@@ -207,7 +217,7 @@ private struct ChallengeForm: View {
                     ToolbarItem(placement: .confirmationAction) {
                         Button(L("Speichern", "Save")) {
                             guard !title.isEmpty else { return }
-                            let challenge = existing ?? LifeChallenge(title: title)
+                            let challenge = existing ?? ChallengeItem(title: title)
                             challenge.title = title
                             challenge.details = details
                             challenge.category = category
@@ -253,21 +263,21 @@ private struct WeekdayPicker: View {
 
 private struct ChallengeGroupDetailView: View {
     @Environment(\.modelContext) private var context
-    @Query private var challenges: [LifeChallenge]
+    @Query private var challenges: [ChallengeItem]
     @Query private var completions: [ChallengeCompletion]
     @Query private var transactions: [CoinTransaction]
-    let group: LifeChallengeGroup
+    let group: ChallengeGroup
 
     var body: some View {
         List {
             if !group.details.isEmpty { Section { Text(group.details) } }
             ForEach(challenges.filter { $0.groupID == group.id }) { challenge in
                 Button {
-                    LiveLifeService.toggleCompletion(challenge: challenge, date: .now, completions: completions, transactions: transactions, context: context)
+                    ChallengeService.toggleCompletion(challenge: challenge, date: .now, completions: completions, transactions: transactions, context: context)
                 } label: {
                     Label(
                         challenge.title,
-                        systemImage: LiveLifeService.isCompleted(challenge, on: .now, completions: completions) ? "checkmark.circle.fill" : "circle"
+                        systemImage: ChallengeService.isCompleted(challenge, on: .now, completions: completions) ? "checkmark.circle.fill" : "circle"
                     )
                 }
                 .disabled(challenge.isReadOnly)
@@ -295,7 +305,7 @@ private struct ChallengeGroupForm: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button(L("Speichern", "Save")) {
                         guard !title.isEmpty else { return }
-                        context.insert(LifeChallengeGroup(title: title, details: details))
+                        context.insert(ChallengeGroup(title: title, details: details))
                         try? context.save()
                         dismiss()
                     }

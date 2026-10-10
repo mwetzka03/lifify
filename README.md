@@ -1,9 +1,9 @@
 # Lifify
 
-Lifify ist eine lokale iPhone-App, die FinanzBuddy und Live Life verbindet:
-Konten, Buchungen und Budgets treffen auf Kalender, Challenges, Visionboards,
-Bucketlist, Belohnungsshop und Coin-Wallet. Sie verwendet SwiftUI und SwiftData
-und benötigt weder Backend noch Benutzerkonto.
+Lifify ist eine lokale iPhone-App, die Finanzplanung und Challenges verbindet:
+Konten, Buchungen und Budgets treffen auf Kalender, Challenges, Bucketlist,
+Belohnungsshop und Coin-Wallet. Sie verwendet SwiftUI und SwiftData und benötigt
+weder Backend noch Benutzerkonto.
 
 Der fachliche Umfang und die gegenüber FinanzBuddy v0.3.6 getroffenen Annahmen
 stehen in [FEATURES.md](FEATURES.md).

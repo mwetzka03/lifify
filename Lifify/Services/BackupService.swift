@@ -18,7 +18,6 @@ struct BackupRecord: Codable {
     var booleans: [Bool] = []
     var dates: [Date?] = []
     var uuids: [UUID?] = []
-    var blobs: [Data?] = []
 
     init(
         type: String,
@@ -28,8 +27,7 @@ struct BackupRecord: Codable {
         doubles: [Double] = [],
         booleans: [Bool] = [],
         dates: [Date?] = [],
-        uuids: [UUID?] = [],
-        blobs: [Data?] = []
+        uuids: [UUID?] = []
     ) {
         self.type = type
         self.id = id
@@ -39,7 +37,6 @@ struct BackupRecord: Codable {
         self.booleans = booleans
         self.dates = dates
         self.uuids = uuids
-        self.blobs = blobs
     }
 
     init(from decoder: Decoder) throws {
@@ -52,7 +49,6 @@ struct BackupRecord: Codable {
         booleans = try container.decodeIfPresent([Bool].self, forKey: .booleans) ?? []
         dates = try container.decodeIfPresent([Date?].self, forKey: .dates) ?? []
         uuids = try container.decodeIfPresent([UUID?].self, forKey: .uuids) ?? []
-        blobs = try container.decodeIfPresent([Data?].self, forKey: .blobs) ?? []
     }
 }
 
@@ -88,16 +84,14 @@ enum BackupService {
         lines: [ExpenseGroupLine],
         holdings: [PortfolioHolding],
         articles: [SavedArticle],
-        lifeEvents: [LifeCalendarEvent],
-        challenges: [LifeChallenge],
+        calendarEvents: [ChallengeCalendarEvent],
+        challenges: [ChallengeItem],
         completions: [ChallengeCompletion],
-        challengeGroups: [LifeChallengeGroup],
+        challengeGroups: [ChallengeGroup],
         coinTransactions: [CoinTransaction],
         rewards: [RewardItem],
         purchases: [RewardPurchase],
-        bucketItems: [BucketListItem],
-        visionBoards: [VisionBoard],
-        visionElements: [VisionBoardElement]
+        bucketItems: [BucketListItem]
     ) throws -> Data {
         var records: [BackupRecord] = []
         records += accounts.map {
@@ -139,8 +133,8 @@ enum BackupService {
         records += articles.map {
             BackupRecord(type: "article", id: $0.id, strings: [$0.title, $0.urlString, $0.notes], dates: [$0.savedAt])
         }
-        records += lifeEvents.map {
-            BackupRecord(type: "lifeEvent", id: $0.id, strings: [$0.title, $0.details, $0.colorHex, $0.icon, $0.externalIdentifier ?? ""], booleans: [$0.isAllDay, $0.isReadOnly], dates: [$0.startDate, $0.endDate], uuids: [$0.linkedChallengeID, $0.linkedChallengeGroupID, $0.linkedRewardID])
+        records += calendarEvents.map {
+            BackupRecord(type: "challengeEvent", id: $0.id, strings: [$0.title, $0.details, $0.colorHex, $0.icon, $0.externalIdentifier ?? ""], booleans: [$0.isAllDay, $0.isReadOnly], dates: [$0.startDate, $0.endDate], uuids: [$0.linkedChallengeID, $0.linkedChallengeGroupID, $0.linkedRewardID])
         }
         records += challenges.map {
             BackupRecord(type: "challenge", id: $0.id, strings: [$0.title, $0.details, $0.categoryRaw, $0.recurrenceRaw, $0.weeklyDays, $0.externalIdentifier ?? ""], integers: [$0.rewardCoins, $0.streakTarget], booleans: [$0.isArchived, $0.isReadOnly], dates: [$0.startDate, $0.endDate, $0.createdAt], uuids: [$0.groupID])
@@ -162,12 +156,6 @@ enum BackupService {
         }
         records += bucketItems.map {
             BackupRecord(type: "bucket", id: $0.id, strings: [$0.title, $0.details], integers: [$0.targetYear], booleans: [$0.isCompleted], uuids: [$0.linkedRewardID])
-        }
-        records += visionBoards.map {
-            BackupRecord(type: "visionBoard", id: $0.id, strings: [$0.title, $0.backgroundHex], doubles: [$0.backgroundOpacity], dates: [$0.createdAt])
-        }
-        records += visionElements.map {
-            BackupRecord(type: "visionElement", id: $0.id, strings: [$0.typeRaw, $0.text, $0.colorHex], doubles: [$0.x, $0.y, $0.width, $0.height, $0.rotation], uuids: [$0.boardID], blobs: [$0.imageData])
         }
         let backup = LififyBackup(version: 1, exportedAt: .now, records: records)
         let encoder = JSONEncoder()
@@ -202,16 +190,14 @@ enum BackupService {
         try context.fetch(FetchDescriptor<ExpenseGroup>()).forEach { context.delete($0) }
         try context.fetch(FetchDescriptor<PortfolioHolding>()).forEach { context.delete($0) }
         try context.fetch(FetchDescriptor<SavedArticle>()).forEach { context.delete($0) }
-        try context.fetch(FetchDescriptor<LifeCalendarEvent>()).forEach { context.delete($0) }
+        try context.fetch(FetchDescriptor<ChallengeCalendarEvent>()).forEach { context.delete($0) }
         try context.fetch(FetchDescriptor<ChallengeCompletion>()).forEach { context.delete($0) }
-        try context.fetch(FetchDescriptor<LifeChallenge>()).forEach { context.delete($0) }
-        try context.fetch(FetchDescriptor<LifeChallengeGroup>()).forEach { context.delete($0) }
+        try context.fetch(FetchDescriptor<ChallengeItem>()).forEach { context.delete($0) }
+        try context.fetch(FetchDescriptor<ChallengeGroup>()).forEach { context.delete($0) }
         try context.fetch(FetchDescriptor<CoinTransaction>()).forEach { context.delete($0) }
         try context.fetch(FetchDescriptor<RewardPurchase>()).forEach { context.delete($0) }
         try context.fetch(FetchDescriptor<RewardItem>()).forEach { context.delete($0) }
         try context.fetch(FetchDescriptor<BucketListItem>()).forEach { context.delete($0) }
-        try context.fetch(FetchDescriptor<VisionBoardElement>()).forEach { context.delete($0) }
-        try context.fetch(FetchDescriptor<VisionBoard>()).forEach { context.delete($0) }
     }
 
     @MainActor
@@ -249,14 +235,14 @@ enum BackupService {
             context.insert(PortfolioHolding(id: r.id, accountID: uuid(0), name: string(0), symbol: string(1), quantity: r.doubles.first ?? 0, purchasePriceCents: int(0), currentPriceCents: int(1), updatedAt: date(0) ?? .now))
         case "article":
             context.insert(SavedArticle(id: r.id, title: string(0), urlString: string(1), notes: string(2), savedAt: date(0) ?? .now))
-        case "lifeEvent":
-            context.insert(LifeCalendarEvent(id: r.id, title: string(0), details: string(1), startDate: date(0) ?? .now, endDate: date(1) ?? .now, isAllDay: bool(0), colorHex: string(2), icon: string(3), linkedChallengeID: uuid(0), linkedChallengeGroupID: uuid(1), linkedRewardID: uuid(2), externalIdentifier: string(4).isEmpty ? nil : string(4), isReadOnly: bool(1)))
+        case "challengeEvent":
+            context.insert(ChallengeCalendarEvent(id: r.id, title: string(0), details: string(1), startDate: date(0) ?? .now, endDate: date(1) ?? .now, isAllDay: bool(0), colorHex: string(2), icon: string(3), linkedChallengeID: uuid(0), linkedChallengeGroupID: uuid(1), linkedRewardID: uuid(2), externalIdentifier: string(4).isEmpty ? nil : string(4), isReadOnly: bool(1)))
         case "challenge":
-            context.insert(LifeChallenge(id: r.id, title: string(0), details: string(1), category: ChallengeCategory(rawValue: string(2)) ?? .other, recurrence: LifeRecurrence(rawValue: string(3)) ?? .none, startDate: date(0), endDate: date(1), weeklyDays: Set(string(4).split(separator: ",").compactMap { Int($0) }), rewardCoins: int(0), streakTarget: int(1), groupID: uuid(0), isArchived: bool(0), externalIdentifier: string(5).isEmpty ? nil : string(5), isReadOnly: bool(1), createdAt: date(2) ?? .now))
+            context.insert(ChallengeItem(id: r.id, title: string(0), details: string(1), category: ChallengeCategory(rawValue: string(2)) ?? .other, recurrence: ChallengeRecurrence(rawValue: string(3)) ?? .none, startDate: date(0), endDate: date(1), weeklyDays: Set(string(4).split(separator: ",").compactMap { Int($0) }), rewardCoins: int(0), streakTarget: int(1), groupID: uuid(0), isArchived: bool(0), externalIdentifier: string(5).isEmpty ? nil : string(5), isReadOnly: bool(1), createdAt: date(2) ?? .now))
         case "completion":
             if let challengeID = uuid(0) { context.insert(ChallengeCompletion(id: r.id, challengeID: challengeID, date: date(0) ?? .now, earnedCoins: int(0))) }
         case "challengeGroup":
-            context.insert(LifeChallengeGroup(id: r.id, title: string(0), details: string(1), startDate: date(0), colorHex: string(2)))
+            context.insert(ChallengeGroup(id: r.id, title: string(0), details: string(1), startDate: date(0), colorHex: string(2)))
         case "coin":
             context.insert(CoinTransaction(id: r.id, date: date(0) ?? .now, title: string(0), amount: int(0), referenceID: uuid(0)))
         case "reward":
@@ -265,12 +251,6 @@ enum BackupService {
             if let rewardID = uuid(0) { context.insert(RewardPurchase(id: r.id, rewardID: rewardID, title: string(0), price: int(0), date: date(0) ?? .now)) }
         case "bucket":
             context.insert(BucketListItem(id: r.id, title: string(0), details: string(1), targetYear: int(0), isCompleted: bool(0), linkedRewardID: uuid(0)))
-        case "visionBoard":
-            context.insert(VisionBoard(id: r.id, title: string(0), backgroundHex: string(1), backgroundOpacity: r.doubles.first ?? 1, createdAt: date(0) ?? .now))
-        case "visionElement":
-            if let boardID = uuid(0) {
-                context.insert(VisionBoardElement(id: r.id, boardID: boardID, type: VisionElementType(rawValue: string(0)) ?? .text, text: string(1), x: r.doubles.indices.contains(0) ? r.doubles[0] : 0, y: r.doubles.indices.contains(1) ? r.doubles[1] : 0, width: r.doubles.indices.contains(2) ? r.doubles[2] : 130, height: r.doubles.indices.contains(3) ? r.doubles[3] : 80, colorHex: string(2), rotation: r.doubles.indices.contains(4) ? r.doubles[4] : 0, imageData: r.blobs.first ?? nil))
-            }
         default:
             break
         }

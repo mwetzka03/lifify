@@ -30,12 +30,11 @@ iPhone-App mit SwiftUI und SwiftData.
 - CSV-Import und Import einer einzelnen CAMT-XML-Datei
 - Gemeinsamer Home-Bildschirm mit Budgetring sowie umschaltbarer
   Tag-/Woche-/Monat-Kalenderübersicht; Wischgesten wechseln die Periode
-- Live-Life-Kalender mit lokalen Terminen, Challenge- und Belohnungsverknüpfung
+- Challenge-Kalender mit lokalen Terminen sowie Challenge- und Belohnungsverknüpfung
 - Challenges und Challenge-Gruppen mit Wiederholungen, Abschlüssen, Streaks und
   wachsendem Coin-Multiplikator
 - Belohnungsshop und Wallet mit Coin-Transaktionen und Kaufhistorie
-- Visionboards mit verschiebbaren Texten/Formen sowie Bucketlist mit optional
-  verknüpften Shop-Belohnungen
+- Bucketlist mit optional verknüpften Shop-Belohnungen
 - Optionaler Import aus iOS-Kalendern und Erinnerungen über EventKit
 
 ## Annahmen gegenüber FinanzBuddy v0.3.6
@@ -86,13 +85,11 @@ iPhone-App mit SwiftUI und SwiftData.
     iOS-Freigabe Termine und Erinnerungen über EventKit. Netzwerk- und
     Kontoverwaltung bleiben dabei dem Betriebssystem überlassen; ohne Freigabe
     funktionieren alle lokalen Funktionen.
-14. **Visionboard:** Die native Touch-Oberfläche übernimmt mehrere Boards,
-    einstellbare Hintergründe, verschiebbare Texte, Rechtecke, Kreise, Bilder
-    aus dem iOS-Fotodialog und Pfeile. Desktopbezogene Mauswerkzeuge werden als
-    Tippen, Ziehen, Größen- und Drehregler umgesetzt; ein separater
-    Bild-Crop-Modus entfällt zugunsten von `scaledToFill`.
+14. **Visionboard:** Das Visionboard der Desktop-Referenz ist auf Nutzerwunsch
+    nicht Bestandteil von Lifify. Die Bucketlist bleibt im kombinierten
+    Shop-/Wallet-Bereich erhalten.
 15. **Home-Navigation:** Das bereitgestellte Mockup ist maßgeblich:
-    Home, Finanzen, Live Life und Einstellungen sind die vier Haupttabs.
+    Home, Finanzen, Challenges und Einstellungen sind die vier Haupttabs.
     Budgetring, Kalenderperioden und Schnellaktionen öffnen ihre jeweiligen
     Detailansichten.
 

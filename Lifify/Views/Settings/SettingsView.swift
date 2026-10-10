@@ -42,6 +42,5 @@ struct SettingsView: View {
                 .foregroundStyle(.secondary)
             }
         }
-        .navigationTitle(L("Einstellungen", "Settings"))
     }
 }

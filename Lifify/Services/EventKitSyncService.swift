@@ -11,8 +11,8 @@ final class EventKitSyncService: ObservableObject {
 
     func sync(
         context: ModelContext,
-        existingEvents: [LifeCalendarEvent],
-        existingChallenges: [LifeChallenge]
+        existingEvents: [ChallengeCalendarEvent],
+        existingChallenges: [ChallengeItem]
     ) async {
         isSyncing = true
         defer { isSyncing = false }
@@ -29,7 +29,7 @@ final class EventKitSyncService: ObservableObject {
                 for event in store.events(matching: predicate) {
                     guard let identifier = event.eventIdentifier else { continue }
                     let model = existingEvents.first { $0.externalIdentifier == identifier } ??
-                        LifeCalendarEvent(
+                        ChallengeCalendarEvent(
                             title: event.title ?? L("Kalenderereignis", "Calendar event"),
                             startDate: event.startDate,
                             endDate: event.endDate,
@@ -47,12 +47,12 @@ final class EventKitSyncService: ObservableObject {
             }
 
             if remindersAllowed {
-                let reminders = await fetchReminders()
+                let reminders = await Self.fetchReminders()
                 for reminder in reminders {
                     let identifier = reminder.identifier
                     guard !identifier.isEmpty else { continue }
                     let challenge = existingChallenges.first { $0.externalIdentifier == identifier } ??
-                        LifeChallenge(
+                        ChallengeItem(
                             title: reminder.title,
                             category: .todo,
                             recurrence: .none,
@@ -78,14 +78,15 @@ final class EventKitSyncService: ObservableObject {
         }
     }
 
-    private func fetchReminders() async -> [ReminderSnapshot] {
+    nonisolated private static func fetchReminders() async -> [ReminderSnapshot] {
+        let storeBox = EventStoreBox()
         await withCheckedContinuation { continuation in
-            store.fetchReminders(matching: store.predicateForReminders(in: nil)) {
+            storeBox.store.fetchReminders(matching: storeBox.store.predicateForReminders(in: nil)) {
                 let snapshots = ($0 ?? []).compactMap { reminder -> ReminderSnapshot? in
                     guard !reminder.isCompleted else { return nil }
                     return ReminderSnapshot(
                         identifier: reminder.calendarItemIdentifier,
-                        title: reminder.title,
+                        title: reminder.title ?? "Erinnerung",
                         notes: reminder.notes ?? "",
                         dueDate: reminder.dueDateComponents.flatMap { Calendar.current.date(from: $0) }
                     )
@@ -94,6 +95,10 @@ final class EventKitSyncService: ObservableObject {
             }
         }
     }
+}
+
+private final class EventStoreBox: @unchecked Sendable {
+    let store = EKEventStore()
 }
 
 private struct ReminderSnapshot: Sendable {

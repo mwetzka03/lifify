@@ -2,11 +2,16 @@ import SwiftData
 import SwiftUI
 
 struct DashboardView: View {
+    let isMainTab: Bool
     @Query(sort: \Account.createdAt) private var accounts: [Account]
     @Query(sort: \LedgerEntry.date, order: .reverse) private var entries: [LedgerEntry]
     @Query private var holdings: [PortfolioHolding]
     @Query private var fixedCosts: [FixedCost]
     @Query private var forecasts: [IncomeForecast]
+
+    init(isMainTab: Bool = false) {
+        self.isMainTab = isMainTab
+    }
 
     var body: some View {
         List {
@@ -39,6 +44,26 @@ struct DashboardView: View {
                         Spacer()
                         Text(Money.string(cents: FinanceService.balance(for: account, entries: entries, holdings: holdings)))
                             .monospacedDigit()
+                    }
+                }
+            }
+
+            if isMainTab {
+                Section(L("Bereiche", "Sections")) {
+                    NavigationLink {
+                        TransactionsView()
+                    } label: {
+                        Label(L("Buchungen", "Transactions"), systemImage: "list.bullet.rectangle")
+                    }
+                    NavigationLink {
+                        PlanningView()
+                    } label: {
+                        Label(L("Budgets und Planung", "Budgets and planning"), systemImage: "calendar")
+                    }
+                    NavigationLink {
+                        OrganizationView()
+                    } label: {
+                        Label(L("Einkäufe, Schulden und Depot", "Shopping, debts and portfolio"), systemImage: "square.grid.2x2")
                     }
                 }
             }
@@ -79,7 +104,6 @@ struct DashboardView: View {
                 }
             }
         }
-        .navigationTitle("Lifify")
     }
 
     private var upcomingItems: [UpcomingItem] {

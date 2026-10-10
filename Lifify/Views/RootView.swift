@@ -18,11 +18,11 @@ struct RootView: View {
             NavigationStack { HomeView() }
                 .tabItem { Label(L("Home", "Home"), systemImage: "house") }
                 .tag(0)
-            NavigationStack { FinanceHubView() }
+            NavigationStack { DashboardView(isMainTab: true) }
                 .tabItem { Label(L("Finanzen", "Finance"), systemImage: "eurosign.circle") }
                 .tag(1)
-            NavigationStack { LiveLifeHubView() }
-                .tabItem { Label("Live Life", systemImage: "target") }
+            NavigationStack { ChallengesView() }
+                .tabItem { Label(L("Challenges", "Challenges"), systemImage: "target") }
                 .tag(2)
             NavigationStack { SettingsView() }
                 .tabItem { Label(L("Einstellungen", "Settings"), systemImage: "gear") }
