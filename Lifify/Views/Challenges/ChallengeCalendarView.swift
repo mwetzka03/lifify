@@ -153,14 +153,14 @@ private struct DayAgendaCard: View {
                 let completed = ChallengeService.isCompleted(challenge, on: day, completions: completions)
                 Button { onChallenge(challenge) } label: {
                     HStack {
-                        Image(systemName: completed ? "checkmark.circle.fill" : "circle")
-                            .foregroundStyle(completed ? .green : .secondary)
                         Image(systemName: IconPreferenceStore.icon(for: challenge.id, fallback: "target"))
                         Text(challenge.title)
                         Spacer()
                         Text("+\(challenge.rewardCoins)")
                             .font(.caption)
                             .foregroundStyle(.orange)
+                        Image(systemName: completed ? "checkmark.circle.fill" : "circle")
+                            .foregroundStyle(completed ? .green : .secondary)
                     }
                 }
                 .buttonStyle(.plain)

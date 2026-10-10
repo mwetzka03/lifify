@@ -56,12 +56,29 @@ final class EventKitSyncService: ObservableObject {
                     let identifier = reminder.identifier
                     guard !identifier.isEmpty else { continue }
                     let suggestionIdentifier = "reminder:\(identifier)"
+                    let previousRecurrence = ReminderLinkStore.metadata(for: suggestionIdentifier)
+                    if let recurrence = reminder.recurrence {
+                        ReminderLinkStore.set(recurrence, for: suggestionIdentifier)
+                    } else if previousRecurrence?.recurrence != .irregular {
+                        ReminderLinkStore.remove(for: suggestionIdentifier)
+                    }
                     if let legacyChallenge = existingChallenges.first(where: {
                         $0.externalIdentifier == identifier && $0.isReadOnly
                     }) {
                         context.delete(legacyChallenge)
                     }
-                    guard !existingChallenges.contains(where: { $0.externalIdentifier == suggestionIdentifier }) else {
+                    if let linkedChallenge = existingChallenges.first(where: {
+                        $0.externalIdentifier == suggestionIdentifier
+                    }) {
+                        if let recurrence = reminder.recurrence {
+                            linkedChallenge.recurrence = recurrence.recurrence
+                            linkedChallenge.weekdaySet = recurrence.weekdays
+                            linkedChallenge.endDate = recurrence.endDate
+                        } else if previousRecurrence?.recurrence != .irregular {
+                            linkedChallenge.recurrence = .none
+                            linkedChallenge.weekdaySet = []
+                            linkedChallenge.endDate = nil
+                        }
                         continue
                     }
                     let dueDate = reminder.dueDate ?? .now
@@ -117,6 +134,100 @@ final class EventKitSyncService: ObservableObject {
         }
     }
 
+    static func saveReminder(
+        externalIdentifier: String?,
+        title: String,
+        notes: String,
+        startDate: Date,
+        endDate: Date?,
+        recurrence: ChallengeRecurrence,
+        recurrenceInterval: Int,
+        weekdays: Set<Int>
+    ) async -> String? {
+        do {
+            let eventStore = EKEventStore()
+            guard try await eventStore.requestFullAccessToReminders() else { return nil }
+
+            let prefix = "reminder:"
+            let existingIdentifier = externalIdentifier.flatMap {
+                $0.hasPrefix(prefix) ? String($0.dropFirst(prefix.count)) : nil
+            }
+            let reminder = existingIdentifier.flatMap {
+                eventStore.calendarItem(withIdentifier: $0) as? EKReminder
+            } ?? EKReminder(eventStore: eventStore)
+
+            if reminder.calendar == nil {
+                reminder.calendar = eventStore.defaultCalendarForNewReminders()
+            }
+            guard reminder.calendar != nil else { return nil }
+
+            reminder.title = title
+            reminder.notes = notes
+            var dueComponents = Calendar.current.dateComponents(
+                [.year, .month, .day],
+                from: startDate
+            )
+            dueComponents.calendar = Calendar.current
+            reminder.dueDateComponents = dueComponents
+
+            let recurrenceEnd = endDate.map { EKRecurrenceEnd(end: $0) }
+            let interval = max(recurrenceInterval, 1)
+            switch recurrence {
+            case .daily:
+                reminder.recurrenceRules = [
+                    EKRecurrenceRule(recurrenceWith: .daily, interval: interval, end: recurrenceEnd)
+                ]
+            case .weekly:
+                let recurrenceDays = weekdays
+                    .filter { (1...7).contains($0) }
+                    .compactMap { EKWeekday(rawValue: $0) }
+                    .map { EKRecurrenceDayOfWeek($0) }
+                reminder.recurrenceRules = [
+                    EKRecurrenceRule(
+                        recurrenceWith: .weekly,
+                        interval: interval,
+                        daysOfTheWeek: recurrenceDays.isEmpty ? nil : recurrenceDays,
+                        daysOfTheMonth: nil,
+                        monthsOfTheYear: nil,
+                        weeksOfTheYear: nil,
+                        daysOfTheYear: nil,
+                        setPositions: nil,
+                        end: recurrenceEnd
+                    )
+                ]
+            case .monthly:
+                reminder.recurrenceRules = [
+                    EKRecurrenceRule(recurrenceWith: .monthly, interval: interval, end: recurrenceEnd)
+                ]
+            case .yearly:
+                reminder.recurrenceRules = [
+                    EKRecurrenceRule(recurrenceWith: .yearly, interval: interval, end: recurrenceEnd)
+                ]
+            case .none, .irregular:
+                reminder.recurrenceRules = []
+            }
+
+            try eventStore.save(reminder, commit: true)
+            let linkedIdentifier = "\(prefix)\(reminder.calendarItemIdentifier)"
+            if recurrence == .none {
+                ReminderLinkStore.remove(for: linkedIdentifier)
+            } else {
+                ReminderLinkStore.set(
+                    ReminderRecurrenceMetadata(
+                        recurrence: recurrence,
+                        interval: interval,
+                        weekdays: weekdays,
+                        endDate: endDate
+                    ),
+                    for: linkedIdentifier
+                )
+            }
+            return linkedIdentifier
+        } catch {
+            return nil
+        }
+    }
+
     nonisolated private static func fetchReminders() async -> [ReminderSnapshot] {
         let storeBox = EventStoreBox()
         return await withCheckedContinuation { continuation in
@@ -124,11 +235,35 @@ final class EventKitSyncService: ObservableObject {
                 let snapshots = ($0 ?? []).compactMap { reminder -> ReminderSnapshot? in
                     guard !reminder.isCompleted else { return nil }
                     let calendar = Calendar(identifier: .gregorian)
+                    let dueDate = reminder.dueDateComponents.flatMap { calendar.date(from: $0) }
+                    let recurrence = reminder.recurrenceRules?.first.flatMap { rule in
+                        let recurrence: ChallengeRecurrence
+                        switch rule.frequency {
+                        case .daily: recurrence = .daily
+                        case .weekly: recurrence = .weekly
+                        case .monthly: recurrence = .monthly
+                        case .yearly: recurrence = .yearly
+                        @unknown default: return nil
+                        }
+                        var weekdays = Set(
+                            (rule.daysOfTheWeek ?? []).map { $0.dayOfTheWeek.rawValue }
+                        )
+                        if recurrence == .weekly, weekdays.isEmpty, let dueDate {
+                            weekdays.insert(calendar.component(.weekday, from: dueDate))
+                        }
+                        return ReminderRecurrenceMetadata(
+                            recurrence: recurrence,
+                            interval: max(rule.interval, 1),
+                            weekdays: weekdays,
+                            endDate: rule.recurrenceEnd?.endDate
+                        )
+                    }
                     return ReminderSnapshot(
                         identifier: reminder.calendarItemIdentifier,
                         title: reminder.title ?? "Erinnerung",
                         notes: reminder.notes ?? "",
-                        dueDate: reminder.dueDateComponents.flatMap { calendar.date(from: $0) }
+                        dueDate: dueDate,
+                        recurrence: recurrence
                     )
                 }
                 continuation.resume(returning: snapshots)
@@ -146,4 +281,5 @@ private struct ReminderSnapshot: Sendable {
     let title: String
     let notes: String
     let dueDate: Date?
+    let recurrence: ReminderRecurrenceMetadata?
 }

@@ -1,6 +1,9 @@
+import SwiftData
 import SwiftUI
 
 struct RootView: View {
+    @Environment(\.modelContext) private var context
+    @Query private var holdings: [PortfolioHolding]
     @AppStorage("appLanguage") private var language = "de"
     @AppStorage("appTheme") private var theme = AppTheme.system.rawValue
     @State private var selectedTab = 0
@@ -24,11 +27,17 @@ struct RootView: View {
             NavigationStack { ChallengesView() }
                 .tabItem { Label(L("Challenges", "Challenges"), systemImage: "target") }
                 .tag(2)
+            NavigationStack { HealthView() }
+                .tabItem { Label(L("Gesundheit", "Health"), systemImage: "apple.logo") }
+                .tag(3)
             NavigationStack { SettingsView() }
                 .tabItem { Label(L("Einstellungen", "Settings"), systemImage: "gear") }
-                .tag(3)
+                .tag(4)
         }
         .id(language)
         .preferredColorScheme(colorScheme)
+        .task {
+            await MarketDataService.refresh(holdings: holdings, context: context)
+        }
     }
 }

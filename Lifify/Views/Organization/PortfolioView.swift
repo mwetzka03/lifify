@@ -6,6 +6,7 @@ struct PortfolioView: View {
     @Query(sort: \PortfolioHolding.name) private var holdings: [PortfolioHolding]
     @State private var showingNew = false
     @State private var edited: PortfolioHolding?
+    @State private var isRefreshing = false
 
     var body: some View {
         List {
@@ -25,6 +26,11 @@ struct PortfolioView: View {
                             Text("\(holding.quantity.formatted()) × \(Money.string(cents: holding.currentPriceCents))")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
+                            if !holding.symbol.isEmpty {
+                                Text("\(holding.symbol) · \(holding.updatedAt.formatted(date: .abbreviated, time: .shortened))")
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            }
                         }
                         Spacer()
                         Text(Money.string(cents: Int((holding.quantity * Double(holding.currentPriceCents)).rounded())))
@@ -41,7 +47,21 @@ struct PortfolioView: View {
             if holdings.isEmpty { ContentUnavailableView(L("Keine Depotpositionen", "No holdings"), systemImage: "chart.line.uptrend.xyaxis") }
         }
         .navigationTitle(L("Depot", "Portfolio"))
-        .toolbar { Button { showingNew = true } label: { Image(systemName: "plus") } }
+        .toolbar {
+            ToolbarItemGroup(placement: .topBarTrailing) {
+                Button {
+                    Task {
+                        isRefreshing = true
+                        await MarketDataService.refresh(holdings: holdings, context: context)
+                        isRefreshing = false
+                    }
+                } label: {
+                    if isRefreshing { ProgressView() } else { Image(systemName: "arrow.clockwise") }
+                }
+                .disabled(isRefreshing || holdings.isEmpty)
+                Button { showingNew = true } label: { Image(systemName: "plus") }
+            }
+        }
         .sheet(isPresented: $showingNew) { HoldingForm(holding: nil) }
         .sheet(item: $edited) { HoldingForm(holding: $0) }
     }
@@ -58,6 +78,7 @@ private struct HoldingForm: View {
     @State private var quantity: String
     @State private var purchasePrice: String
     @State private var currentPrice: String
+    @State private var validationMessage: String?
 
     init(holding: PortfolioHolding?) {
         existing = holding
@@ -77,10 +98,21 @@ private struct HoldingForm: View {
                     ForEach(accounts.filter { $0.kind == .portfolio }) { Text($0.name).tag(Optional($0.id)) }
                 }
                 TextField(L("Name", "Name"), text: $name)
-                TextField(L("Symbol", "Symbol"), text: $symbol).textInputAutocapitalization(.characters)
+                TextField("ISIN", text: $symbol)
+                    .textInputAutocapitalization(.characters)
+                    .autocorrectionDisabled()
                 TextField(L("Stückzahl", "Quantity"), text: $quantity).keyboardType(.decimalPad)
                 TextField(L("Kaufkurs", "Purchase price"), text: $purchasePrice).keyboardType(.decimalPad)
-                TextField(L("Aktueller Kurs (manuell)", "Current price (manual)"), text: $currentPrice).keyboardType(.decimalPad)
+                TextField(L("Aktueller Kurs (Fallback)", "Current price (fallback)"), text: $currentPrice).keyboardType(.decimalPad)
+                Text(L(
+                    "Der aktuelle Kurs wird anhand der ISIN online gesucht. Der Fallback bleibt erhalten, falls der Abruf fehlschlägt.",
+                    "The current price is looked up online using the ISIN. The fallback remains if the request fails."
+                ))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                if let validationMessage {
+                    Text(validationMessage).foregroundStyle(.red)
+                }
             }
             .navigationTitle(L("Depotposition", "Holding"))
             .toolbar {
@@ -88,20 +120,43 @@ private struct HoldingForm: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button(L("Speichern", "Save")) {
                         let normalizedQuantity = quantity.replacingOccurrences(of: ",", with: ".")
+                        let normalizedISIN = symbol
+                            .trimmingCharacters(in: .whitespacesAndNewlines)
+                            .uppercased()
                         guard let count = Double(normalizedQuantity),
                               let purchase = Money.cents(from: purchasePrice),
-                              let current = Money.cents(from: currentPrice),
-                              !name.isEmpty else { return }
+                              !name.isEmpty else {
+                            validationMessage = L("Bitte alle Werte prüfen.", "Please check all values.")
+                            return
+                        }
+                        let current = Money.cents(from: currentPrice) ?? purchase
+                        let unchangedLegacyIdentifier = existing.map {
+                            $0.symbol.trimmingCharacters(in: .whitespacesAndNewlines).uppercased() == normalizedISIN
+                        } ?? false
+                        guard MarketDataService.isValidISIN(normalizedISIN) || unchangedLegacyIdentifier else {
+                            validationMessage = L("Bitte eine gültige zwölfstellige ISIN eingeben.", "Enter a valid twelve-character ISIN.")
+                            return
+                        }
                         let holding = existing ?? PortfolioHolding(name: name, quantity: count, purchasePriceCents: purchase, currentPriceCents: current)
                         holding.accountID = accountID
                         holding.name = name
-                        holding.symbol = symbol
+                        holding.symbol = normalizedISIN
                         holding.quantity = count
                         holding.purchasePriceCents = purchase
                         holding.currentPriceCents = current
                         holding.updatedAt = .now
                         if existing == nil { context.insert(holding) }
                         try? context.save()
+                        Task {
+                            do {
+                                let cents = try await MarketDataService.currentPriceCents(for: normalizedISIN)
+                                holding.currentPriceCents = cents
+                                holding.updatedAt = .now
+                                try? context.save()
+                            } catch {
+                                // Keep the manually entered fallback price.
+                            }
+                        }
                         dismiss()
                     }
                 }

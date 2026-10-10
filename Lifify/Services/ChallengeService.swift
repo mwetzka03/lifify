@@ -9,18 +9,62 @@ enum ChallengeService {
         let day = calendar.startOfDay(for: date)
         if let start = challenge.startDate, day < calendar.startOfDay(for: start) { return false }
         if let end = challenge.endDate, day > calendar.startOfDay(for: end) { return false }
+        let interval = max(
+            ReminderLinkStore.metadata(for: challenge.externalIdentifier)?.interval ?? 1,
+            1
+        )
 
         switch challenge.recurrence {
         case .none:
             guard let start = challenge.startDate else { return false }
             return calendar.isDate(start, inSameDayAs: day)
-        case .irregular, .daily:
+        case .irregular:
             return true
+        case .daily:
+            guard let start = challenge.startDate else { return true }
+            let distance = calendar.dateComponents(
+                [.day],
+                from: calendar.startOfDay(for: start),
+                to: day
+            ).day ?? 0
+            return distance.isMultiple(of: interval)
         case .weekly:
-            return challenge.weekdaySet.contains(calendar.component(.weekday, from: day))
+            guard challenge.weekdaySet.contains(calendar.component(.weekday, from: day)) else {
+                return false
+            }
+            guard let start = challenge.startDate,
+                  let startWeek = calendar.dateInterval(of: .weekOfYear, for: start)?.start,
+                  let selectedWeek = calendar.dateInterval(of: .weekOfYear, for: day)?.start
+            else {
+                return true
+            }
+            let weeks = (calendar.dateComponents([.day], from: startWeek, to: selectedWeek).day ?? 0) / 7
+            return weeks.isMultiple(of: interval)
         case .monthly:
             guard let start = challenge.startDate else { return false }
-            return calendar.component(.day, from: start) == calendar.component(.day, from: day)
+            guard calendar.component(.day, from: start) == calendar.component(.day, from: day) else {
+                return false
+            }
+            let components = calendar.dateComponents(
+                [.year, .month],
+                from: calendar.startOfDay(for: start),
+                to: day
+            )
+            let months = (components.year ?? 0) * 12 + (components.month ?? 0)
+            return months.isMultiple(of: interval)
+        case .yearly:
+            guard let start = challenge.startDate,
+                  calendar.component(.month, from: start) == calendar.component(.month, from: day),
+                  calendar.component(.day, from: start) == calendar.component(.day, from: day)
+            else {
+                return false
+            }
+            let years = calendar.dateComponents(
+                [.year],
+                from: calendar.startOfDay(for: start),
+                to: day
+            ).year ?? 0
+            return years.isMultiple(of: interval)
         }
     }
 

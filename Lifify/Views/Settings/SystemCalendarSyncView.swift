@@ -11,8 +11,8 @@ struct SystemCalendarSyncView: View {
         Form {
             Section {
                 Text(L(
-                    "Lifify verwendet den iOS-Systemkalender. Dadurch funktionieren iCloud, Google, Outlook und andere bereits auf dem iPhone eingerichtete Kalender, ohne Zugangsdaten in Lifify zu speichern.",
-                    "Lifify uses the iOS system calendar. This supports iCloud, Google, Outlook and other calendars already configured on the iPhone without storing credentials in Lifify."
+                    "Lifify verwendet den iOS-Systemkalender. Wiederkehrende Erinnerungen können als Challenges übernommen werden; neue Challenges und ihr Erledigt-Status werden mit Apple Erinnerungen synchronisiert.",
+                    "Lifify uses the iOS system calendar. Recurring reminders can become challenges; new challenges and their completion status are synced with Apple Reminders."
                 ))
                 Button {
                     Task {

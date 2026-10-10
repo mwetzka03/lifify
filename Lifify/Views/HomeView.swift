@@ -95,14 +95,14 @@ struct HomeView: View {
                 }
                 ForEach(dayChallenges.prefix(5)) { challenge in
                     HStack {
-                        Image(systemName: ChallengeService.isCompleted(challenge, on: selectedDate, completions: completions) ? "checkmark.circle.fill" : "circle")
-                            .foregroundStyle(ChallengeService.isCompleted(challenge, on: selectedDate, completions: completions) ? .green : .secondary)
                         Image(systemName: IconPreferenceStore.icon(for: challenge.id, fallback: "target"))
                         Text(challenge.title)
                         Spacer()
                         Text("+\(challenge.rewardCoins) 🪙")
                             .font(.caption)
                             .foregroundStyle(.orange)
+                        Image(systemName: ChallengeService.isCompleted(challenge, on: selectedDate, completions: completions) ? "checkmark.circle.fill" : "circle")
+                            .foregroundStyle(ChallengeService.isCompleted(challenge, on: selectedDate, completions: completions) ? .green : .secondary)
                     }
                 }
                 Spacer(minLength: 0)

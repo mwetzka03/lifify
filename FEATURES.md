@@ -23,8 +23,8 @@ iPhone-App mit SwiftUI und SwiftData.
   Rheinland-Pfalz (inklusive gesetzlicher Feiertage)
 - Variable Monatsbudgets und Budgetpools pro Gehaltszeitraum oder Kalenderjahr;
   skalierbare Pools übertragen den Rest in die nächste Periode
-- Einkaufszettel, Schulden, Ausgabengruppen und Depotpositionen mit manuell
-  eingetragenem Kurs
+- Einkaufszettel, Schulden, Ausgabengruppen und Depotpositionen mit ISIN,
+  automatischem Kursabruf und manuellem Fallback
 - Deutsch und Englisch, Erscheinungsbild Hell/Dunkel/System
 - Vollständige lokale JSON-Sicherung und Wiederherstellung
 - CSV-Import und Import einer einzelnen CAMT-XML-Datei
@@ -39,6 +39,7 @@ iPhone-App mit SwiftUI und SwiftData.
 - Belohnungsshop und Wallet mit Coin-Transaktionen und Kaufhistorie
 - Frei wählbare SF-Symbole für Buchungen, Fixkosten, Challenges und Belohnungen
 - Vollständiges lokales Löschen aller Daten und Zurücksetzen der App
+- Platzhalter-Tab „Gesundheit/Health“ für einen späteren Funktionsausbau
 - Lokal gespeicherte Bucketlist-Daten; die Oberfläche ist vorerst ausgeblendet
 - Optionaler Import aus iOS-Kalendern und Erinnerungen über EventKit
 
@@ -55,10 +56,12 @@ iPhone-App mit SwiftUI und SwiftData.
    Saldo-Anker. Nur spätere Buchungen verändern diesen Wert.
 4. **Oberspartopf:** Ein Oberspartopf gruppiert Spartöpfe. Er wird nicht noch
    einmal zur Gesamtsumme addiert, um Doppelzählungen zu vermeiden.
-5. **Depot:** Ein Depotwert ist Stückzahl × manuell eingetragener Kurs. Es gibt
-   keine Live-Kurse. Käufe und Verkäufe werden in dieser Version nicht
-   automatisch in ein FIFO-Steuerlot umgerechnet; Geldbewegungen können separat
-   als Buchung erfasst werden.
+5. **Depot:** Ein Depotwert ist Stückzahl × aktueller Kurs. Lifify löst die ISIN
+   beim App-Start bestmöglich über die öffentlichen Yahoo-Finance-Such- und
+   Chart-Endpunkte auf und rechnet Fremdwährungskurse in Euro um. Dies ist kein
+   garantierter Börsendatenvertrag; bei Netz-, Rate-Limit- oder
+   Zuordnungsfehlern bleibt der manuelle Fallbackkurs unverändert. Käufe und
+   Verkäufe werden nicht automatisch in ein FIFO-Steuerlot umgerechnet.
 6. **Variable Kosten:** Monatswerte gelten ab dem Erstellungsmonat. Der in
    FinanzBuddy hart codierte Startmonat `2026-06` wird nicht übernommen.
 7. **Budgetpool-Gehaltszeitraum:** Der Starttag ist je Pool einstellbar
@@ -76,9 +79,11 @@ iPhone-App mit SwiftUI und SwiftData.
 10. **Import-Deduplizierung:** Importierte Zeilen erhalten aus den Quelldaten
     einen stabilen Fingerabdruck. Derselbe Datensatz wird nicht erneut
     importiert.
-11. **Datenschutz:** Es gibt weder Backend noch Kontoanmeldung, Telemetrie,
-    Werbung oder Netzwerkzugriffe. Import und Export erfolgen ausschließlich
-    über den systemeigenen Dateidialog.
+11. **Datenschutz:** Es gibt weder eigenes Backend noch Kontoanmeldung,
+    Telemetrie oder Werbung. Nur für den ausdrücklich gewünschten Kursabruf
+    werden ISIN beziehungsweise das aufgelöste Börsensymbol an öffentliche
+    Yahoo-Finance-Endpunkte gesendet. Alle gespeicherten Nutzerdaten bleiben auf
+    dem Gerät; Import und Export erfolgen über den systemeigenen Dateidialog.
 12. **Challenge-Synchronisierung:** Die Desktop-Referenz speichert
     CalDAV-/iCloud-Passwörter und nutzt eine Python-Brücke. Lifify speichert
     keine solchen Zugangsdaten. Optional liest es nach ausdrücklicher
@@ -89,15 +94,17 @@ iPhone-App mit SwiftUI und SwiftData.
     Bestandteil von Lifify. Bucketlist-Daten und Sicherungslogik bleiben
     erhalten, ihre Oberfläche ist vorerst ausgeblendet.
 14. **Home-Navigation:** Das bereitgestellte Mockup ist maßgeblich:
-    Home, Finanzen, Challenges und Einstellungen sind die vier Haupttabs.
-    Budgetring, Kalenderperioden und Schnellaktionen öffnen ihre jeweiligen
-    Detailansichten.
+    Home, Finanzen, Challenges, Gesundheit und Einstellungen sind die
+    Haupttabs. Der Gesundheit-Tab ist zunächst ein Platzhalter. Budgetring und
+    Kalenderperioden öffnen ihre jeweiligen Detailansichten.
 15. **Erinnerungen:** Offene iOS-Erinnerungen werden nicht automatisch als
     erledigbare Challenges angelegt. Sie bleiben in „Empfehlungen“, bis sie
     übernommen werden. Bereits übernommene Erinnerungen werden bei späteren
     Synchronisierungen nicht erneut angeboten. Das Abhaken oder erneute Öffnen
     einer übernommenen Challenge wird nach vorhandener Systemfreigabe auch in
-    Apple Erinnerungen gespeichert.
+    Apple Erinnerungen gespeichert. Wiederholungsart, Intervall, Wochentage und
+    Enddatum werden übernommen. In Lifify erstellte Challenges werden bei
+    vorhandener Freigabe ihrerseits als Apple-Erinnerung angelegt.
 16. **Gespeicherte Artikel:** Die Artikelansicht und ihre Fachlogik wurden auf
     Nutzerwunsch entfernt. Das alte SwiftData-Modell bleibt ausschließlich als
     Kompatibilitätsplatzhalter erhalten, damit vorhandene Entwicklungsstores

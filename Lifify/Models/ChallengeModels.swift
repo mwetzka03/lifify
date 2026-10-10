@@ -16,12 +16,13 @@ enum ChallengeCalendarViewMode: String, CaseIterable, Identifiable {
     }
 }
 
-enum ChallengeRecurrence: String, Codable, CaseIterable, Identifiable {
+enum ChallengeRecurrence: String, Codable, CaseIterable, Identifiable, Sendable {
     case none
     case irregular
     case daily
     case weekly
     case monthly
+    case yearly
 
     var id: String { rawValue }
     var label: String {
@@ -31,6 +32,7 @@ enum ChallengeRecurrence: String, Codable, CaseIterable, Identifiable {
         case .daily: L("Täglich", "Daily")
         case .weekly: L("Wöchentlich", "Weekly")
         case .monthly: L("Monatlich", "Monthly")
+        case .yearly: L("Jährlich", "Yearly")
         }
     }
 }

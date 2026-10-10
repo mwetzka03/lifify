@@ -135,6 +135,20 @@ enum BackupService {
         records += challenges.map {
             BackupRecord(type: "challenge", id: $0.id, strings: [$0.title, $0.details, $0.categoryRaw, $0.recurrenceRaw, $0.weeklyDays, $0.externalIdentifier ?? ""], integers: [$0.rewardCoins, $0.streakTarget], booleans: [$0.isArchived, $0.isReadOnly], dates: [$0.startDate, $0.endDate, $0.createdAt], uuids: [$0.groupID])
         }
+        records += challenges.compactMap { challenge in
+            guard let externalIdentifier = challenge.externalIdentifier,
+                  let metadata = ReminderLinkStore.metadata(for: externalIdentifier)
+            else {
+                return nil
+            }
+            return BackupRecord(
+                type: "reminderRecurrence",
+                id: challenge.id,
+                strings: [externalIdentifier, metadata.recurrence.rawValue],
+                integers: [metadata.interval] + metadata.weekdays.sorted(),
+                dates: [metadata.endDate]
+            )
+        }
         records += completions.map {
             BackupRecord(type: "completion", id: $0.id, integers: [$0.earnedCoins], dates: [$0.date], uuids: [$0.challengeID])
         }
@@ -202,10 +216,16 @@ enum BackupService {
         try context.fetch(FetchDescriptor<ExpenseGroup>()).forEach { context.delete($0) }
         try context.fetch(FetchDescriptor<PortfolioHolding>()).forEach { context.delete($0) }
         try context.fetch(FetchDescriptor<SavedArticle>()).forEach { context.delete($0) }
-        try context.fetch(FetchDescriptor<ChallengeCalendarEvent>()).forEach { context.delete($0) }
+        try context.fetch(FetchDescriptor<ChallengeCalendarEvent>()).forEach {
+            if $0.isReminderSuggestion {
+                ReminderLinkStore.remove(for: $0.externalIdentifier)
+            }
+            context.delete($0)
+        }
         try context.fetch(FetchDescriptor<ChallengeCompletion>()).forEach { context.delete($0) }
         try context.fetch(FetchDescriptor<ChallengeItem>()).forEach {
             IconPreferenceStore.remove(for: $0.id)
+            ReminderLinkStore.remove(for: $0.externalIdentifier)
             context.delete($0)
         }
         try context.fetch(FetchDescriptor<ChallengeGroup>()).forEach { context.delete($0) }
@@ -264,6 +284,20 @@ enum BackupService {
             if let rewardID = uuid(0) { context.insert(RewardPurchase(id: r.id, rewardID: rewardID, title: string(0), price: int(0), date: date(0) ?? .now)) }
         case "bucket":
             context.insert(BucketListItem(id: r.id, title: string(0), details: string(1), targetYear: int(0), isCompleted: bool(0), linkedRewardID: uuid(0)))
+        case "reminderRecurrence":
+            let externalIdentifier = string(0)
+            if !externalIdentifier.isEmpty,
+               let recurrence = ChallengeRecurrence(rawValue: string(1)) {
+                ReminderLinkStore.set(
+                    ReminderRecurrenceMetadata(
+                        recurrence: recurrence,
+                        interval: max(int(0), 1),
+                        weekdays: Set(r.integers.dropFirst().filter { (1...7).contains($0) }),
+                        endDate: date(0)
+                    ),
+                    for: externalIdentifier
+                )
+            }
         case "iconPreference":
             if !string(0).isEmpty { IconPreferenceStore.set(string(0), for: r.id) }
         default:

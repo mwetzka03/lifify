@@ -39,7 +39,10 @@ Run-Destination ein iPhone-Simulator mit iOS 17+ gewählt wird.
 
 Alle Daten liegen im lokalen SwiftData-Store des Geräts. JSON-Sicherungen sowie
 CSV- oder einzelne CAMT-XML-Dateien werden über den iOS-Dateidialog gewählt.
-Lifify unterstützt absichtlich weder ZIP noch MT940 und lädt keine Live-Kurse
-oder Nachrichten. Optional können nach ausdrücklicher Freigabe Termine und
-Erinnerungen aus den auf dem iPhone eingerichteten Systemkonten eingelesen
-werden; Lifify speichert dafür keine Passwörter.
+Lifify unterstützt absichtlich weder ZIP noch MT940 und lädt keine Nachrichten.
+Für Depotpositionen wird die eingegebene ISIN beim App-Start bestmöglich über
+öffentliche Yahoo-Finance-Endpunkte aufgelöst; bei einem Fehler bleibt der
+manuelle Fallbackkurs bestehen. Optional können nach ausdrücklicher Freigabe
+Termine und Erinnerungen aus den auf dem iPhone eingerichteten Systemkonten
+eingelesen und verknüpfte Challenge-Abschlüsse zurückgeschrieben werden; Lifify
+speichert dafür keine Passwörter.
