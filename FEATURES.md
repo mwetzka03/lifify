@@ -112,8 +112,7 @@ iPhone-App mit SwiftUI und SwiftData.
     vorhandener Freigabe ihrerseits als Apple-Erinnerung angelegt.
 16. **Gespeicherte Artikel:** Die Artikelansicht und ihre Fachlogik wurden auf
     Nutzerwunsch entfernt. Das alte SwiftData-Modell bleibt ausschließlich als
-    Kompatibilitätsplatzhalter erhalten, damit vorhandene Entwicklungsstores
-    weiterhin geöffnet werden können.
+    Kompatibilitätsplatzhalter erhalten.
 17. **Ersteinrichtung und Budget:** Das Hauptkonto ist verpflichtend und später
     nicht löschbar. Ein optionaler Bankimport legt den angegebenen Kontostand
     am Vortag des ersten Exporteintrags als Saldo-Anker an. Ausgewählte Haupt-
@@ -124,6 +123,11 @@ iPhone-App mit SwiftUI und SwiftData.
     und Shopinhalte, behält aber Konten und Einstellungen. „App zurücksetzen“
     entfernt zusätzlich Konten und Einstellungen und startet anschließend die
     Ersteinrichtung.
+19. **Entwicklungsstore:** Stores aus frühen Entwicklungsversionen enthalten
+    entfernte Modelle und können SwiftData beim Start blockieren oder abstürzen
+    lassen. Lifify verschiebt einen solchen Store einmalig in ein lokales
+    Archiv und startet die Einrichtung mit einem neuen Store. Eine vorhandene
+    JSON-Sicherung kann anschließend wiederhergestellt werden.
 
 ## Technische Leitplanken
 

@@ -82,16 +82,19 @@ enum CalendarService {
     ) -> [Date] {
         var result: [Date] = []
         var cursor = firstDate
-        while cursor <= limit, endDate.map({ cursor <= $0 }) ?? true {
+        var iterations = 0
+        while cursor <= limit, endDate.map({ cursor <= $0 }) ?? true, iterations < 2_400 {
+            iterations += 1
             if cadence == .monthly || cadence == .yearly {
                 let parts = calendar.dateComponents([.year, .month], from: cursor)
-                result.append(dueDate(year: parts.year!, month: parts.month!, day: day, rule: rule))
+                guard let year = parts.year, let month = parts.month else { break }
+                result.append(dueDate(year: year, month: month, day: day, rule: rule))
             } else {
                 result.append(cursor)
             }
             let component: Calendar.Component = cadence == .yearly ? .year : (cadence == .monthly ? .month : .day)
             let value = cadence == .biweekly ? 14 : (cadence == .weekly ? 7 : 1)
-            guard let next = calendar.date(byAdding: component, value: value, to: cursor) else { break }
+            guard let next = calendar.date(byAdding: component, value: value, to: cursor), next > cursor else { break }
             cursor = next
         }
         return result
