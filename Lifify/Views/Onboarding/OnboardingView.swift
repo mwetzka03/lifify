@@ -20,6 +20,7 @@ struct OnboardingView: View {
     @State private var accountIBAN = ""
     @State private var mainAccountID: UUID?
     @State private var openingBalance = ""
+    @State private var pendingImportRows: [ImportedTransaction] = []
     @State private var importedRows: [ImportedTransaction] = []
     @State private var importedEntryIDs: [String: UUID] = [:]
     @State private var primaryRowID: UUID?
@@ -32,6 +33,7 @@ struct OnboardingView: View {
     @State private var secondaryRowIDs: Set<UUID> = []
     @State private var importingBackup = false
     @State private var importingBank = false
+    @State private var isFinishing = false
     @State private var message: String?
 
     var body: some View {
@@ -85,9 +87,10 @@ struct OnboardingView: View {
                 Text("English").tag("en")
             }
             .pickerStyle(.inline)
+            .labelsHidden()
+        }
+        Section {
             nextButton { step = 1 }
-        } header: {
-            Text("Language / Sprache")
         }
     }
 
@@ -113,15 +116,17 @@ struct OnboardingView: View {
     private var nameStep: some View {
         Section {
             TextField(L("Dein Name", "Your name"), text: $userName)
+        } header: {
+            Text(L("Willkommen", "Welcome"))
+        } footer: {
+            Text(L("Der Name wird nur lokal für deine Begrüßung verwendet.", "The name is stored locally only for your greeting."))
+        }
+        Section {
             nextButton {
                 storedName = userName.trimmingCharacters(in: .whitespacesAndNewlines)
                 step = 3
             }
             .disabled(userName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-        } header: {
-            Text(L("Willkommen", "Welcome"))
-        } footer: {
-            Text(L("Der Name wird nur lokal für deine Begrüßung verwendet.", "The name is stored locally only for your greeting."))
         }
     }
 
@@ -132,12 +137,14 @@ struct OnboardingView: View {
                 ForEach(DashboardPeriodMode.allCases) { Text($0.label).tag($0) }
             }
             .pickerStyle(.inline)
+        } header: {
+            Text(L("Budgetzeitraum", "Budget period"))
+        }
+        Section {
             nextButton {
                 storedPeriod = periodMode.rawValue
                 step = 4
             }
-        } header: {
-            Text(L("Budgetzeitraum", "Budget period"))
         }
     }
 
@@ -148,32 +155,45 @@ struct OnboardingView: View {
             TextField("IBAN", text: $accountIBAN)
                 .textInputAutocapitalization(.characters)
                 .autocorrectionDisabled()
-            nextButton {
-                if saveMainAccount() { step = 5 }
-            }
-            .disabled(accountName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         } header: {
             Text(L("Hauptkonto", "Main account"))
         } footer: {
             Text(L("Das Hauptkonto ist verpflichtend und kann später nicht gelöscht werden.", "The main account is required and cannot be deleted later."))
+        }
+        Section {
+            nextButton {
+                if saveMainAccount() { step = 5 }
+            }
+            .disabled(accountName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         }
     }
 
     @ViewBuilder
     private var importStep: some View {
         Section {
-            TextField(L("Kontostand vor dem ersten Export-Eintrag", "Balance before the first export entry"), text: $openingBalance)
-                .keyboardType(.decimalPad)
-            Button {
-                guard Money.cents(from: openingBalance) != nil else {
-                    message = L("Bitte zuerst den vorherigen Kontostand eingeben.", "Enter the previous account balance first.")
-                    return
+            if pendingImportRows.isEmpty && importedRows.isEmpty {
+                Button {
+                    importingBank = true
+                } label: {
+                    Label(L("CSV oder CAMT auswählen", "Select CSV or CAMT"), systemImage: "doc.badge.plus")
                 }
-                importingBank = true
-            } label: {
-                Label(L("CSV oder CAMT importieren", "Import CSV or CAMT"), systemImage: "doc.badge.plus")
             }
-            .disabled(!importedRows.isEmpty)
+            if let balanceDate = openingBalanceDate, !pendingImportRows.isEmpty {
+                Text(String(
+                    format: L(
+                        "Wie hoch war der Kontostand am %@?",
+                        "What was the account balance on %@?"
+                    ),
+                    balanceDate.formatted(date: .long, time: .omitted)
+                ))
+                .font(.headline)
+                TextField(L("Kontostand", "Account balance"), text: $openingBalance)
+                    .keyboardType(.decimalPad)
+                Button(L("Import abschließen", "Finish import")) {
+                    commitBankImport()
+                }
+                .disabled(Money.cents(from: openingBalance) == nil)
+            }
             if !importedRows.isEmpty {
                 Label(
                     "\(importedRows.count) \(L("Buchungen importiert", "transactions imported"))",
@@ -181,13 +201,18 @@ struct OnboardingView: View {
                 )
                 .foregroundStyle(.green)
             }
-            nextButton { step = 6 }
+        } header: {
+            Text(L("Bankexport (optional)", "Bank export (optional)"))
+        }
+        Section {
+            if !importedRows.isEmpty {
+                nextButton { step = 6 }
+            }
             Button(L("Ohne Import fortfahren", "Continue without import")) {
+                pendingImportRows = []
                 step = 6
             }
             .disabled(!importedRows.isEmpty)
-        } header: {
-            Text(L("Bankexport (optional)", "Bank export (optional)"))
         }
     }
 
@@ -198,7 +223,7 @@ struct OnboardingView: View {
                 Picker(L("Positive Buchung", "Positive transaction"), selection: $primaryRowID) {
                     Text(L("Manuell", "Manual")).tag(Optional<UUID>.none)
                     ForEach(positiveRows) {
-                        Text("\($0.title) · \(Money.string(cents: $0.amountCents))")
+                        Text("\($0.title) · \(Money.string(cents: $0.amountCents)) · \($0.senderIBAN.isEmpty ? L("keine IBAN", "no IBAN") : $0.senderIBAN)")
                             .tag(Optional($0.id))
                     }
                 }
@@ -228,7 +253,7 @@ struct OnboardingView: View {
                     )) {
                         VStack(alignment: .leading) {
                             Text(row.title)
-                            Text(Money.string(cents: row.amountCents))
+                            Text("\(Money.string(cents: row.amountCents)) · \(row.senderIBAN)")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
@@ -237,10 +262,16 @@ struct OnboardingView: View {
             }
         }
         Section {
-            Button(L("Einrichtung abschließen", "Finish setup")) {
-                finishSetup()
+            Button {
+                Task { await finishSetup() }
+            } label: {
+                if isFinishing {
+                    ProgressView()
+                } else {
+                    Text(L("Einrichtung abschließen", "Finish setup"))
+                }
             }
-            .disabled(!canFinish)
+            .disabled(!canFinish || isFinishing)
         }
     }
 
@@ -252,13 +283,16 @@ struct OnboardingView: View {
     private var restoredImportedRows: [ImportedTransaction] {
         existingEntries.compactMap { entry in
             guard let fingerprint = entry.importFingerprint else { return nil }
+            let ibans = BankImportService.ibans(from: entry.notes, amountCents: entry.amountCents)
             return ImportedTransaction(
                 id: entry.id,
                 date: entry.date,
                 title: entry.title,
                 notes: entry.notes,
                 amountCents: entry.amountCents,
-                iban: entry.notes,
+                iban: entry.amountCents >= 0 ? ibans.sender : ibans.recipient,
+                senderIBAN: ibans.sender,
+                recipientIBAN: ibans.recipient,
                 fingerprint: fingerprint
             )
         }
@@ -299,10 +333,7 @@ struct OnboardingView: View {
     }
 
     private func importBankFile(_ result: Result<[URL], Error>) {
-        guard case let .success(urls) = result, let url = urls.first,
-              let accountID = mainAccountID ?? accounts.first(where: \.isMain)?.id,
-              let balance = Money.cents(from: openingBalance)
-        else {
+        guard case let .success(urls) = result, let url = urls.first else {
             if case let .failure(error) = result { message = error.localizedDescription }
             return
         }
@@ -313,40 +344,93 @@ struct OnboardingView: View {
                 data: Data(contentsOf: url),
                 fileExtension: url.pathExtension
             ).sorted { $0.date < $1.date }
-            guard let firstDate = parsedRows.first?.date else {
+            guard !parsedRows.isEmpty else {
                 message = L("Der Export enthält keine Buchungen.", "The export contains no transactions.")
                 return
             }
-            let knownFingerprints = Set(existingEntries.compactMap(\.importFingerprint))
-            let rows = parsedRows.filter { !knownFingerprints.contains($0.fingerprint) }
-            if !existingEntries.contains(where: {
-                $0.kind == .adjustment && $0.accountID == accountID
-            }) {
-                let adjustmentDate = Calendar.current.date(byAdding: .day, value: -1, to: firstDate) ?? firstDate
-                context.insert(LedgerEntry(
-                    date: adjustmentDate,
-                    title: L("Eröffnungssaldo", "Opening balance"),
-                    amountCents: balance,
-                    kind: .adjustment,
-                    accountID: accountID
-                ))
+            pendingImportRows = parsedRows
+        } catch {
+            message = error.localizedDescription
+        }
+    }
+
+    private var openingBalanceDate: Date? {
+        guard let firstDate = pendingImportRows.first?.date else { return nil }
+        return Calendar.current.date(byAdding: .day, value: -1, to: firstDate)
+    }
+
+    private func commitBankImport() {
+        guard let accountID = mainAccountID ?? accounts.first(where: \.isMain)?.id,
+              let balance = Money.cents(from: openingBalance),
+              let firstDate = pendingImportRows.first?.date
+        else {
+            return
+        }
+        var existingByFingerprint: [String: LedgerEntry] = [:]
+        for entry in existingEntries {
+            if let fingerprint = entry.importFingerprint {
+                existingByFingerprint[fingerprint] = entry
             }
-            for row in rows {
-                let entry = LedgerEntry(
+        }
+        var seenFingerprints: Set<String> = []
+        var selectableRows: [ImportedTransaction] = []
+        var entryIDs: [String: UUID] = [:]
+        var inserted: [LedgerEntry] = []
+        if !existingEntries.contains(where: {
+            $0.kind == .adjustment && $0.accountID == accountID
+        }) {
+            let adjustment = LedgerEntry(
+                date: Calendar.current.date(byAdding: .day, value: -1, to: firstDate) ?? firstDate,
+                title: L("Eröffnungssaldo", "Opening balance"),
+                amountCents: balance,
+                kind: .adjustment,
+                accountID: accountID
+            )
+            context.insert(adjustment)
+            inserted.append(adjustment)
+        }
+        for row in pendingImportRows {
+            let fingerprints = [row.fingerprint, row.legacyFingerprint].compactMap { $0 }
+            guard seenFingerprints.isDisjoint(with: fingerprints) else { continue }
+            seenFingerprints.formUnion(fingerprints)
+
+            if let existing = fingerprints.compactMap({ existingByFingerprint[$0] }).first {
+                selectableRows.append(ImportedTransaction(
+                    id: existing.id,
                     date: row.date,
                     title: row.title,
                     notes: row.notes,
                     amountCents: row.amountCents,
-                    kind: row.amountCents < 0 ? .expense : .income,
-                    accountID: accountID,
-                    importFingerprint: row.fingerprint
-                )
-                context.insert(entry)
-                importedEntryIDs[row.fingerprint] = entry.id
+                    iban: row.iban,
+                    senderIBAN: row.senderIBAN,
+                    recipientIBAN: row.recipientIBAN,
+                    fingerprint: row.fingerprint,
+                    legacyFingerprint: row.legacyFingerprint
+                ))
+                entryIDs[row.fingerprint] = existing.id
+                continue
             }
+            let entry = LedgerEntry(
+                date: row.date,
+                title: row.title,
+                notes: row.notes,
+                amountCents: row.amountCents,
+                kind: row.amountCents < 0 ? .expense : .income,
+                accountID: accountID,
+                importFingerprint: row.fingerprint
+            )
+            context.insert(entry)
+            inserted.append(entry)
+            selectableRows.append(row)
+            entryIDs[row.fingerprint] = entry.id
+        }
+        do {
             try context.save()
-            importedRows = parsedRows
+            importedEntryIDs.merge(entryIDs) { _, new in new }
+            importedRows = selectableRows
+            pendingImportRows = []
         } catch {
+            inserted.forEach(context.delete)
             message = error.localizedDescription
         }
     }
@@ -354,14 +438,22 @@ struct OnboardingView: View {
     private func fillPrimaryIncome() {
         guard let row = positiveRows.first(where: { $0.id == primaryRowID }) else { return }
         primaryName = row.title
-        primaryIBAN = row.iban
+        primaryIBAN = row.senderIBAN
         primaryAmount = String(format: "%.2f", Double(row.amountCents) / 100)
         primaryDate = row.date
         dueDay = Calendar.current.component(.day, from: row.date)
     }
 
-    private func finishSetup() {
-        guard let amount = Money.cents(from: primaryAmount), amount > 0 else { return }
+    @MainActor
+    private func finishSetup() async {
+        guard !isFinishing,
+              let amount = Money.cents(from: primaryAmount),
+              amount > 0
+        else {
+            return
+        }
+        isFinishing = true
+        defer { isFinishing = false }
         let accountID = mainAccountID ?? accounts.first(where: \.isMain)?.id
         let primaryForecast = IncomeForecast(
             name: primaryName.trimmingCharacters(in: .whitespacesAndNewlines),
@@ -403,12 +495,13 @@ struct OnboardingView: View {
             IncomeAssignmentStore.assign(entryID: entryID, to: primaryForecast.id)
         }
         IncomeAssignmentStore.setSecondary(secondaryForecasts.map {
-            (iban: $0.row.iban, forecastID: $0.forecast.id)
+            (iban: $0.row.senderIBAN, forecastID: $0.forecast.id)
         })
         for pair in secondaryForecasts {
             let entryID = importedEntryIDs[pair.row.fingerprint] ?? pair.row.id
             IncomeAssignmentStore.assign(entryID: entryID, to: pair.forecast.id)
         }
+        await Task.yield()
         step = 0
         onboardingInProgress = false
         hasCompletedOnboarding = true

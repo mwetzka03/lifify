@@ -23,7 +23,9 @@ final class DataImportViewModel: ObservableObject {
             let rows = try BankImportService.parse(data: data, fileExtension: url.pathExtension)
             var known = Set(existingEntries.compactMap(\.importFingerprint))
             var imported = 0
-            for row in rows where !known.contains(row.fingerprint) {
+            for row in rows {
+                let fingerprints = [row.fingerprint, row.legacyFingerprint].compactMap { $0 }
+                guard known.isDisjoint(with: fingerprints) else { continue }
                 let kind: LedgerKind = row.amountCents < 0 ? .expense : .income
                 let entry = LedgerEntry(
                     date: row.date,
@@ -36,10 +38,10 @@ final class DataImportViewModel: ObservableObject {
                 )
                 context.insert(entry)
                 if row.amountCents > 0,
-                   let forecastID = IncomeAssignmentStore.forecastID(for: row.iban) {
+                   let forecastID = IncomeAssignmentStore.forecastID(for: row.senderIBAN) {
                     IncomeAssignmentStore.assign(entryID: entry.id, to: forecastID)
                 }
-                known.insert(row.fingerprint)
+                known.formUnion(fingerprints)
                 imported += 1
             }
             try context.save()

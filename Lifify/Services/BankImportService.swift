@@ -8,7 +8,10 @@ struct ImportedTransaction: Identifiable {
     let notes: String
     let amountCents: Int
     let iban: String
+    let senderIBAN: String
+    let recipientIBAN: String
     let fingerprint: String
+    let legacyFingerprint: String?
 
     init(
         id: UUID = UUID(),
@@ -17,7 +20,10 @@ struct ImportedTransaction: Identifiable {
         notes: String,
         amountCents: Int,
         iban: String,
-        fingerprint: String
+        senderIBAN: String,
+        recipientIBAN: String,
+        fingerprint: String,
+        legacyFingerprint: String? = nil
     ) {
         self.id = id
         self.date = date
@@ -25,7 +31,10 @@ struct ImportedTransaction: Identifiable {
         self.notes = notes
         self.amountCents = amountCents
         self.iban = iban
+        self.senderIBAN = senderIBAN
+        self.recipientIBAN = recipientIBAN
         self.fingerprint = fingerprint
+        self.legacyFingerprint = legacyFingerprint
     }
 }
 
@@ -64,7 +73,24 @@ enum BankImportService {
             let amountIndex = index(of: ["betrag", "amount", "umsatz"], in: headers)
         else { throw BankImportError.unsupportedCSV }
         let titleIndex = index(of: ["verwendungszweck", "buchungstext", "beschreibung", "purpose", "description", "name"], in: headers)
-        let ibanIndex = index(of: ["iban", "gegenkontoiban", "counterpartyiban"], in: headers)
+        let ibanIndex = index(
+            of: ["gegenkontoiban", "ibanime", "counterpartyiban", "iban"],
+            in: headers
+        )
+        let senderIBANIndex = index(
+            of: [
+                "absenderiban", "ibanabsender", "auftraggeberiban", "ibanauftraggeber",
+                "senderiban", "ibansender", "debtoriban", "ibandebtor", "voniban"
+            ],
+            in: headers
+        )
+        let recipientIBANIndex = index(
+            of: [
+                "empfaengeriban", "ibanempfaenger", "recipientiban", "ibanrecipient",
+                "creditoriban", "ibancreditor", "beguenstigteriban", "ibanbeguenstigter", "nachiban"
+            ],
+            in: headers
+        )
 
         return lines.dropFirst().compactMap { line in
             let fields = csvFields(line, delimiter: delimiter)
@@ -72,8 +98,19 @@ enum BankImportService {
                   let date = parseDate(fields[dateIndex]),
                   let amount = Money.cents(from: fields[amountIndex]) else { return nil }
             let title = titleIndex.flatMap { fields.indices.contains($0) ? fields[$0] : nil } ?? L("Importierte Buchung", "Imported transaction")
-            let iban = ibanIndex.flatMap { fields.indices.contains($0) ? fields[$0] : nil } ?? ""
-            return imported(date: date, title: title, notes: iban, amount: amount, iban: iban)
+            let genericIBAN = ibanIndex.flatMap { fields.indices.contains($0) ? fields[$0] : nil } ?? ""
+            var senderIBAN = senderIBANIndex.flatMap { fields.indices.contains($0) ? fields[$0] : nil } ?? ""
+            var recipientIBAN = recipientIBANIndex.flatMap { fields.indices.contains($0) ? fields[$0] : nil } ?? ""
+            if amount > 0, senderIBAN.isEmpty { senderIBAN = genericIBAN }
+            if amount < 0, recipientIBAN.isEmpty { recipientIBAN = genericIBAN }
+            return imported(
+                date: date,
+                title: title,
+                amount: amount,
+                senderIBAN: senderIBAN,
+                recipientIBAN: recipientIBAN,
+                legacyIBAN: genericIBAN
+            )
         }
     }
 
@@ -88,20 +125,79 @@ enum BankImportService {
     private static func imported(
         date: Date,
         title: String,
-        notes: String,
         amount: Int,
-        iban: String
+        senderIBAN: String,
+        recipientIBAN: String,
+        legacyIBAN: String
     ) -> ImportedTransaction {
-        let source = "\(date.dayKey)|\(amount)|\(title)|\(iban)"
-        let fingerprint = SHA256.hash(data: Data(source.utf8)).map { String(format: "%02x", $0) }.joined()
+        let senderIBAN = normalizeIBAN(senderIBAN)
+        let recipientIBAN = normalizeIBAN(recipientIBAN)
+        let iban = amount >= 0 ? senderIBAN : recipientIBAN
+        let notes = ibanNotes(sender: senderIBAN, recipient: recipientIBAN)
+        let fingerprint = fingerprint(date: date, amount: amount, title: title, iban: iban)
+        let legacyFingerprint = fingerprint(
+            date: date,
+            amount: amount,
+            title: title,
+            iban: legacyIBAN
+        )
         return ImportedTransaction(
             date: date,
             title: title.isEmpty ? L("Importierte Buchung", "Imported transaction") : title,
             notes: notes,
             amountCents: amount,
             iban: iban,
-            fingerprint: fingerprint
+            senderIBAN: senderIBAN,
+            recipientIBAN: recipientIBAN,
+            fingerprint: fingerprint,
+            legacyFingerprint: legacyFingerprint == fingerprint ? nil : legacyFingerprint
         )
+    }
+
+    fileprivate static func fingerprint(date: Date, amount: Int, title: String, iban: String) -> String {
+        let source = "\(date.dayKey)|\(amount)|\(title)|\(iban)"
+        return SHA256.hash(data: Data(source.utf8))
+            .map { String(format: "%02x", $0) }
+            .joined()
+    }
+
+    private static func normalizeIBAN(_ value: String) -> String {
+        value.replacingOccurrences(of: " ", with: "").uppercased()
+    }
+
+    fileprivate static func ibanNotes(sender: String, recipient: String) -> String {
+        [
+            sender.isEmpty ? nil : "\(L("Sender-IBAN", "Sender IBAN")): \(sender)",
+            recipient.isEmpty ? nil : "\(L("Empfänger-IBAN", "Recipient IBAN")): \(recipient)"
+        ]
+        .compactMap { $0 }
+        .joined(separator: "\n")
+    }
+
+    static func ibans(from notes: String, amountCents: Int? = nil) -> (sender: String, recipient: String) {
+        var sender = ""
+        var recipient = ""
+        for line in notes.components(separatedBy: .newlines) {
+            let parts = line.split(separator: ":", maxSplits: 1).map(String.init)
+            guard parts.count == 2 else { continue }
+            let label = parts[0].lowercased()
+            let value = normalizeIBAN(parts[1])
+            if label.contains("sender") { sender = value }
+            if label.contains("empfänger") || label.contains("recipient") { recipient = value }
+        }
+        if sender.isEmpty, recipient.isEmpty, let amountCents {
+            let candidate = normalizeIBAN(notes)
+            if (15...34).contains(candidate.count),
+               candidate.prefix(2).allSatisfy(\.isLetter),
+               candidate.dropFirst(2).allSatisfy({ $0.isLetter || $0.isNumber }) {
+                if amountCents >= 0 {
+                    sender = candidate
+                } else {
+                    recipient = candidate
+                }
+            }
+        }
+        return (sender, recipient)
     }
 
     fileprivate static func parseDate(_ value: String) -> Date? {
@@ -149,7 +245,7 @@ enum BankImportService {
     }
 
     private static func index(of candidates: [String], in headers: [String]) -> Int? {
-        headers.firstIndex { header in candidates.contains(header) }
+        candidates.lazy.compactMap { headers.firstIndex(of: $0) }.first
     }
 }
 
@@ -162,7 +258,10 @@ private final class CAMTParserDelegate: NSObject, XMLParserDelegate {
     private var creditDebit = ""
     private var dateText = ""
     private var title = ""
-    private var iban = ""
+    private var senderIBAN = ""
+    private var recipientIBAN = ""
+    private var genericIBAN = ""
+    private var legacyIBAN = ""
 
     func parser(_ parser: XMLParser, didStartElement elementName: String, namespaceURI: String?, qualifiedName: String?, attributes attributeDict: [String: String]) {
         let name = elementName.components(separatedBy: ":").last ?? elementName
@@ -174,7 +273,10 @@ private final class CAMTParserDelegate: NSObject, XMLParserDelegate {
             creditDebit = ""
             dateText = ""
             title = ""
-            iban = ""
+            senderIBAN = ""
+            recipientIBAN = ""
+            genericIBAN = ""
+            legacyIBAN = ""
         }
     }
 
@@ -195,19 +297,46 @@ private final class CAMTParserDelegate: NSObject, XMLParserDelegate {
         if ["Ustrd", "AddtlNtryInf", "Nm"].contains(name), !value.isEmpty {
             title = title.isEmpty ? value : "\(title) · \(value)"
         }
-        if name == "IBAN", !value.isEmpty { iban = value }
+        if name == "IBAN", !value.isEmpty {
+            legacyIBAN = value
+            if path.contains("DbtrAcct") {
+                senderIBAN = value
+            } else if path.contains("CdtrAcct") {
+                recipientIBAN = value
+            } else {
+                genericIBAN = value
+            }
+        }
         if name == "Ntry" {
             if let date = BankImportService.parseDate(dateText), let unsigned = Money.cents(from: amountText) {
                 let amount = creditDebit.uppercased().contains("DBIT") ? -abs(unsigned) : abs(unsigned)
-                let source = "\(date.dayKey)|\(amount)|\(title)|\(iban)"
-                let fingerprint = SHA256.hash(data: Data(source.utf8)).map { String(format: "%02x", $0) }.joined()
+                if amount > 0, senderIBAN.isEmpty { senderIBAN = genericIBAN }
+                if amount < 0, recipientIBAN.isEmpty { recipientIBAN = genericIBAN }
+                senderIBAN = senderIBAN.replacingOccurrences(of: " ", with: "").uppercased()
+                recipientIBAN = recipientIBAN.replacingOccurrences(of: " ", with: "").uppercased()
+                let iban = amount >= 0 ? senderIBAN : recipientIBAN
+                let fingerprint = BankImportService.fingerprint(
+                    date: date,
+                    amount: amount,
+                    title: title,
+                    iban: iban
+                )
+                let legacyFingerprint = BankImportService.fingerprint(
+                    date: date,
+                    amount: amount,
+                    title: title,
+                    iban: legacyIBAN
+                )
                 rows.append(ImportedTransaction(
                     date: date,
                     title: title.isEmpty ? L("CAMT-Buchung", "CAMT transaction") : title,
-                    notes: iban,
+                    notes: BankImportService.ibanNotes(sender: senderIBAN, recipient: recipientIBAN),
                     amountCents: amount,
                     iban: iban,
-                    fingerprint: fingerprint
+                    senderIBAN: senderIBAN,
+                    recipientIBAN: recipientIBAN,
+                    fingerprint: fingerprint,
+                    legacyFingerprint: legacyFingerprint == fingerprint ? nil : legacyFingerprint
                 ))
             }
             inEntry = false

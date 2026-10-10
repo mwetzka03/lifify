@@ -6,23 +6,12 @@ struct ShopView: View {
     @Environment(\.openURL) private var openURL
     @Query(sort: \RewardItem.title) private var rewards: [RewardItem]
     @Query(sort: \CoinTransaction.date, order: .reverse) private var transactions: [CoinTransaction]
-    @Query(sort: \RewardPurchase.date, order: .reverse) private var purchases: [RewardPurchase]
     @State private var showingNew = false
     @State private var edited: RewardItem?
     @State private var message: String?
 
     var body: some View {
         List {
-            Section {
-                LabeledContent {
-                    CoinAmountView(amount: ChallengeService.walletBalance(transactions: transactions))
-                } label: {
-                    Text(L("Guthaben", "Balance"))
-                }
-                LabeledContent(L("Verdient", "Earned"), value: "\(transactions.filter { $0.amount > 0 }.reduce(0) { $0 + $1.amount })")
-                LabeledContent(L("Ausgegeben", "Spent"), value: "\(abs(transactions.filter { $0.amount < 0 }.reduce(0) { $0 + $1.amount }))")
-                LabeledContent(L("Käufe", "Purchases"), value: "\(purchases.count)")
-            }
             Section(L("Shop", "Shop")) {
                 if rewards.filter(\.isActive).isEmpty {
                     Text(L("Der Shop ist leer", "The shop is empty"))
@@ -65,32 +54,8 @@ struct ShopView: View {
                     try? context.save()
                 }
             }
-            Section(L("Transaktionen", "Transactions")) {
-                ForEach(transactions) { transaction in
-                    HStack {
-                        VStack(alignment: .leading) {
-                            Text(transaction.title)
-                            Text(transaction.date, format: .dateTime.day().month().year())
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                        Text("\(transaction.amount > 0 ? "+" : "")\(transaction.amount)")
-                            .foregroundStyle(transaction.amount >= 0 ? .green : .red)
-                    }
-                }
-            }
-            Section(L("Käufe", "Purchases")) {
-                ForEach(purchases) { purchase in
-                    LabeledContent {
-                        CoinAmountView(amount: purchase.price)
-                    } label: {
-                        Text(purchase.title)
-                    }
-                }
-            }
         }
-        .navigationTitle(L("Shop & Wallet", "Shop & Wallet"))
+        .navigationTitle(L("Shop", "Shop"))
         .toolbar { Button { showingNew = true } label: { Image(systemName: "plus") } }
         .sheet(isPresented: $showingNew) { RewardForm(reward: nil) }
         .sheet(item: $edited) { RewardForm(reward: $0) }

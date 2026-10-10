@@ -71,7 +71,13 @@ struct ChallengesView: View {
                         ChallengeGroupDetailView(group: group)
                     } label: {
                         VStack(alignment: .leading) {
-                            Text(group.title).font(.headline)
+                            HStack {
+                                Text(group.title).font(.headline)
+                                Spacer()
+                                CoinAmountView(
+                                    amount: groupMembers(group).reduce(0) { $0 + $1.rewardCoins }
+                                )
+                            }
                             ForEach(groupMembers(group).prefix(3)) { challenge in
                                 Label(challenge.title, systemImage: "arrow.turn.down.right")
                                     .font(.caption)
@@ -140,11 +146,14 @@ struct ChallengesView: View {
                 NavigationLink {
                     ShopView()
                 } label: {
-                    HStack(spacing: 7) {
-                        Image(systemName: "gift.fill")
-                            .foregroundStyle(.blue)
-                        CoinAmountView(amount: ChallengeService.walletBalance(transactions: transactions))
-                    }
+                    Label(L("Shop", "Shop"), systemImage: "gift.fill")
+                }
+            }
+            ToolbarItem(placement: .topBarLeading) {
+                NavigationLink {
+                    WalletView()
+                } label: {
+                    CoinAmountView(amount: ChallengeService.walletBalance(transactions: transactions))
                 }
             }
             ToolbarItem(placement: .topBarTrailing) {

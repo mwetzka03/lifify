@@ -155,10 +155,21 @@ private struct TransactionDetailView: View {
                 }
                 if !entry.notes.isEmpty {
                     Section(L("Buchungsdetails", "Transaction details")) {
-                        Text(entry.notes)
-                            .textSelection(.enabled)
-                        if let iban = counterpartyIBAN {
-                            LabeledContent(L("Gegenkonto-IBAN", "Counterparty IBAN"), value: iban)
+                        if !importIBANs.sender.isEmpty {
+                            LabeledContent(
+                                L("Sender-IBAN", "Sender IBAN"),
+                                value: importIBANs.sender
+                            )
+                        }
+                        if !importIBANs.recipient.isEmpty {
+                            LabeledContent(
+                                L("Empfänger-IBAN", "Recipient IBAN"),
+                                value: importIBANs.recipient
+                            )
+                        }
+                        if importIBANs.sender.isEmpty && importIBANs.recipient.isEmpty {
+                            Text(entry.notes)
+                                .textSelection(.enabled)
                         }
                     }
                 }
@@ -177,17 +188,8 @@ private struct TransactionDetailView: View {
         accounts.first { $0.id == id }
     }
 
-    private var counterpartyIBAN: String? {
-        let candidate = entry.notes
-            .replacingOccurrences(of: " ", with: "")
-            .uppercased()
-        guard (15...34).contains(candidate.count),
-              candidate.prefix(2).allSatisfy(\.isLetter),
-              candidate.dropFirst(2).allSatisfy({ $0.isLetter || $0.isNumber })
-        else {
-            return nil
-        }
-        return candidate
+    private var importIBANs: (sender: String, recipient: String) {
+        BankImportService.ibans(from: entry.notes, amountCents: entry.amountCents)
     }
 
     private var displayAmount: Int {

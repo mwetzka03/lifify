@@ -3,7 +3,7 @@ import SwiftUI
 struct HealthView: View {
     var body: some View {
         VStack(spacing: 12) {
-            Text("🍎").font(.system(size: 54))
+            Image(systemName: "leaf.fill").font(.system(size: 48))
             Text(L("Demnächst verfügbar", "Coming soon"))
                 .font(.headline)
         }

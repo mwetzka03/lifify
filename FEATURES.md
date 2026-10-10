@@ -75,10 +75,12 @@ iPhone-App mit SwiftUI und SwiftData.
    zugeordnete Ausgaben. Der Rest wird vollständig, auch wenn er negativ ist, in
    die nächste Periode übernommen.
 9. **Import:** CSV erwartet eine Kopfzeile und erkennt deutsche sowie englische
-    Spaltennamen für Datum, Betrag, Verwendungszweck und IBAN. CAMT verarbeitet
-    genau eine XML-Datei und liest Buchungsdatum, Betrag, Soll/Haben,
-    Beschreibung und Gegenkonto. ZIP und MT940 sind absichtlich nicht
-    enthalten.
+    Spaltennamen für Datum, Betrag, Verwendungszweck sowie Sender- und
+    Empfänger-IBAN. CAMT verarbeitet genau eine XML-Datei und liest
+    Buchungsdatum, Betrag, Soll/Haben, Beschreibung sowie Schuldner- und
+    Gläubiger-IBAN. Fehlt im CSV die Richtung, wird eine allgemeine
+    Gegenkonto-IBAN bei Einnahmen als Sender und bei Ausgaben als Empfänger
+    behandelt. ZIP und MT940 sind absichtlich nicht enthalten.
 10. **Import-Deduplizierung:** Importierte Zeilen erhalten aus den Quelldaten
     einen stabilen Fingerabdruck. Derselbe Datensatz wird nicht erneut
     importiert.

@@ -28,7 +28,7 @@ struct RootView: View {
                 .tabItem { Image(systemName: "target").accessibilityLabel(L("Challenges", "Challenges")) }
                 .tag(2)
             NavigationStack { HealthView() }
-                .tabItem { Text("🍎").accessibilityLabel(L("Gesundheit", "Health")) }
+                .tabItem { Image(systemName: "leaf.fill").accessibilityLabel(L("Gesundheit", "Health")) }
                 .tag(3)
             NavigationStack { SettingsView() }
                 .tabItem { Image(systemName: "gear").accessibilityLabel(L("Einstellungen", "Settings")) }
