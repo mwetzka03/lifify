@@ -72,9 +72,18 @@ enum BankImportService {
             let dateIndex = index(of: ["buchungstag", "datum", "date", "bookingdate"], in: headers),
             let amountIndex = index(of: ["betrag", "amount", "umsatz"], in: headers)
         else { throw BankImportError.unsupportedCSV }
-        let titleIndex = index(of: ["verwendungszweck", "buchungstext", "beschreibung", "purpose", "description", "name"], in: headers)
+        let bookingTextIndex = index(of: ["buchungstext", "bookingtext"], in: headers)
+        let purposeIndex = index(of: ["verwendungszweck", "beschreibung", "purpose", "description"], in: headers)
+        let counterpartyNameIndex = index(
+            of: ["beguenstigterzahlungspflichtiger", "gegenpartei", "counterparty", "name"],
+            in: headers
+        )
+        let ownIBANIndex = index(
+            of: ["auftragskonto", "eigeneskkonto", "owniban", "accountiban"],
+            in: headers
+        )
         let ibanIndex = index(
-            of: ["gegenkontoiban", "ibanime", "counterpartyiban", "iban"],
+            of: ["kontonummeriban", "gegenkontoiban", "ibanime", "counterpartyiban", "iban"],
             in: headers
         )
         let senderIBANIndex = index(
@@ -97,19 +106,40 @@ enum BankImportService {
             guard fields.indices.contains(dateIndex), fields.indices.contains(amountIndex),
                   let date = parseDate(fields[dateIndex]),
                   let amount = Money.cents(from: fields[amountIndex]) else { return nil }
-            let title = titleIndex.flatMap { fields.indices.contains($0) ? fields[$0] : nil } ?? L("Importierte Buchung", "Imported transaction")
+            let bookingText = field(at: bookingTextIndex, from: fields)
+            let purpose = field(at: purposeIndex, from: fields)
+            let counterpartyName = field(at: counterpartyNameIndex, from: fields)
+            let title = [counterpartyName, bookingText, purpose]
+                .first(where: { !$0.isEmpty }) ?? L("Importierte Buchung", "Imported transaction")
+            let legacyTitle = [purpose, bookingText, counterpartyName]
+                .first(where: { !$0.isEmpty }) ?? L("Importierte Buchung", "Imported transaction")
+            let ownIBAN = field(at: ownIBANIndex, from: fields)
             let genericIBAN = ibanIndex.flatMap { fields.indices.contains($0) ? fields[$0] : nil } ?? ""
             var senderIBAN = senderIBANIndex.flatMap { fields.indices.contains($0) ? fields[$0] : nil } ?? ""
             var recipientIBAN = recipientIBANIndex.flatMap { fields.indices.contains($0) ? fields[$0] : nil } ?? ""
-            if amount > 0, senderIBAN.isEmpty { senderIBAN = genericIBAN }
-            if amount < 0, recipientIBAN.isEmpty { recipientIBAN = genericIBAN }
+            if amount >= 0 {
+                if senderIBAN.isEmpty { senderIBAN = genericIBAN }
+                if recipientIBAN.isEmpty { recipientIBAN = ownIBAN }
+            } else {
+                if senderIBAN.isEmpty { senderIBAN = ownIBAN }
+                if recipientIBAN.isEmpty { recipientIBAN = genericIBAN }
+            }
+            let details = [
+                bookingText.isEmpty ? nil : "\(L("Buchungstext", "Booking text")): \(bookingText)",
+                purpose.isEmpty ? nil : "\(L("Verwendungszweck", "Purpose")): \(purpose)",
+                counterpartyName.isEmpty ? nil : "\(L("Gegenpartei", "Counterparty")): \(counterpartyName)"
+            ]
+            .compactMap { $0 }
+            .joined(separator: "\n")
             return imported(
                 date: date,
                 title: title,
                 amount: amount,
                 senderIBAN: senderIBAN,
                 recipientIBAN: recipientIBAN,
-                legacyIBAN: genericIBAN
+                legacyIBAN: genericIBAN,
+                legacyTitle: legacyTitle,
+                details: details
             )
         }
     }
@@ -128,17 +158,21 @@ enum BankImportService {
         amount: Int,
         senderIBAN: String,
         recipientIBAN: String,
-        legacyIBAN: String
+        legacyIBAN: String,
+        legacyTitle: String,
+        details: String
     ) -> ImportedTransaction {
-        let senderIBAN = normalizeIBAN(senderIBAN)
-        let recipientIBAN = normalizeIBAN(recipientIBAN)
+        let senderIBAN = validIBAN(senderIBAN) ?? ""
+        let recipientIBAN = validIBAN(recipientIBAN) ?? ""
         let iban = amount >= 0 ? senderIBAN : recipientIBAN
-        let notes = ibanNotes(sender: senderIBAN, recipient: recipientIBAN)
+        let notes = [details, ibanNotes(sender: senderIBAN, recipient: recipientIBAN)]
+            .filter { !$0.isEmpty }
+            .joined(separator: "\n")
         let fingerprint = makeFingerprint(date: date, amount: amount, title: title, iban: iban)
         let legacyFingerprint = makeFingerprint(
             date: date,
             amount: amount,
-            title: title,
+            title: legacyTitle,
             iban: legacyIBAN
         )
         return ImportedTransaction(
@@ -163,6 +197,17 @@ enum BankImportService {
 
     private static func normalizeIBAN(_ value: String) -> String {
         value.replacingOccurrences(of: " ", with: "").uppercased()
+    }
+
+    private static func validIBAN(_ value: String) -> String? {
+        let candidate = normalizeIBAN(value)
+        guard (15...34).contains(candidate.count),
+              candidate.prefix(2).allSatisfy(\.isLetter),
+              candidate.dropFirst(2).allSatisfy({ $0.isLetter || $0.isNumber })
+        else {
+            return nil
+        }
+        return candidate
     }
 
     fileprivate static func ibanNotes(sender: String, recipient: String) -> String {
@@ -202,13 +247,29 @@ enum BankImportService {
 
     fileprivate static func parseDate(_ value: String) -> Date? {
         let value = value.trimmingCharacters(in: .whitespacesAndNewlines)
-        for format in ["yyyy-MM-dd", "dd.MM.yyyy", "MM/dd/yyyy", "yyyyMMdd"] {
+        let formats: [String]
+        if value.range(of: #"^\d{2}\.\d{2}\.\d{2}$"#, options: .regularExpression) != nil {
+            formats = ["dd.MM.yy"]
+        } else {
+            formats = ["yyyy-MM-dd", "dd.MM.yyyy", "MM/dd/yyyy", "yyyyMMdd"]
+        }
+        for format in formats {
             let formatter = DateFormatter()
+            formatter.calendar = Calendar(identifier: .gregorian)
             formatter.locale = Locale(identifier: "en_US_POSIX")
+            formatter.timeZone = .current
+            formatter.isLenient = false
+            formatter.twoDigitStartDate = Calendar(identifier: .gregorian)
+                .date(from: DateComponents(year: 2000, month: 1, day: 1))
             formatter.dateFormat = format
             if let date = formatter.date(from: value) { return date }
         }
         return ISO8601DateFormatter().date(from: value)
+    }
+
+    private static func field(at index: Int?, from fields: [String]) -> String {
+        guard let index, fields.indices.contains(index) else { return "" }
+        return fields[index].trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private static func csvFields(_ line: String, delimiter: Character) -> [String] {

@@ -263,7 +263,7 @@ struct OnboardingView: View {
         }
         Section {
             Button {
-                Task { await finishSetup() }
+                finishSetup()
             } label: {
                 if isFinishing {
                     ProgressView()
@@ -444,8 +444,7 @@ struct OnboardingView: View {
         dueDay = Calendar.current.component(.day, from: row.date)
     }
 
-    @MainActor
-    private func finishSetup() async {
+    private func finishSetup() {
         guard !isFinishing,
               let amount = Money.cents(from: primaryAmount),
               amount > 0
@@ -453,8 +452,14 @@ struct OnboardingView: View {
             return
         }
         isFinishing = true
-        defer { isFinishing = false }
-        let accountID = mainAccountID ?? accounts.first(where: \.isMain)?.id
+        guard let accountID = mainAccountID ?? accounts.first(where: \.isMain)?.id else {
+            isFinishing = false
+            message = L(
+                "Das Hauptkonto fehlt. Bitte gehe zurück und speichere es erneut.",
+                "The main account is missing. Go back and save it again."
+            )
+            return
+        }
         let primaryForecast = IncomeForecast(
             name: primaryName.trimmingCharacters(in: .whitespacesAndNewlines),
             amountCents: amount,
@@ -485,6 +490,7 @@ struct OnboardingView: View {
         } catch {
             context.delete(primaryForecast)
             secondaryForecasts.forEach { context.delete($0.forecast) }
+            isFinishing = false
             message = error.localizedDescription
             return
         }
@@ -501,8 +507,7 @@ struct OnboardingView: View {
             let entryID = importedEntryIDs[pair.row.fingerprint] ?? pair.row.id
             IncomeAssignmentStore.assign(entryID: entryID, to: pair.forecast.id)
         }
-        await Task.yield()
-        step = 0
+        isFinishing = false
         onboardingInProgress = false
         hasCompletedOnboarding = true
     }

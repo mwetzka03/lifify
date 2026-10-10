@@ -155,6 +155,10 @@ private struct TransactionDetailView: View {
                 }
                 if !entry.notes.isEmpty {
                     Section(L("Buchungsdetails", "Transaction details")) {
+                        if !importDetails.isEmpty {
+                            Text(importDetails)
+                                .textSelection(.enabled)
+                        }
                         if !importIBANs.sender.isEmpty {
                             LabeledContent(
                                 L("Sender-IBAN", "Sender IBAN"),
@@ -166,10 +170,6 @@ private struct TransactionDetailView: View {
                                 L("Empfänger-IBAN", "Recipient IBAN"),
                                 value: importIBANs.recipient
                             )
-                        }
-                        if importIBANs.sender.isEmpty && importIBANs.recipient.isEmpty {
-                            Text(entry.notes)
-                                .textSelection(.enabled)
                         }
                     }
                 }
@@ -190,6 +190,23 @@ private struct TransactionDetailView: View {
 
     private var importIBANs: (sender: String, recipient: String) {
         BankImportService.ibans(from: entry.notes, amountCents: entry.amountCents)
+    }
+
+    private var importDetails: String {
+        let normalizedNotes = entry.notes
+            .replacingOccurrences(of: " ", with: "")
+            .uppercased()
+        if normalizedNotes == importIBANs.sender || normalizedNotes == importIBANs.recipient {
+            return ""
+        }
+        return entry.notes.components(separatedBy: .newlines)
+            .filter {
+                let label = $0.split(separator: ":", maxSplits: 1).first?.lowercased() ?? ""
+                return !label.contains("sender")
+                    && !label.contains("empfänger")
+                    && !label.contains("recipient")
+            }
+            .joined(separator: "\n")
     }
 
     private var displayAmount: Int {
