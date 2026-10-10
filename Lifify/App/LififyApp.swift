@@ -4,24 +4,22 @@ import SwiftUI
 @main
 struct LififyApp: App {
     private let containerResult: Result<ModelContainer, Error> = {
-        let schema = Schema(versionedSchema: LififySchemaV2.self)
+        let schema = Schema(LififySchemaV2.models)
         let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
         do {
             return .success(try ModelContainer(
                 for: schema,
-                migrationPlan: LififyMigrationPlan.self,
                 configurations: [configuration]
             ))
         } catch let legacyError {
             let fallbackConfiguration = ModelConfiguration(
-                "LififyCurrent",
+                "LififyRecoveryV2",
                 schema: schema,
                 isStoredInMemoryOnly: false
             )
             do {
                 return .success(try ModelContainer(
                     for: schema,
-                    migrationPlan: LififyMigrationPlan.self,
                     configurations: [fallbackConfiguration]
                 ))
             } catch {

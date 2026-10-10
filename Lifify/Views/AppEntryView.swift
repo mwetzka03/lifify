@@ -19,9 +19,12 @@ struct AppEntryView: View {
         }
         .task {
             guard !didCheckExistingInstallation else { return }
-            if !hasCompletedOnboarding,
-               !onboardingInProgress,
-               accounts.contains(where: \.isMain) {
+            let hasMainAccount = accounts.contains(where: \.isMain)
+            if hasCompletedOnboarding, !hasMainAccount {
+                hasCompletedOnboarding = false
+            } else if !hasCompletedOnboarding,
+                      !onboardingInProgress,
+                      hasMainAccount {
                 hasCompletedOnboarding = true
             }
             didCheckExistingInstallation = true
