@@ -83,7 +83,9 @@ struct LifeCalendarView: View {
     }
 
     private func eventsForDay(_ day: Date) -> [LifeCalendarEvent] {
-        events.filter { Calendar.current.isDate($0.startDate, inSameDayAs: day) }
+        let start = Calendar.current.startOfDay(for: day)
+        let end = Calendar.current.date(byAdding: .day, value: 1, to: start)!
+        return events.filter { $0.startDate < end && $0.endDate >= start }
     }
 
     private func challengesForDay(_ day: Date) -> [LifeChallenge] {
@@ -129,6 +131,15 @@ private struct DayAgendaCard: View {
                                 Text(event.startDate, format: .dateTime.hour().minute())
                                     .font(.caption)
                             }
+                            if event.linkedChallengeID != nil || event.linkedChallengeGroupID != nil {
+                                Label(L("Mit Challenge verknüpft", "Linked to challenge"), systemImage: "target")
+                                    .font(.caption2)
+                                    .foregroundStyle(.green)
+                            } else if event.linkedRewardID != nil {
+                                Label(L("Mit Belohnung verknüpft", "Linked to reward"), systemImage: "gift")
+                                    .font(.caption2)
+                                    .foregroundStyle(.orange)
+                            }
                         }
                         Spacer()
                         Image(systemName: "chevron.right")
@@ -150,6 +161,7 @@ private struct DayAgendaCard: View {
                     }
                 }
                 .buttonStyle(.plain)
+                .disabled(challenge.isReadOnly)
             }
         }
         .padding()
@@ -200,6 +212,13 @@ private struct LifeEventForm: View {
                 optionalPicker(L("Challenge", "Challenge"), selection: $linkedChallengeID, values: challenges.map { ($0.id, $0.title) })
                 optionalPicker(L("Gruppe", "Group"), selection: $linkedGroupID, values: groups.map { ($0.id, $0.title) })
                 optionalPicker(L("Belohnung", "Reward"), selection: $linkedRewardID, values: rewards.map { ($0.id, $0.title) })
+                if let existing, !existing.isReadOnly {
+                    Button(L("Termin löschen", "Delete event"), role: .destructive) {
+                        context.delete(existing)
+                        try? context.save()
+                        dismiss()
+                    }
+                }
             }
             .disabled(existing?.isReadOnly == true)
             .navigationTitle(L("Termin", "Event"))

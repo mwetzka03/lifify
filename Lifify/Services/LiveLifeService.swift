@@ -52,6 +52,7 @@ enum LiveLifeService {
         transactions: [CoinTransaction],
         context: ModelContext
     ) {
+        guard !challenge.isReadOnly else { return }
         if let completion = completions.first(where: {
             $0.challengeID == challenge.id && Calendar.current.isDate($0.date, inSameDayAs: date)
         }) {

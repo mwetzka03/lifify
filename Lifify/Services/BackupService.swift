@@ -18,6 +18,42 @@ struct BackupRecord: Codable {
     var booleans: [Bool] = []
     var dates: [Date?] = []
     var uuids: [UUID?] = []
+    var blobs: [Data?] = []
+
+    init(
+        type: String,
+        id: UUID,
+        strings: [String] = [],
+        integers: [Int] = [],
+        doubles: [Double] = [],
+        booleans: [Bool] = [],
+        dates: [Date?] = [],
+        uuids: [UUID?] = [],
+        blobs: [Data?] = []
+    ) {
+        self.type = type
+        self.id = id
+        self.strings = strings
+        self.integers = integers
+        self.doubles = doubles
+        self.booleans = booleans
+        self.dates = dates
+        self.uuids = uuids
+        self.blobs = blobs
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        type = try container.decode(String.self, forKey: .type)
+        id = try container.decode(UUID.self, forKey: .id)
+        strings = try container.decodeIfPresent([String].self, forKey: .strings) ?? []
+        integers = try container.decodeIfPresent([Int].self, forKey: .integers) ?? []
+        doubles = try container.decodeIfPresent([Double].self, forKey: .doubles) ?? []
+        booleans = try container.decodeIfPresent([Bool].self, forKey: .booleans) ?? []
+        dates = try container.decodeIfPresent([Date?].self, forKey: .dates) ?? []
+        uuids = try container.decodeIfPresent([UUID?].self, forKey: .uuids) ?? []
+        blobs = try container.decodeIfPresent([Data?].self, forKey: .blobs) ?? []
+    }
 }
 
 struct BackupDocument: FileDocument {
@@ -131,7 +167,7 @@ enum BackupService {
             BackupRecord(type: "visionBoard", id: $0.id, strings: [$0.title, $0.backgroundHex], doubles: [$0.backgroundOpacity], dates: [$0.createdAt])
         }
         records += visionElements.map {
-            BackupRecord(type: "visionElement", id: $0.id, strings: [$0.typeRaw, $0.text, $0.colorHex], doubles: [$0.x, $0.y, $0.width, $0.height, $0.rotation], uuids: [$0.boardID])
+            BackupRecord(type: "visionElement", id: $0.id, strings: [$0.typeRaw, $0.text, $0.colorHex], doubles: [$0.x, $0.y, $0.width, $0.height, $0.rotation], uuids: [$0.boardID], blobs: [$0.imageData])
         }
         let backup = LififyBackup(version: 1, exportedAt: .now, records: records)
         let encoder = JSONEncoder()
@@ -233,7 +269,7 @@ enum BackupService {
             context.insert(VisionBoard(id: r.id, title: string(0), backgroundHex: string(1), backgroundOpacity: r.doubles.first ?? 1, createdAt: date(0) ?? .now))
         case "visionElement":
             if let boardID = uuid(0) {
-                context.insert(VisionBoardElement(id: r.id, boardID: boardID, type: VisionElementType(rawValue: string(0)) ?? .text, text: string(1), x: r.doubles.indices.contains(0) ? r.doubles[0] : 0, y: r.doubles.indices.contains(1) ? r.doubles[1] : 0, width: r.doubles.indices.contains(2) ? r.doubles[2] : 130, height: r.doubles.indices.contains(3) ? r.doubles[3] : 80, colorHex: string(2), rotation: r.doubles.indices.contains(4) ? r.doubles[4] : 0))
+                context.insert(VisionBoardElement(id: r.id, boardID: boardID, type: VisionElementType(rawValue: string(0)) ?? .text, text: string(1), x: r.doubles.indices.contains(0) ? r.doubles[0] : 0, y: r.doubles.indices.contains(1) ? r.doubles[1] : 0, width: r.doubles.indices.contains(2) ? r.doubles[2] : 130, height: r.doubles.indices.contains(3) ? r.doubles[3] : 80, colorHex: string(2), rotation: r.doubles.indices.contains(4) ? r.doubles[4] : 0, imageData: r.blobs.first ?? nil))
             }
         default:
             break

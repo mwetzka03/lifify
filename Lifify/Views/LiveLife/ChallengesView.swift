@@ -57,12 +57,13 @@ struct ChallengesView: View {
                             Image(systemName: LiveLifeService.isCompleted(challenge, on: .now, completions: completions) ? "checkmark.circle.fill" : "circle")
                                 .foregroundStyle(.green)
                         }
+                        .disabled(challenge.isReadOnly)
                         Button {
                             edited = challenge
                         } label: {
                             VStack(alignment: .leading) {
                                 Text(challenge.title).foregroundStyle(.primary)
-                                Text("\(challenge.recurrence.label) · +\(challenge.rewardCoins) · 🔥 \(LiveLifeService.streak(for: challenge, endingOn: .now, completions: completions))")
+                                Text(challengeMeta(challenge))
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }
@@ -106,10 +107,19 @@ struct ChallengesView: View {
 
     private func deleteChallenges(at offsets: IndexSet) {
         for challenge in offsets.map({ filteredChallenges[$0] }) {
-            completions.filter { $0.challengeID == challenge.id }.forEach(context.delete)
+            for completion in completions.filter({ $0.challengeID == challenge.id }) {
+                transactions.filter { $0.referenceID == completion.id }.forEach(context.delete)
+                context.delete(completion)
+            }
             context.delete(challenge)
         }
         try? context.save()
+    }
+
+    private func challengeMeta(_ challenge: LifeChallenge) -> String {
+        let streak = LiveLifeService.streak(for: challenge, endingOn: .now, completions: completions)
+        let target = challenge.streakTarget > 0 ? "/\(challenge.streakTarget)" : ""
+        return "\(challenge.recurrence.label) · +\(challenge.rewardCoins) · 🔥 \(streak)\(target)"
     }
 }
 
@@ -260,6 +270,7 @@ private struct ChallengeGroupDetailView: View {
                         systemImage: LiveLifeService.isCompleted(challenge, on: .now, completions: completions) ? "checkmark.circle.fill" : "circle"
                     )
                 }
+                .disabled(challenge.isReadOnly)
             }
         }
         .navigationTitle(group.title)

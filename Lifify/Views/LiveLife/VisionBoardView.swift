@@ -1,3 +1,6 @@
+import Foundation
+import ImageIO
+import PhotosUI
 import SwiftData
 import SwiftUI
 
@@ -28,6 +31,10 @@ struct VisionBoardView: View {
                             VStack(alignment: .leading) {
                                 Text(item.title).foregroundStyle(.primary)
                                 Text("\(item.targetYear)").font(.caption).foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            if item.linkedRewardID != nil {
+                                Image(systemName: "gift.fill").foregroundStyle(.orange)
                             }
                         }
                     }
@@ -82,32 +89,58 @@ struct VisionBoardView: View {
 
     @ViewBuilder
     private func elementToolbar(board: VisionBoard) -> some View {
-        HStack {
-            Menu {
-                ForEach(VisionElementType.allCases) { type in
-                    Button(type.label) {
-                        context.insert(VisionBoardElement(boardID: board.id, type: type, text: type == .text ? L("Neuer Text", "New text") : ""))
+        VStack {
+            HStack {
+                Picker(L("Hintergrund", "Background"), selection: Binding(
+                    get: { board.backgroundHex },
+                    set: {
+                        board.backgroundHex = $0
                         try? context.save()
                     }
+                )) {
+                    Text(L("Hell", "Light")).tag("#EEF2F6")
+                    Text(L("Blau", "Blue")).tag("#BFD7EA")
+                    Text(L("Grün", "Green")).tag("#CDE8D2")
+                    Text(L("Violett", "Purple")).tag("#D9CCE8")
                 }
-            } label: {
-                Label(L("Element", "Element"), systemImage: "plus")
+                Slider(value: Binding(
+                    get: { board.backgroundOpacity },
+                    set: {
+                        board.backgroundOpacity = $0
+                        try? context.save()
+                    }
+                ), in: 0.2...1)
             }
-            Spacer()
-            Button(role: .destructive) {
-                let boardElements = elements.filter { $0.boardID == board.id }
-                boardElements.forEach(context.delete)
-                context.delete(board)
-                try? context.save()
-                selectedBoardID = boards.first { $0.id != board.id }?.id
-            } label: {
-                Label(L("Board löschen", "Delete board"), systemImage: "trash")
+            HStack {
+                Menu {
+                    ForEach(VisionElementType.allCases) { type in
+                        Button(type.label) {
+                            let element = VisionBoardElement(boardID: board.id, type: type, text: type == .text ? L("Neuer Text", "New text") : "")
+                            context.insert(element)
+                            try? context.save()
+                            if type == .image { selectedElement = element }
+                        }
+                    }
+                } label: {
+                    Label(L("Element", "Element"), systemImage: "plus")
+                }
+                Spacer()
+                Button(role: .destructive) {
+                    let boardElements = elements.filter { $0.boardID == board.id }
+                    boardElements.forEach(context.delete)
+                    context.delete(board)
+                    try? context.save()
+                    selectedBoardID = boards.first { $0.id != board.id }?.id
+                } label: {
+                    Label(L("Board löschen", "Delete board"), systemImage: "trash")
+                }
             }
         }
     }
 }
 
 private struct VisionCanvas: View {
+    @Environment(\.modelContext) private var context
     let board: VisionBoard
     let elements: [VisionBoardElement]
     @Binding var selectedElement: VisionBoardElement?
@@ -129,7 +162,7 @@ private struct VisionCanvas: View {
                             DragGesture().onEnded {
                                 element.x += $0.translation.width
                                 element.y += $0.translation.height
-                                try? element.modelContext?.save()
+                                try? context.save()
                             }
                         )
                 }
@@ -158,9 +191,39 @@ private struct VisionElementShape: View {
                 Circle()
                     .fill(Color(hex: element.colorHex))
                     .overlay(Text(element.text))
+            case .image:
+                if let image = cgImage {
+                    Image(decorative: image, scale: 1)
+                        .resizable()
+                        .scaledToFill()
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                } else {
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(Color.secondary.opacity(0.15))
+                        .overlay(Image(systemName: "photo"))
+                }
+            case .arrow:
+                Canvas { context, size in
+                    var path = Path()
+                    path.move(to: CGPoint(x: 4, y: size.height / 2))
+                    path.addLine(to: CGPoint(x: size.width - 14, y: size.height / 2))
+                    context.stroke(path, with: .color(Color(hex: element.colorHex)), lineWidth: 4)
+                    let tip = Path { value in
+                        value.move(to: CGPoint(x: size.width - 16, y: size.height / 2 - 10))
+                        value.addLine(to: CGPoint(x: size.width - 2, y: size.height / 2))
+                        value.addLine(to: CGPoint(x: size.width - 16, y: size.height / 2 + 10))
+                    }
+                    context.stroke(tip, with: .color(Color(hex: element.colorHex)), style: StrokeStyle(lineWidth: 4, lineCap: .round, lineJoin: .round))
+                }
             }
         }
         .shadow(radius: 2)
+    }
+
+    private var cgImage: CGImage? {
+        guard let data = element.imageData,
+              let source = CGImageSourceCreateWithData(data as CFData, nil) else { return nil }
+        return CGImageSourceCreateImageAtIndex(source, 0, nil)
     }
 }
 
@@ -196,6 +259,7 @@ private struct VisionElementForm: View {
     @State private var width: Double
     @State private var height: Double
     @State private var rotation: Double
+    @State private var photoItem: PhotosPickerItem?
 
     init(element: VisionBoardElement) {
         self.element = element
@@ -209,6 +273,11 @@ private struct VisionElementForm: View {
         NavigationStack {
             Form {
                 TextField(L("Text", "Text"), text: $text, axis: .vertical)
+                if element.type == .image {
+                    PhotosPicker(selection: $photoItem, matching: .images) {
+                        Label(L("Bild auswählen", "Choose image"), systemImage: "photo")
+                    }
+                }
                 Slider(value: $width, in: 60...300) { Text(L("Breite", "Width")) }
                 Slider(value: $height, in: 40...240) { Text(L("Höhe", "Height")) }
                 Slider(value: $rotation, in: -180...180) { Text(L("Drehung", "Rotation")) }
@@ -217,6 +286,9 @@ private struct VisionElementForm: View {
                     try? context.save()
                     dismiss()
                 }
+            }
+            .task(id: photoItem) {
+                await loadPhoto()
             }
             .navigationTitle(L("Element", "Element"))
             .toolbar {
@@ -232,6 +304,19 @@ private struct VisionElementForm: View {
                     }
                 }
             }
+        }
+    }
+
+    @MainActor
+    private func loadPhoto() async {
+        guard let photoItem else { return }
+        do {
+            let loadedData = try await photoItem.loadTransferable(type: Data.self)
+            guard let data = loadedData else { return }
+            element.imageData = data
+            try? context.save()
+        } catch {
+            return
         }
     }
 }

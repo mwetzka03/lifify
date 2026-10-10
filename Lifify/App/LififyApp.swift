@@ -3,44 +3,34 @@ import SwiftUI
 
 @main
 struct LififyApp: App {
-    private let container: ModelContainer = {
-        let schema = Schema([
-            Account.self,
-            LedgerEntry.self,
-            TransactionSplit.self,
-            FixedCost.self,
-            VariableBudget.self,
-            BudgetPool.self,
-            IncomeForecast.self,
-            ShoppingItem.self,
-            DebtEntry.self,
-            ExpenseGroup.self,
-            ExpenseGroupLine.self,
-            PortfolioHolding.self,
-            SavedArticle.self,
-            LifeCalendarEvent.self,
-            LifeChallenge.self,
-            ChallengeCompletion.self,
-            LifeChallengeGroup.self,
-            CoinTransaction.self,
-            RewardItem.self,
-            RewardPurchase.self,
-            BucketListItem.self,
-            VisionBoard.self,
-            VisionBoardElement.self
-        ])
+    private let containerResult: Result<ModelContainer, Error> = {
+        let schema = Schema(versionedSchema: LififySchemaV2.self)
         let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
         do {
-            return try ModelContainer(for: schema, configurations: [configuration])
+            return .success(try ModelContainer(
+                for: schema,
+                migrationPlan: LififyMigrationPlan.self,
+                configurations: [configuration]
+            ))
         } catch {
-            fatalError("Unable to create Lifify data store: \(error)")
+            return .failure(error)
         }
     }()
 
     var body: some Scene {
         WindowGroup {
-            RootView()
+            switch containerResult {
+            case .success(let container):
+                RootView()
+                    .modelContainer(container)
+            case .failure(let error):
+                ContentUnavailableView(
+                    L("Datenspeicher nicht verfügbar", "Data store unavailable"),
+                    systemImage: "externaldrive.badge.exclamationmark",
+                    description: Text(error.localizedDescription)
+                )
+                .padding()
+            }
         }
-        .modelContainer(container)
     }
 }

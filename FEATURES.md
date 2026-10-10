@@ -86,11 +86,11 @@ iPhone-App mit SwiftUI und SwiftData.
     iOS-Freigabe Termine und Erinnerungen über EventKit. Netzwerk- und
     Kontoverwaltung bleiben dabei dem Betriebssystem überlassen; ohne Freigabe
     funktionieren alle lokalen Funktionen.
-14. **Visionboard:** Die Desktop-Referenz bietet zusätzlich freie
-    Bildplatzierung, Verbindungspfeile, Zoom, Crop und mehrere
-    Mauswerkzeuge. Die native Touch-Oberfläche übernimmt mehrere Boards,
-    Hintergründe, verschiebbare Texte, Rechtecke und Kreise. Die
-    desktopbezogenen Maus-/Crop-Werkzeuge werden nicht übernommen.
+14. **Visionboard:** Die native Touch-Oberfläche übernimmt mehrere Boards,
+    einstellbare Hintergründe, verschiebbare Texte, Rechtecke, Kreise, Bilder
+    aus dem iOS-Fotodialog und Pfeile. Desktopbezogene Mauswerkzeuge werden als
+    Tippen, Ziehen, Größen- und Drehregler umgesetzt; ein separater
+    Bild-Crop-Modus entfällt zugunsten von `scaledToFill`.
 15. **Home-Navigation:** Das bereitgestellte Mockup ist maßgeblich:
     Home, Finanzen, Live Life und Einstellungen sind die vier Haupttabs.
     Budgetring, Kalenderperioden und Schnellaktionen öffnen ihre jeweiligen

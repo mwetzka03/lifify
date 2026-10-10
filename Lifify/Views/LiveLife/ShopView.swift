@@ -48,7 +48,7 @@ struct ShopView: View {
                 }
             }
             .onDelete { offsets in
-                offsets.map { rewards.filter(\.isActive)[$0] }.forEach(context.delete)
+                offsets.map { rewards.filter(\.isActive)[$0] }.forEach { $0.isActive = false }
                 try? context.save()
             }
         }

@@ -1,5 +1,5 @@
 import Combine
-import EventKit
+@preconcurrency import EventKit
 import Foundation
 import SwiftData
 
@@ -49,7 +49,8 @@ final class EventKitSyncService: ObservableObject {
             if remindersAllowed {
                 let reminders = await fetchReminders()
                 for reminder in reminders where !reminder.isCompleted {
-                    guard let identifier = reminder.calendarItemIdentifier else { continue }
+                    let identifier = reminder.calendarItemIdentifier
+                    guard !identifier.isEmpty else { continue }
                     let dueDate = reminder.dueDateComponents.flatMap { Calendar.current.date(from: $0) }
                     let challenge = existingChallenges.first { $0.externalIdentifier == identifier } ??
                         LifeChallenge(

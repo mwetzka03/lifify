@@ -58,6 +58,8 @@ enum VisionElementType: String, Codable, CaseIterable, Identifiable {
     case text
     case rectangle
     case circle
+    case image
+    case arrow
 
     var id: String { rawValue }
     var label: String {
@@ -65,6 +67,8 @@ enum VisionElementType: String, Codable, CaseIterable, Identifiable {
         case .text: L("Text", "Text")
         case .rectangle: L("Rechteck", "Rectangle")
         case .circle: L("Kreis", "Circle")
+        case .image: L("Bild", "Image")
+        case .arrow: L("Pfeil", "Arrow")
         }
     }
 }
@@ -338,6 +342,7 @@ final class VisionBoardElement {
     var height: Double
     var colorHex: String
     var rotation: Double
+    @Attribute(.externalStorage) var imageData: Data?
 
     var type: VisionElementType {
         get { VisionElementType(rawValue: typeRaw) ?? .text }
@@ -354,7 +359,8 @@ final class VisionBoardElement {
         width: Double = 130,
         height: Double = 80,
         colorHex: String = "#89A8C7",
-        rotation: Double = 0
+        rotation: Double = 0,
+        imageData: Data? = nil
     ) {
         self.id = id
         self.boardID = boardID
@@ -366,5 +372,6 @@ final class VisionBoardElement {
         self.height = height
         self.colorHex = colorHex
         self.rotation = rotation
+        self.imageData = imageData
     }
 }
