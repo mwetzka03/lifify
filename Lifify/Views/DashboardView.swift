@@ -1,0 +1,173 @@
+import SwiftData
+import SwiftUI
+
+struct DashboardView: View {
+    let isMainTab: Bool
+    @Query(sort: \Account.createdAt) private var accounts: [Account]
+    @Query(sort: \LedgerEntry.date, order: .reverse) private var entries: [LedgerEntry]
+    @Query private var holdings: [PortfolioHolding]
+    @Query private var fixedCosts: [FixedCost]
+    @Query private var forecasts: [IncomeForecast]
+
+    init(isMainTab: Bool = false) {
+        self.isMainTab = isMainTab
+    }
+
+    var body: some View {
+        List {
+            Section {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(L("Gesamtvermögen", "Net worth"))
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    Text(Money.string(cents: FinanceService.totalBalance(accounts: accounts, entries: entries, holdings: holdings)))
+                        .font(.largeTitle.bold())
+                        .contentTransition(.numericText())
+                    Text("\(L("Davon liquide", "Liquid")): \(Money.string(cents: FinanceService.totalBalance(accounts: accounts, entries: entries, holdings: holdings, liquidOnly: true)))")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.vertical, 8)
+            }
+
+            Section(L("Konten", "Accounts")) {
+                if accounts.isEmpty {
+                    ContentUnavailableView(
+                        L("Noch keine Konten", "No accounts yet"),
+                        systemImage: "building.columns",
+                        description: Text(L("Lege dein erstes Konto in den Einstellungen an.", "Create your first account in Settings."))
+                    )
+                }
+                ForEach(accounts.filter { $0.kind != .savingsGroup }) { account in
+                    HStack {
+                        Label(account.name, systemImage: icon(for: account.kind))
+                        Spacer()
+                        Text(Money.string(cents: FinanceService.balance(for: account, entries: entries, holdings: holdings)))
+                            .monospacedDigit()
+                    }
+                }
+            }
+
+            if isMainTab {
+                Section(L("Bereiche", "Sections")) {
+                    NavigationLink {
+                        TransactionsView()
+                    } label: {
+                        Label(L("Buchungen", "Transactions"), systemImage: "list.bullet.rectangle")
+                    }
+                    NavigationLink {
+                        FixedCostsView()
+                    } label: {
+                        Label(L("Fixkosten", "Fixed costs"), systemImage: "repeat")
+                    }
+                    NavigationLink {
+                        VariableBudgetsView()
+                    } label: {
+                        Label(L("Variable Kosten", "Variable costs"), systemImage: "gauge.with.dots.needle.67percent")
+                    }
+                    NavigationLink {
+                        BudgetPoolsView()
+                    } label: {
+                        Label(L("Budgetpools", "Budget pools"), systemImage: "tray.full")
+                    }
+                    NavigationLink {
+                        IncomeForecastsView()
+                    } label: {
+                        Label(L("Einnahmeprognosen", "Income forecasts"), systemImage: "calendar.badge.plus")
+                    }
+                    NavigationLink {
+                        ShoppingListView()
+                    } label: {
+                        Label(L("Einkaufszettel", "Shopping list"), systemImage: "cart")
+                    }
+                    NavigationLink {
+                        DebtsView()
+                    } label: {
+                        Label(L("Schulden", "Debts"), systemImage: "person.2")
+                    }
+                    NavigationLink {
+                        ExpenseGroupsView()
+                    } label: {
+                        Label(L("Ausgabengruppen", "Expense groups"), systemImage: "square.stack.3d.up")
+                    }
+                    NavigationLink {
+                        PortfolioView()
+                    } label: {
+                        Label(L("Depot", "Portfolio"), systemImage: "chart.line.uptrend.xyaxis")
+                    }
+                }
+            }
+
+            Section(L("Nächste Planung", "Upcoming plan")) {
+                let items = upcomingItems
+                if items.isEmpty {
+                    Text(L("Keine fälligen Planungen in den nächsten 45 Tagen.", "No planned items due in the next 45 days."))
+                        .foregroundStyle(.secondary)
+                }
+                ForEach(items, id: \.id) { item in
+                    HStack {
+                        VStack(alignment: .leading) {
+                            Text(item.title)
+                            Text(item.date, format: .dateTime.day().month().year())
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Text(Money.string(cents: item.amount))
+                    }
+                }
+            }
+
+            Section(L("Letzte Buchungen", "Recent transactions")) {
+                ForEach(entries.prefix(5)) { entry in
+                    HStack {
+                        VStack(alignment: .leading) {
+                            Text(entry.title)
+                            Text(entry.date, format: .dateTime.day().month())
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Text(Money.string(cents: displayAmount(entry)))
+                            .foregroundStyle(displayAmount(entry) < 0 ? .red : .primary)
+                    }
+                }
+            }
+        }
+    }
+
+    private var upcomingItems: [UpcomingItem] {
+        let limit = Calendar.current.date(byAdding: .day, value: 45, to: .now) ?? .now
+        let costs = fixedCosts.filter(\.isActive).flatMap { cost -> [UpcomingItem] in
+            CalendarService.nextOccurrences(firstDate: cost.firstChargeDate, cadence: cost.cadence, rule: cost.dueRule, day: cost.dayOfMonth, endDate: cost.endChargeDate, through: limit)
+                .filter { $0 >= Calendar.current.startOfDay(for: .now) }
+                .map { UpcomingItem(id: "\(cost.id)-\($0)", title: cost.name, date: $0, amount: -abs(cost.amountCents)) }
+        }
+        let income = forecasts.filter(\.isActive).flatMap { forecast -> [UpcomingItem] in
+            CalendarService.nextOccurrences(firstDate: forecast.firstPaymentDate, cadence: forecast.cadence, rule: forecast.dueRule, day: forecast.dayOfMonth, endDate: forecast.endPaymentDate, through: limit)
+                .filter { $0 >= Calendar.current.startOfDay(for: .now) }
+                .map { UpcomingItem(id: "\(forecast.id)-\($0)", title: forecast.name, date: $0, amount: abs(forecast.amountCents)) }
+        }
+        return (costs + income).sorted { $0.date < $1.date }
+    }
+
+    private func displayAmount(_ entry: LedgerEntry) -> Int {
+        entry.kind == .transfer || entry.kind == .adjustment ? abs(entry.amountCents) : entry.amountCents
+    }
+
+    private func icon(for kind: AccountKind) -> String {
+        switch kind {
+        case .checking: "building.columns"
+        case .savings: "banknote"
+        case .savingsGroup: "folder"
+        case .portfolio: "chart.line.uptrend.xyaxis"
+        }
+    }
+}
+
+private struct UpcomingItem {
+    let id: String
+    let title: String
+    let date: Date
+    let amount: Int
+}
