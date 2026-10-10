@@ -12,8 +12,28 @@ struct LififyApp: App {
                 migrationPlan: LififyMigrationPlan.self,
                 configurations: [configuration]
             ))
-        } catch {
-            return .failure(error)
+        } catch let legacyError {
+            let fallbackConfiguration = ModelConfiguration(
+                "LififyCurrent",
+                schema: schema,
+                isStoredInMemoryOnly: false
+            )
+            do {
+                return .success(try ModelContainer(
+                    for: schema,
+                    migrationPlan: LififyMigrationPlan.self,
+                    configurations: [fallbackConfiguration]
+                ))
+            } catch {
+                let combinedError = NSError(
+                    domain: "com.mwetzka03.lifify.storage",
+                    code: 1,
+                    userInfo: [
+                        NSLocalizedDescriptionKey: "\(error.localizedDescription) (\(legacyError.localizedDescription))"
+                    ]
+                )
+                return .failure(combinedError)
+            }
         }
     }()
 
