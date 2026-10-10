@@ -34,9 +34,11 @@ iPhone-App mit SwiftUI und SwiftData.
 - Challenges und Challenge-Gruppen mit Wiederholungen, Abschlüssen, Streaks und
   wachsendem Coin-Multiplikator
 - Importierte iOS-Erinnerungen erscheinen zunächst als Empfehlungen und werden
-  erst nach ausdrücklicher Übernahme zu Challenges
+  erst nach ausdrücklicher Übernahme und Konfiguration zu Challenges; ihr
+  Erledigt-Status wird anschließend zurück zu Apple Erinnerungen geschrieben
 - Belohnungsshop und Wallet mit Coin-Transaktionen und Kaufhistorie
 - Frei wählbare SF-Symbole für Buchungen, Fixkosten, Challenges und Belohnungen
+- Vollständiges lokales Löschen aller Daten und Zurücksetzen der App
 - Lokal gespeicherte Bucketlist-Daten; die Oberfläche ist vorerst ausgeblendet
 - Optionaler Import aus iOS-Kalendern und Erinnerungen über EventKit
 
@@ -93,7 +95,9 @@ iPhone-App mit SwiftUI und SwiftData.
 15. **Erinnerungen:** Offene iOS-Erinnerungen werden nicht automatisch als
     erledigbare Challenges angelegt. Sie bleiben in „Empfehlungen“, bis sie
     übernommen werden. Bereits übernommene Erinnerungen werden bei späteren
-    Synchronisierungen nicht erneut angeboten.
+    Synchronisierungen nicht erneut angeboten. Das Abhaken oder erneute Öffnen
+    einer übernommenen Challenge wird nach vorhandener Systemfreigabe auch in
+    Apple Erinnerungen gespeichert.
 16. **Gespeicherte Artikel:** Die Artikelansicht und ihre Fachlogik wurden auf
     Nutzerwunsch entfernt. Das alte SwiftData-Modell bleibt ausschließlich als
     Kompatibilitätsplatzhalter erhalten, damit vorhandene Entwicklungsstores

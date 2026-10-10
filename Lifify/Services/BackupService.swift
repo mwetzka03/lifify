@@ -176,6 +176,11 @@ enum BackupService {
         try context.save()
     }
 
+    static func deleteAllData(from context: ModelContext) throws {
+        try clear(context)
+        try context.save()
+    }
+
     @MainActor
     private static func clear(_ context: ModelContext) throws {
         try context.fetch(FetchDescriptor<TransactionSplit>()).forEach { context.delete($0) }

@@ -53,32 +53,9 @@ struct HomeView: View {
                 }
                 .frame(minHeight: 310, alignment: .top)
 
-                HStack(spacing: 12) {
-                    NavigationLink {
-                        TransactionsView()
-                    } label: {
-                        HomeShortcut(title: L("Buchung", "Transaction"), icon: "plus.circle.fill", color: .blue)
-                    }
-                    NavigationLink {
-                        ChallengesView()
-                    } label: {
-                        HomeShortcut(title: L("Challenge", "Challenge"), icon: "checkmark.circle.fill", color: .green)
-                    }
-                    NavigationLink {
-                        ShopView()
-                    } label: {
-                        HomeShortcut(title: L("Shop", "Shop"), icon: "gift.fill", color: .orange)
-                    }
-                }
             }
             .padding()
         }
-        .simultaneousGesture(
-            DragGesture(minimumDistance: 40).onEnded { value in
-                if value.translation.width < -60 { move(by: 1) }
-                if value.translation.width > 60 { move(by: -1) }
-            }
-        )
     }
 
     private var dayView: some View {
@@ -301,22 +278,6 @@ private struct BudgetSummaryCard: View {
         }
         .padding()
         .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 22))
-    }
-}
-
-private struct HomeShortcut: View {
-    let title: String
-    let icon: String
-    let color: Color
-
-    var body: some View {
-        VStack {
-            Image(systemName: icon).font(.title2).foregroundStyle(color)
-            Text(title).font(.caption)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 12)
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 14))
     }
 }
 

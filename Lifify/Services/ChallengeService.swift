@@ -53,19 +53,30 @@ enum ChallengeService {
         context: ModelContext
     ) {
         guard !challenge.isReadOnly else { return }
+        let isNowCompleted: Bool
         if let completion = completions.first(where: {
             $0.challengeID == challenge.id && Calendar.current.isDate($0.date, inSameDayAs: date)
         }) {
             transactions.filter { $0.referenceID == completion.id }.forEach { context.delete($0) }
             context.delete(completion)
+            isNowCompleted = false
         } else {
             let currentStreak = streak(for: challenge, endingOn: Calendar.current.date(byAdding: .day, value: -1, to: date) ?? date, completions: completions)
             let earned = Int((Double(challenge.rewardCoins) * multiplier(streak: currentStreak + 1)).rounded())
             let completion = ChallengeCompletion(challengeID: challenge.id, date: date, earnedCoins: earned)
             context.insert(completion)
             context.insert(CoinTransaction(title: challenge.title, amount: earned, referenceID: completion.id))
+            isNowCompleted = true
         }
         try? context.save()
+        if let externalIdentifier = challenge.externalIdentifier {
+            Task {
+                await EventKitSyncService.setReminderCompletion(
+                    externalIdentifier: externalIdentifier,
+                    isCompleted: isNowCompleted
+                )
+            }
+        }
     }
 
     static func walletBalance(transactions: [CoinTransaction]) -> Int {

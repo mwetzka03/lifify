@@ -13,23 +13,10 @@ struct ChallengesView: View {
     @State private var showingNewChallenge = false
     @State private var showingNewGroup = false
     @State private var edited: ChallengeItem?
+    @State private var acceptedRecommendation: ChallengeCalendarEvent?
 
     var body: some View {
         List {
-            Section {
-                HStack {
-                    Label("\(ChallengeService.walletBalance(transactions: transactions))", systemImage: "circle.fill")
-                        .foregroundStyle(.orange)
-                    Spacer()
-                    NavigationLink {
-                        ShopView()
-                    } label: {
-                        Label(L("Shop", "Shop"), systemImage: "gift.fill")
-                    }
-                    .fixedSize()
-                }
-            }
-
             Section {
                 DisclosureGroup {
                     if recommendations.isEmpty {
@@ -54,7 +41,7 @@ struct ChallengesView: View {
                                     }
                                     Spacer()
                                     Button(L("Übernehmen", "Accept")) {
-                                        acceptRecommendation(recommendation)
+                                        acceptedRecommendation = recommendation
                                     }
                                     .buttonStyle(.borderedProminent)
                                 }
@@ -145,16 +132,38 @@ struct ChallengesView: View {
             }
         }
         .toolbar {
-            Menu {
-                Button(L("Challenge", "Challenge")) { showingNewChallenge = true }
-                Button(L("Gruppe", "Group")) { showingNewGroup = true }
-            } label: {
-                Image(systemName: "plus")
+            ToolbarItem(placement: .topBarLeading) {
+                NavigationLink {
+                    ShopView()
+                } label: {
+                    HStack(spacing: 7) {
+                        Image(systemName: "circle.fill")
+                            .foregroundStyle(.orange)
+                        Text("\(ChallengeService.walletBalance(transactions: transactions))")
+                            .foregroundStyle(.primary)
+                        Image(systemName: "gift.fill")
+                            .foregroundStyle(.blue)
+                    }
+                    .padding(.horizontal, 11)
+                    .padding(.vertical, 7)
+                    .background(.thinMaterial, in: Capsule())
+                }
+            }
+            ToolbarItem(placement: .topBarTrailing) {
+                Menu {
+                    Button(L("Challenge", "Challenge")) { showingNewChallenge = true }
+                    Button(L("Gruppe", "Group")) { showingNewGroup = true }
+                } label: {
+                    Image(systemName: "plus")
+                }
             }
         }
         .sheet(isPresented: $showingNewChallenge) { ChallengeForm(challenge: nil) }
         .sheet(isPresented: $showingNewGroup) { ChallengeGroupForm() }
         .sheet(item: $edited) { ChallengeForm(challenge: $0) }
+        .sheet(item: $acceptedRecommendation) {
+            ChallengeForm(challenge: nil, recommendation: $0)
+        }
     }
 
     private var filteredChallenges: [ChallengeItem] {
@@ -180,21 +189,6 @@ struct ChallengesView: View {
         }
         IconPreferenceStore.remove(for: challenge.id)
         context.delete(challenge)
-        try? context.save()
-    }
-
-    private func acceptRecommendation(_ recommendation: ChallengeCalendarEvent) {
-        let challenge = ChallengeItem(
-            title: recommendation.title,
-            details: recommendation.details,
-            category: .todo,
-            recurrence: .none,
-            startDate: recommendation.startDate,
-            externalIdentifier: recommendation.externalIdentifier
-        )
-        context.insert(challenge)
-        IconPreferenceStore.set("lightbulb", for: challenge.id)
-        context.delete(recommendation)
         try? context.save()
     }
 
@@ -224,6 +218,7 @@ private struct ChallengeForm: View {
     @Environment(\.modelContext) private var context
     @Query(sort: \ChallengeGroup.title) private var groups: [ChallengeGroup]
     private let existing: ChallengeItem?
+    private let sourceRecommendation: ChallengeCalendarEvent?
     @State private var title: String
     @State private var details: String
     @State private var category: ChallengeCategory
@@ -238,20 +233,21 @@ private struct ChallengeForm: View {
     @State private var icon: String
 
     @MainActor
-    init(challenge: ChallengeItem?) {
+    init(challenge: ChallengeItem?, recommendation: ChallengeCalendarEvent? = nil) {
         existing = challenge
-        _title = State(initialValue: challenge?.title ?? "")
-        _details = State(initialValue: challenge?.details ?? "")
-        _category = State(initialValue: challenge?.category ?? .habit)
-        _recurrence = State(initialValue: challenge?.recurrence ?? .daily)
-        _startDate = State(initialValue: challenge?.startDate ?? .now)
+        sourceRecommendation = recommendation
+        _title = State(initialValue: challenge?.title ?? recommendation?.title ?? "")
+        _details = State(initialValue: challenge?.details ?? recommendation?.details ?? "")
+        _category = State(initialValue: challenge?.category ?? (recommendation == nil ? .habit : .todo))
+        _recurrence = State(initialValue: challenge?.recurrence ?? (recommendation == nil ? .daily : .none))
+        _startDate = State(initialValue: challenge?.startDate ?? recommendation?.startDate ?? .now)
         _hasEndDate = State(initialValue: challenge?.endDate != nil)
         _endDate = State(initialValue: challenge?.endDate ?? Calendar.current.date(byAdding: .month, value: 1, to: .now)!)
         _weekdays = State(initialValue: challenge?.weekdaySet ?? [])
         _rewardCoins = State(initialValue: challenge?.rewardCoins ?? 10)
         _streakTarget = State(initialValue: challenge?.streakTarget ?? 0)
         _groupID = State(initialValue: challenge?.groupID)
-        _icon = State(initialValue: challenge.map { IconPreferenceStore.icon(for: $0.id, fallback: "target") } ?? "target")
+        _icon = State(initialValue: challenge.map { IconPreferenceStore.icon(for: $0.id, fallback: "target") } ?? (recommendation == nil ? "target" : "lightbulb"))
     }
 
     var body: some View {
@@ -293,7 +289,10 @@ private struct ChallengeForm: View {
                     ToolbarItem(placement: .confirmationAction) {
                         Button(L("Speichern", "Save")) {
                             guard !title.isEmpty else { return }
-                            let challenge = existing ?? ChallengeItem(title: title)
+                            let challenge = existing ?? ChallengeItem(
+                                title: title,
+                                externalIdentifier: sourceRecommendation?.externalIdentifier
+                            )
                             challenge.title = title
                             challenge.details = details
                             challenge.category = category
@@ -305,6 +304,7 @@ private struct ChallengeForm: View {
                             challenge.streakTarget = streakTarget
                             challenge.groupID = groupID
                             if existing == nil { context.insert(challenge) }
+                            if let sourceRecommendation { context.delete(sourceRecommendation) }
                             IconPreferenceStore.set(icon, for: challenge.id)
                             try? context.save()
                             dismiss()

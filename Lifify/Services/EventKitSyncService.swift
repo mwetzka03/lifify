@@ -93,6 +93,30 @@ final class EventKitSyncService: ObservableObject {
         }
     }
 
+    static func setReminderCompletion(
+        externalIdentifier: String,
+        isCompleted: Bool
+    ) async {
+        let prefix = "reminder:"
+        guard externalIdentifier.hasPrefix(prefix) else { return }
+        let identifier = String(externalIdentifier.dropFirst(prefix.count))
+        guard !identifier.isEmpty else { return }
+
+        do {
+            let eventStore = EKEventStore()
+            guard try await eventStore.requestFullAccessToReminders(),
+                  let reminder = eventStore.calendarItem(withIdentifier: identifier) as? EKReminder
+            else {
+                return
+            }
+            reminder.isCompleted = isCompleted
+            reminder.completionDate = isCompleted ? .now : nil
+            try eventStore.save(reminder, commit: true)
+        } catch {
+            // Local completion remains authoritative when EventKit cannot be updated.
+        }
+    }
+
     nonisolated private static func fetchReminders() async -> [ReminderSnapshot] {
         let storeBox = EventStoreBox()
         return await withCheckedContinuation { continuation in

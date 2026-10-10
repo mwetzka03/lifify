@@ -42,12 +42,64 @@ enum IconPreferenceStore {
 struct SymbolPicker: View {
     let title: String
     @Binding var selection: String
+    @State private var isPresented = false
 
     var body: some View {
-        Picker(title, selection: $selection) {
-            ForEach(SymbolCatalog.names, id: \.self) { symbol in
-                Label(symbol, systemImage: symbol).tag(symbol)
+        Button {
+            isPresented = true
+        } label: {
+            HStack {
+                Text(title)
+                Spacer()
+                Image(systemName: selection)
+                    .font(.title3)
             }
+            .foregroundStyle(.primary)
+        }
+        .sheet(isPresented: $isPresented) {
+            NavigationStack {
+                ScrollView {
+                    LazyVGrid(
+                        columns: Array(repeating: GridItem(.flexible()), count: 5),
+                        spacing: 14
+                    ) {
+                        ForEach(Array(SymbolCatalog.names.enumerated()), id: \.element) { index, symbol in
+                            Button {
+                                selection = symbol
+                                isPresented = false
+                            } label: {
+                                Image(systemName: symbol)
+                                    .font(.title2)
+                                    .frame(maxWidth: .infinity)
+                                    .frame(height: 48)
+                                    .background(
+                                        selection == symbol ? Color.accentColor.opacity(0.18) : Color.secondary.opacity(0.08),
+                                        in: RoundedRectangle(cornerRadius: 12)
+                                    )
+                                    .overlay(alignment: .topTrailing) {
+                                        if selection == symbol {
+                                            Image(systemName: "checkmark.circle.fill")
+                                                .font(.caption)
+                                                .foregroundStyle(Color.accentColor)
+                                                .padding(4)
+                                        }
+                                    }
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("\(title) \(index + 1)")
+                        }
+                    }
+                    .padding()
+                }
+                .navigationTitle(title)
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button(L("Fertig", "Done")) { isPresented = false }
+                    }
+                }
+            }
+            .presentationDetents([.medium, .large])
         }
     }
 }
