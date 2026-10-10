@@ -48,22 +48,21 @@ final class EventKitSyncService: ObservableObject {
 
             if remindersAllowed {
                 let reminders = await fetchReminders()
-                for reminder in reminders where !reminder.isCompleted {
-                    let identifier = reminder.calendarItemIdentifier
+                for reminder in reminders {
+                    let identifier = reminder.identifier
                     guard !identifier.isEmpty else { continue }
-                    let dueDate = reminder.dueDateComponents.flatMap { Calendar.current.date(from: $0) }
                     let challenge = existingChallenges.first { $0.externalIdentifier == identifier } ??
                         LifeChallenge(
                             title: reminder.title,
                             category: .todo,
                             recurrence: .none,
-                            startDate: dueDate,
+                            startDate: reminder.dueDate,
                             externalIdentifier: identifier,
                             isReadOnly: true
                         )
                     challenge.title = reminder.title
-                    challenge.details = reminder.notes ?? ""
-                    challenge.startDate = dueDate
+                    challenge.details = reminder.notes
+                    challenge.startDate = reminder.dueDate
                     if challenge.modelContext == nil { context.insert(challenge) }
                     importedReminders += 1
                 }
@@ -79,11 +78,27 @@ final class EventKitSyncService: ObservableObject {
         }
     }
 
-    private func fetchReminders() async -> [EKReminder] {
+    private func fetchReminders() async -> [ReminderSnapshot] {
         await withCheckedContinuation { continuation in
             store.fetchReminders(matching: store.predicateForReminders(in: nil)) {
-                continuation.resume(returning: $0 ?? [])
+                let snapshots = ($0 ?? []).compactMap { reminder -> ReminderSnapshot? in
+                    guard !reminder.isCompleted else { return nil }
+                    return ReminderSnapshot(
+                        identifier: reminder.calendarItemIdentifier,
+                        title: reminder.title,
+                        notes: reminder.notes ?? "",
+                        dueDate: reminder.dueDateComponents.flatMap { Calendar.current.date(from: $0) }
+                    )
+                }
+                continuation.resume(returning: snapshots)
             }
         }
     }
+}
+
+private struct ReminderSnapshot: Sendable {
+    let identifier: String
+    let title: String
+    let notes: String
+    let dueDate: Date?
 }
