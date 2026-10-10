@@ -121,11 +121,13 @@ struct HomeView: View {
 
     private func periodTitle(_ date: Date) -> String {
         switch mode {
-        case .day: date.formatted(date: .complete, time: .omitted)
+        case .day:
+            return date.formatted(date: .complete, time: .omitted)
         case .week:
             let days = LiveLifeService.days(for: .week, around: date)
             return "\(days.first?.formatted(.dateTime.day().month()) ?? "") – \(days.last?.formatted(.dateTime.day().month().year()) ?? "")"
-        case .month: date.formatted(.dateTime.month(.wide).year())
+        case .month:
+            return date.formatted(.dateTime.month(.wide).year())
         }
     }
 
