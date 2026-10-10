@@ -80,7 +80,7 @@ final class EventKitSyncService: ObservableObject {
 
     nonisolated private static func fetchReminders() async -> [ReminderSnapshot] {
         let storeBox = EventStoreBox()
-        await withCheckedContinuation { continuation in
+        return await withCheckedContinuation { continuation in
             storeBox.store.fetchReminders(matching: storeBox.store.predicateForReminders(in: nil)) {
                 let snapshots = ($0 ?? []).compactMap { reminder -> ReminderSnapshot? in
                     guard !reminder.isCompleted else { return nil }
