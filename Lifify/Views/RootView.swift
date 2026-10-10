@@ -3,6 +3,7 @@ import SwiftUI
 struct RootView: View {
     @AppStorage("appLanguage") private var language = "de"
     @AppStorage("appTheme") private var theme = AppTheme.system.rawValue
+    @State private var selectedTab = 0
 
     private var colorScheme: ColorScheme? {
         switch AppTheme(rawValue: theme) ?? .system {
@@ -13,17 +14,19 @@ struct RootView: View {
     }
 
     var body: some View {
-        TabView {
-            NavigationStack { DashboardView() }
-                .tabItem { Label(L("Übersicht", "Overview"), systemImage: "chart.pie") }
-            NavigationStack { TransactionsView() }
-                .tabItem { Label(L("Buchungen", "Transactions"), systemImage: "list.bullet.rectangle") }
-            NavigationStack { PlanningView() }
-                .tabItem { Label(L("Planung", "Planning"), systemImage: "calendar") }
-            NavigationStack { OrganizationView() }
-                .tabItem { Label(L("Mehr", "More"), systemImage: "square.grid.2x2") }
+        TabView(selection: $selectedTab) {
+            NavigationStack { HomeView() }
+                .tabItem { Label(L("Home", "Home"), systemImage: "house") }
+                .tag(0)
+            NavigationStack { FinanceHubView() }
+                .tabItem { Label(L("Finanzen", "Finance"), systemImage: "eurosign.circle") }
+                .tag(1)
+            NavigationStack { LiveLifeHubView() }
+                .tabItem { Label("Live Life", systemImage: "target") }
+                .tag(2)
             NavigationStack { SettingsView() }
                 .tabItem { Label(L("Einstellungen", "Settings"), systemImage: "gear") }
+                .tag(3)
         }
         .id(language)
         .preferredColorScheme(colorScheme)

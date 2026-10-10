@@ -26,6 +26,11 @@ struct SettingsView: View {
                 } label: {
                     Label(L("Import und Sicherung", "Import and backup"), systemImage: "externaldrive")
                 }
+                NavigationLink {
+                    SystemCalendarSyncView()
+                } label: {
+                    Label(L("Kalender & Erinnerungen", "Calendar & Reminders"), systemImage: "arrow.triangle.2.circlepath")
+                }
             }
             Section(L("Über Lifify", "About Lifify")) {
                 LabeledContent(L("Version", "Version"), value: "1.0.0")

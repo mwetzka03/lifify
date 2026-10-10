@@ -17,6 +17,16 @@ struct DataManagementView: View {
     @Query private var lines: [ExpenseGroupLine]
     @Query private var holdings: [PortfolioHolding]
     @Query private var articles: [SavedArticle]
+    @Query private var lifeEvents: [LifeCalendarEvent]
+    @Query private var challenges: [LifeChallenge]
+    @Query private var completions: [ChallengeCompletion]
+    @Query private var challengeGroups: [LifeChallengeGroup]
+    @Query private var coinTransactions: [CoinTransaction]
+    @Query private var rewards: [RewardItem]
+    @Query private var purchases: [RewardPurchase]
+    @Query private var bucketItems: [BucketListItem]
+    @Query private var visionBoards: [VisionBoard]
+    @Query private var visionElements: [VisionBoardElement]
     @StateObject private var viewModel = DataImportViewModel()
     @State private var importingBank = false
     @State private var importingBackup = false
@@ -122,7 +132,17 @@ struct DataManagementView: View {
                 groups: groups,
                 lines: lines,
                 holdings: holdings,
-                articles: articles
+                articles: articles,
+                lifeEvents: lifeEvents,
+                challenges: challenges,
+                completions: completions,
+                challengeGroups: challengeGroups,
+                coinTransactions: coinTransactions,
+                rewards: rewards,
+                purchases: purchases,
+                bucketItems: bucketItems,
+                visionBoards: visionBoards,
+                visionElements: visionElements
             ))
             exportingBackup = true
         } catch {

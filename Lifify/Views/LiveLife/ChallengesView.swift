@@ -1,0 +1,295 @@
+import SwiftData
+import SwiftUI
+
+struct ChallengesView: View {
+    @Environment(\.modelContext) private var context
+    @Query(sort: \LifeChallenge.createdAt, order: .reverse) private var challenges: [LifeChallenge]
+    @Query(sort: \LifeChallengeGroup.title) private var groups: [LifeChallengeGroup]
+    @Query private var completions: [ChallengeCompletion]
+    @Query private var transactions: [CoinTransaction]
+    @State private var completedTab = false
+    @State private var filter = ChallengeFilter.all
+    @State private var showingNewChallenge = false
+    @State private var showingNewGroup = false
+    @State private var edited: LifeChallenge?
+
+    var body: some View {
+        List {
+            Section {
+                Picker(L("Status", "Status"), selection: $completedTab) {
+                    Text(L("Aktiv", "Active")).tag(false)
+                    Text(L("Abgeschlossen", "Completed")).tag(true)
+                }
+                .pickerStyle(.segmented)
+                Picker(L("Filter", "Filter"), selection: $filter) {
+                    ForEach(ChallengeFilter.allCases) { Text($0.label).tag($0) }
+                }
+                .pickerStyle(.segmented)
+            }
+
+            if filter != .single {
+                ForEach(groups) { group in
+                    NavigationLink {
+                        ChallengeGroupDetailView(group: group)
+                    } label: {
+                        VStack(alignment: .leading) {
+                            Text(group.title).font(.headline)
+                            Text("\(groupMembers(group).count) \(L("Challenges", "challenges"))")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+            }
+
+            if filter != .groups {
+                ForEach(filteredChallenges) { challenge in
+                    HStack {
+                        Button {
+                            LiveLifeService.toggleCompletion(
+                                challenge: challenge,
+                                date: .now,
+                                completions: completions,
+                                transactions: transactions,
+                                context: context
+                            )
+                        } label: {
+                            Image(systemName: LiveLifeService.isCompleted(challenge, on: .now, completions: completions) ? "checkmark.circle.fill" : "circle")
+                                .foregroundStyle(.green)
+                        }
+                        Button {
+                            edited = challenge
+                        } label: {
+                            VStack(alignment: .leading) {
+                                Text(challenge.title).foregroundStyle(.primary)
+                                Text("\(challenge.recurrence.label) · +\(challenge.rewardCoins) · 🔥 \(LiveLifeService.streak(for: challenge, endingOn: .now, completions: completions))")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .onDelete(perform: deleteChallenges)
+            }
+        }
+        .overlay {
+            if groups.isEmpty && challenges.isEmpty {
+                ContentUnavailableView(L("Keine Challenges", "No challenges"), systemImage: "target")
+            }
+        }
+        .navigationTitle(L("Challenges", "Challenges"))
+        .toolbar {
+            Menu {
+                Button(L("Challenge", "Challenge")) { showingNewChallenge = true }
+                Button(L("Gruppe", "Group")) { showingNewGroup = true }
+            } label: {
+                Image(systemName: "plus")
+            }
+        }
+        .sheet(isPresented: $showingNewChallenge) { ChallengeForm(challenge: nil) }
+        .sheet(isPresented: $showingNewGroup) { ChallengeGroupForm() }
+        .sheet(item: $edited) { ChallengeForm(challenge: $0) }
+    }
+
+    private var filteredChallenges: [LifeChallenge] {
+        challenges.filter { challenge in
+            let done = challenge.isArchived ||
+                (challenge.recurrence == .none && completions.contains { $0.challengeID == challenge.id })
+            return done == completedTab && (filter != .single || challenge.groupID == nil)
+        }
+    }
+
+    private func groupMembers(_ group: LifeChallengeGroup) -> [LifeChallenge] {
+        challenges.filter { $0.groupID == group.id }
+    }
+
+    private func deleteChallenges(at offsets: IndexSet) {
+        for challenge in offsets.map({ filteredChallenges[$0] }) {
+            completions.filter { $0.challengeID == challenge.id }.forEach(context.delete)
+            context.delete(challenge)
+        }
+        try? context.save()
+    }
+}
+
+private enum ChallengeFilter: String, CaseIterable, Identifiable {
+    case all
+    case groups
+    case single
+    var id: String { rawValue }
+    var label: String {
+        switch self {
+        case .all: L("Alle", "All")
+        case .groups: L("Gruppen", "Groups")
+        case .single: L("Einzeln", "Single")
+        }
+    }
+}
+
+private struct ChallengeForm: View {
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var context
+    @Query(sort: \LifeChallengeGroup.title) private var groups: [LifeChallengeGroup]
+    private let existing: LifeChallenge?
+    @State private var title: String
+    @State private var details: String
+    @State private var category: ChallengeCategory
+    @State private var recurrence: LifeRecurrence
+    @State private var startDate: Date
+    @State private var hasEndDate: Bool
+    @State private var endDate: Date
+    @State private var weekdays: Set<Int>
+    @State private var rewardCoins: Int
+    @State private var streakTarget: Int
+    @State private var groupID: UUID?
+
+    init(challenge: LifeChallenge?) {
+        existing = challenge
+        _title = State(initialValue: challenge?.title ?? "")
+        _details = State(initialValue: challenge?.details ?? "")
+        _category = State(initialValue: challenge?.category ?? .habit)
+        _recurrence = State(initialValue: challenge?.recurrence ?? .daily)
+        _startDate = State(initialValue: challenge?.startDate ?? .now)
+        _hasEndDate = State(initialValue: challenge?.endDate != nil)
+        _endDate = State(initialValue: challenge?.endDate ?? Calendar.current.date(byAdding: .month, value: 1, to: .now)!)
+        _weekdays = State(initialValue: challenge?.weekdaySet ?? [])
+        _rewardCoins = State(initialValue: challenge?.rewardCoins ?? 10)
+        _streakTarget = State(initialValue: challenge?.streakTarget ?? 0)
+        _groupID = State(initialValue: challenge?.groupID)
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                if existing?.isReadOnly == true {
+                    Text(L("Diese Challenge stammt aus Erinnerungen.", "This challenge comes from Reminders."))
+                        .foregroundStyle(.secondary)
+                }
+                TextField(L("Titel", "Title"), text: $title)
+                TextField(L("Beschreibung", "Description"), text: $details, axis: .vertical)
+                Picker(L("Kategorie", "Category"), selection: $category) {
+                    ForEach(ChallengeCategory.allCases) { Text($0.label).tag($0) }
+                }
+                Picker(L("Wiederholung", "Recurrence"), selection: $recurrence) {
+                    ForEach(LifeRecurrence.allCases) { Text($0.label).tag($0) }
+                }
+                DatePicker(L("Start", "Start"), selection: $startDate, displayedComponents: .date)
+                Toggle(L("Enddatum", "End date"), isOn: $hasEndDate)
+                if hasEndDate {
+                    DatePicker(L("Ende", "End"), selection: $endDate, in: startDate..., displayedComponents: .date)
+                }
+                if recurrence == .weekly {
+                    WeekdayPicker(selection: $weekdays)
+                }
+                Stepper("\(L("Coins", "Coins")): \(rewardCoins)", value: $rewardCoins, in: 0...10_000)
+                Stepper("\(L("Streak-Ziel", "Streak target")): \(streakTarget)", value: $streakTarget, in: 0...365)
+                Picker(L("Gruppe", "Group"), selection: $groupID) {
+                    Text(L("Keine", "None")).tag(Optional<UUID>.none)
+                    ForEach(groups) { Text($0.title).tag(Optional($0.id)) }
+                }
+            }
+            .disabled(existing?.isReadOnly == true)
+            .navigationTitle(L("Challenge", "Challenge"))
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button(L("Schließen", "Close")) { dismiss() } }
+                if existing?.isReadOnly != true {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button(L("Speichern", "Save")) {
+                            guard !title.isEmpty else { return }
+                            let challenge = existing ?? LifeChallenge(title: title)
+                            challenge.title = title
+                            challenge.details = details
+                            challenge.category = category
+                            challenge.recurrence = recurrence
+                            challenge.startDate = startDate
+                            challenge.endDate = hasEndDate ? endDate : nil
+                            challenge.weekdaySet = weekdays
+                            challenge.rewardCoins = rewardCoins
+                            challenge.streakTarget = streakTarget
+                            challenge.groupID = groupID
+                            if existing == nil { context.insert(challenge) }
+                            try? context.save()
+                            dismiss()
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+private struct WeekdayPicker: View {
+    @Binding var selection: Set<Int>
+    private let labels = Calendar.current.shortWeekdaySymbols
+
+    var body: some View {
+        HStack {
+            ForEach(1...7, id: \.self) { day in
+                Button {
+                    if selection.contains(day) { selection.remove(day) } else { selection.insert(day) }
+                } label: {
+                    Text(String(labels[day - 1].prefix(1)))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 7)
+                        .background(selection.contains(day) ? Color.accentColor : Color.secondary.opacity(0.15), in: Circle())
+                        .foregroundStyle(selection.contains(day) ? .white : .primary)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+}
+
+private struct ChallengeGroupDetailView: View {
+    @Environment(\.modelContext) private var context
+    @Query private var challenges: [LifeChallenge]
+    @Query private var completions: [ChallengeCompletion]
+    @Query private var transactions: [CoinTransaction]
+    let group: LifeChallengeGroup
+
+    var body: some View {
+        List {
+            if !group.details.isEmpty { Section { Text(group.details) } }
+            ForEach(challenges.filter { $0.groupID == group.id }) { challenge in
+                Button {
+                    LiveLifeService.toggleCompletion(challenge: challenge, date: .now, completions: completions, transactions: transactions, context: context)
+                } label: {
+                    Label(
+                        challenge.title,
+                        systemImage: LiveLifeService.isCompleted(challenge, on: .now, completions: completions) ? "checkmark.circle.fill" : "circle"
+                    )
+                }
+            }
+        }
+        .navigationTitle(group.title)
+    }
+}
+
+private struct ChallengeGroupForm: View {
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var context
+    @State private var title = ""
+    @State private var details = ""
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                TextField(L("Titel", "Title"), text: $title)
+                TextField(L("Beschreibung", "Description"), text: $details, axis: .vertical)
+            }
+            .navigationTitle(L("Neue Gruppe", "New group"))
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button(L("Abbrechen", "Cancel")) { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(L("Speichern", "Save")) {
+                        guard !title.isEmpty else { return }
+                        context.insert(LifeChallengeGroup(title: title, details: details))
+                        try? context.save()
+                        dismiss()
+                    }
+                }
+            }
+        }
+    }
+}

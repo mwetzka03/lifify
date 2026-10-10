@@ -2,9 +2,13 @@
 
 ## Referenz
 
-Die Implementierung orientiert sich an `mwetzka03/FinanzBuddy` Tag `v0.3.6`
-(Commit `98fa2c3`). Lifify übernimmt dessen fachliche Konzepte, ist aber eine
-native, vollständig lokale iPhone-App mit SwiftUI und SwiftData.
+Die Implementierung orientiert sich an:
+
+- `mwetzka03/FinanzBuddy` Tag `v0.3.6` (Commit `98fa2c3`)
+- `mwetzka03/live-life` Tag `v0.2.5` (Commit `e9cee29`)
+
+Lifify verbindet beide fachlichen Konzepte in einer nativen, lokalen
+iPhone-App mit SwiftUI und SwiftData.
 
 ## Umgesetzter Umfang
 
@@ -24,6 +28,15 @@ native, vollständig lokale iPhone-App mit SwiftUI und SwiftData.
 - Deutsch und Englisch, Erscheinungsbild Hell/Dunkel/System
 - Vollständige lokale JSON-Sicherung und Wiederherstellung
 - CSV-Import und Import einer einzelnen CAMT-XML-Datei
+- Gemeinsamer Home-Bildschirm mit Budgetring sowie umschaltbarer
+  Tag-/Woche-/Monat-Kalenderübersicht; Wischgesten wechseln die Periode
+- Live-Life-Kalender mit lokalen Terminen, Challenge- und Belohnungsverknüpfung
+- Challenges und Challenge-Gruppen mit Wiederholungen, Abschlüssen, Streaks und
+  wachsendem Coin-Multiplikator
+- Belohnungsshop und Wallet mit Coin-Transaktionen und Kaufhistorie
+- Visionboards mit verschiebbaren Texten/Formen sowie Bucketlist mit optional
+  verknüpften Shop-Belohnungen
+- Optionaler Import aus iOS-Kalendern und Erinnerungen über EventKit
 
 ## Annahmen gegenüber FinanzBuddy v0.3.6
 
@@ -67,6 +80,21 @@ native, vollständig lokale iPhone-App mit SwiftUI und SwiftData.
 12. **Datenschutz:** Es gibt weder Backend noch Kontoanmeldung, Telemetrie,
     Werbung oder Netzwerkzugriffe. Import und Export erfolgen ausschließlich
     über den systemeigenen Dateidialog.
+13. **Live-Life-Synchronisierung:** Die Desktop-Referenz speichert
+    CalDAV-/iCloud-Passwörter und nutzt eine Python-Brücke. Lifify speichert
+    keine solchen Zugangsdaten. Optional liest es nach ausdrücklicher
+    iOS-Freigabe Termine und Erinnerungen über EventKit. Netzwerk- und
+    Kontoverwaltung bleiben dabei dem Betriebssystem überlassen; ohne Freigabe
+    funktionieren alle lokalen Funktionen.
+14. **Visionboard:** Die Desktop-Referenz bietet zusätzlich freie
+    Bildplatzierung, Verbindungspfeile, Zoom, Crop und mehrere
+    Mauswerkzeuge. Die native Touch-Oberfläche übernimmt mehrere Boards,
+    Hintergründe, verschiebbare Texte, Rechtecke und Kreise. Die
+    desktopbezogenen Maus-/Crop-Werkzeuge werden nicht übernommen.
+15. **Home-Navigation:** Das bereitgestellte Mockup ist maßgeblich:
+    Home, Finanzen, Live Life und Einstellungen sind die vier Haupttabs.
+    Budgetring, Kalenderperioden und Schnellaktionen öffnen ihre jeweiligen
+    Detailansichten.
 
 ## Technische Leitplanken
 
@@ -74,4 +102,5 @@ native, vollständig lokale iPhone-App mit SwiftUI und SwiftData.
 - keine UIKit- oder Core-Data-Imports
 - Bundle-ID `com.mwetzka03.lifify`, Anzeigename `Lifify`
 - Views, ViewModels, Models und Services liegen in getrennten Dateien/Ordnern
+- EventKit ausschließlich für die optionale iOS-Systemintegration
 - keine Drittanbieter-Abhängigkeiten und keine Secrets

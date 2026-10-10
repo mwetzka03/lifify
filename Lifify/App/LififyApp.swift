@@ -17,7 +17,17 @@ struct LififyApp: App {
             ExpenseGroup.self,
             ExpenseGroupLine.self,
             PortfolioHolding.self,
-            SavedArticle.self
+            SavedArticle.self,
+            LifeCalendarEvent.self,
+            LifeChallenge.self,
+            ChallengeCompletion.self,
+            LifeChallengeGroup.self,
+            CoinTransaction.self,
+            RewardItem.self,
+            RewardPurchase.self,
+            BucketListItem.self,
+            VisionBoard.self,
+            VisionBoardElement.self
         ])
         let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
         do {
