@@ -7,9 +7,7 @@ struct ShopView: View {
     @Query(sort: \RewardItem.title) private var rewards: [RewardItem]
     @Query(sort: \CoinTransaction.date, order: .reverse) private var transactions: [CoinTransaction]
     @Query(sort: \RewardPurchase.date, order: .reverse) private var purchases: [RewardPurchase]
-    @Query(sort: \BucketListItem.targetYear) private var bucketItems: [BucketListItem]
     @State private var showingNew = false
-    @State private var showingBucketItem = false
     @State private var edited: RewardItem?
     @State private var message: String?
 
@@ -83,35 +81,10 @@ struct ShopView: View {
                     LabeledContent(purchase.title, value: "\(purchase.price) 🪙")
                 }
             }
-            Section(L("Bucketlist", "Bucket list")) {
-                ForEach(bucketItems) { item in
-                    Button {
-                        item.isCompleted.toggle()
-                        try? context.save()
-                    } label: {
-                        HStack {
-                            Image(systemName: item.isCompleted ? "checkmark.circle.fill" : "circle")
-                            Text(item.title).foregroundStyle(.primary)
-                            Spacer()
-                            Text("\(item.targetYear)").font(.caption).foregroundStyle(.secondary)
-                        }
-                    }
-                }
-                .onDelete { offsets in
-                    offsets.map { bucketItems[$0] }.forEach(context.delete)
-                    try? context.save()
-                }
-                Button {
-                    showingBucketItem = true
-                } label: {
-                    Label(L("Wunsch hinzufügen", "Add wish"), systemImage: "plus")
-                }
-            }
         }
         .navigationTitle(L("Shop & Wallet", "Shop & Wallet"))
         .toolbar { Button { showingNew = true } label: { Image(systemName: "plus") } }
         .sheet(isPresented: $showingNew) { RewardForm(reward: nil) }
-        .sheet(isPresented: $showingBucketItem) { BucketItemForm() }
         .sheet(item: $edited) { RewardForm(reward: $0) }
         .alert(L("Shop", "Shop"), isPresented: Binding(
             get: { message != nil },
@@ -149,11 +122,7 @@ private struct RewardForm: View {
                 TextField(L("Beschreibung", "Description"), text: $details, axis: .vertical)
                 Stepper("\(L("Preis", "Price")): \(price) 🪙", value: $price, in: 0...100_000)
                 TextField("URL", text: $url).keyboardType(.URL).textInputAutocapitalization(.never)
-                Picker(L("Symbol", "Icon"), selection: $icon) {
-                    ForEach(["gift", "cup.and.saucer", "gamecontroller", "airplane", "cart"], id: \.self) {
-                        Label($0, systemImage: $0).tag($0)
-                    }
-                }
+                SymbolPicker(title: L("Symbol", "Icon"), selection: $icon)
             }
             .navigationTitle(L("Belohnung", "Reward"))
             .toolbar {
@@ -168,49 +137,6 @@ private struct RewardForm: View {
                         reward.urlString = url
                         reward.icon = icon
                         if existing == nil { context.insert(reward) }
-                        try? context.save()
-                        dismiss()
-                    }
-                }
-            }
-        }
-    }
-}
-private struct BucketItemForm: View {
-    @Environment(\.dismiss) private var dismiss
-    @Environment(\.modelContext) private var context
-    @State private var title = ""
-    @State private var details = ""
-    @State private var year = Calendar.current.component(.year, from: .now)
-    @State private var createReward = false
-    @State private var rewardPrice = 500
-
-    var body: some View {
-        NavigationStack {
-            Form {
-                TextField(L("Wunsch", "Wish"), text: $title)
-                TextField(L("Beschreibung", "Description"), text: $details, axis: .vertical)
-                Stepper("\(L("Zieljahr", "Target year")): \(year)", value: $year, in: 2000...2200)
-                Toggle(L("Als Belohnung anlegen", "Create as reward"), isOn: $createReward)
-                if createReward {
-                    Stepper("\(L("Preis", "Price")): \(rewardPrice) 🪙", value: $rewardPrice, in: 0...100_000)
-                }
-            }
-            .navigationTitle(L("Bucketlist", "Bucket list"))
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button(L("Abbrechen", "Cancel")) { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button(L("Speichern", "Save")) {
-                        guard !title.isEmpty else { return }
-                        let item = BucketListItem(title: title, details: details, targetYear: year)
-                        if createReward {
-                            let reward = RewardItem(title: title, details: details, price: rewardPrice, bucketListItemID: item.id)
-                            item.linkedRewardID = reward.id
-                            context.insert(reward)
-                        }
-                        context.insert(item)
                         try? context.save()
                         dismiss()
                     }

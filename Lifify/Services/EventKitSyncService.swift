@@ -48,22 +48,37 @@ final class EventKitSyncService: ObservableObject {
 
             if remindersAllowed {
                 let reminders = await Self.fetchReminders()
+                let activeSuggestionIDs = Set(reminders.map { "reminder:\($0.identifier)" })
+                existingEvents
+                    .filter { $0.isReminderSuggestion && !activeSuggestionIDs.contains($0.externalIdentifier ?? "") }
+                    .forEach(context.delete)
                 for reminder in reminders {
                     let identifier = reminder.identifier
                     guard !identifier.isEmpty else { continue }
-                    let challenge = existingChallenges.first { $0.externalIdentifier == identifier } ??
-                        ChallengeItem(
+                    let suggestionIdentifier = "reminder:\(identifier)"
+                    if let legacyChallenge = existingChallenges.first(where: {
+                        $0.externalIdentifier == identifier && $0.isReadOnly
+                    }) {
+                        context.delete(legacyChallenge)
+                    }
+                    guard !existingChallenges.contains(where: { $0.externalIdentifier == suggestionIdentifier }) else {
+                        continue
+                    }
+                    let dueDate = reminder.dueDate ?? .now
+                    let suggestion = existingEvents.first { $0.externalIdentifier == suggestionIdentifier } ??
+                        ChallengeCalendarEvent(
                             title: reminder.title,
-                            category: .todo,
-                            recurrence: .none,
-                            startDate: reminder.dueDate,
-                            externalIdentifier: identifier,
+                            startDate: dueDate,
+                            endDate: Calendar.current.date(byAdding: .hour, value: 1, to: dueDate) ?? dueDate,
+                            icon: "lightbulb",
+                            externalIdentifier: suggestionIdentifier,
                             isReadOnly: true
                         )
-                    challenge.title = reminder.title
-                    challenge.details = reminder.notes
-                    challenge.startDate = reminder.dueDate
-                    if challenge.modelContext == nil { context.insert(challenge) }
+                    suggestion.title = reminder.title
+                    suggestion.details = reminder.notes
+                    suggestion.startDate = dueDate
+                    suggestion.endDate = Calendar.current.date(byAdding: .hour, value: 1, to: dueDate) ?? dueDate
+                    if suggestion.modelContext == nil { context.insert(suggestion) }
                     importedReminders += 1
                 }
             }
@@ -84,11 +99,12 @@ final class EventKitSyncService: ObservableObject {
             storeBox.store.fetchReminders(matching: storeBox.store.predicateForReminders(in: nil)) {
                 let snapshots = ($0 ?? []).compactMap { reminder -> ReminderSnapshot? in
                     guard !reminder.isCompleted else { return nil }
+                    let calendar = Calendar(identifier: .gregorian)
                     return ReminderSnapshot(
                         identifier: reminder.calendarItemIdentifier,
                         title: reminder.title ?? "Erinnerung",
                         notes: reminder.notes ?? "",
-                        dueDate: reminder.dueDateComponents.flatMap { Calendar.current.date(from: $0) }
+                        dueDate: reminder.dueDateComponents.flatMap { calendar.date(from: $0) }
                     )
                 }
                 continuation.resume(returning: snapshots)

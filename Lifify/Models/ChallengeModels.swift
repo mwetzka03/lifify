@@ -98,6 +98,13 @@ final class ChallengeCalendarEvent {
         self.isReadOnly = isReadOnly
     }
 }
+
+extension ChallengeCalendarEvent {
+    var isReminderSuggestion: Bool {
+        externalIdentifier?.hasPrefix("reminder:") == true
+    }
+}
+
 @Model
 final class ChallengeItem {
     @Attribute(.unique) var id: UUID

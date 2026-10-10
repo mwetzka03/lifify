@@ -107,11 +107,26 @@ struct HomeView: View {
                     )
                 }
                 ForEach(dayEvents.prefix(5)) { event in
-                    Label(event.title, systemImage: event.icon)
+                    HStack {
+                        Text(event.isAllDay ? L("Ganztägig", "All day") : event.startDate.formatted(.dateTime.hour().minute()))
+                            .font(.caption.monospacedDigit())
+                            .foregroundStyle(.secondary)
+                            .frame(width: 58, alignment: .leading)
+                        Label(event.title, systemImage: event.icon)
+                        Spacer()
+                    }
                 }
                 ForEach(dayChallenges.prefix(5)) { challenge in
-                    Label(challenge.title, systemImage: ChallengeService.isCompleted(challenge, on: selectedDate, completions: completions) ? "checkmark.circle.fill" : "circle")
-                        .foregroundStyle(ChallengeService.isCompleted(challenge, on: selectedDate, completions: completions) ? .green : .primary)
+                    HStack {
+                        Image(systemName: ChallengeService.isCompleted(challenge, on: selectedDate, completions: completions) ? "checkmark.circle.fill" : "circle")
+                            .foregroundStyle(ChallengeService.isCompleted(challenge, on: selectedDate, completions: completions) ? .green : .secondary)
+                        Image(systemName: IconPreferenceStore.icon(for: challenge.id, fallback: "target"))
+                        Text(challenge.title)
+                        Spacer()
+                        Text("+\(challenge.rewardCoins) 🪙")
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                    }
                 }
                 Spacer(minLength: 0)
             }
@@ -242,7 +257,9 @@ struct HomeView: View {
     private func events(on day: Date) -> [ChallengeCalendarEvent] {
         let start = Calendar.current.startOfDay(for: day)
         let end = Calendar.current.date(byAdding: .day, value: 1, to: start)!
-        return calendarEvents.filter { $0.startDate < end && $0.endDate >= start }
+        return calendarEvents.filter {
+            !$0.isReminderSuggestion && $0.startDate < end && $0.endDate >= start
+        }
     }
 
     private func dueChallenges(on day: Date) -> [ChallengeItem] {

@@ -23,6 +23,7 @@ final class TransactionFormViewModel: ObservableObject {
     @Published var title: String
     @Published var notes: String
     @Published var amountText: String
+    @Published var icon: String
     @Published var kind: LedgerKind
     @Published var accountID: UUID?
     @Published var fromAccountID: UUID?
@@ -41,6 +42,7 @@ final class TransactionFormViewModel: ObservableObject {
         title = entry?.title ?? ""
         notes = entry?.notes ?? ""
         amountText = entry.map { String(format: "%.2f", Double(abs($0.amountCents)) / 100) } ?? ""
+        icon = entry.map { IconPreferenceStore.icon(for: $0.id, fallback: "cart") } ?? "cart"
         kind = entry?.kind ?? .expense
         accountID = entry?.accountID
         fromAccountID = entry?.fromAccountID
@@ -110,6 +112,7 @@ final class TransactionFormViewModel: ObservableObject {
         entry.variableBudgetID = kind == .expense && variableValues?.isEmpty != false ? variableBudgetID : nil
         entry.shoppingItemID = kind == .expense ? shoppingItemID : nil
         if existing == nil { context.insert(entry) }
+        IconPreferenceStore.set(icon, for: entry.id)
 
         allSplits.filter { $0.transactionID == id }.forEach { context.delete($0) }
         variableValues?.forEach {

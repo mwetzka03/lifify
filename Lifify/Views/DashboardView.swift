@@ -56,14 +56,44 @@ struct DashboardView: View {
                         Label(L("Buchungen", "Transactions"), systemImage: "list.bullet.rectangle")
                     }
                     NavigationLink {
-                        PlanningView()
+                        FixedCostsView()
                     } label: {
-                        Label(L("Budgets und Planung", "Budgets and planning"), systemImage: "calendar")
+                        Label(L("Fixkosten", "Fixed costs"), systemImage: "repeat")
                     }
                     NavigationLink {
-                        OrganizationView()
+                        VariableBudgetsView()
                     } label: {
-                        Label(L("Einkäufe, Schulden und Depot", "Shopping, debts and portfolio"), systemImage: "square.grid.2x2")
+                        Label(L("Variable Monatsbudgets", "Variable monthly budgets"), systemImage: "gauge.with.dots.needle.67percent")
+                    }
+                    NavigationLink {
+                        BudgetPoolsView()
+                    } label: {
+                        Label(L("Budgetpools", "Budget pools"), systemImage: "tray.full")
+                    }
+                    NavigationLink {
+                        IncomeForecastsView()
+                    } label: {
+                        Label(L("Einnahmeprognosen", "Income forecasts"), systemImage: "calendar.badge.plus")
+                    }
+                    NavigationLink {
+                        ShoppingListView()
+                    } label: {
+                        Label(L("Einkaufszettel", "Shopping list"), systemImage: "cart")
+                    }
+                    NavigationLink {
+                        DebtsView()
+                    } label: {
+                        Label(L("Schulden", "Debts"), systemImage: "person.2")
+                    }
+                    NavigationLink {
+                        ExpenseGroupsView()
+                    } label: {
+                        Label(L("Ausgabengruppen", "Expense groups"), systemImage: "square.stack.3d.up")
+                    }
+                    NavigationLink {
+                        PortfolioView()
+                    } label: {
+                        Label(L("Depot", "Portfolio"), systemImage: "chart.line.uptrend.xyaxis")
                     }
                 }
             }

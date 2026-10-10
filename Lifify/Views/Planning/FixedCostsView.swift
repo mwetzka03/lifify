@@ -14,6 +14,8 @@ struct FixedCostsView: View {
                     edited = cost
                 } label: {
                     HStack {
+                        Image(systemName: IconPreferenceStore.icon(for: cost.id, fallback: "repeat"))
+                            .frame(width: 28)
                         VStack(alignment: .leading) {
                             Text(cost.name).foregroundStyle(.primary)
                             Text("\(cost.cadence.label) · \(cost.dueRule.label)")
@@ -27,7 +29,10 @@ struct FixedCostsView: View {
                 }
             }
             .onDelete { offsets in
-                offsets.map { costs[$0] }.forEach(context.delete)
+                offsets.map { costs[$0] }.forEach {
+                    IconPreferenceStore.remove(for: $0.id)
+                    context.delete($0)
+                }
                 try? context.save()
             }
         }
@@ -58,6 +63,7 @@ private struct FixedCostForm: View {
     @State private var dueRule: DueRule
     @State private var day: Int
     @State private var active: Bool
+    @State private var icon: String
 
     init(cost: FixedCost?) {
         existing = cost
@@ -69,6 +75,7 @@ private struct FixedCostForm: View {
         _dueRule = State(initialValue: cost?.dueRule ?? .calendarDay)
         _day = State(initialValue: cost?.dayOfMonth ?? 1)
         _active = State(initialValue: cost?.isActive ?? true)
+        _icon = State(initialValue: cost.map { IconPreferenceStore.icon(for: $0.id, fallback: "repeat") } ?? "repeat")
     }
 
     var body: some View {
@@ -76,6 +83,7 @@ private struct FixedCostForm: View {
             Form {
                 TextField(L("Name", "Name"), text: $name)
                 TextField(L("Betrag", "Amount"), text: $amount).keyboardType(.decimalPad)
+                SymbolPicker(title: L("Symbol", "Icon"), selection: $icon)
                 Picker(L("Konto", "Account"), selection: $accountID) {
                     Text(L("Keins", "None")).tag(Optional<UUID>.none)
                     ForEach(accounts.filter { $0.kind != .portfolio && $0.kind != .savingsGroup }) {
@@ -110,6 +118,7 @@ private struct FixedCostForm: View {
                         cost.dayOfMonth = day
                         cost.isActive = active
                         if existing == nil { context.insert(cost) }
+                        IconPreferenceStore.set(icon, for: cost.id)
                         try? context.save()
                         dismiss()
                     }

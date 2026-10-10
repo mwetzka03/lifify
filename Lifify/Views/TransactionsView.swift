@@ -59,6 +59,7 @@ struct TransactionsView: View {
         for offset in offsets {
             let entry = filtered[offset]
             splits.filter { $0.transactionID == entry.id }.forEach { context.delete($0) }
+            IconPreferenceStore.remove(for: entry.id)
             context.delete(entry)
         }
         try? context.save()
@@ -88,12 +89,13 @@ private struct TransactionRow: View {
     }
 
     private var icon: String {
-        switch entry.kind {
+        let fallback: String = switch entry.kind {
         case .income: "arrow.down.left"
         case .expense: "arrow.up.right"
         case .transfer: "arrow.left.arrow.right"
         case .adjustment: "equal.circle"
         }
+        return IconPreferenceStore.icon(for: entry.id, fallback: fallback)
     }
 
     private var color: Color {
@@ -128,6 +130,7 @@ private struct TransactionFormView: View {
                     Picker(L("Art", "Type"), selection: $viewModel.kind) {
                         ForEach(LedgerKind.allCases) { Text($0.label).tag($0) }
                     }
+                    SymbolPicker(title: L("Symbol", "Icon"), selection: $viewModel.icon)
                     TextField(L("Titel", "Title"), text: $viewModel.title)
                     TextField(L("Betrag", "Amount"), text: $viewModel.amountText)
                         .keyboardType(.decimalPad)

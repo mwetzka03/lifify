@@ -140,6 +140,7 @@ final class PortfolioHolding {
     }
 }
 
+// Kept only so existing SwiftData stores remain readable; no article feature uses it.
 @Model
 final class SavedArticle {
     @Attribute(.unique) var id: UUID

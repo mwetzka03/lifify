@@ -83,7 +83,6 @@ enum BackupService {
         groups: [ExpenseGroup],
         lines: [ExpenseGroupLine],
         holdings: [PortfolioHolding],
-        articles: [SavedArticle],
         calendarEvents: [ChallengeCalendarEvent],
         challenges: [ChallengeItem],
         completions: [ChallengeCompletion],
@@ -130,9 +129,6 @@ enum BackupService {
         records += holdings.map {
             BackupRecord(type: "holding", id: $0.id, strings: [$0.name, $0.symbol], integers: [$0.purchasePriceCents, $0.currentPriceCents], doubles: [$0.quantity], dates: [$0.updatedAt], uuids: [$0.accountID])
         }
-        records += articles.map {
-            BackupRecord(type: "article", id: $0.id, strings: [$0.title, $0.urlString, $0.notes], dates: [$0.savedAt])
-        }
         records += calendarEvents.map {
             BackupRecord(type: "challengeEvent", id: $0.id, strings: [$0.title, $0.details, $0.colorHex, $0.icon, $0.externalIdentifier ?? ""], booleans: [$0.isAllDay, $0.isReadOnly], dates: [$0.startDate, $0.endDate], uuids: [$0.linkedChallengeID, $0.linkedChallengeGroupID, $0.linkedRewardID])
         }
@@ -157,6 +153,11 @@ enum BackupService {
         records += bucketItems.map {
             BackupRecord(type: "bucket", id: $0.id, strings: [$0.title, $0.details], integers: [$0.targetYear], booleans: [$0.isCompleted], uuids: [$0.linkedRewardID])
         }
+        records += (entries.map(\.id) + fixedCosts.map(\.id) + challenges.map(\.id)).compactMap { id in
+            IconPreferenceStore.storedIcon(for: id).map {
+                BackupRecord(type: "iconPreference", id: id, strings: [$0])
+            }
+        }
         let backup = LififyBackup(version: 1, exportedAt: .now, records: records)
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
@@ -178,9 +179,15 @@ enum BackupService {
     @MainActor
     private static func clear(_ context: ModelContext) throws {
         try context.fetch(FetchDescriptor<TransactionSplit>()).forEach { context.delete($0) }
-        try context.fetch(FetchDescriptor<LedgerEntry>()).forEach { context.delete($0) }
+        try context.fetch(FetchDescriptor<LedgerEntry>()).forEach {
+            IconPreferenceStore.remove(for: $0.id)
+            context.delete($0)
+        }
         try context.fetch(FetchDescriptor<Account>()).forEach { context.delete($0) }
-        try context.fetch(FetchDescriptor<FixedCost>()).forEach { context.delete($0) }
+        try context.fetch(FetchDescriptor<FixedCost>()).forEach {
+            IconPreferenceStore.remove(for: $0.id)
+            context.delete($0)
+        }
         try context.fetch(FetchDescriptor<VariableBudget>()).forEach { context.delete($0) }
         try context.fetch(FetchDescriptor<BudgetPool>()).forEach { context.delete($0) }
         try context.fetch(FetchDescriptor<IncomeForecast>()).forEach { context.delete($0) }
@@ -192,7 +199,10 @@ enum BackupService {
         try context.fetch(FetchDescriptor<SavedArticle>()).forEach { context.delete($0) }
         try context.fetch(FetchDescriptor<ChallengeCalendarEvent>()).forEach { context.delete($0) }
         try context.fetch(FetchDescriptor<ChallengeCompletion>()).forEach { context.delete($0) }
-        try context.fetch(FetchDescriptor<ChallengeItem>()).forEach { context.delete($0) }
+        try context.fetch(FetchDescriptor<ChallengeItem>()).forEach {
+            IconPreferenceStore.remove(for: $0.id)
+            context.delete($0)
+        }
         try context.fetch(FetchDescriptor<ChallengeGroup>()).forEach { context.delete($0) }
         try context.fetch(FetchDescriptor<CoinTransaction>()).forEach { context.delete($0) }
         try context.fetch(FetchDescriptor<RewardPurchase>()).forEach { context.delete($0) }
@@ -233,8 +243,6 @@ enum BackupService {
             if let group = uuid(0) { context.insert(ExpenseGroupLine(id: r.id, groupID: group, name: string(0), amountCents: int(0), sortOrder: int(1))) }
         case "holding":
             context.insert(PortfolioHolding(id: r.id, accountID: uuid(0), name: string(0), symbol: string(1), quantity: r.doubles.first ?? 0, purchasePriceCents: int(0), currentPriceCents: int(1), updatedAt: date(0) ?? .now))
-        case "article":
-            context.insert(SavedArticle(id: r.id, title: string(0), urlString: string(1), notes: string(2), savedAt: date(0) ?? .now))
         case "challengeEvent":
             context.insert(ChallengeCalendarEvent(id: r.id, title: string(0), details: string(1), startDate: date(0) ?? .now, endDate: date(1) ?? .now, isAllDay: bool(0), colorHex: string(2), icon: string(3), linkedChallengeID: uuid(0), linkedChallengeGroupID: uuid(1), linkedRewardID: uuid(2), externalIdentifier: string(4).isEmpty ? nil : string(4), isReadOnly: bool(1)))
         case "challenge":
@@ -251,6 +259,8 @@ enum BackupService {
             if let rewardID = uuid(0) { context.insert(RewardPurchase(id: r.id, rewardID: rewardID, title: string(0), price: int(0), date: date(0) ?? .now)) }
         case "bucket":
             context.insert(BucketListItem(id: r.id, title: string(0), details: string(1), targetYear: int(0), isCompleted: bool(0), linkedRewardID: uuid(0)))
+        case "iconPreference":
+            if !string(0).isEmpty { IconPreferenceStore.set(string(0), for: r.id) }
         default:
             break
         }

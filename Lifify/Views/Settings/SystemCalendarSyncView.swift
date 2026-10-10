@@ -30,8 +30,8 @@ struct SystemCalendarSyncView: View {
                 Text(L("Systemintegration", "System integration"))
             }
             Section {
-                LabeledContent(L("Importierte Termine", "Imported events"), value: "\(events.filter { $0.externalIdentifier != nil }.count)")
-                LabeledContent(L("Importierte Erinnerungen", "Imported reminders"), value: "\(challenges.filter { $0.externalIdentifier != nil }.count)")
+                LabeledContent(L("Importierte Termine", "Imported events"), value: "\(events.filter { $0.externalIdentifier != nil && !$0.isReminderSuggestion }.count)")
+                LabeledContent(L("Importierte Erinnerungen", "Imported reminders"), value: "\(events.filter(\.isReminderSuggestion).count)")
             }
         }
         .navigationTitle(L("Kalender-Sync", "Calendar sync"))

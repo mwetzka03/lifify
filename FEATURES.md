@@ -23,8 +23,8 @@ iPhone-App mit SwiftUI und SwiftData.
   Rheinland-Pfalz (inklusive gesetzlicher Feiertage)
 - Variable Monatsbudgets und Budgetpools pro Gehaltszeitraum oder Kalenderjahr;
   skalierbare Pools übertragen den Rest in die nächste Periode
-- Einkaufszettel, Schulden, Ausgabengruppen, Depotpositionen mit manuell
-  eingetragenem Kurs und lokal gespeicherte Artikel
+- Einkaufszettel, Schulden, Ausgabengruppen und Depotpositionen mit manuell
+  eingetragenem Kurs
 - Deutsch und Englisch, Erscheinungsbild Hell/Dunkel/System
 - Vollständige lokale JSON-Sicherung und Wiederherstellung
 - CSV-Import und Import einer einzelnen CAMT-XML-Datei
@@ -33,65 +33,71 @@ iPhone-App mit SwiftUI und SwiftData.
 - Challenge-Kalender mit lokalen Terminen sowie Challenge- und Belohnungsverknüpfung
 - Challenges und Challenge-Gruppen mit Wiederholungen, Abschlüssen, Streaks und
   wachsendem Coin-Multiplikator
+- Importierte iOS-Erinnerungen erscheinen zunächst als Empfehlungen und werden
+  erst nach ausdrücklicher Übernahme zu Challenges
 - Belohnungsshop und Wallet mit Coin-Transaktionen und Kaufhistorie
-- Bucketlist mit optional verknüpften Shop-Belohnungen
+- Frei wählbare SF-Symbole für Buchungen, Fixkosten, Challenges und Belohnungen
+- Lokal gespeicherte Bucketlist-Daten; die Oberfläche ist vorerst ausgeblendet
 - Optionaler Import aus iOS-Kalendern und Erinnerungen über EventKit
 
 ## Annahmen gegenüber FinanzBuddy v0.3.6
 
-1. **Gespeicherte Artikel:** v0.3.6 besitzt keine Lesezeichenfunktion, sondern
-   lädt Börsennachrichten aus dem Netz und hält sie nur kurz im Cache. Da Lifify
-   ausdrücklich ohne notwendiges Netz und mit „gespeicherten Artikeln“ arbeiten
-   soll, sind Artikel lokale Lesezeichen mit Titel, URL und Notiz. Lifify lädt
-   keine News.
-2. **Sicherung:** Die v0.3.6-JSON-Sicherung lässt Budgetpools, Split-Zuordnungen
+1. **Sicherung:** Die v0.3.6-JSON-Sicherung lässt Budgetpools, Split-Zuordnungen
    und einige weitere Tabellen aus. Lifify sichert absichtlich sämtliche
    Nutzerdaten einschließlich Splits, damit eine Wiederherstellung vollständig
    ist.
-3. **Geldbeträge:** Wie in FinanzBuddy werden Beträge intern als ganzzahlige
+2. **Geldbeträge:** Wie in FinanzBuddy werden Beträge intern als ganzzahlige
    Cent gespeichert. Ausgaben sind negativ; Umbuchungen und Saldo-Korrekturen
    speichern einen positiven Betrag.
-4. **Saldo-Korrektur:** Die zeitlich letzte Korrektur eines Kontos ist der neue
+3. **Saldo-Korrektur:** Die zeitlich letzte Korrektur eines Kontos ist der neue
    Saldo-Anker. Nur spätere Buchungen verändern diesen Wert.
-5. **Oberspartopf:** Ein Oberspartopf gruppiert Spartöpfe. Er wird nicht noch
+4. **Oberspartopf:** Ein Oberspartopf gruppiert Spartöpfe. Er wird nicht noch
    einmal zur Gesamtsumme addiert, um Doppelzählungen zu vermeiden.
-6. **Depot:** Ein Depotwert ist Stückzahl × manuell eingetragener Kurs. Es gibt
+5. **Depot:** Ein Depotwert ist Stückzahl × manuell eingetragener Kurs. Es gibt
    keine Live-Kurse. Käufe und Verkäufe werden in dieser Version nicht
    automatisch in ein FIFO-Steuerlot umgerechnet; Geldbewegungen können separat
    als Buchung erfasst werden.
-7. **Variable Kosten:** Monatswerte gelten ab dem Erstellungsmonat. Der in
+6. **Variable Kosten:** Monatswerte gelten ab dem Erstellungsmonat. Der in
    FinanzBuddy hart codierte Startmonat `2026-06` wird nicht übernommen.
-8. **Budgetpool-Gehaltszeitraum:** Der Starttag ist je Pool einstellbar
+7. **Budgetpool-Gehaltszeitraum:** Der Starttag ist je Pool einstellbar
    (standardmäßig der 1.). Eine Periode läuft vom Starttag bis zum Vortag
    desselben Tages im Folgemonat. Bei kurzen Monaten wird der Tag auf das
    Monatsende begrenzt.
-9. **Skalierbarer Übertrag:** Rest = Grundbudget + bisheriger Übertrag −
+8. **Skalierbarer Übertrag:** Rest = Grundbudget + bisheriger Übertrag −
    zugeordnete Ausgaben. Der Rest wird vollständig, auch wenn er negativ ist, in
    die nächste Periode übernommen.
-10. **Import:** CSV erwartet eine Kopfzeile und erkennt deutsche sowie englische
+9. **Import:** CSV erwartet eine Kopfzeile und erkennt deutsche sowie englische
     Spaltennamen für Datum, Betrag, Verwendungszweck und IBAN. CAMT verarbeitet
     genau eine XML-Datei und liest Buchungsdatum, Betrag, Soll/Haben,
     Beschreibung und Gegenkonto. ZIP und MT940 sind absichtlich nicht
     enthalten.
-11. **Import-Deduplizierung:** Importierte Zeilen erhalten aus den Quelldaten
+10. **Import-Deduplizierung:** Importierte Zeilen erhalten aus den Quelldaten
     einen stabilen Fingerabdruck. Derselbe Datensatz wird nicht erneut
     importiert.
-12. **Datenschutz:** Es gibt weder Backend noch Kontoanmeldung, Telemetrie,
+11. **Datenschutz:** Es gibt weder Backend noch Kontoanmeldung, Telemetrie,
     Werbung oder Netzwerkzugriffe. Import und Export erfolgen ausschließlich
     über den systemeigenen Dateidialog.
-13. **Live-Life-Synchronisierung:** Die Desktop-Referenz speichert
+12. **Challenge-Synchronisierung:** Die Desktop-Referenz speichert
     CalDAV-/iCloud-Passwörter und nutzt eine Python-Brücke. Lifify speichert
     keine solchen Zugangsdaten. Optional liest es nach ausdrücklicher
     iOS-Freigabe Termine und Erinnerungen über EventKit. Netzwerk- und
     Kontoverwaltung bleiben dabei dem Betriebssystem überlassen; ohne Freigabe
     funktionieren alle lokalen Funktionen.
-14. **Visionboard:** Das Visionboard der Desktop-Referenz ist auf Nutzerwunsch
-    nicht Bestandteil von Lifify. Die Bucketlist bleibt im kombinierten
-    Shop-/Wallet-Bereich erhalten.
-15. **Home-Navigation:** Das bereitgestellte Mockup ist maßgeblich:
+13. **Visionboard und Bucketlist:** Das Visionboard ist auf Nutzerwunsch nicht
+    Bestandteil von Lifify. Bucketlist-Daten und Sicherungslogik bleiben
+    erhalten, ihre Oberfläche ist vorerst ausgeblendet.
+14. **Home-Navigation:** Das bereitgestellte Mockup ist maßgeblich:
     Home, Finanzen, Challenges und Einstellungen sind die vier Haupttabs.
     Budgetring, Kalenderperioden und Schnellaktionen öffnen ihre jeweiligen
     Detailansichten.
+15. **Erinnerungen:** Offene iOS-Erinnerungen werden nicht automatisch als
+    erledigbare Challenges angelegt. Sie bleiben in „Empfehlungen“, bis sie
+    übernommen werden. Bereits übernommene Erinnerungen werden bei späteren
+    Synchronisierungen nicht erneut angeboten.
+16. **Gespeicherte Artikel:** Die Artikelansicht und ihre Fachlogik wurden auf
+    Nutzerwunsch entfernt. Das alte SwiftData-Modell bleibt ausschließlich als
+    Kompatibilitätsplatzhalter erhalten, damit vorhandene Entwicklungsstores
+    weiterhin geöffnet werden können.
 
 ## Technische Leitplanken
 

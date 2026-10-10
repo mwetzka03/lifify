@@ -5,6 +5,7 @@ struct ChallengesView: View {
     @Environment(\.modelContext) private var context
     @Query(sort: \ChallengeItem.createdAt, order: .reverse) private var challenges: [ChallengeItem]
     @Query(sort: \ChallengeGroup.title) private var groups: [ChallengeGroup]
+    @Query(sort: \ChallengeCalendarEvent.startDate) private var calendarEvents: [ChallengeCalendarEvent]
     @Query private var completions: [ChallengeCompletion]
     @Query private var transactions: [CoinTransaction]
     @State private var completedTab = false
@@ -16,15 +17,6 @@ struct ChallengesView: View {
     var body: some View {
         List {
             Section {
-                Picker(L("Status", "Status"), selection: $completedTab) {
-                    Text(L("Aktiv", "Active")).tag(false)
-                    Text(L("Abgeschlossen", "Completed")).tag(true)
-                }
-                .pickerStyle(.segmented)
-                Picker(L("Filter", "Filter"), selection: $filter) {
-                    ForEach(ChallengeFilter.allCases) { Text($0.label).tag($0) }
-                }
-                .pickerStyle(.segmented)
                 HStack {
                     Label("\(ChallengeService.walletBalance(transactions: transactions))", systemImage: "circle.fill")
                         .foregroundStyle(.orange)
@@ -36,6 +28,57 @@ struct ChallengesView: View {
                     }
                     .fixedSize()
                 }
+            }
+
+            Section {
+                DisclosureGroup {
+                    if recommendations.isEmpty {
+                        Text(L("Keine importierten Empfehlungen", "No imported recommendations"))
+                            .foregroundStyle(.secondary)
+                    }
+                        ForEach(recommendations) { recommendation in
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text(recommendation.title)
+                                    .font(.headline)
+                                if !recommendation.details.isEmpty {
+                                    Text(recommendation.details)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                HStack {
+                                    if let externalIdentifier = recommendation.externalIdentifier,
+                                       !externalIdentifier.isEmpty {
+                                        Text(recommendation.startDate, format: .dateTime.day().month().year())
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                    Spacer()
+                                    Button(L("Übernehmen", "Accept")) {
+                                        acceptRecommendation(recommendation)
+                                    }
+                                    .buttonStyle(.borderedProminent)
+                                }
+                            }
+                            .padding(.vertical, 4)
+                        }
+                } label: {
+                    Label(
+                        "\(L("Empfehlungen", "Recommendations")) (\(recommendations.count))",
+                        systemImage: "lightbulb.fill"
+                    )
+                }
+            }
+
+            Section {
+                Picker(L("Status", "Status"), selection: $completedTab) {
+                    Text(L("Aktiv", "Active")).tag(false)
+                    Text(L("Abgeschlossen", "Completed")).tag(true)
+                }
+                .pickerStyle(.segmented)
+                Picker(L("Filter", "Filter"), selection: $filter) {
+                    ForEach(ChallengeFilter.allCases) { Text($0.label).tag($0) }
+                }
+                .pickerStyle(.segmented)
             }
 
             if filter != .single {
@@ -55,34 +98,45 @@ struct ChallengesView: View {
 
             if filter != .groups {
                 ForEach(filteredChallenges) { challenge in
-                    HStack {
-                        Button {
-                            ChallengeService.toggleCompletion(
-                                challenge: challenge,
-                                date: .now,
-                                completions: completions,
-                                transactions: transactions,
-                                context: context
-                            )
-                        } label: {
+                    Button {
+                        ChallengeService.toggleCompletion(
+                            challenge: challenge,
+                            date: .now,
+                            completions: completions,
+                            transactions: transactions,
+                            context: context
+                        )
+                    } label: {
+                        HStack {
                             Image(systemName: ChallengeService.isCompleted(challenge, on: .now, completions: completions) ? "checkmark.circle.fill" : "circle")
                                 .foregroundStyle(.green)
-                        }
-                        .disabled(challenge.isReadOnly)
-                        Button {
-                            edited = challenge
-                        } label: {
+                            Image(systemName: IconPreferenceStore.icon(for: challenge.id, fallback: "target"))
+                                .frame(width: 24)
                             VStack(alignment: .leading) {
                                 Text(challenge.title).foregroundStyle(.primary)
                                 Text(challengeMeta(challenge))
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }
+                            Spacer()
                         }
-                        .buttonStyle(.plain)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(challenge.isReadOnly)
+                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                        Button {
+                            edited = challenge
+                        } label: {
+                            Label(L("Bearbeiten", "Edit"), systemImage: "pencil")
+                        }
+                        .tint(.blue)
+                        Button(role: .destructive) {
+                            deleteChallenge(challenge)
+                        } label: {
+                            Label(L("Löschen", "Delete"), systemImage: "trash")
+                        }
                     }
                 }
-                .onDelete(perform: deleteChallenges)
             }
         }
         .overlay {
@@ -106,23 +160,41 @@ struct ChallengesView: View {
     private var filteredChallenges: [ChallengeItem] {
         challenges.filter { challenge in
             let done = challenge.isArchived ||
-                (challenge.recurrence == .none && completions.contains { $0.challengeID == challenge.id })
+                ChallengeService.isCompleted(challenge, on: .now, completions: completions)
             return done == completedTab && (filter != .single || challenge.groupID == nil)
         }
+    }
+
+    private var recommendations: [ChallengeCalendarEvent] {
+        calendarEvents.filter(\.isReminderSuggestion)
     }
 
     private func groupMembers(_ group: ChallengeGroup) -> [ChallengeItem] {
         challenges.filter { $0.groupID == group.id }
     }
 
-    private func deleteChallenges(at offsets: IndexSet) {
-        for challenge in offsets.map({ filteredChallenges[$0] }) {
-            for completion in completions.filter({ $0.challengeID == challenge.id }) {
-                transactions.filter { $0.referenceID == completion.id }.forEach(context.delete)
-                context.delete(completion)
-            }
-            context.delete(challenge)
+    private func deleteChallenge(_ challenge: ChallengeItem) {
+        for completion in completions.filter({ $0.challengeID == challenge.id }) {
+            transactions.filter { $0.referenceID == completion.id }.forEach(context.delete)
+            context.delete(completion)
         }
+        IconPreferenceStore.remove(for: challenge.id)
+        context.delete(challenge)
+        try? context.save()
+    }
+
+    private func acceptRecommendation(_ recommendation: ChallengeCalendarEvent) {
+        let challenge = ChallengeItem(
+            title: recommendation.title,
+            details: recommendation.details,
+            category: .todo,
+            recurrence: .none,
+            startDate: recommendation.startDate,
+            externalIdentifier: recommendation.externalIdentifier
+        )
+        context.insert(challenge)
+        IconPreferenceStore.set("lightbulb", for: challenge.id)
+        context.delete(recommendation)
         try? context.save()
     }
 
@@ -163,7 +235,9 @@ private struct ChallengeForm: View {
     @State private var rewardCoins: Int
     @State private var streakTarget: Int
     @State private var groupID: UUID?
+    @State private var icon: String
 
+    @MainActor
     init(challenge: ChallengeItem?) {
         existing = challenge
         _title = State(initialValue: challenge?.title ?? "")
@@ -177,6 +251,7 @@ private struct ChallengeForm: View {
         _rewardCoins = State(initialValue: challenge?.rewardCoins ?? 10)
         _streakTarget = State(initialValue: challenge?.streakTarget ?? 0)
         _groupID = State(initialValue: challenge?.groupID)
+        _icon = State(initialValue: challenge.map { IconPreferenceStore.icon(for: $0.id, fallback: "target") } ?? "target")
     }
 
     var body: some View {
@@ -188,6 +263,7 @@ private struct ChallengeForm: View {
                 }
                 TextField(L("Titel", "Title"), text: $title)
                 TextField(L("Beschreibung", "Description"), text: $details, axis: .vertical)
+                SymbolPicker(title: L("Symbol", "Icon"), selection: $icon)
                 Picker(L("Kategorie", "Category"), selection: $category) {
                     ForEach(ChallengeCategory.allCases) { Text($0.label).tag($0) }
                 }
@@ -229,6 +305,7 @@ private struct ChallengeForm: View {
                             challenge.streakTarget = streakTarget
                             challenge.groupID = groupID
                             if existing == nil { context.insert(challenge) }
+                            IconPreferenceStore.set(icon, for: challenge.id)
                             try? context.save()
                             dismiss()
                         }
@@ -241,7 +318,7 @@ private struct ChallengeForm: View {
 
 private struct WeekdayPicker: View {
     @Binding var selection: Set<Int>
-    private let labels = Calendar.current.shortWeekdaySymbols
+    private var labels: [String] { Calendar.current.shortWeekdaySymbols }
 
     var body: some View {
         HStack {
@@ -266,6 +343,7 @@ private struct ChallengeGroupDetailView: View {
     @Query private var challenges: [ChallengeItem]
     @Query private var completions: [ChallengeCompletion]
     @Query private var transactions: [CoinTransaction]
+    @State private var edited: ChallengeItem?
     let group: ChallengeGroup
 
     var body: some View {
@@ -281,9 +359,33 @@ private struct ChallengeGroupDetailView: View {
                     )
                 }
                 .disabled(challenge.isReadOnly)
+                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                    Button {
+                        edited = challenge
+                    } label: {
+                        Label(L("Bearbeiten", "Edit"), systemImage: "pencil")
+                    }
+                    .tint(.blue)
+                    Button(role: .destructive) {
+                        deleteChallenge(challenge)
+                    } label: {
+                        Label(L("Löschen", "Delete"), systemImage: "trash")
+                    }
+                }
             }
         }
         .navigationTitle(group.title)
+        .sheet(item: $edited) { ChallengeForm(challenge: $0) }
+    }
+
+    private func deleteChallenge(_ challenge: ChallengeItem) {
+        for completion in completions.filter({ $0.challengeID == challenge.id }) {
+            transactions.filter { $0.referenceID == completion.id }.forEach(context.delete)
+            context.delete(completion)
+        }
+        IconPreferenceStore.remove(for: challenge.id)
+        context.delete(challenge)
+        try? context.save()
     }
 }
 

@@ -16,7 +16,6 @@ struct DataManagementView: View {
     @Query private var groups: [ExpenseGroup]
     @Query private var lines: [ExpenseGroupLine]
     @Query private var holdings: [PortfolioHolding]
-    @Query private var articles: [SavedArticle]
     @Query private var calendarEvents: [ChallengeCalendarEvent]
     @Query private var challenges: [ChallengeItem]
     @Query private var completions: [ChallengeCompletion]
@@ -130,7 +129,6 @@ struct DataManagementView: View {
                 groups: groups,
                 lines: lines,
                 holdings: holdings,
-                articles: articles,
                 calendarEvents: calendarEvents,
                 challenges: challenges,
                 completions: completions,

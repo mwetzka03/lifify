@@ -65,10 +65,10 @@ struct ChallengeCalendarView: View {
             }
         }
         .sheet(isPresented: $showingNewEvent) {
-            LifeEventForm(event: nil, initialDate: selectedDate)
+            ChallengeEventForm(event: nil, initialDate: selectedDate)
         }
         .sheet(item: $editedEvent) {
-            LifeEventForm(event: $0, initialDate: $0.startDate)
+            ChallengeEventForm(event: $0, initialDate: $0.startDate)
         }
         .simultaneousGesture(
             DragGesture(minimumDistance: 40).onEnded { value in
@@ -85,7 +85,9 @@ struct ChallengeCalendarView: View {
     private func eventsForDay(_ day: Date) -> [ChallengeCalendarEvent] {
         let start = Calendar.current.startOfDay(for: day)
         let end = Calendar.current.date(byAdding: .day, value: 1, to: start)!
-        return events.filter { $0.startDate < end && $0.endDate >= start }
+        return events.filter {
+            !$0.isReminderSuggestion && $0.startDate < end && $0.endDate >= start
+        }
     }
 
     private func challengesForDay(_ day: Date) -> [ChallengeItem] {
@@ -153,6 +155,7 @@ private struct DayAgendaCard: View {
                     HStack {
                         Image(systemName: completed ? "checkmark.circle.fill" : "circle")
                             .foregroundStyle(completed ? .green : .secondary)
+                        Image(systemName: IconPreferenceStore.icon(for: challenge.id, fallback: "target"))
                         Text(challenge.title)
                         Spacer()
                         Text("+\(challenge.rewardCoins)")
@@ -169,7 +172,7 @@ private struct DayAgendaCard: View {
     }
 }
 
-private struct LifeEventForm: View {
+private struct ChallengeEventForm: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
     @Query(sort: \ChallengeItem.title) private var challenges: [ChallengeItem]
@@ -185,6 +188,7 @@ private struct LifeEventForm: View {
     @State private var linkedGroupID: UUID?
     @State private var linkedRewardID: UUID?
 
+    @MainActor
     init(event: ChallengeCalendarEvent?, initialDate: Date) {
         existing = event
         _title = State(initialValue: event?.title ?? "")
