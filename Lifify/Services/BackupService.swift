@@ -159,6 +159,23 @@ enum BackupService {
                 dates: [metadata.endDate]
             )
         }
+        var exportedEventRecurrence = Set<String>()
+        records += calendarEvents.compactMap { event -> BackupRecord? in
+            guard let externalIdentifier = event.externalIdentifier,
+                  !externalIdentifier.hasPrefix("reminder:"),
+                  exportedEventRecurrence.insert(externalIdentifier).inserted,
+                  let metadata = EventRecurrenceStore.metadata(for: externalIdentifier)
+            else {
+                return nil
+            }
+            return BackupRecord(
+                type: "eventRecurrence",
+                id: event.id,
+                strings: [externalIdentifier, metadata.recurrence.rawValue],
+                integers: [metadata.interval] + metadata.weekdays.sorted(),
+                dates: [metadata.endDate]
+            )
+        }
         records += completions.map {
             BackupRecord(type: "completion", id: $0.id, integers: [$0.earnedCoins], dates: [$0.date], uuids: [$0.challengeID])
         }
@@ -245,7 +262,7 @@ enum BackupService {
         let oldSideStores = try sideStoreKeys(in: context)
         try clear(context, includingAccounts: true)
         let sideTypes = Set([
-            "iconPreference", "reminderRecurrence", "marketSymbol", "previousClose",
+            "iconPreference", "reminderRecurrence", "eventRecurrence", "marketSymbol", "previousClose",
             "rewardPolicy", "reminderSync",
             "primaryIncome", "secondaryIncome", "incomeAssignment", "appPreferences"
         ])
@@ -306,6 +323,7 @@ enum BackupService {
     private struct SideStoreKeys {
         var iconIDs: [UUID] = []
         var reminderIdentifiers: [String] = []
+        var eventIdentifiers: [String] = []
         var holdingIDs: [UUID] = []
         var rewardIDs: [UUID] = []
     }
@@ -317,9 +335,11 @@ enum BackupService {
         let challenges = try context.fetch(FetchDescriptor<ChallengeItem>())
         keys.iconIDs += challenges.map(\.id)
         keys.reminderIdentifiers += challenges.compactMap(\.externalIdentifier)
-        keys.reminderIdentifiers += try context.fetch(FetchDescriptor<ChallengeCalendarEvent>())
+        let calendarEvents = try context.fetch(FetchDescriptor<ChallengeCalendarEvent>())
+        keys.reminderIdentifiers += calendarEvents
             .filter(\.isReminderSuggestion)
             .compactMap(\.externalIdentifier)
+        keys.eventIdentifiers += calendarEvents.compactMap(\.externalIdentifier).filter { !$0.hasPrefix("reminder:") }
         keys.holdingIDs = try context.fetch(FetchDescriptor<PortfolioHolding>()).map(\.id)
         keys.rewardIDs = try context.fetch(FetchDescriptor<RewardItem>()).map(\.id)
         return keys
@@ -331,6 +351,7 @@ enum BackupService {
             ReminderSyncPreference.remove(for: $0)
         }
         keys.reminderIdentifiers.forEach { ReminderLinkStore.remove(for: $0) }
+        keys.eventIdentifiers.forEach { EventRecurrenceStore.remove(for: $0) }
         keys.holdingIDs.forEach {
             MarketSymbolStore.remove(for: $0)
             PreviousCloseStore.remove(for: $0)
@@ -400,6 +421,20 @@ enum BackupService {
             if !externalIdentifier.isEmpty,
                let recurrence = ChallengeRecurrence(rawValue: string(1)) {
                 ReminderLinkStore.set(
+                    ReminderRecurrenceMetadata(
+                        recurrence: recurrence,
+                        interval: max(int(0), 1),
+                        weekdays: Set(r.integers.dropFirst().filter { (1...7).contains($0) }),
+                        endDate: date(0)
+                    ),
+                    for: externalIdentifier
+                )
+            }
+        case "eventRecurrence":
+            let externalIdentifier = string(0)
+            if !externalIdentifier.isEmpty,
+               let recurrence = ChallengeRecurrence(rawValue: string(1)) {
+                EventRecurrenceStore.set(
                     ReminderRecurrenceMetadata(
                         recurrence: recurrence,
                         interval: max(int(0), 1),

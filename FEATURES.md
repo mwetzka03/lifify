@@ -64,10 +64,12 @@ iPhone-App mit SwiftUI und SwiftData.
    einmal zur Gesamtsumme addiert, um Doppelzählungen zu vermeiden.
 5. **Depot:** Ein Depotwert ist Stückzahl × aktueller Kurs. Lifify löst die ISIN
    beim App-Start bestmöglich über die öffentlichen Yahoo-Finance-Such- und
-   Chart-Endpunkte auf und rechnet Fremdwährungskurse in Euro um. Dies ist kein
-   garantierter Börsendatenvertrag; bei Netz-, Rate-Limit- oder
-   Zuordnungsfehlern bleibt der manuelle Fallbackkurs unverändert. Käufe und
-   Verkäufe werden nicht automatisch in ein FIFO-Steuerlot umgerechnet.
+   Chart-Endpunkte auf und rechnet Fremdwährungskurse in Euro um. Die Liste
+   zeigt die Veränderung wahlweise für heute oder seit dem Kauf und entweder
+   in Prozent oder in Euro. Dies ist kein garantierter Börsendatenvertrag; bei
+   Netz-, Rate-Limit- oder Zuordnungsfehlern bleibt der manuelle Fallbackkurs
+   unverändert. Käufe und Verkäufe werden nicht automatisch in ein
+   FIFO-Steuerlot umgerechnet.
 6. **Variable Kosten:** Monatswerte gelten ab dem Erstellungsmonat. Der in
    FinanzBuddy hart codierte Startmonat `2026-06` wird nicht übernommen.
 7. **Budgetpool-Gehaltszeitraum:** Der Starttag ist je Pool einstellbar
@@ -95,7 +97,9 @@ iPhone-App mit SwiftUI und SwiftData.
 12. **Challenge-Synchronisierung:** Die Desktop-Referenz speichert
     CalDAV-/iCloud-Passwörter und nutzt eine Python-Brücke. Lifify speichert
     keine solchen Zugangsdaten. Optional liest es nach ausdrücklicher
-    iOS-Freigabe Termine und Erinnerungen über EventKit. Netzwerk- und
+    iOS-Freigabe Termine und Erinnerungen über EventKit und schreibt geänderte
+    sowie neue Termine in den Systemkalender zurück. Ein wiederkehrender Termin
+    kann als wiederkehrende Challenge übernommen werden. Netzwerk- und
     Kontoverwaltung bleiben dabei dem Betriebssystem überlassen; ohne Freigabe
     funktionieren alle lokalen Funktionen.
 13. **Visionboard und Bucketlist:** Das Visionboard ist auf Nutzerwunsch nicht

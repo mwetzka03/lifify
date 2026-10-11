@@ -195,6 +195,7 @@ private struct ChallengeEventForm: View {
     @Query(sort: \ChallengeGroup.title) private var groups: [ChallengeGroup]
     @Query(sort: \RewardItem.title) private var rewards: [RewardItem]
     private let existing: ChallengeCalendarEvent?
+    @State private var savedEvent: ChallengeCalendarEvent?
     @State private var title: String
     @State private var details: String
     @State private var start: Date
@@ -203,6 +204,9 @@ private struct ChallengeEventForm: View {
     @State private var linkedChallengeID: UUID?
     @State private var linkedGroupID: UUID?
     @State private var linkedRewardID: UUID?
+    @State private var adoptedChallengeID: UUID?
+    @State private var isSaving = false
+    @State private var statusMessage: String?
 
     @MainActor
     init(event: ChallengeCalendarEvent?, initialDate: Date) {
@@ -220,10 +224,12 @@ private struct ChallengeEventForm: View {
     var body: some View {
         NavigationStack {
             Form {
-                if existing?.isReadOnly == true {
-                    Text(L("Dieser Termin stammt aus dem Systemkalender.", "This event comes from the system calendar."))
-                        .foregroundStyle(.secondary)
-                }
+                Text(L(
+                    "Änderungen und neue Termine werden in den Systemkalender geschrieben.",
+                    "Changes and new events are written to the system calendar."
+                ))
+                .font(.footnote)
+                .foregroundStyle(.secondary)
                 TextField(L("Titel", "Title"), text: $title)
                 TextField(L("Beschreibung", "Description"), text: $details, axis: .vertical)
                 Toggle(L("Ganztägig", "All day"), isOn: $allDay)
@@ -232,36 +238,36 @@ private struct ChallengeEventForm: View {
                 optionalPicker(L("Challenge", "Challenge"), selection: $linkedChallengeID, values: challenges.map { ($0.id, $0.title) })
                 optionalPicker(L("Gruppe", "Group"), selection: $linkedGroupID, values: groups.map { ($0.id, $0.title) })
                 optionalPicker(L("Belohnung", "Reward"), selection: $linkedRewardID, values: rewards.map { ($0.id, $0.title) })
-                if let existing, !existing.isReadOnly {
+                Button(L("Als Challenge übernehmen", "Adopt as challenge")) {
+                    Task { await adoptAsChallenge() }
+                }
+                .disabled(title.isEmpty || isSaving)
+                if let statusMessage {
+                    Text(statusMessage)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                if existing != nil || savedEvent != nil {
                     Button(L("Termin löschen", "Delete event"), role: .destructive) {
-                        context.delete(existing)
-                        try? context.save()
-                        dismiss()
+                        Task { await deleteEvent() }
                     }
+                    .disabled(isSaving)
                 }
             }
-            .disabled(existing?.isReadOnly == true)
             .navigationTitle(L("Termin", "Event"))
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button(L("Schließen", "Close")) { dismiss() } }
-                if existing?.isReadOnly != true {
-                    ToolbarItem(placement: .confirmationAction) {
-                        Button(L("Speichern", "Save")) {
-                            guard !title.isEmpty else { return }
-                            let event = existing ?? ChallengeCalendarEvent(title: title, startDate: start, endDate: end)
-                            event.title = title
-                            event.details = details
-                            event.startDate = start
-                            event.endDate = end
-                            event.isAllDay = allDay
-                            event.linkedChallengeID = linkedChallengeID
-                            event.linkedChallengeGroupID = linkedGroupID
-                            event.linkedRewardID = linkedRewardID
-                            if existing == nil { context.insert(event) }
-                            try? context.save()
-                            dismiss()
+                ToolbarItem(placement: .confirmationAction) {
+                    Button {
+                        Task { await saveAndClose() }
+                    } label: {
+                        if isSaving {
+                            ProgressView()
+                        } else {
+                            Text(L("Speichern", "Save"))
                         }
                     }
+                    .disabled(title.isEmpty || isSaving)
                 }
             }
         }
@@ -272,5 +278,134 @@ private struct ChallengeEventForm: View {
             Text(L("Keine", "None")).tag(Optional<UUID>.none)
             ForEach(values, id: \.0) { Text($0.1).tag(Optional($0.0)) }
         }
+    }
+
+    @MainActor
+    private func saveAndClose() async {
+        guard !isSaving else { return }
+        isSaving = true
+        defer { isSaving = false }
+        guard await writeEvent() != nil else { return }
+        if statusMessage == nil { dismiss() }
+    }
+
+    @MainActor
+    private func writeEvent() async -> ChallengeCalendarEvent? {
+        guard !title.isEmpty else { return nil }
+        let current = existing ?? savedEvent
+        let identifier = await EventKitSyncService.saveCalendarEvent(
+            externalIdentifier: current?.externalIdentifier,
+            originalStart: current?.startDate,
+            title: title,
+            notes: details,
+            start: start,
+            end: end > start ? end : start.addingTimeInterval(allDay ? 86_400 : 3_600),
+            isAllDay: allDay
+        )
+        let event = current ?? ChallengeCalendarEvent(title: title, startDate: start, endDate: end)
+        event.title = title
+        event.details = details
+        event.startDate = start
+        event.endDate = end > start ? end : start.addingTimeInterval(allDay ? 86_400 : 3_600)
+        event.isAllDay = allDay
+        event.linkedChallengeID = linkedChallengeID
+        event.linkedChallengeGroupID = linkedGroupID
+        event.linkedRewardID = linkedRewardID
+        if let identifier {
+            event.externalIdentifier = identifier
+            statusMessage = nil
+        } else {
+            statusMessage = L(
+                "Lokal gespeichert. Der Systemkalender konnte nicht aktualisiert werden.",
+                "Saved locally. The system calendar could not be updated."
+            )
+        }
+        if event.modelContext == nil { context.insert(event) }
+        savedEvent = event
+        try? context.save()
+        return event
+    }
+
+    @MainActor
+    private func adoptAsChallenge() async {
+        guard !title.isEmpty, !isSaving else { return }
+        isSaving = true
+        defer { isSaving = false }
+        guard let event = await writeEvent() else { return }
+        let metadata: ReminderRecurrenceMetadata?
+        if let identifier = event.externalIdentifier {
+            metadata = await EventKitSyncService.loadRecurrence(
+                externalIdentifier: identifier,
+                occurrenceStart: event.startDate
+            )
+        } else {
+            metadata = nil
+        }
+        let challengeKey = event.externalIdentifier.map { "event-challenge:\($0)" }
+        let challenge = adoptedChallengeID.flatMap { id in challenges.first { $0.id == id } }
+            ?? challenges.first { challengeKey != nil && $0.externalIdentifier == challengeKey }
+            ?? ChallengeItem(
+                title: title,
+                details: details,
+                category: .habit,
+                recurrence: metadata?.recurrence ?? .none,
+                startDate: start,
+                endDate: metadata?.endDate,
+                weeklyDays: metadata?.weekdays ?? [],
+                externalIdentifier: challengeKey
+            )
+        challenge.title = title
+        challenge.details = details
+        challenge.recurrence = metadata?.recurrence ?? .none
+        challenge.startDate = start
+        challenge.endDate = metadata?.endDate
+        challenge.weekdaySet = metadata?.weekdays ?? []
+        challenge.isReadOnly = false
+        adoptedChallengeID = challenge.id
+        if challenge.modelContext == nil { context.insert(challenge) }
+        if let challengeKey {
+            challenge.externalIdentifier = challengeKey
+            if let metadata {
+                ReminderLinkStore.set(metadata, for: challengeKey)
+            } else {
+                ReminderLinkStore.remove(for: challengeKey)
+            }
+        }
+        ReminderSyncPreference.set(false, for: challenge.id)
+        IconPreferenceStore.set("target", for: challenge.id)
+        linkedChallengeID = challenge.id
+        event.linkedChallengeID = challenge.id
+        if let identifier = event.externalIdentifier,
+           let siblings = try? context.fetch(FetchDescriptor<ChallengeCalendarEvent>()) {
+            for sibling in siblings where sibling.externalIdentifier == identifier {
+                sibling.linkedChallengeID = challenge.id
+            }
+        }
+        try? context.save()
+        if event.externalIdentifier == nil {
+            statusMessage = L(
+                "Challenge lokal angelegt. Der Systemkalender konnte nicht aktualisiert werden.",
+                "Challenge saved locally. The system calendar could not be updated."
+            )
+        } else if metadata == nil {
+            statusMessage = L("Challenge angelegt.", "Challenge created.")
+        } else {
+            statusMessage = L("Wiederkehrende Challenge angelegt.", "Recurring challenge created.")
+        }
+    }
+
+    @MainActor
+    private func deleteEvent() async {
+        guard !isSaving, let event = existing ?? savedEvent else { return }
+        isSaving = true
+        if let identifier = event.externalIdentifier, !identifier.hasPrefix("reminder:") {
+            await EventKitSyncService.deleteCalendarEvent(
+                externalIdentifier: identifier,
+                occurrenceStart: event.startDate
+            )
+        }
+        context.delete(event)
+        try? context.save()
+        dismiss()
     }
 }

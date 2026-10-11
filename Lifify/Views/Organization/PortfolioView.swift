@@ -4,6 +4,8 @@ import SwiftUI
 struct PortfolioView: View {
     @Environment(\.modelContext) private var context
     @Query(sort: \PortfolioHolding.name) private var holdings: [PortfolioHolding]
+    @AppStorage("portfolioPerformanceBasis") private var basis = PortfolioBasis.today.rawValue
+    @AppStorage("portfolioPerformanceUnit") private var unit = PortfolioUnit.percent.rawValue
     @State private var showingNew = false
     @State private var edited: PortfolioHolding?
     @State private var selected: PortfolioHolding?
@@ -12,15 +14,22 @@ struct PortfolioView: View {
     var body: some View {
         List {
             Section {
+                Picker(L("Zeitraum", "Period"), selection: $basis) {
+                    ForEach(PortfolioBasis.allCases) { Text($0.label).tag($0.rawValue) }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                Picker(L("Einheit", "Unit"), selection: $unit) {
+                    ForEach(PortfolioUnit.allCases) { Text($0.label).tag($0.rawValue) }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
                 let totals = portfolioPerformance
                 LabeledContent(L("Depotwert", "Portfolio value"), value: Money.string(cents: totals.value))
-                if let dayCents = totals.dayCents, let dayPercent = totals.dayPercent {
-                    performanceRow(L("Heute", "Today"), cents: dayCents, percent: dayPercent)
-                }
-                performanceRow(L("Seit Kauf", "Since purchase"), cents: totals.purchaseCents, percent: totals.purchasePercent)
+                selectedPerformanceLabel(totals)
             }
             ForEach(holdings) { holding in
-                let performance = performance(for: holding)
+                let performance = holdingPerformance(holding)
                 Button {
                     selected = holding
                 } label: {
@@ -30,10 +39,7 @@ struct PortfolioView: View {
                             Text("\(holding.quantity.formatted()) × \(Money.string(cents: holding.currentPriceCents))")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
-                            if let dayCents = performance.dayCents, let dayPercent = performance.dayPercent {
-                                performanceText(L("Heute", "Today"), cents: dayCents, percent: dayPercent)
-                            }
-                            performanceText(L("Seit Kauf", "Since purchase"), cents: performance.purchaseCents, percent: performance.purchasePercent)
+                            selectedPerformanceLabel(performance)
                         }
                         Spacer()
                         Text(Money.string(cents: performance.value))
@@ -90,64 +96,64 @@ struct PortfolioView: View {
 
     private var portfolioPerformance: HoldingPerformance {
         holdings.reduce(HoldingPerformance()) { total, holding in
-            total.adding(performance(for: holding))
+            total.adding(holdingPerformance(holding))
         }
     }
 
-    private func performance(for holding: PortfolioHolding) -> HoldingPerformance {
-        let value = Int((holding.quantity * Double(holding.currentPriceCents)).rounded())
-        let purchaseValue = Int((holding.quantity * Double(holding.purchasePriceCents)).rounded())
-        let previous = PreviousCloseStore.cents(for: holding.id)
-        let day: (cents: Int, base: Int)?
-        if let previous, previous > 0 {
-            day = (
-                value - Int((holding.quantity * Double(previous)).rounded()),
-                Int((holding.quantity * Double(previous)).rounded())
-            )
-        } else {
-            day = nil
+    private func selectedPerformanceLabel(_ performance: HoldingPerformance) -> some View {
+        let selected = performance.selected(basis: basis, unit: unit)
+        return Text(selected.text)
+            .font(.caption.bold())
+            .foregroundStyle(selected.cents < 0 ? .red : (selected.cents > 0 ? .green : .secondary))
+    }
+}
+
+private enum PortfolioBasis: String, CaseIterable, Identifiable {
+    case today
+    case purchase
+
+    var id: String { rawValue }
+    var label: String {
+        switch self {
+        case .today: L("Heute", "Today")
+        case .purchase: L("Seit Kauf", "Since purchase")
         }
-        return HoldingPerformance(
-            value: value,
-            dayCents: day?.cents,
-            dayBase: day?.base ?? 0,
-            purchaseCents: value - purchaseValue,
-            purchaseBase: purchaseValue
+    }
+}
+
+private enum PortfolioUnit: String, CaseIterable, Identifiable {
+    case percent
+    case eur
+
+    var id: String { rawValue }
+    var label: String {
+        switch self {
+        case .percent: "%"
+        case .eur: "€"
+        }
+    }
+}
+
+private func holdingPerformance(_ holding: PortfolioHolding) -> HoldingPerformance {
+    let value = Int((holding.quantity * Double(holding.currentPriceCents)).rounded())
+    let purchaseValue = Int((holding.quantity * Double(holding.purchasePriceCents)).rounded())
+    let previous = PreviousCloseStore.cents(for: holding.id)
+    let day: (cents: Int, base: Int)?
+    if let previous, previous > 0 {
+        day = (
+            value - Int((holding.quantity * Double(previous)).rounded()),
+            Int((holding.quantity * Double(previous)).rounded())
         )
+    } else {
+        day = nil
     }
-
-    private func performanceRow(_ title: String, cents: Int, percent: Double?) -> some View {
-        LabeledContent(title) {
-            performanceText(nil, cents: cents, percent: percent)
-        }
-    }
-
-    private func performanceText(_ title: String?, cents: Int, percent: Double?) -> some View {
-        HStack(spacing: 4) {
-            if let title {
-                Text(title)
-            }
-            Text(signedMoney(cents))
-            if let percent {
-                Text("· \(signedPercent(percent))")
-            }
-        }
-        .font(.caption)
-        .foregroundStyle(cents < 0 ? .red : (cents > 0 ? .green : .secondary))
-    }
-
-    private func signedMoney(_ cents: Int) -> String {
-        cents > 0 ? "+\(Money.string(cents: cents))" : Money.string(cents: cents)
-    }
-
-    private func signedPercent(_ ratio: Double) -> String {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .percent
-        formatter.maximumFractionDigits = 2
-        formatter.minimumFractionDigits = 2
-        formatter.positivePrefix = formatter.plusSign
-        return formatter.string(from: NSNumber(value: ratio)) ?? "0 %"
-    }
+    return HoldingPerformance(
+        value: value,
+        dayCents: day?.cents,
+        dayBase: day?.base ?? 0,
+        purchaseCents: value - purchaseValue,
+        purchaseBase: purchaseValue
+    )
 }
 
 private struct HoldingPerformance {
@@ -176,30 +182,62 @@ private struct HoldingPerformance {
             purchaseBase: purchaseBase + other.purchaseBase
         )
     }
+
+    func selected(basis: String, unit: String) -> (text: String, cents: Int) {
+        let useToday = basis != PortfolioBasis.purchase.rawValue
+        let useEuro = unit == PortfolioUnit.eur.rawValue
+        if useToday {
+            guard let cents = dayCents else {
+                return (L("Kein Vortageskurs", "No previous close"), 0)
+            }
+            if useEuro { return (signedMoney(cents), cents) }
+            guard let percent = dayPercent else {
+                return (L("Kein Vortageskurs", "No previous close"), cents)
+            }
+            return (signedPercent(percent), cents)
+        }
+        if useEuro { return (signedMoney(purchaseCents), purchaseCents) }
+        guard let percent = purchasePercent else { return (signedMoney(purchaseCents), purchaseCents) }
+        return (signedPercent(percent), purchaseCents)
+    }
+
+    private func signedMoney(_ cents: Int) -> String {
+        cents > 0 ? "+\(Money.string(cents: cents))" : Money.string(cents: cents)
+    }
+
+    private func signedPercent(_ ratio: Double) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .percent
+        formatter.maximumFractionDigits = 2
+        formatter.minimumFractionDigits = 2
+        formatter.positivePrefix = formatter.plusSign
+        return formatter.string(from: NSNumber(value: ratio)) ?? "0 %"
+    }
 }
 
 private struct HoldingDetailView: View {
     let holding: PortfolioHolding
+    @AppStorage("portfolioPerformanceBasis") private var basis = PortfolioBasis.today.rawValue
+    @AppStorage("portfolioPerformanceUnit") private var unit = PortfolioUnit.percent.rawValue
 
     var body: some View {
+        let selected = holdingPerformance(holding).selected(basis: basis, unit: unit)
         NavigationStack {
             Form {
+                Picker(L("Zeitraum", "Period"), selection: $basis) {
+                    ForEach(PortfolioBasis.allCases) { Text($0.label).tag($0.rawValue) }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                Picker(L("Einheit", "Unit"), selection: $unit) {
+                    ForEach(PortfolioUnit.allCases) { Text($0.label).tag($0.rawValue) }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
                 LabeledContent(L("Stückzahl", "Quantity"), value: holding.quantity.formatted())
                 LabeledContent(L("Kurs", "Price"), value: Money.string(cents: holding.currentPriceCents))
                 LabeledContent(L("Kaufkurs", "Purchase price"), value: Money.string(cents: holding.purchasePriceCents))
-                if let previous = PreviousCloseStore.cents(for: holding.id), previous > 0 {
-                    let dayCents = holding.currentPriceCents - previous
-                    LabeledContent(L("Heute je Stück", "Today per share"), value: signedDetail(dayCents))
-                    LabeledContent(L("Heute in Prozent", "Today in percent"), value: signedDetailPercent(Double(dayCents) / Double(previous)))
-                }
-                if holding.purchasePriceCents > 0 {
-                    let purchaseCents = holding.currentPriceCents - holding.purchasePriceCents
-                    LabeledContent(L("Seit Kauf je Stück", "Since purchase per share"), value: signedDetail(purchaseCents))
-                    LabeledContent(
-                        L("Seit Kauf in Prozent", "Since purchase in percent"),
-                        value: signedDetailPercent(Double(purchaseCents) / Double(holding.purchasePriceCents))
-                    )
-                }
+                LabeledContent(L("Veränderung", "Change"), value: selected.text)
                 if !holding.symbol.isEmpty {
                     LabeledContent("ISIN", value: holding.symbol)
                 }
@@ -211,19 +249,6 @@ private struct HoldingDetailView: View {
             .navigationTitle(holding.name)
             .navigationBarTitleDisplayMode(.inline)
         }
-    }
-
-    private func signedDetail(_ cents: Int) -> String {
-        cents > 0 ? "+\(Money.string(cents: cents))" : Money.string(cents: cents)
-    }
-
-    private func signedDetailPercent(_ ratio: Double) -> String {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .percent
-        formatter.maximumFractionDigits = 2
-        formatter.minimumFractionDigits = 2
-        formatter.positivePrefix = formatter.plusSign
-        return formatter.string(from: NSNumber(value: ratio)) ?? "0 %"
     }
 }
 

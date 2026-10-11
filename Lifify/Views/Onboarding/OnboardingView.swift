@@ -144,10 +144,11 @@ struct OnboardingView: View {
     @ViewBuilder
     private var periodStep: some View {
         Section {
-            Picker(L("Dashboard-Zeitraum", "Dashboard period"), selection: $periodMode) {
+            Picker(L("Budgetzeitraum", "Budget period"), selection: $periodMode) {
                 ForEach(DashboardPeriodMode.allCases) { Text($0.label).tag($0) }
             }
             .pickerStyle(.inline)
+            .labelsHidden()
         } header: {
             Text(L("Budgetzeitraum", "Budget period"))
         }

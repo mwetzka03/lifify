@@ -138,14 +138,7 @@ struct ChallengesView: View {
             }
         }
         .toolbar {
-            if #available(iOS 26.0, *) {
-                ToolbarItem(placement: .topBarLeading) { shopLink }
-                ToolbarSpacer(.fixed)
-                ToolbarItem(placement: .topBarLeading) { walletLink }
-            } else {
-                ToolbarItem(placement: .topBarLeading) { shopLink }
-                ToolbarItem(placement: .topBarLeading) { walletLink }
-            }
+            leadingChallengeLinks
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
                     Button(L("Challenge", "Challenge")) { showingNewChallenge = true }
@@ -163,19 +156,56 @@ struct ChallengesView: View {
         }
     }
 
-    private var shopLink: some View {
-        NavigationLink {
-            ShopView()
-        } label: {
-            Label(L("Shop", "Shop"), systemImage: "gift.fill")
+    @ToolbarContentBuilder
+    private var leadingChallengeLinks: some ToolbarContent {
+        if #available(iOS 26.0, *) {
+            ToolbarItem(placement: .topBarLeading) {
+                challengeLinkBubbles
+            }
+            .sharedBackgroundVisibility(.hidden)
+        } else {
+            ToolbarItem(placement: .topBarLeading) {
+                challengeLinkBubbles
+            }
         }
     }
 
-    private var walletLink: some View {
-        NavigationLink {
-            WalletView()
-        } label: {
-            CoinAmountView(amount: ChallengeService.walletBalance(transactions: transactions))
+    private var challengeLinkBubbles: some View {
+        HStack(spacing: 10) {
+            NavigationLink {
+                ShopView()
+            } label: {
+                toolbarBubble {
+                    Label(L("Shop", "Shop"), systemImage: "gift.fill")
+                        .labelStyle(.titleAndIcon)
+                }
+            }
+            .buttonStyle(.plain)
+            NavigationLink {
+                WalletView()
+            } label: {
+                toolbarBubble {
+                    CoinAmountView(amount: ChallengeService.walletBalance(transactions: transactions))
+                }
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    @ViewBuilder
+    private func toolbarBubble<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        if #available(iOS 26.0, *) {
+            content()
+                .font(.subheadline.weight(.semibold))
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .glassEffect(.regular.interactive(), in: Capsule())
+        } else {
+            content()
+                .font(.subheadline.weight(.semibold))
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(.ultraThinMaterial, in: Capsule())
         }
     }
 
@@ -316,14 +346,13 @@ private struct ChallengeForm: View {
                         WeekdayPicker(selection: $weekdays)
                     }
                 }
-                HStack {
-                    Text(L("Belohnung", "Reward"))
+                LabeledContent(L("Belohnung", "Reward")) {
                     TextField("0", value: $rewardCoins, format: .number)
                         .keyboardType(.numberPad)
                         .multilineTextAlignment(.trailing)
                 }
-                Stepper(L("Belohnung ändern", "Adjust reward"), value: $rewardCoins, in: 0...10_000)
-                if existing?.isReadOnly != true {
+                if existing?.isReadOnly != true,
+                   existing?.externalIdentifier?.hasPrefix("event-challenge:") != true {
                     Toggle(L("In Apple Erinnerungen sichern", "Save to Apple Reminders"), isOn: $syncToReminders)
                 }
                 if recurrence != .none {
@@ -392,6 +421,25 @@ private struct ChallengeForm: View {
         IconPreferenceStore.set(icon, for: challenge.id)
         ReminderSyncPreference.set(syncToReminders, for: challenge.id)
         try? context.save()
+
+        if let externalIdentifier = challenge.externalIdentifier,
+           externalIdentifier.hasPrefix("event-challenge:") {
+            if challenge.recurrence == .none {
+                ReminderLinkStore.remove(for: externalIdentifier)
+            } else {
+                ReminderLinkStore.set(
+                    ReminderRecurrenceMetadata(
+                        recurrence: challenge.recurrence,
+                        interval: max(recurrenceInterval, 1),
+                        weekdays: challenge.weekdaySet,
+                        endDate: challenge.endDate
+                    ),
+                    for: externalIdentifier
+                )
+            }
+            dismiss()
+            return
+        }
 
         guard syncToReminders else {
             dismiss()

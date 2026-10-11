@@ -76,13 +76,35 @@ enum ChallengeService {
         let calendar = Calendar.current
         let completedDays = Set(completions.filter { $0.challengeID == challenge.id }.map { calendar.startOfDay(for: $0.date) })
         var cursor = calendar.startOfDay(for: date)
-        var count = 0
-        while completedDays.contains(cursor) {
-            count += 1
-            guard let previous = calendar.date(byAdding: .day, value: -1, to: cursor) else { break }
+        if challenge.recurrence != .none, !isDue(challenge, on: cursor) {
+            guard let previous = previousDueDate(for: challenge, before: cursor) else { return 0 }
             cursor = previous
         }
+        var count = 0
+        var steps = 0
+        while completedDays.contains(cursor), steps < 4000 {
+            count += 1
+            steps += 1
+            if challenge.recurrence == .none {
+                guard let previous = calendar.date(byAdding: .day, value: -1, to: cursor) else { break }
+                cursor = previous
+            } else {
+                guard let previous = previousDueDate(for: challenge, before: cursor) else { break }
+                cursor = previous
+            }
+        }
         return count
+    }
+
+    private static func previousDueDate(for challenge: ChallengeItem, before date: Date) -> Date? {
+        let calendar = Calendar.current
+        var cursor = calendar.date(byAdding: .day, value: -1, to: calendar.startOfDay(for: date))
+        for _ in 0..<3700 {
+            guard let current = cursor else { return nil }
+            if isDue(challenge, on: current) { return calendar.startOfDay(for: current) }
+            cursor = calendar.date(byAdding: .day, value: -1, to: current)
+        }
+        return nil
     }
 
     static func multiplier(streak: Int) -> Double {

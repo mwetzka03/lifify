@@ -3,7 +3,10 @@ import SwiftUI
 
 struct RootView: View {
     @Environment(\.modelContext) private var context
+    @Environment(\.scenePhase) private var scenePhase
     @Query private var holdings: [PortfolioHolding]
+    @Query private var calendarEvents: [ChallengeCalendarEvent]
+    @Query private var challenges: [ChallengeItem]
     @AppStorage("appLanguage") private var language = "de"
     @AppStorage("appTheme") private var theme = AppTheme.system.rawValue
     @State private var selectedTab = 0
@@ -38,6 +41,15 @@ struct RootView: View {
         .preferredColorScheme(colorScheme)
         .task {
             await MarketDataService.refresh(holdings: holdings, context: context)
+        }
+        .task(id: scenePhase) {
+            guard scenePhase == .active else { return }
+            await EventKitSyncService().sync(
+                context: context,
+                existingEvents: calendarEvents,
+                existingChallenges: challenges,
+                promptForAccess: false
+            )
         }
     }
 }

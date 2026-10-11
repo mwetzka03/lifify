@@ -11,8 +11,8 @@ struct SystemCalendarSyncView: View {
         Form {
             Section {
                 Text(L(
-                    "Lifify verwendet den iOS-Systemkalender. Wiederkehrende Erinnerungen können als Challenges übernommen werden; neue Challenges und ihr Erledigt-Status werden mit Apple Erinnerungen synchronisiert.",
-                    "Lifify uses the iOS system calendar. Recurring reminders can become challenges; new challenges and their completion status are synced with Apple Reminders."
+                    "Termine werden in beide Richtungen mit dem Systemkalender abgeglichen. Ein wiederkehrender Termin kann als wiederkehrende Challenge übernommen werden. Erinnerungen bleiben Empfehlungen, bis sie übernommen werden.",
+                    "Events stay in sync both ways with the system calendar. A recurring event can become a recurring challenge. Reminders stay recommendations until they are accepted."
                 ))
                 Button {
                     Task {

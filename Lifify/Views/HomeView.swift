@@ -506,9 +506,9 @@ private struct BudgetSummaryCard: View {
             .frame(width: 112, height: 112)
             VStack(alignment: .leading, spacing: 8) {
                 Text(L("Budget", "Budget")).font(.headline)
+                LabeledContent(L("Gesamt", "Total"), value: Money.string(cents: planned))
                 LabeledContent(L("Verbraucht", "Spent"), value: Money.string(cents: spent))
                 LabeledContent(L("Offen", "Remaining"), value: Money.string(cents: remaining))
-                LabeledContent(L("Gesamt", "Total"), value: Money.string(cents: planned))
                 if let nextSalary, let daysUntilSalary {
                     Text(salaryText(date: nextSalary, days: daysUntilSalary))
                         .font(.caption)
@@ -530,9 +530,13 @@ private struct BudgetSummaryCard: View {
     }
 
     private func salaryText(date: Date, days: Int) -> String {
-        let formatted = date.formatted(date: .abbreviated, time: .omitted)
-        let dayText = days == 1 ? L("noch 1 Tag", "1 day left") : "\(L("noch", "in")) \(days) \(L("Tage", "days"))"
-        return "\(L("Nächstes Gehalt", "Next salary")): \(formatted) · \(dayText)"
+        let day = Calendar.current.component(.day, from: date)
+        let month = Calendar.current.component(.month, from: date)
+        let shortDate = String(format: "%02d.%02d.", day, month)
+        let phrase = days == 1
+            ? L("Nächstes Gehalt in 1 Tag", "Next salary in 1 day")
+            : "\(L("Nächstes Gehalt in", "Next salary in")) \(days) \(L("Tagen", "days"))"
+        return "\(phrase) (\(shortDate))"
     }
 }
 

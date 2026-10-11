@@ -15,6 +15,15 @@ struct SettingsView: View {
 
     var body: some View {
         Form {
+            Section(L("Über Lifify", "About Lifify")) {
+                LabeledContent(L("Version", "Version"), value: "0.1.0")
+                Text(L(
+                    "Alle Daten bleiben lokal auf diesem Gerät. Lifify verwendet kein Backend und benötigt kein Konto.",
+                    "All data stays locally on this device. Lifify has no backend and needs no account."
+                ))
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+            }
             Section(L("Darstellung", "Appearance")) {
                 Picker(L("Sprache", "Language"), selection: $language) {
                     Text("Deutsch").tag("de")
@@ -40,25 +49,24 @@ struct SettingsView: View {
                 } label: {
                     Label(L("Kalender & Erinnerungen", "Calendar & Reminders"), systemImage: "arrow.triangle.2.circlepath")
                 }
+            }
+            Section {
                 Button(role: .destructive) {
                     destructiveAction = .deleteData
                 } label: {
                     Label(L("Alle Daten löschen", "Delete all data"), systemImage: "trash")
+                        .font(.headline)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.vertical, 14)
                 }
                 Button(role: .destructive) {
                     destructiveAction = .resetApp
                 } label: {
                     Label(L("App zurücksetzen", "Reset app"), systemImage: "arrow.counterclockwise")
+                        .font(.headline)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.vertical, 14)
                 }
-            }
-            Section(L("Über Lifify", "About Lifify")) {
-                LabeledContent(L("Version", "Version"), value: "0.1.0")
-                Text(L(
-                    "Alle Daten bleiben lokal auf diesem Gerät. Lifify verwendet kein Backend und benötigt kein Konto.",
-                    "All data stays locally on this device. Lifify has no backend and needs no account."
-                ))
-                .font(.footnote)
-                .foregroundStyle(.secondary)
             }
         }
         .confirmationDialog(

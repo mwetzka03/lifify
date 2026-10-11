@@ -32,6 +32,31 @@ enum ReminderLinkStore {
     }
 }
 
+enum EventRecurrenceStore {
+    static func metadata(for eventIdentifier: String?) -> ReminderRecurrenceMetadata? {
+        guard let eventIdentifier,
+              let data = UserDefaults.standard.data(forKey: key(for: eventIdentifier))
+        else {
+            return nil
+        }
+        return try? JSONDecoder().decode(ReminderRecurrenceMetadata.self, from: data)
+    }
+
+    static func set(_ metadata: ReminderRecurrenceMetadata, for eventIdentifier: String) {
+        guard let data = try? JSONEncoder().encode(metadata) else { return }
+        UserDefaults.standard.set(data, forKey: key(for: eventIdentifier))
+    }
+
+    static func remove(for eventIdentifier: String?) {
+        guard let eventIdentifier else { return }
+        UserDefaults.standard.removeObject(forKey: key(for: eventIdentifier))
+    }
+
+    private static func key(for eventIdentifier: String) -> String {
+        "event.recurrence.\(eventIdentifier)"
+    }
+}
+
 enum ReminderSyncPreference {
     static func isEnabled(for challengeID: UUID) -> Bool {
         let key = key(for: challengeID)

@@ -98,14 +98,11 @@ private struct RewardForm: View {
             Form {
                 TextField(L("Titel", "Title"), text: $title)
                 TextField(L("Beschreibung", "Description"), text: $details, axis: .vertical)
-                HStack {
-                    Text(L("Preis", "Price"))
+                LabeledContent(L("Preis", "Price")) {
                     TextField("0", value: $price, format: .number)
                         .keyboardType(.numberPad)
                         .multilineTextAlignment(.trailing)
-                    CoinAmountView(amount: max(price, 0))
                 }
-                Stepper(L("Preis ändern", "Adjust price"), value: $price, in: 0...100_000)
                 Picker(L("Einlösbarkeit", "Redemption"), selection: $allowsMultiple) {
                     Text(L("Einmalig", "One-time")).tag(false)
                     Text(L("Mehrmals", "Repeatable")).tag(true)
