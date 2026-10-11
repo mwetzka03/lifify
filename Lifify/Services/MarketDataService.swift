@@ -49,17 +49,17 @@ enum MarketDataService {
     static func refresh(holdings: [PortfolioHolding], context: ModelContext) async {
         var changed = false
         for holding in holdings where isValidISIN(holding.symbol) {
-            let quote: MarketQuote?
+            let loadedQuote: MarketQuote?
             if let marketSymbol = MarketSymbolStore.symbol(for: holding.id) {
-                quote = try? await quote(forMarketSymbol: marketSymbol)
+                loadedQuote = try? await quote(forMarketSymbol: marketSymbol)
             } else {
-                quote = try? await quote(for: holding.symbol)
+                loadedQuote = try? await quote(for: holding.symbol)
             }
-            guard let quote else {
+            guard let loadedQuote else {
                 continue
             }
-            holding.currentPriceCents = quote.priceCents
-            if let previous = quote.previousCloseCents {
+            holding.currentPriceCents = loadedQuote.priceCents
+            if let previous = loadedQuote.previousCloseCents {
                 PreviousCloseStore.set(previous, for: holding.id)
             }
             holding.updatedAt = .now
