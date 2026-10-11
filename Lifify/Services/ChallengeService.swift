@@ -136,6 +136,9 @@ enum ChallengeService {
         let purchase = RewardPurchase(rewardID: reward.id, title: reward.title, price: reward.price)
         context.insert(purchase)
         context.insert(CoinTransaction(title: reward.title, amount: -reward.price, referenceID: purchase.id))
+        if !RewardPolicyStore.allowsMultiplePurchases(for: reward.id) {
+            reward.isActive = false
+        }
         try? context.save()
         return true
     }

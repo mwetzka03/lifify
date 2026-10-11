@@ -31,3 +31,23 @@ enum ReminderLinkStore {
         UserDefaults.standard.removeObject(forKey: key(for: externalIdentifier))
     }
 }
+
+enum ReminderSyncPreference {
+    static func isEnabled(for challengeID: UUID) -> Bool {
+        let key = key(for: challengeID)
+        guard UserDefaults.standard.object(forKey: key) != nil else { return true }
+        return UserDefaults.standard.bool(forKey: key)
+    }
+
+    static func set(_ enabled: Bool, for challengeID: UUID) {
+        UserDefaults.standard.set(enabled, forKey: key(for: challengeID))
+    }
+
+    static func remove(for challengeID: UUID) {
+        UserDefaults.standard.removeObject(forKey: key(for: challengeID))
+    }
+
+    private static func key(for challengeID: UUID) -> String {
+        "challenge.syncReminders.\(challengeID.uuidString)"
+    }
+}

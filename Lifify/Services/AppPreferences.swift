@@ -66,3 +66,23 @@ enum IncomeAssignmentStore {
         iban.replacingOccurrences(of: " ", with: "").uppercased()
     }
 }
+
+enum RewardPolicyStore {
+    static func allowsMultiplePurchases(for rewardID: UUID) -> Bool {
+        let key = key(for: rewardID)
+        guard UserDefaults.standard.object(forKey: key) != nil else { return true }
+        return UserDefaults.standard.bool(forKey: key)
+    }
+
+    static func setAllowsMultiplePurchases(_ allowed: Bool, for rewardID: UUID) {
+        UserDefaults.standard.set(allowed, forKey: key(for: rewardID))
+    }
+
+    static func remove(for rewardID: UUID) {
+        UserDefaults.standard.removeObject(forKey: key(for: rewardID))
+    }
+
+    private static func key(for rewardID: UUID) -> String {
+        "reward.multiple.\(rewardID.uuidString)"
+    }
+}

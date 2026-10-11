@@ -123,6 +123,14 @@ private struct DayAgendaCard: View {
             if events.isEmpty && challenges.isEmpty {
                 Text(L("Keine Einträge", "No entries")).font(.caption).foregroundStyle(.secondary)
             }
+            if !events.isEmpty || !challenges.isEmpty {
+                Text(L("Termine", "Events"))
+                    .font(.caption.bold())
+                    .foregroundStyle(.secondary)
+            }
+            if events.isEmpty && !challenges.isEmpty {
+                Text(L("Keine Termine", "No events")).font(.caption2).foregroundStyle(.tertiary)
+            }
             ForEach(events) { event in
                 Button { onEvent(event) } label: {
                     HStack {
@@ -148,6 +156,15 @@ private struct DayAgendaCard: View {
                     }
                 }
                 .buttonStyle(.plain)
+            }
+            if !events.isEmpty || !challenges.isEmpty {
+                Text(L("Challenges", "Challenges"))
+                    .font(.caption.bold())
+                    .foregroundStyle(.secondary)
+                    .padding(.top, 4)
+            }
+            if challenges.isEmpty && !events.isEmpty {
+                Text(L("Keine Challenges", "No challenges")).font(.caption2).foregroundStyle(.tertiary)
             }
             ForEach(challenges) { challenge in
                 let completed = ChallengeService.isCompleted(challenge, on: day, completions: completions)

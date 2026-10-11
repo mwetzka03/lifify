@@ -30,6 +30,9 @@ struct ShopView: View {
                                 if !reward.details.isEmpty {
                                     Text(reward.details).font(.caption).foregroundStyle(.secondary)
                                 }
+                                Text(RewardPolicyStore.allowsMultiplePurchases(for: reward.id) ? L("Mehrmals", "Repeatable") : L("Einmalig", "One-time"))
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
                             }
                             Spacer()
                             CoinAmountView(amount: reward.price)
@@ -78,6 +81,7 @@ private struct RewardForm: View {
     @State private var price: Int
     @State private var url: String
     @State private var icon: String
+    @State private var allowsMultiple: Bool
 
     init(reward: RewardItem?) {
         existing = reward
@@ -86,6 +90,7 @@ private struct RewardForm: View {
         _price = State(initialValue: reward?.price ?? 100)
         _url = State(initialValue: reward?.urlString ?? "")
         _icon = State(initialValue: reward?.icon ?? "gift")
+        _allowsMultiple = State(initialValue: reward.map { RewardPolicyStore.allowsMultiplePurchases(for: $0.id) } ?? true)
     }
 
     var body: some View {
@@ -93,11 +98,17 @@ private struct RewardForm: View {
             Form {
                 TextField(L("Titel", "Title"), text: $title)
                 TextField(L("Beschreibung", "Description"), text: $details, axis: .vertical)
-                Stepper(value: $price, in: 0...100_000) {
-                    HStack {
-                        Text("\(L("Preis", "Price")):")
-                        CoinAmountView(amount: price)
-                    }
+                HStack {
+                    Text(L("Preis", "Price"))
+                    TextField("0", value: $price, format: .number)
+                        .keyboardType(.numberPad)
+                        .multilineTextAlignment(.trailing)
+                    CoinAmountView(amount: max(price, 0))
+                }
+                Stepper(L("Preis ändern", "Adjust price"), value: $price, in: 0...100_000)
+                Picker(L("Einlösbarkeit", "Redemption"), selection: $allowsMultiple) {
+                    Text(L("Einmalig", "One-time")).tag(false)
+                    Text(L("Mehrmals", "Repeatable")).tag(true)
                 }
                 TextField("URL", text: $url).keyboardType(.URL).textInputAutocapitalization(.never)
                 SymbolPicker(title: L("Symbol", "Icon"), selection: $icon)
@@ -111,10 +122,11 @@ private struct RewardForm: View {
                         let reward = existing ?? RewardItem(title: title, price: price)
                         reward.title = title
                         reward.details = details
-                        reward.price = price
+                        reward.price = max(price, 0)
                         reward.urlString = url
                         reward.icon = icon
                         if existing == nil { context.insert(reward) }
+                        RewardPolicyStore.setAllowsMultiplePurchases(allowsMultiple, for: reward.id)
                         try? context.save()
                         dismiss()
                     }

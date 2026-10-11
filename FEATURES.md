@@ -24,19 +24,22 @@ iPhone-App mit SwiftUI und SwiftData.
 - Variable Kosten und Budgetpools pro Gehaltszeitraum oder Kalenderjahr;
   skalierbare Pools übertragen den Rest in die nächste Periode
 - Einkaufszettel, Schulden, Ausgabengruppen und Depotpositionen mit ISIN,
-  automatischem Kursabruf und manuellem Fallback
+  automatischem Kursabruf, Tages- und Kaufveränderung in Euro und Prozent
+  sowie manuellem Fallback
 - Deutsch und Englisch, Erscheinungsbild Hell/Dunkel/System
 - Vollständige lokale JSON-Sicherung und Wiederherstellung
 - CSV-Import und Import einer einzelnen CAMT-XML-Datei
-- Gemeinsamer Home-Bildschirm mit Budgetring sowie umschaltbarer
-  Tag-/Woche-/Monat-Kalenderübersicht; Wischgesten wechseln die Periode
+- Gemeinsamer Home-Bildschirm mit Budgetring, Restbudget inklusive
+  negativem Saldo, nächstem Gehalt und Tagesbudget; Termine und Challenges
+  stehen getrennt, verknüpfte Termine können morgens abgehakt werden
 - Challenge-Kalender mit lokalen Terminen sowie Challenge- und Belohnungsverknüpfung
 - Challenges und Challenge-Gruppen mit Wiederholungen, Abschlüssen, Streaks und
   wachsendem Coin-Multiplikator
 - Importierte iOS-Erinnerungen erscheinen zunächst als Empfehlungen und werden
   erst nach ausdrücklicher Übernahme und Konfiguration zu Challenges; ihr
   Erledigt-Status wird anschließend zurück zu Apple Erinnerungen geschrieben
-- Belohnungsshop und Wallet mit Coin-Transaktionen und Kaufhistorie
+- Belohnungsshop und Wallet mit Coin-Transaktionen, Kaufhistorie und
+  einmaligen oder mehrfach einlösbaren Belohnungen
 - Frei wählbare SF-Symbole für Buchungen, Fixkosten, Challenges und Belohnungen
 - Getrenntes Löschen der Inhaltsdaten sowie vollständiges Zurücksetzen der App
   einschließlich Konten und Ersteinrichtung

@@ -23,21 +23,45 @@ enum MarketSymbolStore {
     }
 }
 
+struct MarketQuote {
+    let priceCents: Int
+    let previousCloseCents: Int?
+}
+
+enum PreviousCloseStore {
+    static func cents(for holdingID: UUID) -> Int? {
+        let key = "market.previous.\(holdingID.uuidString)"
+        guard UserDefaults.standard.object(forKey: key) != nil else { return nil }
+        return UserDefaults.standard.integer(forKey: key)
+    }
+
+    static func set(_ cents: Int, for holdingID: UUID) {
+        UserDefaults.standard.set(cents, forKey: "market.previous.\(holdingID.uuidString)")
+    }
+
+    static func remove(for holdingID: UUID) {
+        UserDefaults.standard.removeObject(forKey: "market.previous.\(holdingID.uuidString)")
+    }
+}
+
 @MainActor
 enum MarketDataService {
     static func refresh(holdings: [PortfolioHolding], context: ModelContext) async {
         var changed = false
         for holding in holdings where isValidISIN(holding.symbol) {
-            let cents: Int?
+            let quote: MarketQuote?
             if let marketSymbol = MarketSymbolStore.symbol(for: holding.id) {
-                cents = try? await currentPriceCents(forMarketSymbol: marketSymbol)
+                quote = try? await quote(forMarketSymbol: marketSymbol)
             } else {
-                cents = try? await currentPriceCents(for: holding.symbol)
+                quote = try? await quote(for: holding.symbol)
             }
-            guard let cents else {
+            guard let quote else {
                 continue
             }
-            holding.currentPriceCents = cents
+            holding.currentPriceCents = quote.priceCents
+            if let previous = quote.previousCloseCents {
+                PreviousCloseStore.set(previous, for: holding.id)
+            }
             holding.updatedAt = .now
             changed = true
         }
@@ -45,9 +69,17 @@ enum MarketDataService {
     }
 
     static func currentPriceCents(for isin: String) async throws -> Int {
+        try await quote(for: isin).priceCents
+    }
+
+    static func quote(for isin: String) async throws -> MarketQuote {
         let matches = try await suggestions(for: isin)
         guard matches.count == 1 else { throw MarketDataError.instrumentNotFound }
-        return try await currentPriceCents(for: matches[0])
+        return try await quote(for: matches[0])
+    }
+
+    static func quote(for suggestion: StockSuggestion) async throws -> MarketQuote {
+        try await quote(forMarketSymbol: suggestion.symbol)
     }
 
     static func suggestions(for isin: String) async throws -> [StockSuggestion] {
@@ -79,15 +111,24 @@ enum MarketDataService {
     }
 
     static func currentPriceCents(for suggestion: StockSuggestion) async throws -> Int {
-        try await currentPriceCents(forMarketSymbol: suggestion.symbol)
+        try await quote(for: suggestion).priceCents
     }
 
-    private static func currentPriceCents(forMarketSymbol symbol: String) async throws -> Int {
+    private static func quote(forMarketSymbol symbol: String) async throws -> MarketQuote {
         let quote = try await chart(symbol: symbol)
         guard let price = quote.price, price > 0 else { throw MarketDataError.priceUnavailable }
-        let sourceCurrency = quote.currency ?? "EUR"
-        let currency = sourceCurrency.uppercased()
+        let priceCents = try await euroCents(for: price, sourceCurrency: quote.currency ?? "EUR")
+        let previousCents: Int?
+        if let previous = quote.previousClose, previous > 0 {
+            previousCents = try await euroCents(for: previous, sourceCurrency: quote.currency ?? "EUR")
+        } else {
+            previousCents = nil
+        }
+        return MarketQuote(priceCents: priceCents, previousCloseCents: previousCents)
+    }
 
+    private static func euroCents(for price: Double, sourceCurrency: String) async throws -> Int {
+        let currency = sourceCurrency.uppercased()
         let euroPrice: Double
         if currency == "EUR" {
             euroPrice = price
@@ -145,12 +186,16 @@ enum MarketDataService {
 
     private static func chart(symbol: String) async throws -> YahooChartQuote {
         let encoded = symbol.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? symbol
-        let url = URL(string: "https://query1.finance.yahoo.com/v8/finance/chart/\(encoded)?interval=1d&range=1d")!
+        let url = URL(string: "https://query1.finance.yahoo.com/v8/finance/chart/\(encoded)?interval=1d&range=5d")!
         let response: YahooChartResponse = try await request(url)
         guard let meta = response.chart.result?.first?.meta else {
             throw MarketDataError.priceUnavailable
         }
-        return YahooChartQuote(price: meta.regularMarketPrice, currency: meta.currency)
+        return YahooChartQuote(
+            price: meta.regularMarketPrice,
+            previousClose: meta.previousClose ?? meta.chartPreviousClose,
+            currency: meta.currency
+        )
     }
 
     private static func request<Response: Decodable>(_ url: URL) async throws -> Response {
@@ -193,11 +238,14 @@ private struct YahooChartResult: Decodable {
 
 private struct YahooChartMeta: Decodable {
     let regularMarketPrice: Double?
+    let previousClose: Double?
+    let chartPreviousClose: Double?
     let currency: String?
 }
 
 private struct YahooChartQuote {
     let price: Double?
+    let previousClose: Double?
     let currency: String?
 }
 

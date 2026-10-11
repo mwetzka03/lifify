@@ -24,26 +24,22 @@ struct ChallengesView: View {
                             .foregroundStyle(.secondary)
                     }
                         ForEach(recommendations) { recommendation in
-                            VStack(alignment: .leading, spacing: 8) {
-                                HStack {
+                            HStack(alignment: .center, spacing: 8) {
+                                VStack(alignment: .leading, spacing: 1) {
                                     Text(recommendation.title)
-                                        .font(.headline)
-                                    Spacer()
-                                    Button(L("Übernehmen", "Accept")) {
-                                        acceptedRecommendation = recommendation
-                                    }
-                                    .buttonStyle(.borderedProminent)
-                                }
-                                if !recommendation.details.isEmpty {
-                                    Text(recommendation.details)
-                                        .font(.caption)
+                                        .font(.subheadline)
+                                        .lineLimit(1)
+                                    Text(recommendation.startDate, format: .dateTime.day().month().year())
+                                        .font(.caption2)
                                         .foregroundStyle(.secondary)
                                 }
-                                Text(recommendation.startDate, format: .dateTime.day().month().year())
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
+                                Spacer(minLength: 8)
+                                Button(L("Übernehmen", "Accept")) {
+                                    acceptedRecommendation = recommendation
+                                }
+                                .buttonStyle(.bordered)
+                                .controlSize(.small)
                             }
-                            .padding(.vertical, 2)
                         }
                 } label: {
                     Label(
@@ -142,19 +138,13 @@ struct ChallengesView: View {
             }
         }
         .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                NavigationLink {
-                    ShopView()
-                } label: {
-                    Label(L("Shop", "Shop"), systemImage: "gift.fill")
-                }
-            }
-            ToolbarItem(placement: .topBarLeading) {
-                NavigationLink {
-                    WalletView()
-                } label: {
-                    CoinAmountView(amount: ChallengeService.walletBalance(transactions: transactions))
-                }
+            if #available(iOS 26.0, *) {
+                ToolbarItem(placement: .topBarLeading) { shopLink }
+                ToolbarSpacer(.fixed)
+                ToolbarItem(placement: .topBarLeading) { walletLink }
+            } else {
+                ToolbarItem(placement: .topBarLeading) { shopLink }
+                ToolbarItem(placement: .topBarLeading) { walletLink }
             }
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
@@ -170,6 +160,22 @@ struct ChallengesView: View {
         .sheet(item: $edited) { ChallengeForm(challenge: $0) }
         .sheet(item: $acceptedRecommendation) {
             ChallengeForm(challenge: nil, recommendation: $0)
+        }
+    }
+
+    private var shopLink: some View {
+        NavigationLink {
+            ShopView()
+        } label: {
+            Label(L("Shop", "Shop"), systemImage: "gift.fill")
+        }
+    }
+
+    private var walletLink: some View {
+        NavigationLink {
+            WalletView()
+        } label: {
+            CoinAmountView(amount: ChallengeService.walletBalance(transactions: transactions))
         }
     }
 
@@ -249,6 +255,7 @@ private struct ChallengeForm: View {
     @State private var streakTarget: Int
     @State private var groupID: UUID?
     @State private var icon: String
+    @State private var syncToReminders: Bool
     @State private var isSaving = false
     @State private var savedChallenge: ChallengeItem?
     @State private var saveMessage: String?
@@ -273,6 +280,7 @@ private struct ChallengeForm: View {
         _streakTarget = State(initialValue: challenge?.streakTarget ?? 0)
         _groupID = State(initialValue: challenge?.groupID)
         _icon = State(initialValue: challenge.map { IconPreferenceStore.icon(for: $0.id, fallback: "target") } ?? (recommendation == nil ? "target" : "lightbulb"))
+        _syncToReminders = State(initialValue: challenge.map { ReminderSyncPreference.isEnabled(for: $0.id) } ?? true)
     }
 
     var body: some View {
@@ -308,7 +316,16 @@ private struct ChallengeForm: View {
                         WeekdayPicker(selection: $weekdays)
                     }
                 }
-                Stepper("\(L("Coins", "Coins")): \(rewardCoins)", value: $rewardCoins, in: 0...10_000)
+                HStack {
+                    Text(L("Belohnung", "Reward"))
+                    TextField("0", value: $rewardCoins, format: .number)
+                        .keyboardType(.numberPad)
+                        .multilineTextAlignment(.trailing)
+                }
+                Stepper(L("Belohnung ändern", "Adjust reward"), value: $rewardCoins, in: 0...10_000)
+                if existing?.isReadOnly != true {
+                    Toggle(L("In Apple Erinnerungen sichern", "Save to Apple Reminders"), isOn: $syncToReminders)
+                }
                 if recurrence != .none {
                     Stepper("\(L("Streak-Ziel", "Streak target")): \(streakTarget)", value: $streakTarget, in: 0...365)
                 }
@@ -362,7 +379,7 @@ private struct ChallengeForm: View {
         challenge.startDate = startDate
         challenge.endDate = recurrence != .none && hasEndDate ? endDate : nil
         challenge.weekdaySet = recurrence == .weekly ? weekdays : []
-        challenge.rewardCoins = rewardCoins
+        challenge.rewardCoins = max(rewardCoins, 0)
         challenge.streakTarget = recurrence == .none ? 0 : streakTarget
         challenge.groupID = groupID
         if existing == nil, savedChallenge == nil {
@@ -373,8 +390,13 @@ private struct ChallengeForm: View {
             context.delete(sourceRecommendation)
         }
         IconPreferenceStore.set(icon, for: challenge.id)
+        ReminderSyncPreference.set(syncToReminders, for: challenge.id)
         try? context.save()
 
+        guard syncToReminders else {
+            dismiss()
+            return
+        }
         guard let externalIdentifier = await EventKitSyncService.saveReminder(
             externalIdentifier: challenge.externalIdentifier,
             title: challenge.title,

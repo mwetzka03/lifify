@@ -2,6 +2,7 @@ import SwiftData
 import SwiftUI
 
 struct HomeView: View {
+    @Environment(\.modelContext) private var context
     @Query private var variableBudgets: [VariableBudget]
     @Query private var pools: [BudgetPool]
     @Query private var entries: [LedgerEntry]
@@ -10,6 +11,7 @@ struct HomeView: View {
     @Query private var calendarEvents: [ChallengeCalendarEvent]
     @Query private var challenges: [ChallengeItem]
     @Query private var completions: [ChallengeCompletion]
+    @Query private var transactions: [CoinTransaction]
     @State private var mode = ChallengeCalendarViewMode.day
     @State private var selectedDate = Date.now
     @AppStorage("userName") private var userName = ""
@@ -23,10 +25,19 @@ struct HomeView: View {
                         .font(.title2.bold())
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
+                if !morningChecks.isEmpty {
+                    morningCheckCard
+                }
                 NavigationLink {
                     DashboardView()
                 } label: {
-                    BudgetSummaryCard(planned: plannedBudget, spent: spentBudget)
+                    BudgetSummaryCard(
+                        planned: plannedBudget,
+                        spent: spentBudget,
+                        nextSalary: nextSalaryDate,
+                        daysUntilSalary: daysUntilSalary,
+                        dailyAllowance: dailyAllowance
+                    )
                 }
                 .buttonStyle(.plain)
 
@@ -90,26 +101,34 @@ struct HomeView: View {
                         systemImage: "calendar",
                         description: Text(L("Tippe, um den Kalender zu öffnen.", "Tap to open the calendar."))
                     )
-                }
-                ForEach(dayEvents.prefix(5)) { event in
-                    HStack {
-                        Text(event.isAllDay ? L("Ganztägig", "All day") : event.startDate.formatted(.dateTime.hour().minute()))
-                            .font(.caption.monospacedDigit())
-                            .foregroundStyle(.secondary)
-                            .frame(width: 58, alignment: .leading)
-                        Label(event.title, systemImage: event.icon)
-                        Spacer()
+                } else {
+                    agendaSection(L("Termine", "Events"), systemImage: "calendar", isEmpty: dayEvents.isEmpty) {
+                        ForEach(dayEvents.prefix(5)) { event in
+                            HStack {
+                                Text(event.isAllDay ? L("Ganztägig", "All day") : event.startDate.formatted(.dateTime.hour().minute()))
+                                    .font(.caption.monospacedDigit())
+                                    .foregroundStyle(.secondary)
+                                    .frame(width: 58, alignment: .leading)
+                                Label(event.title, systemImage: event.icon)
+                                Spacer()
+                                if event.linkedChallengeID != nil {
+                                    Image(systemName: "target").foregroundStyle(.green)
+                                }
+                            }
+                        }
                     }
-                }
-                ForEach(dayChallenges.prefix(5)) { challenge in
-                    HStack {
-                        Image(systemName: IconPreferenceStore.icon(for: challenge.id, fallback: "target"))
-                        Text(challenge.title)
-                        Spacer()
-                        CoinAmountView(amount: challenge.rewardCoins, showsPlus: true)
-                            .font(.caption)
-                        Image(systemName: ChallengeService.isCompleted(challenge, on: selectedDate, completions: completions) ? "checkmark.circle.fill" : "circle")
-                            .foregroundStyle(ChallengeService.isCompleted(challenge, on: selectedDate, completions: completions) ? .green : .secondary)
+                    agendaSection(L("Challenges", "Challenges"), systemImage: "target", isEmpty: dayChallenges.isEmpty) {
+                        ForEach(dayChallenges.prefix(5)) { challenge in
+                            HStack {
+                                Image(systemName: IconPreferenceStore.icon(for: challenge.id, fallback: "target"))
+                                Text(challenge.title)
+                                Spacer()
+                                CoinAmountView(amount: challenge.rewardCoins, showsPlus: true)
+                                    .font(.caption)
+                                Image(systemName: ChallengeService.isCompleted(challenge, on: selectedDate, completions: completions) ? "checkmark.circle.fill" : "circle")
+                                    .foregroundStyle(ChallengeService.isCompleted(challenge, on: selectedDate, completions: completions) ? .green : .secondary)
+                            }
+                        }
                     }
                 }
                 Spacer(minLength: 0)
@@ -199,6 +218,51 @@ struct HomeView: View {
         .background(Color.secondary.opacity(0.06), in: RoundedRectangle(cornerRadius: 16))
     }
 
+    private var morningCheckCard: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label(L("Heute abhaken?", "Check off today?"), systemImage: "sunrise.fill")
+                .font(.headline)
+            ForEach(morningChecks, id: \.event.id) { item in
+                Button {
+                    ChallengeService.toggleCompletion(
+                        challenge: item.challenge,
+                        date: .now,
+                        completions: completions,
+                        transactions: transactions,
+                        context: context
+                    )
+                } label: {
+                    HStack {
+                        VStack(alignment: .leading) {
+                            Text(item.event.title).foregroundStyle(.primary)
+                            Text(item.challenge.title)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Image(systemName: "circle")
+                            .foregroundStyle(.green)
+                    }
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding()
+        .background(Color.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 18))
+    }
+
+    private var morningChecks: [(event: ChallengeCalendarEvent, challenge: ChallengeItem)] {
+        events(on: .now).compactMap { event in
+            guard let challengeID = event.linkedChallengeID,
+                  let challenge = challenges.first(where: { $0.id == challengeID }),
+                  !ChallengeService.isCompleted(challenge, on: .now, completions: completions)
+            else {
+                return nil
+            }
+            return (event, challenge)
+        }
+    }
+
     private var plannedBudget: Int {
         let activeForecasts = forecasts.filter(\.isActive)
         if !activeForecasts.isEmpty {
@@ -233,6 +297,48 @@ struct HomeView: View {
             return $0 + FinanceService.poolSpent(pool: $1, periodKey: key, splits: splits)
         }
         return variable + pool
+    }
+
+    private var primaryForecast: IncomeForecast? {
+        guard let idString = UserDefaults.standard.string(forKey: "primaryIncomeForecastID"),
+              let id = UUID(uuidString: idString)
+        else {
+            return forecasts.first(where: \.isActive)
+        }
+        return forecasts.first { $0.id == id } ?? forecasts.first(where: \.isActive)
+    }
+
+    private var nextSalaryDate: Date? {
+        guard let forecast = primaryForecast,
+              let limit = Calendar.current.date(byAdding: .year, value: 2, to: .now)
+        else {
+            return nil
+        }
+        let today = Calendar.current.startOfDay(for: .now)
+        return CalendarService.nextOccurrences(
+            firstDate: forecast.firstPaymentDate,
+            cadence: forecast.cadence,
+            rule: forecast.dueRule,
+            day: forecast.dayOfMonth,
+            endDate: forecast.endPaymentDate,
+            through: limit
+        )
+        .first { Calendar.current.startOfDay(for: $0) > today }
+    }
+
+    private var daysUntilSalary: Int? {
+        guard let nextSalaryDate else { return nil }
+        return Calendar.current.dateComponents(
+            [.day],
+            from: Calendar.current.startOfDay(for: .now),
+            to: Calendar.current.startOfDay(for: nextSalaryDate)
+        ).day
+    }
+
+    private var dailyAllowance: Int? {
+        let remaining = plannedBudget - spentBudget
+        guard remaining > 0, let daysUntilSalary else { return nil }
+        return remaining / max(daysUntilSalary, 1)
     }
 
     private var budgetPeriodStart: Date {
@@ -325,6 +431,29 @@ struct HomeView: View {
         }
     }
 
+    private func agendaSection<Content: View>(
+        _ title: String,
+        systemImage: String,
+        isEmpty: Bool,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Label(title, systemImage: systemImage)
+                .font(.caption.bold())
+                .foregroundStyle(.secondary)
+            if isEmpty {
+                Text(L("Keine Einträge", "No entries"))
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+            } else {
+                content()
+            }
+        }
+        .padding(8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+    }
+
     private func events(on day: Date) -> [ChallengeCalendarEvent] {
         let start = Calendar.current.startOfDay(for: day)
         let end = Calendar.current.date(byAdding: .day, value: 1, to: start)!
@@ -348,30 +477,62 @@ struct HomeView: View {
 private struct BudgetSummaryCard: View {
     let planned: Int
     let spent: Int
+    let nextSalary: Date?
+    let daysUntilSalary: Int?
+    let dailyAllowance: Int?
+
+    private var remaining: Int { planned - spent }
 
     var body: some View {
         HStack(spacing: 20) {
             ZStack {
                 Circle().stroke(.gray.opacity(0.2), lineWidth: 12)
                 Circle()
-                    .trim(from: 0, to: min(Double(spent) / Double(max(planned, 1)), 1))
-                    .stroke(.blue, style: StrokeStyle(lineWidth: 12, lineCap: .round))
+                    .trim(from: 0, to: progress)
+                    .stroke(remaining < 0 ? .red : .blue, style: StrokeStyle(lineWidth: 12, lineCap: .round))
                     .rotationEffect(.degrees(-90))
                 VStack(spacing: 1) {
-                    Text(Money.string(cents: max(planned - spent, 0))).font(.caption.bold())
-                    Text(L("offen", "left")).font(.caption2).foregroundStyle(.secondary)
+                    Text(Money.string(cents: remaining))
+                        .font(.caption.bold())
+                        .foregroundStyle(remaining < 0 ? .red : .primary)
+                        .minimumScaleFactor(0.6)
+                        .lineLimit(1)
+                    Text(remaining < 0 ? L("überzogen", "over") : L("offen", "left"))
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
                 }
+                .padding(.horizontal, 8)
             }
             .frame(width: 112, height: 112)
             VStack(alignment: .leading, spacing: 8) {
                 Text(L("Budget", "Budget")).font(.headline)
                 LabeledContent(L("Verbraucht", "Spent"), value: Money.string(cents: spent))
-                LabeledContent(L("Offen", "Remaining"), value: Money.string(cents: planned - spent))
+                LabeledContent(L("Offen", "Remaining"), value: Money.string(cents: remaining))
                 LabeledContent(L("Gesamt", "Total"), value: Money.string(cents: planned))
+                if let nextSalary, let daysUntilSalary {
+                    Text(salaryText(date: nextSalary, days: daysUntilSalary))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                if let dailyAllowance {
+                    Text("\(L("Pro Tag", "Per day")): \(Money.string(cents: dailyAllowance))")
+                        .font(.caption.bold())
+                }
             }
         }
         .padding()
         .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 22))
+    }
+
+    private var progress: Double {
+        guard planned > 0 else { return spent > 0 ? 1 : 0 }
+        return min(Double(spent) / Double(planned), 1)
+    }
+
+    private func salaryText(date: Date, days: Int) -> String {
+        let formatted = date.formatted(date: .abbreviated, time: .omitted)
+        let dayText = days == 1 ? L("noch 1 Tag", "1 day left") : "\(L("noch", "in")) \(days) \(L("Tage", "days"))"
+        return "\(L("Nächstes Gehalt", "Next salary")): \(formatted) · \(dayText)"
     }
 }
 

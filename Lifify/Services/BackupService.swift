@@ -134,6 +134,11 @@ enum BackupService {
                 BackupRecord(type: "marketSymbol", id: holding.id, strings: [$0])
             }
         }
+        records += holdings.compactMap { holding in
+            PreviousCloseStore.cents(for: holding.id).map {
+                BackupRecord(type: "previousClose", id: holding.id, integers: [$0])
+            }
+        }
         records += calendarEvents.map {
             BackupRecord(type: "challengeEvent", id: $0.id, strings: [$0.title, $0.details, $0.colorHex, $0.icon, $0.externalIdentifier ?? ""], booleans: [$0.isAllDay, $0.isReadOnly], dates: [$0.startDate, $0.endDate], uuids: [$0.linkedChallengeID, $0.linkedChallengeGroupID, $0.linkedRewardID])
         }
@@ -165,6 +170,20 @@ enum BackupService {
         }
         records += rewards.map {
             BackupRecord(type: "reward", id: $0.id, strings: [$0.title, $0.details, $0.icon, $0.colorHex, $0.urlString], integers: [$0.price], booleans: [$0.isActive], uuids: [$0.bucketListItemID])
+        }
+        records += rewards.map {
+            BackupRecord(
+                type: "rewardPolicy",
+                id: $0.id,
+                booleans: [RewardPolicyStore.allowsMultiplePurchases(for: $0.id)]
+            )
+        }
+        records += challenges.map {
+            BackupRecord(
+                type: "reminderSync",
+                id: $0.id,
+                booleans: [ReminderSyncPreference.isEnabled(for: $0.id)]
+            )
         }
         records += purchases.map {
             BackupRecord(type: "purchase", id: $0.id, strings: [$0.title], integers: [$0.price], dates: [$0.date], uuids: [$0.rewardID])
@@ -226,7 +245,8 @@ enum BackupService {
         let oldSideStores = try sideStoreKeys(in: context)
         try clear(context, includingAccounts: true)
         let sideTypes = Set([
-            "iconPreference", "reminderRecurrence", "marketSymbol",
+            "iconPreference", "reminderRecurrence", "marketSymbol", "previousClose",
+            "rewardPolicy", "reminderSync",
             "primaryIncome", "secondaryIncome", "incomeAssignment", "appPreferences"
         ])
         for record in backup.records where !sideTypes.contains(record.type) {
@@ -287,6 +307,7 @@ enum BackupService {
         var iconIDs: [UUID] = []
         var reminderIdentifiers: [String] = []
         var holdingIDs: [UUID] = []
+        var rewardIDs: [UUID] = []
     }
 
     private static func sideStoreKeys(in context: ModelContext) throws -> SideStoreKeys {
@@ -300,13 +321,21 @@ enum BackupService {
             .filter(\.isReminderSuggestion)
             .compactMap(\.externalIdentifier)
         keys.holdingIDs = try context.fetch(FetchDescriptor<PortfolioHolding>()).map(\.id)
+        keys.rewardIDs = try context.fetch(FetchDescriptor<RewardItem>()).map(\.id)
         return keys
     }
 
     private static func clearSideStores(_ keys: SideStoreKeys) {
-        keys.iconIDs.forEach { IconPreferenceStore.remove(for: $0) }
+        keys.iconIDs.forEach {
+            IconPreferenceStore.remove(for: $0)
+            ReminderSyncPreference.remove(for: $0)
+        }
         keys.reminderIdentifiers.forEach { ReminderLinkStore.remove(for: $0) }
-        keys.holdingIDs.forEach { MarketSymbolStore.remove(for: $0) }
+        keys.holdingIDs.forEach {
+            MarketSymbolStore.remove(for: $0)
+            PreviousCloseStore.remove(for: $0)
+        }
+        keys.rewardIDs.forEach { RewardPolicyStore.remove(for: $0) }
     }
 
     @MainActor
@@ -344,6 +373,12 @@ enum BackupService {
             context.insert(PortfolioHolding(id: r.id, accountID: uuid(0), name: string(0), symbol: string(1), quantity: r.doubles.first ?? 0, purchasePriceCents: int(0), currentPriceCents: int(1), updatedAt: date(0) ?? .now))
         case "marketSymbol":
             if !string(0).isEmpty { MarketSymbolStore.set(string(0), for: r.id) }
+        case "previousClose":
+            PreviousCloseStore.set(int(0), for: r.id)
+        case "rewardPolicy":
+            RewardPolicyStore.setAllowsMultiplePurchases(bool(0), for: r.id)
+        case "reminderSync":
+            ReminderSyncPreference.set(bool(0), for: r.id)
         case "challengeEvent":
             context.insert(ChallengeCalendarEvent(id: r.id, title: string(0), details: string(1), startDate: date(0) ?? .now, endDate: date(1) ?? .now, isAllDay: bool(0), colorHex: string(2), icon: string(3), linkedChallengeID: uuid(0), linkedChallengeGroupID: uuid(1), linkedRewardID: uuid(2), externalIdentifier: string(4).isEmpty ? nil : string(4), isReadOnly: bool(1)))
         case "challenge":

@@ -3,6 +3,17 @@ import SwiftData
 import SwiftUI
 import UniformTypeIdentifiers
 
+private struct SecondaryIncomeDraft: Identifiable {
+    let id = UUID()
+    var rowID: UUID?
+    var name = ""
+    var iban = ""
+    var amount = ""
+    var date = Date.now
+    var dueRule = DueRule.calendarDay
+    var dueDay = 1
+}
+
 struct OnboardingView: View {
     @Environment(\.modelContext) private var context
     @Query private var accounts: [Account]
@@ -30,7 +41,7 @@ struct OnboardingView: View {
     @State private var primaryDate = Date.now
     @State private var dueRule = DueRule.calendarDay
     @State private var dueDay = 1
-    @State private var secondaryRowIDs: Set<UUID> = []
+    @State private var secondaryDrafts: [SecondaryIncomeDraft] = []
     @State private var importingBackup = false
     @State private var importingBank = false
     @State private var isFinishing = false
@@ -241,23 +252,40 @@ struct OnboardingView: View {
                 Stepper("\(L("Kalendertag", "Calendar day")): \(dueDay)", value: $dueDay, in: 1...31)
             }
         }
-        if positiveRows.count > 1 {
-            Section(L("Nebeneinnahmen (optional)", "Secondary income (optional)")) {
-                ForEach(positiveRows.filter { $0.id != primaryRowID }) { row in
-                    Toggle(isOn: Binding(
-                        get: { secondaryRowIDs.contains(row.id) },
-                        set: { enabled in
-                            if enabled { secondaryRowIDs.insert(row.id) }
-                            else { secondaryRowIDs.remove(row.id) }
-                        }
-                    )) {
-                        VStack(alignment: .leading) {
-                            Text(row.title)
-                            Text("\(Money.string(cents: row.amountCents)) · \(row.senderIBAN)")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+        Section {
+            Button {
+                secondaryDrafts.append(SecondaryIncomeDraft())
+            } label: {
+                Label(L("Nebeneinnahme hinzufügen", "Add secondary income"), systemImage: "plus")
+            }
+        } header: {
+            Text(L("Nebeneinnahmen (optional)", "Secondary income (optional)"))
+        }
+        ForEach($secondaryDrafts) { draft in
+            Section {
+                if !positiveRows.isEmpty {
+                    Picker(L("Positive Buchung", "Positive transaction"), selection: draft.rowID) {
+                        Text(L("Manuell", "Manual")).tag(Optional<UUID>.none)
+                        ForEach(positiveRows.filter { $0.id != primaryRowID }) { row in
+                            Text("\(row.title) · \(Money.string(cents: row.amountCents)) · \(row.senderIBAN.isEmpty ? L("keine IBAN", "no IBAN") : row.senderIBAN)")
+                                .tag(Optional(row.id))
                         }
                     }
+                    .onChange(of: draft.wrappedValue.rowID) { fillSecondaryIncome(draft.wrappedValue.id) }
+                }
+                TextField(L("Bezeichnung", "Name"), text: draft.name)
+                TextField("IBAN", text: draft.iban)
+                    .textInputAutocapitalization(.characters)
+                TextField(L("Prognosebetrag", "Forecast amount"), text: draft.amount)
+                    .keyboardType(.decimalPad)
+                Picker(L("Fälligkeit", "Due date"), selection: draft.dueRule) {
+                    ForEach(DueRule.allCases) { Text($0.label).tag($0) }
+                }
+                if draft.dueRule.wrappedValue == .calendarDay {
+                    Stepper("\(L("Kalendertag", "Calendar day")): \(draft.dueDay.wrappedValue)", value: draft.dueDay, in: 1...31)
+                }
+                Button(L("Nebeneinnahme entfernen", "Remove secondary income"), role: .destructive) {
+                    secondaryDrafts.removeAll { $0.id == draft.wrappedValue.id }
                 }
             }
         }
@@ -444,6 +472,19 @@ struct OnboardingView: View {
         dueDay = Calendar.current.component(.day, from: row.date)
     }
 
+    private func fillSecondaryIncome(_ draftID: UUID) {
+        guard let index = secondaryDrafts.firstIndex(where: { $0.id == draftID }),
+              let row = positiveRows.first(where: { $0.id == secondaryDrafts[index].rowID })
+        else {
+            return
+        }
+        secondaryDrafts[index].name = row.title
+        secondaryDrafts[index].iban = row.senderIBAN
+        secondaryDrafts[index].amount = String(format: "%.2f", Double(row.amountCents) / 100)
+        secondaryDrafts[index].date = row.date
+        secondaryDrafts[index].dueDay = Calendar.current.component(.day, from: row.date)
+    }
+
     private func finishSetup() {
         guard !isFinishing,
               let amount = Money.cents(from: primaryAmount),
@@ -471,19 +512,25 @@ struct OnboardingView: View {
         )
         context.insert(primaryForecast)
 
-        var secondaryForecasts: [(row: ImportedTransaction, forecast: IncomeForecast)] = []
-        for row in positiveRows where secondaryRowIDs.contains(row.id) {
+        var secondaryForecasts: [(draft: SecondaryIncomeDraft, forecast: IncomeForecast)] = []
+        for draft in secondaryDrafts {
+            guard let amount = Money.cents(from: draft.amount),
+                  amount > 0,
+                  !draft.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            else {
+                continue
+            }
             let forecast = IncomeForecast(
-                name: row.title,
-                amountCents: row.amountCents,
+                name: draft.name.trimmingCharacters(in: .whitespacesAndNewlines),
+                amountCents: amount,
                 accountID: accountID,
                 cadence: .monthly,
-                firstPaymentDate: row.date,
-                dueRule: dueRule,
-                dayOfMonth: Calendar.current.component(.day, from: row.date)
+                firstPaymentDate: draft.date,
+                dueRule: draft.dueRule,
+                dayOfMonth: draft.dueDay
             )
             context.insert(forecast)
-            secondaryForecasts.append((row, forecast))
+            secondaryForecasts.append((draft, forecast))
         }
         do {
             try context.save()
@@ -501,10 +548,11 @@ struct OnboardingView: View {
             IncomeAssignmentStore.assign(entryID: entryID, to: primaryForecast.id)
         }
         IncomeAssignmentStore.setSecondary(secondaryForecasts.map {
-            (iban: $0.row.senderIBAN, forecastID: $0.forecast.id)
+            (iban: $0.draft.iban, forecastID: $0.forecast.id)
         })
         for pair in secondaryForecasts {
-            let entryID = importedEntryIDs[pair.row.fingerprint] ?? pair.row.id
+            guard let row = positiveRows.first(where: { $0.id == pair.draft.rowID }) else { continue }
+            let entryID = importedEntryIDs[row.fingerprint] ?? row.id
             IncomeAssignmentStore.assign(entryID: entryID, to: pair.forecast.id)
         }
         isFinishing = false
