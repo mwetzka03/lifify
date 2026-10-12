@@ -14,6 +14,8 @@ struct ChallengesView: View {
     @State private var showingNewGroup = false
     @State private var edited: ChallengeItem?
     @State private var acceptedRecommendation: ChallengeCalendarEvent?
+    @State private var showingShop = false
+    @State private var showingWallet = false
 
     var body: some View {
         List {
@@ -154,6 +156,8 @@ struct ChallengesView: View {
         .sheet(item: $acceptedRecommendation) {
             ChallengeForm(challenge: nil, recommendation: $0)
         }
+        .navigationDestination(isPresented: $showingShop) { ShopView() }
+        .navigationDestination(isPresented: $showingWallet) { WalletView() }
     }
 
     @ToolbarContentBuilder
@@ -171,42 +175,45 @@ struct ChallengesView: View {
     }
 
     private var challengeLinkBubbles: some View {
-        HStack(spacing: 10) {
-            NavigationLink {
-                ShopView()
+        HStack(spacing: 8) {
+            Button {
+                showingShop = true
             } label: {
                 toolbarBubble {
-                    Label(L("Shop", "Shop"), systemImage: "gift.fill")
-                        .labelStyle(.titleAndIcon)
+                    HStack(spacing: 5) {
+                        Image(systemName: "gift.fill")
+                        Text(L("Shop", "Shop"))
+                    }
                 }
             }
             .buttonStyle(.plain)
-            NavigationLink {
-                WalletView()
+            Button {
+                showingWallet = true
             } label: {
                 toolbarBubble {
-                    CoinAmountView(amount: ChallengeService.walletBalance(transactions: transactions))
+                    HStack(spacing: 4) {
+                        Image(systemName: "c.circle.fill")
+                            .foregroundStyle(.orange)
+                        Text("\(ChallengeService.walletBalance(transactions: transactions))")
+                            .monospacedDigit()
+                            .foregroundStyle(.orange)
+                    }
                 }
             }
             .buttonStyle(.plain)
         }
+        .fixedSize(horizontal: true, vertical: false)
     }
 
-    @ViewBuilder
     private func toolbarBubble<Content: View>(@ViewBuilder content: () -> Content) -> some View {
-        if #available(iOS 26.0, *) {
-            content()
-                .font(.subheadline.weight(.semibold))
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-                .glassEffect(.regular.interactive(), in: Capsule())
-        } else {
-            content()
-                .font(.subheadline.weight(.semibold))
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-                .background(.ultraThinMaterial, in: Capsule())
-        }
+        content()
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(.primary)
+            .lineLimit(1)
+            .fixedSize(horizontal: true, vertical: false)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(.thinMaterial, in: Capsule())
     }
 
     private var filteredChallenges: [ChallengeItem] {
@@ -239,16 +246,22 @@ struct ChallengesView: View {
     private func challengeMeta(_ challenge: ChallengeItem) -> some View {
         let streak = ChallengeService.streak(for: challenge, endingOn: .now, completions: completions)
         let target = challenge.streakTarget > 0 ? "/\(challenge.streakTarget)" : ""
-        return HStack(spacing: 7) {
+        return HStack(spacing: 6) {
             Text(challenge.recurrence.label)
             CoinAmountView(amount: challenge.rewardCoins, showsPlus: true)
             if challenge.recurrence != .none {
-                Label("\(streak)\(target)", systemImage: "flame.fill")
-                    .foregroundStyle(.orange)
+                HStack(spacing: 2) {
+                    Image(systemName: "flame.fill")
+                    Text("\(streak)\(target)")
+                        .monospacedDigit()
+                }
+                .foregroundStyle(.orange)
             }
         }
         .font(.caption)
         .foregroundStyle(.secondary)
+        .lineLimit(1)
+        .fixedSize(horizontal: true, vertical: false)
     }
 }
 

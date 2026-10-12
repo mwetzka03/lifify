@@ -66,7 +66,9 @@ iPhone-App mit SwiftUI und SwiftData.
    beim App-Start bestmöglich über die öffentlichen Yahoo-Finance-Such- und
    Chart-Endpunkte auf und rechnet Fremdwährungskurse in Euro um. Die Liste
    zeigt die Veränderung wahlweise für heute oder seit dem Kauf und entweder
-   in Prozent oder in Euro. Dies ist kein garantierter Börsendatenvertrag; bei
+   in Prozent oder in Euro, direkt unter dem jeweiligen Wert. Die Positionen
+   lassen sich nach Wert, Kaufzeitpunkt oder Name sortieren. Dies ist kein
+   garantierter Börsendatenvertrag; bei
    Netz-, Rate-Limit- oder Zuordnungsfehlern bleibt der manuelle Fallbackkurs
    unverändert. Käufe und Verkäufe werden nicht automatisch in ein
    FIFO-Steuerlot umgerechnet.

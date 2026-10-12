@@ -44,6 +44,24 @@ enum PreviousCloseStore {
     }
 }
 
+enum HoldingPurchaseDateStore {
+    static func date(for holdingID: UUID) -> Date? {
+        UserDefaults.standard.object(forKey: key(for: holdingID)) as? Date
+    }
+
+    static func set(_ date: Date, for holdingID: UUID) {
+        UserDefaults.standard.set(date, forKey: key(for: holdingID))
+    }
+
+    static func remove(for holdingID: UUID) {
+        UserDefaults.standard.removeObject(forKey: key(for: holdingID))
+    }
+
+    private static func key(for holdingID: UUID) -> String {
+        "holding.purchased.\(holdingID.uuidString)"
+    }
+}
+
 @MainActor
 enum MarketDataService {
     static func refresh(holdings: [PortfolioHolding], context: ModelContext) async {

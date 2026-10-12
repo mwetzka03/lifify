@@ -6,6 +6,7 @@ struct PortfolioView: View {
     @Query(sort: \PortfolioHolding.name) private var holdings: [PortfolioHolding]
     @AppStorage("portfolioPerformanceBasis") private var basis = PortfolioBasis.today.rawValue
     @AppStorage("portfolioPerformanceUnit") private var unit = PortfolioUnit.percent.rawValue
+    @AppStorage("portfolioSort") private var sort = PortfolioSort.value.rawValue
     @State private var showingNew = false
     @State private var edited: PortfolioHolding?
     @State private var selected: PortfolioHolding?
@@ -13,6 +14,19 @@ struct PortfolioView: View {
 
     var body: some View {
         List {
+            Section {
+                let totals = portfolioPerformance
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(L("Depotwert", "Portfolio value"))
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    Text(Money.string(cents: totals.value))
+                        .font(.title2.bold())
+                    selectedPerformanceLabel(totals)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.vertical, 4)
+            }
             Section {
                 Picker(L("Zeitraum", "Period"), selection: $basis) {
                     ForEach(PortfolioBasis.allCases) { Text($0.label).tag($0.rawValue) }
@@ -24,11 +38,15 @@ struct PortfolioView: View {
                 }
                 .pickerStyle(.segmented)
                 .labelsHidden()
-                let totals = portfolioPerformance
-                LabeledContent(L("Depotwert", "Portfolio value"), value: Money.string(cents: totals.value))
-                selectedPerformanceLabel(totals)
             }
-            ForEach(holdings) { holding in
+            Section {
+                Picker(L("Sortierung", "Sort"), selection: $sort) {
+                    ForEach(PortfolioSort.allCases) { Text($0.label).tag($0.rawValue) }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+            }
+            ForEach(sortedHoldings) { holding in
                 let performance = holdingPerformance(holding)
                 Button {
                     selected = holding
@@ -39,11 +57,13 @@ struct PortfolioView: View {
                             Text("\(holding.quantity.formatted()) × \(Money.string(cents: holding.currentPriceCents))")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
+                        }
+                        Spacer(minLength: 12)
+                        VStack(alignment: .trailing, spacing: 2) {
+                            Text(Money.string(cents: performance.value))
+                                .foregroundStyle(.primary)
                             selectedPerformanceLabel(performance)
                         }
-                        Spacer()
-                        Text(Money.string(cents: performance.value))
-                            .foregroundStyle(.primary)
                     }
                 }
                 .swipeActions(edge: .trailing, allowsFullSwipe: false) {
@@ -82,6 +102,11 @@ struct PortfolioView: View {
                 Button { showingNew = true } label: { Image(systemName: "plus") }
             }
         }
+        .onAppear {
+            for holding in holdings where HoldingPurchaseDateStore.date(for: holding.id) == nil {
+                HoldingPurchaseDateStore.set(holding.updatedAt, for: holding.id)
+            }
+        }
         .sheet(isPresented: $showingNew) { HoldingForm(holding: nil) }
         .sheet(item: $edited) { HoldingForm(holding: $0) }
         .sheet(item: $selected) { HoldingDetailView(holding: $0) }
@@ -90,8 +115,27 @@ struct PortfolioView: View {
     private func delete(_ holding: PortfolioHolding) {
         MarketSymbolStore.remove(for: holding.id)
         PreviousCloseStore.remove(for: holding.id)
+        HoldingPurchaseDateStore.remove(for: holding.id)
         context.delete(holding)
         try? context.save()
+    }
+
+    private var sortedHoldings: [PortfolioHolding] {
+        switch PortfolioSort(rawValue: sort) ?? .value {
+        case .value:
+            return holdings.sorted { holdingPerformance($0).value > holdingPerformance($1).value }
+        case .purchase:
+            return holdings.sorted { lhs, rhs in
+                let left = HoldingPurchaseDateStore.date(for: lhs.id) ?? .distantPast
+                let right = HoldingPurchaseDateStore.date(for: rhs.id) ?? .distantPast
+                if left != right { return left > right }
+                return lhs.name.localizedCaseInsensitiveCompare(rhs.name) == .orderedAscending
+            }
+        case .name:
+            return holdings.sorted {
+                $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
+            }
+        }
     }
 
     private var portfolioPerformance: HoldingPerformance {
@@ -117,6 +161,21 @@ private enum PortfolioBasis: String, CaseIterable, Identifiable {
         switch self {
         case .today: L("Heute", "Today")
         case .purchase: L("Seit Kauf", "Since purchase")
+        }
+    }
+}
+
+private enum PortfolioSort: String, CaseIterable, Identifiable {
+    case value
+    case purchase
+    case name
+
+    var id: String { rawValue }
+    var label: String {
+        switch self {
+        case .value: L("Wert", "Value")
+        case .purchase: L("Kauf", "Purchase")
+        case .name: "A–Z"
         }
     }
 }
@@ -221,9 +280,18 @@ private struct HoldingDetailView: View {
     @AppStorage("portfolioPerformanceUnit") private var unit = PortfolioUnit.percent.rawValue
 
     var body: some View {
-        let selected = holdingPerformance(holding).selected(basis: basis, unit: unit)
+        let performance = holdingPerformance(holding)
+        let selected = performance.selected(basis: basis, unit: unit)
         NavigationStack {
             Form {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(Money.string(cents: performance.value))
+                        .font(.title2.bold())
+                    Text(selected.text)
+                        .font(.subheadline.bold())
+                        .foregroundStyle(selected.cents < 0 ? .red : (selected.cents > 0 ? .green : .secondary))
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
                 Picker(L("Zeitraum", "Period"), selection: $basis) {
                     ForEach(PortfolioBasis.allCases) { Text($0.label).tag($0.rawValue) }
                 }
@@ -237,7 +305,6 @@ private struct HoldingDetailView: View {
                 LabeledContent(L("Stückzahl", "Quantity"), value: holding.quantity.formatted())
                 LabeledContent(L("Kurs", "Price"), value: Money.string(cents: holding.currentPriceCents))
                 LabeledContent(L("Kaufkurs", "Purchase price"), value: Money.string(cents: holding.purchasePriceCents))
-                LabeledContent(L("Veränderung", "Change"), value: selected.text)
                 if !holding.symbol.isEmpty {
                     LabeledContent("ISIN", value: holding.symbol)
                 }
@@ -383,7 +450,10 @@ private struct HoldingForm: View {
                         holding.purchasePriceCents = purchase
                         holding.currentPriceCents = current
                         holding.updatedAt = .now
-                        if existing == nil { context.insert(holding) }
+                        if existing == nil {
+                            context.insert(holding)
+                            HoldingPurchaseDateStore.set(.now, for: holding.id)
+                        }
                         if !selectedSuggestion.symbol.isEmpty {
                             MarketSymbolStore.set(selectedSuggestion.symbol, for: holding.id)
                         }

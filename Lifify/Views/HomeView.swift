@@ -12,8 +12,10 @@ struct HomeView: View {
     @Query private var challenges: [ChallengeItem]
     @Query private var completions: [ChallengeCompletion]
     @Query private var transactions: [CoinTransaction]
+    @Query private var rewards: [RewardItem]
     @State private var mode = ChallengeCalendarViewMode.day
     @State private var selectedDate = Date.now
+    @State private var expandedWeekday: Date?
     @AppStorage("userName") private var userName = ""
     @AppStorage("dashboardPeriodMode") private var dashboardPeriod = DashboardPeriodMode.calendarMonth.rawValue
 
@@ -25,9 +27,7 @@ struct HomeView: View {
                         .font(.title2.bold())
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                if !morningChecks.isEmpty {
-                    morningCheckCard
-                }
+                noticeSection
                 NavigationLink {
                     DashboardView()
                 } label: {
@@ -70,8 +70,8 @@ struct HomeView: View {
                         monthView
                     }
                 }
-                .frame(minHeight: 310, alignment: .top)
 
+                periodBookings
             }
             .padding()
         }
@@ -144,30 +144,88 @@ struct HomeView: View {
     private var weekView: some View {
         VStack(spacing: 7) {
             ForEach(ChallengeService.days(for: .week, around: selectedDate), id: \.self) { day in
-                NavigationLink {
-                    ChallengeCalendarView(initialDate: day, initialMode: .day)
-                } label: {
-                    HStack(spacing: 12) {
-                        VStack {
-                            Text(day, format: .dateTime.weekday(.abbreviated))
-                                .font(.caption)
-                            Text(day, format: .dateTime.day())
-                                .font(.title3.bold())
-                                .foregroundStyle(Calendar.current.isDateInToday(day) ? .red : .primary)
+                VStack(alignment: .leading, spacing: 8) {
+                    Button {
+                        withAnimation {
+                            if isExpanded(day) {
+                                expandedWeekday = nil
+                            } else {
+                                expandedWeekday = day
+                            }
                         }
-                        .frame(width: 44)
-                        Divider()
-                        Label("\(events(on: day).count)", systemImage: "calendar")
-                        Label("\(dueChallenges(on: day).count)", systemImage: "target")
-                        Spacer()
-                        Image(systemName: "chevron.right")
-                            .foregroundStyle(.secondary)
+                    } label: {
+                        HStack(spacing: 12) {
+                            VStack {
+                                Text(day, format: .dateTime.weekday(.abbreviated))
+                                    .font(.caption)
+                                Text(day, format: .dateTime.day())
+                                    .font(.title3.bold())
+                                    .foregroundStyle(Calendar.current.isDateInToday(day) ? .red : .primary)
+                            }
+                            .frame(width: 44)
+                            Divider()
+                            Label("\(events(on: day).count)", systemImage: "calendar")
+                            Label("\(dueChallenges(on: day).count)", systemImage: "target")
+                            Spacer()
+                            Image(systemName: isExpanded(day) ? "chevron.up" : "chevron.down")
+                                .foregroundStyle(.secondary)
+                        }
                     }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                    .background(Calendar.current.isDateInToday(day) ? Color.red.opacity(0.09) : Color.secondary.opacity(0.07), in: RoundedRectangle(cornerRadius: 13))
+                    .buttonStyle(.plain)
+                    if isExpanded(day) {
+                        dayDetails(day)
+                    }
                 }
-                .buttonStyle(.plain)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(Calendar.current.isDateInToday(day) ? Color.red.opacity(0.09) : Color.secondary.opacity(0.07), in: RoundedRectangle(cornerRadius: 13))
+            }
+        }
+    }
+
+    private func isExpanded(_ day: Date) -> Bool {
+        guard let expandedWeekday else { return false }
+        return Calendar.current.isDate(expandedWeekday, inSameDayAs: day)
+    }
+
+    private func dayDetails(_ day: Date) -> some View {
+        let dayEvents = events(on: day)
+        let dayChallenges = dueChallenges(on: day)
+        return VStack(alignment: .leading, spacing: 8) {
+            if dayEvents.isEmpty && dayChallenges.isEmpty {
+                Text(L("Keine Einträge", "No entries"))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            if !dayEvents.isEmpty {
+                Text(L("Termine", "Events"))
+                    .font(.caption.bold())
+                    .foregroundStyle(.secondary)
+                ForEach(dayEvents) { event in
+                    HStack {
+                        Text(event.isAllDay ? L("Ganztägig", "All day") : event.startDate.formatted(.dateTime.hour().minute()))
+                            .font(.caption.monospacedDigit())
+                            .foregroundStyle(.secondary)
+                            .frame(width: 58, alignment: .leading)
+                        Text(event.title)
+                        Spacer()
+                    }
+                    .font(.subheadline)
+                }
+            }
+            if !dayChallenges.isEmpty {
+                Text(L("Challenges", "Challenges"))
+                    .font(.caption.bold())
+                    .foregroundStyle(.secondary)
+                ForEach(dayChallenges) { challenge in
+                    HStack {
+                        Text(challenge.title)
+                        Spacer()
+                        CoinAmountView(amount: challenge.rewardCoins, showsPlus: true)
+                            .font(.caption)
+                    }
+                    .font(.subheadline)
+                }
             }
         }
     }
@@ -218,11 +276,51 @@ struct HomeView: View {
         .background(Color.secondary.opacity(0.06), in: RoundedRectangle(cornerRadius: 16))
     }
 
-    private var morningCheckCard: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Label(L("Heute abhaken?", "Check off today?"), systemImage: "sunrise.fill")
+    @ViewBuilder
+    private var noticeSection: some View {
+        if homePopups.count >= 3 {
+            combinedNoticeCard
+        } else {
+            ForEach(homePopups) { popup in
+                popupCard(popup)
+            }
+        }
+    }
+
+    private var combinedNoticeCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label(L("Hinweise", "Notices"), systemImage: "bell.fill")
                 .font(.headline)
-            ForEach(morningChecks, id: \.event.id) { item in
+            ForEach(homePopups) { popup in
+                popupRows(popup)
+            }
+        }
+        .padding()
+        .background(Color.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 18))
+    }
+
+    private func popupCard(_ popup: HomePopup) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            switch popup.kind {
+            case .morning:
+                Label(L("Heute abhaken?", "Check off today?"), systemImage: "sunrise.fill")
+                    .font(.headline)
+            case .reward:
+                Label(L("Belohnung", "Reward"), systemImage: "gift.fill")
+                    .font(.headline)
+            }
+            popupRows(popup)
+        }
+        .padding()
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(cardColor(for: popup).opacity(0.12), in: RoundedRectangle(cornerRadius: 18))
+    }
+
+    @ViewBuilder
+    private func popupRows(_ popup: HomePopup) -> some View {
+        switch popup.kind {
+        case .morning(let items):
+            ForEach(items, id: \.event.id) { item in
                 Button {
                     ChallengeService.toggleCompletion(
                         challenge: item.challenge,
@@ -232,23 +330,99 @@ struct HomeView: View {
                         context: context
                     )
                 } label: {
-                    HStack {
-                        VStack(alignment: .leading) {
+                    HStack(alignment: .center, spacing: 8) {
+                        VStack(alignment: .leading, spacing: 2) {
                             Text(item.event.title).foregroundStyle(.primary)
                             Text(item.challenge.title)
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
-                        Spacer()
+                        Spacer(minLength: 8)
+                        CoinAmountView(amount: item.challenge.rewardCoins, showsPlus: true)
+                            .font(.caption)
+                        if item.challenge.recurrence != .none {
+                            let streak = ChallengeService.streak(
+                                for: item.challenge,
+                                endingOn: .now,
+                                completions: completions
+                            )
+                            HStack(spacing: 2) {
+                                Image(systemName: "flame.fill")
+                                Text("\(streak)")
+                                    .monospacedDigit()
+                            }
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                        }
                         Image(systemName: "circle")
                             .foregroundStyle(.green)
                     }
                 }
                 .buttonStyle(.plain)
             }
+        case .reward(let event, let reward, let days):
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(event.title.isEmpty ? reward.title : event.title)
+                    Text(rewardDaysText(days))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                CoinAmountView(amount: reward.price)
+                    .font(.caption)
+            }
         }
-        .padding()
-        .background(Color.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 18))
+    }
+
+    private func cardColor(for popup: HomePopup) -> Color {
+        switch popup.kind {
+        case .morning: .orange
+        case .reward: .purple
+        }
+    }
+
+    private func rewardDaysText(_ days: Int) -> String {
+        if days == 0 { return L("Heute", "Today") }
+        if days == 1 { return L("in 1 Tag", "in 1 day") }
+        return "\(L("in", "in")) \(days) \(L("Tagen", "days"))"
+    }
+
+    private var homePopups: [HomePopup] {
+        var popups: [HomePopup] = []
+        if !morningChecks.isEmpty {
+            popups.append(HomePopup(id: "morning", kind: .morning(morningChecks)))
+        }
+        for reminder in rewardReminders {
+            popups.append(
+                HomePopup(
+                    id: "reward-\(reminder.event.id.uuidString)",
+                    kind: .reward(reminder.event, reminder.reward, reminder.days)
+                )
+            )
+        }
+        return popups
+    }
+
+    private var rewardReminders: [(event: ChallengeCalendarEvent, reward: RewardItem, days: Int)] {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: .now)
+        return calendarEvents.compactMap { event in
+            guard !event.isReminderSuggestion,
+                  let rewardID = event.linkedRewardID,
+                  let reward = rewards.first(where: { $0.id == rewardID })
+            else {
+                return nil
+            }
+            let start = calendar.startOfDay(for: event.startDate)
+            guard let days = calendar.dateComponents([.day], from: today, to: start).day, days >= 0 else {
+                return nil
+            }
+            let lead = reward.price >= 50 ? 10 : 5
+            guard days <= lead else { return nil }
+            return (event, reward, days)
+        }
+        .sorted { $0.days < $1.days }
     }
 
     private var morningChecks: [(event: ChallengeCalendarEvent, challenge: ChallengeItem)] {
@@ -264,23 +438,60 @@ struct HomeView: View {
     }
 
     private var plannedBudget: Int {
-        let activeForecasts = forecasts.filter(\.isActive)
-        if !activeForecasts.isEmpty {
-            return activeForecasts.reduce(0) { total, forecast in
-                let occurrences = CalendarService.nextOccurrences(
-                    firstDate: forecast.firstPaymentDate,
-                    cadence: forecast.cadence,
-                    rule: forecast.dueRule,
-                    day: forecast.dayOfMonth,
-                    endDate: forecast.endPaymentDate,
-                    through: budgetPeriodEnd
-                )
-                .filter { $0 >= budgetPeriodStart && $0 <= budgetPeriodEnd }
-                return total + occurrences.count * abs(forecast.amountCents)
+        let sources = incomeForecastsForBudget
+        if !sources.isEmpty {
+            return sources.reduce(0) { total, forecast in
+                let projected = occurrenceCount(of: forecast) * abs(forecast.amountCents)
+                let booked = bookedIncome(for: forecast)
+                return total + max(projected, booked)
             }
         }
+        let booked = entries
+            .filter { $0.kind == .income && $0.date >= budgetPeriodStart && $0.date <= budgetPeriodEnd }
+            .reduce(0) { $0 + abs($1.amountCents) }
+        if booked > 0 { return booked }
         return variableBudgets.reduce(0) { $0 + $1.monthlyAmountCents } +
             pools.filter(\.isActive).reduce(0) { $0 + $1.amountCents }
+    }
+
+    private var incomeForecastsForBudget: [IncomeForecast] {
+        let secondary = UserDefaults.standard.dictionary(forKey: "secondaryIncomeMappings") as? [String: String] ?? [:]
+        var ids = Set(secondary.values.compactMap(UUID.init(uuidString:)))
+        if let primaryID = UserDefaults.standard.string(forKey: "primaryIncomeForecastID").flatMap(UUID.init(uuidString:)) {
+            ids.insert(primaryID)
+        }
+        let linked = forecasts.filter { ids.contains($0.id) }
+        let others = forecasts.filter { $0.isActive && !ids.contains($0.id) }
+        return linked + others
+    }
+
+    private func occurrenceCount(of forecast: IncomeForecast) -> Int {
+        let start = Calendar.current.startOfDay(for: budgetPeriodStart)
+        let end = Calendar.current.startOfDay(for: budgetPeriodEnd)
+        return CalendarService.nextOccurrences(
+            firstDate: forecast.firstPaymentDate,
+            cadence: forecast.cadence,
+            rule: forecast.dueRule,
+            day: forecast.dayOfMonth,
+            endDate: forecast.endPaymentDate,
+            through: budgetPeriodEnd
+        )
+        .filter {
+            let day = Calendar.current.startOfDay(for: $0)
+            return day >= start && day <= end
+        }
+        .count
+    }
+
+    private func bookedIncome(for forecast: IncomeForecast) -> Int {
+        entries
+            .filter {
+                $0.kind == .income &&
+                $0.date >= budgetPeriodStart &&
+                $0.date <= budgetPeriodEnd &&
+                IncomeAssignmentStore.forecastID(forEntryID: $0.id) == forecast.id
+            }
+            .reduce(0) { $0 + abs($1.amountCents) }
     }
 
     private var spentBudget: Int {
@@ -406,6 +617,66 @@ struct HomeView: View {
         .first { $0 > budgetPeriodStart }
         guard let nextOccurrence else { return fallback }
         return calendar.date(byAdding: .second, value: -1, to: nextOccurrence) ?? fallback
+    }
+
+    private var periodBookings: some View {
+        let visible = Array(periodEntries.prefix(5))
+        return VStack(alignment: .leading, spacing: 8) {
+            Text(L("Buchungen", "Transactions"))
+                .font(.headline)
+            if periodEntries.isEmpty {
+                Text(L("Keine Buchungen in diesem Zeitraum", "No transactions in this period"))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach(visible) { entry in
+                    HomeTransactionRow(entry: entry)
+                }
+                if periodEntries.count > 5 {
+                    NavigationLink {
+                        PeriodTransactionsView(title: periodTitle, entries: periodEntries)
+                    } label: {
+                        HStack {
+                            Text(L("Alle anzeigen", "Show all"))
+                            Spacer()
+                            Text("\(periodEntries.count)")
+                                .foregroundStyle(.secondary)
+                            Image(systemName: "chevron.right")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        .font(.subheadline.weight(.semibold))
+                    }
+                }
+            }
+        }
+        .padding()
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 18))
+    }
+
+    private var periodEntries: [LedgerEntry] {
+        entries
+            .filter { $0.date >= periodRange.start && $0.date < periodRange.end }
+            .sorted { $0.date > $1.date }
+    }
+
+    private var periodRange: (start: Date, end: Date) {
+        let calendar = Calendar.current
+        switch mode {
+        case .day:
+            let start = calendar.startOfDay(for: selectedDate)
+            return (start, calendar.date(byAdding: .day, value: 1, to: start)!)
+        case .week:
+            let days = ChallengeService.days(for: .week, around: selectedDate)
+            let start = calendar.startOfDay(for: days.first ?? selectedDate)
+            let last = calendar.startOfDay(for: days.last ?? selectedDate)
+            return (start, calendar.date(byAdding: .day, value: 1, to: last)!)
+        case .month:
+            let start = calendar.date(from: calendar.dateComponents([.year, .month], from: selectedDate))
+                ?? calendar.startOfDay(for: selectedDate)
+            return (start, calendar.date(byAdding: .month, value: 1, to: start)!)
+        }
     }
 
     private var periodTitle: String {
@@ -537,6 +808,51 @@ private struct BudgetSummaryCard: View {
             ? L("Nächstes Gehalt in 1 Tag", "Next salary in 1 day")
             : "\(L("Nächstes Gehalt in", "Next salary in")) \(days) \(L("Tagen", "days"))"
         return "\(phrase) (\(shortDate))"
+    }
+}
+
+private struct HomePopup: Identifiable {
+    enum Kind {
+        case morning([(event: ChallengeCalendarEvent, challenge: ChallengeItem)])
+        case reward(ChallengeCalendarEvent, RewardItem, Int)
+    }
+
+    let id: String
+    let kind: Kind
+}
+
+private struct HomeTransactionRow: View {
+    let entry: LedgerEntry
+
+    var body: some View {
+        HStack(spacing: 10) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(entry.title)
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                Text(entry.date.formatted(date: .abbreviated, time: .omitted))
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            Text(Money.string(cents: entry.kind == .expense ? -abs(entry.amountCents) : abs(entry.amountCents)))
+                .foregroundStyle(entry.kind == .expense ? .red : (entry.kind == .income ? .green : .primary))
+                .monospacedDigit()
+        }
+        .font(.subheadline)
+    }
+}
+
+private struct PeriodTransactionsView: View {
+    let title: String
+    let entries: [LedgerEntry]
+
+    var body: some View {
+        List(entries) { entry in
+            HomeTransactionRow(entry: entry)
+        }
+        .navigationTitle(title)
+        .navigationBarTitleDisplayMode(.inline)
     }
 }
 

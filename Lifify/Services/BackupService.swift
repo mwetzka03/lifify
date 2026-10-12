@@ -139,6 +139,11 @@ enum BackupService {
                 BackupRecord(type: "previousClose", id: holding.id, integers: [$0])
             }
         }
+        records += holdings.compactMap { holding in
+            HoldingPurchaseDateStore.date(for: holding.id).map {
+                BackupRecord(type: "purchaseDate", id: holding.id, dates: [$0])
+            }
+        }
         records += calendarEvents.map {
             BackupRecord(type: "challengeEvent", id: $0.id, strings: [$0.title, $0.details, $0.colorHex, $0.icon, $0.externalIdentifier ?? ""], booleans: [$0.isAllDay, $0.isReadOnly], dates: [$0.startDate, $0.endDate], uuids: [$0.linkedChallengeID, $0.linkedChallengeGroupID, $0.linkedRewardID])
         }
@@ -262,7 +267,7 @@ enum BackupService {
         let oldSideStores = try sideStoreKeys(in: context)
         try clear(context, includingAccounts: true)
         let sideTypes = Set([
-            "iconPreference", "reminderRecurrence", "eventRecurrence", "marketSymbol", "previousClose",
+            "iconPreference", "reminderRecurrence", "eventRecurrence", "marketSymbol", "previousClose", "purchaseDate",
             "rewardPolicy", "reminderSync",
             "primaryIncome", "secondaryIncome", "incomeAssignment", "appPreferences"
         ])
@@ -355,6 +360,7 @@ enum BackupService {
         keys.holdingIDs.forEach {
             MarketSymbolStore.remove(for: $0)
             PreviousCloseStore.remove(for: $0)
+            HoldingPurchaseDateStore.remove(for: $0)
         }
         keys.rewardIDs.forEach { RewardPolicyStore.remove(for: $0) }
     }
@@ -396,6 +402,8 @@ enum BackupService {
             if !string(0).isEmpty { MarketSymbolStore.set(string(0), for: r.id) }
         case "previousClose":
             PreviousCloseStore.set(int(0), for: r.id)
+        case "purchaseDate":
+            if let purchased = date(0) { HoldingPurchaseDateStore.set(purchased, for: r.id) }
         case "rewardPolicy":
             RewardPolicyStore.setAllowsMultiplePurchases(bool(0), for: r.id)
         case "reminderSync":
