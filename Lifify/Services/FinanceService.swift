@@ -403,9 +403,10 @@ enum FinanceService {
         let calendar = Calendar.current
         let start = calendar.startOfDay(for: from)
         let end = calendar.startOfDay(for: through)
-        return forecasts.filter(\.isActive).flatMap { forecast in
+        var result: [(date: Date, amount: Int, title: String, forecastID: UUID)] = []
+        for forecast in forecasts where forecast.isActive {
             let first = calendar.startOfDay(for: forecast.firstPaymentDate)
-            CalendarService.nextOccurrences(
+            let dates = CalendarService.nextOccurrences(
                 firstDate: forecast.firstPaymentDate,
                 cadence: forecast.cadence,
                 rule: forecast.dueRule,
@@ -413,12 +414,18 @@ enum FinanceService {
                 endDate: forecast.endPaymentDate,
                 through: endOfDay(end)
             )
-            .filter {
-                let day = calendar.startOfDay(for: $0)
-                return day >= start && day <= end && day >= first
+            for date in dates {
+                let day = calendar.startOfDay(for: date)
+                guard day >= start, day <= end, day >= first else { continue }
+                result.append((
+                    date: date,
+                    amount: abs(forecast.amountCents),
+                    title: forecast.name,
+                    forecastID: forecast.id
+                ))
             }
-            .map { ($0, abs(forecast.amountCents), forecast.name, forecast.id) }
         }
+        return result
     }
 
     private static func fixedOccurrences(
@@ -429,8 +436,9 @@ enum FinanceService {
         let calendar = Calendar.current
         let start = calendar.startOfDay(for: from)
         let end = calendar.startOfDay(for: through)
-        return costs.flatMap { cost in
-            CalendarService.nextOccurrences(
+        var result: [(date: Date, amount: Int, title: String, costID: UUID)] = []
+        for cost in costs {
+            let dates = CalendarService.nextOccurrences(
                 firstDate: cost.firstChargeDate,
                 cadence: cost.cadence,
                 rule: cost.dueRule,
@@ -438,12 +446,18 @@ enum FinanceService {
                 endDate: cost.endChargeDate,
                 through: endOfDay(end)
             )
-            .filter {
-                let day = calendar.startOfDay(for: $0)
-                return day >= start && day <= end
+            for date in dates {
+                let day = calendar.startOfDay(for: date)
+                guard day >= start, day <= end else { continue }
+                result.append((
+                    date: date,
+                    amount: abs(cost.amountCents),
+                    title: cost.name,
+                    costID: cost.id
+                ))
             }
-            .map { ($0, abs(cost.amountCents), cost.name, cost.id) }
         }
+        return result
     }
 
     private static func matchingExpense(
