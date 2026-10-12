@@ -63,7 +63,7 @@ private struct IncomeForecastForm: View {
                 Picker(L("Rhythmus", "Cadence"), selection: $cadence) {
                     ForEach(Cadence.allCases) { Text($0.label).tag($0) }
                 }
-                DatePicker(L("Erste Zahlung", "First payment"), selection: $firstDate, displayedComponents: .date)
+                AppDateField(title: L("Erste Zahlung", "First payment"), selection: $firstDate)
                 Picker(L("Fälligkeitsregel", "Due rule"), selection: $dueRule) {
                     ForEach(DueRule.allCases) { Text($0.label).tag($0) }
                 }

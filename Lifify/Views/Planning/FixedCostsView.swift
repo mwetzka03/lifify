@@ -93,7 +93,7 @@ private struct FixedCostForm: View {
                 Picker(L("Rhythmus", "Cadence"), selection: $cadence) {
                     ForEach(Cadence.allCases) { Text($0.label).tag($0) }
                 }
-                DatePicker(L("Erste Fälligkeit", "First due date"), selection: $firstDate, displayedComponents: .date)
+                AppDateField(title: L("Erste Fälligkeit", "First due date"), selection: $firstDate)
                 Picker(L("Fälligkeitsregel", "Due rule"), selection: $dueRule) {
                     ForEach(DueRule.allCases) { Text($0.label).tag($0) }
                 }

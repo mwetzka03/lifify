@@ -61,7 +61,7 @@ private struct DebtForm: View {
                 Picker(L("Richtung", "Direction"), selection: $direction) {
                     ForEach(DebtDirection.allCases) { Text($0.label).tag($0) }
                 }
-                DatePicker(L("Datum", "Date"), selection: $date, displayedComponents: .date)
+                AppDateField(title: L("Datum", "Date"), selection: $date)
             }
             .navigationTitle(L("Neue Schuld", "New debt"))
             .toolbar {

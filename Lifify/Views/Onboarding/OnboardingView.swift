@@ -196,7 +196,7 @@ struct OnboardingView: View {
                         "Wie hoch war der Kontostand am %@?",
                         "What was the account balance on %@?"
                     ),
-                    balanceDate.formatted(date: .long, time: .omitted)
+                    AppDate.weekdayAndNumeric(balanceDate)
                 ))
                 .font(.headline)
                 TextField(L("Kontostand", "Account balance"), text: $openingBalance)

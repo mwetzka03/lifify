@@ -5,6 +5,7 @@ struct AppEntryView: View {
     @Query private var accounts: [Account]
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
     @AppStorage("onboardingInProgress") private var onboardingInProgress = false
+    @AppStorage("appLanguage") private var language = "de"
     @State private var didCheckExistingInstallation = false
 
     var body: some View {
@@ -29,5 +30,7 @@ struct AppEntryView: View {
             }
             didCheckExistingInstallation = true
         }
+        .environment(\.locale, AppDate.locale)
+        .id(language)
     }
 }

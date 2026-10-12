@@ -31,7 +31,7 @@ struct ChallengesView: View {
                                     Text(recommendation.title)
                                         .font(.subheadline)
                                         .lineLimit(1)
-                                    Text(recommendation.startDate, format: .dateTime.day().month().year())
+                                    Text(AppDate.numeric(recommendation.startDate))
                                         .font(.caption2)
                                         .foregroundStyle(.secondary)
                                 }
@@ -176,44 +176,50 @@ struct ChallengesView: View {
 
     private var challengeLinkBubbles: some View {
         HStack(spacing: 8) {
-            Button {
+            glassToolbarButton {
                 showingShop = true
             } label: {
-                toolbarBubble {
-                    HStack(spacing: 5) {
-                        Image(systemName: "gift.fill")
-                        Text(L("Shop", "Shop"))
-                    }
+                HStack(spacing: 5) {
+                    Image(systemName: "gift.fill")
+                    Text(L("Shop", "Shop"))
                 }
             }
-            .buttonStyle(.plain)
-            Button {
+            glassToolbarButton {
                 showingWallet = true
             } label: {
-                toolbarBubble {
-                    HStack(spacing: 4) {
-                        Image(systemName: "c.circle.fill")
-                            .foregroundStyle(.orange)
-                        Text("\(ChallengeService.walletBalance(transactions: transactions))")
-                            .monospacedDigit()
-                            .foregroundStyle(.orange)
-                    }
+                HStack(spacing: 4) {
+                    Image(systemName: "c.circle.fill")
+                        .foregroundStyle(.orange)
+                    Text("\(ChallengeService.walletBalance(transactions: transactions))")
+                        .monospacedDigit()
+                        .foregroundStyle(.orange)
                 }
             }
-            .buttonStyle(.plain)
         }
         .fixedSize(horizontal: true, vertical: false)
     }
 
-    private func toolbarBubble<Content: View>(@ViewBuilder content: () -> Content) -> some View {
-        content()
+    @ViewBuilder
+    private func glassToolbarButton<Label: View>(
+        action: @escaping () -> Void,
+        @ViewBuilder label: () -> Label
+    ) -> some View {
+        let content = label()
             .font(.subheadline.weight(.semibold))
-            .foregroundStyle(.primary)
             .lineLimit(1)
             .fixedSize(horizontal: true, vertical: false)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .background(.thinMaterial, in: Capsule())
+        if #available(iOS 26.0, *) {
+            Button(action: action) { content }
+                .buttonStyle(.glass)
+        } else {
+            Button(action: action) {
+                content
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                    .background(.regularMaterial, in: Capsule())
+            }
+            .buttonStyle(.plain)
+        }
     }
 
     private var filteredChallenges: [ChallengeItem] {
@@ -343,7 +349,7 @@ private struct ChallengeForm: View {
                     ForEach(ChallengeRecurrence.allCases) { Text($0.label).tag($0) }
                 }
                 if recurrence != .none {
-                    DatePicker(L("Start", "Start"), selection: $startDate, displayedComponents: .date)
+                    AppDateField(title: L("Start", "Start"), selection: $startDate)
                     if recurrence != .irregular {
                         Stepper(
                             "\(L("Wiederholungsintervall", "Repeat interval")): \(recurrenceInterval)",
@@ -353,7 +359,7 @@ private struct ChallengeForm: View {
                     }
                     Toggle(L("Enddatum", "End date"), isOn: $hasEndDate)
                     if hasEndDate {
-                        DatePicker(L("Ende", "End"), selection: $endDate, in: startDate..., displayedComponents: .date)
+                        AppDateField(title: L("Ende", "End"), selection: $endDate, minimum: startDate)
                     }
                     if recurrence == .weekly {
                         WeekdayPicker(selection: $weekdays)

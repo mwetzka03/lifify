@@ -92,7 +92,7 @@ private struct TransactionRow: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text(entry.title)
                     .foregroundStyle(.primary)
-                Text("\(entry.kind.label) · \(entry.date.formatted(date: .abbreviated, time: .omitted))")
+                Text("\(entry.kind.label) · \(AppDate.numeric(entry.date))")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -136,7 +136,7 @@ private struct TransactionDetailView: View {
                     LabeledContent(L("Betrag", "Amount"), value: Money.string(cents: displayAmount))
                     LabeledContent(
                         L("Datum", "Date"),
-                        value: entry.date.formatted(date: .long, time: .omitted)
+                        value: AppDate.weekdayAndNumeric(entry.date)
                     )
                 }
                 Section(L("Konten", "Accounts")) {
@@ -240,7 +240,7 @@ private struct TransactionFormView: View {
                     TextField(L("Titel", "Title"), text: $viewModel.title)
                     TextField(L("Betrag", "Amount"), text: $viewModel.amountText)
                         .keyboardType(.decimalPad)
-                    DatePicker(L("Datum", "Date"), selection: $viewModel.date, displayedComponents: .date)
+                    AppDateField(title: L("Datum", "Date"), selection: $viewModel.date)
                     TextField(L("Notiz", "Note"), text: $viewModel.notes, axis: .vertical)
                 }
 

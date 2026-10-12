@@ -83,7 +83,7 @@ struct HomeView: View {
         } label: {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
-                    Text(selectedDate, format: .dateTime.weekday(.wide).day().month().year())
+                    Text(AppDate.weekdayAndNumeric(selectedDate))
                         .font(.title3.bold())
                     Spacer()
                     if Calendar.current.isDateInToday(selectedDate) {
@@ -105,7 +105,7 @@ struct HomeView: View {
                     agendaSection(L("Termine", "Events"), systemImage: "calendar", isEmpty: dayEvents.isEmpty) {
                         ForEach(dayEvents.prefix(5)) { event in
                             HStack {
-                                Text(event.isAllDay ? L("Ganztägig", "All day") : event.startDate.formatted(.dateTime.hour().minute()))
+                                Text(event.isAllDay ? L("Ganztägig", "All day") : AppDate.time(event.startDate))
                                     .font(.caption.monospacedDigit())
                                     .foregroundStyle(.secondary)
                                     .frame(width: 58, alignment: .leading)
@@ -156,9 +156,9 @@ struct HomeView: View {
                     } label: {
                         HStack(spacing: 12) {
                             VStack {
-                                Text(day, format: .dateTime.weekday(.abbreviated))
+                                Text(AppDate.weekdayShort(day))
                                     .font(.caption)
-                                Text(day, format: .dateTime.day())
+                                Text(AppDate.day(day))
                                     .font(.title3.bold())
                                     .foregroundStyle(Calendar.current.isDateInToday(day) ? .red : .primary)
                             }
@@ -203,7 +203,7 @@ struct HomeView: View {
                     .foregroundStyle(.secondary)
                 ForEach(dayEvents) { event in
                     HStack {
-                        Text(event.isAllDay ? L("Ganztägig", "All day") : event.startDate.formatted(.dateTime.hour().minute()))
+                        Text(event.isAllDay ? L("Ganztägig", "All day") : AppDate.time(event.startDate))
                             .font(.caption.monospacedDigit())
                             .foregroundStyle(.secondary)
                             .frame(width: 58, alignment: .leading)
@@ -233,8 +233,8 @@ struct HomeView: View {
     private var monthView: some View {
         VStack(spacing: 8) {
             LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 7), spacing: 4) {
-                ForEach(Calendar.current.veryShortWeekdaySymbols.shiftedForMonday, id: \.self) {
-                    Text($0).font(.caption2).foregroundStyle(.secondary)
+                ForEach(Array(AppDate.veryShortWeekdaysMondayFirst.enumerated()), id: \.offset) { _, symbol in
+                    Text(symbol).font(.caption2).foregroundStyle(.secondary)
                 }
                 ForEach(Array(monthGrid.enumerated()), id: \.offset) { _, date in
                     if let date {
@@ -242,7 +242,7 @@ struct HomeView: View {
                             ChallengeCalendarView(initialDate: date, initialMode: .day)
                         } label: {
                             VStack(spacing: 3) {
-                                Text(date, format: .dateTime.day())
+                                Text(AppDate.day(date))
                                     .font(.subheadline)
                                     .foregroundStyle(Calendar.current.isDateInToday(date) ? .white : .primary)
                                     .frame(width: 28, height: 28)
@@ -682,12 +682,12 @@ struct HomeView: View {
     private var periodTitle: String {
         switch mode {
         case .day:
-            return selectedDate.formatted(.dateTime.day().month(.wide).year())
+            return AppDate.weekdayAndNumeric(selectedDate)
         case .week:
             let days = ChallengeService.days(for: .week, around: selectedDate)
-            return "\(days.first?.formatted(.dateTime.day().month()) ?? "") – \(days.last?.formatted(.dateTime.day().month().year()) ?? "")"
+            return AppDate.range(from: days.first ?? selectedDate, to: days.last ?? selectedDate)
         case .month:
-            return selectedDate.formatted(.dateTime.month(.wide).year())
+            return AppDate.monthYear(selectedDate)
         }
     }
 
@@ -830,7 +830,7 @@ private struct HomeTransactionRow: View {
                 Text(entry.title)
                     .foregroundStyle(.primary)
                     .lineLimit(1)
-                Text(entry.date.formatted(date: .abbreviated, time: .omitted))
+                Text(AppDate.numeric(entry.date))
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             }

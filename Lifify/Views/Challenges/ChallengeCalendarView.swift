@@ -113,7 +113,7 @@ private struct DayAgendaCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 9) {
             HStack {
-                Text(day, format: .dateTime.weekday(.wide).day().month())
+                Text(AppDate.weekdayAndNumeric(day))
                     .font(.headline)
                 Spacer()
                 if Calendar.current.isDateInToday(day) {
@@ -138,7 +138,7 @@ private struct DayAgendaCard: View {
                         VStack(alignment: .leading) {
                             Text(event.title)
                             if !event.isAllDay {
-                                Text(event.startDate, format: .dateTime.hour().minute())
+                                Text(AppDate.time(event.startDate))
                                     .font(.caption)
                             }
                             if event.linkedChallengeID != nil || event.linkedChallengeGroupID != nil {
@@ -233,8 +233,8 @@ private struct ChallengeEventForm: View {
                 TextField(L("Titel", "Title"), text: $title)
                 TextField(L("Beschreibung", "Description"), text: $details, axis: .vertical)
                 Toggle(L("Ganztägig", "All day"), isOn: $allDay)
-                DatePicker(L("Beginn", "Start"), selection: $start, displayedComponents: allDay ? [.date] : [.date, .hourAndMinute])
-                DatePicker(L("Ende", "End"), selection: $end, in: start..., displayedComponents: allDay ? [.date] : [.date, .hourAndMinute])
+                AppDateField(title: L("Beginn", "Start"), selection: $start, includesTime: !allDay)
+                AppDateField(title: L("Ende", "End"), selection: $end, minimum: start, includesTime: !allDay)
                 optionalPicker(L("Challenge", "Challenge"), selection: $linkedChallengeID, values: challenges.map { ($0.id, $0.title) })
                 optionalPicker(L("Gruppe", "Group"), selection: $linkedGroupID, values: groups.map { ($0.id, $0.title) })
                 optionalPicker(L("Belohnung", "Reward"), selection: $linkedRewardID, values: rewards.map { ($0.id, $0.title) })

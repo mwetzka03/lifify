@@ -16,7 +16,7 @@ struct ExpenseGroupsView: View {
                     HStack {
                         VStack(alignment: .leading) {
                             Text(group.name)
-                            Text(group.date, format: .dateTime.day().month().year())
+                            Text(AppDate.numeric(group.date))
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
@@ -84,7 +84,7 @@ private struct ExpenseGroupForm: View {
         NavigationStack {
             Form {
                 TextField(L("Name", "Name"), text: $name)
-                DatePicker(L("Datum", "Date"), selection: $date, displayedComponents: .date)
+                AppDateField(title: L("Datum", "Date"), selection: $date)
                 TextField(L("Notiz", "Note"), text: $notes, axis: .vertical)
             }
             .navigationTitle(L("Neue Gruppe", "New group"))

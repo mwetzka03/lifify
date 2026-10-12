@@ -29,7 +29,7 @@ struct WalletView: View {
                     HStack {
                         VStack(alignment: .leading) {
                             Text(transaction.title)
-                            Text(transaction.date, format: .dateTime.day().month().year())
+                            Text(AppDate.numeric(transaction.date))
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }

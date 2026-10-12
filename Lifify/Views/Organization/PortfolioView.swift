@@ -310,7 +310,7 @@ private struct HoldingDetailView: View {
                 }
                 LabeledContent(
                     L("Aktualisiert", "Updated"),
-                    value: holding.updatedAt.formatted(date: .abbreviated, time: .shortened)
+                    value: "\(AppDate.numeric(holding.updatedAt)) \(AppDate.time(holding.updatedAt))"
                 )
             }
             .navigationTitle(holding.name)
