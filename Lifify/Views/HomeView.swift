@@ -75,6 +75,7 @@ struct HomeView: View {
             }
             .padding()
         }
+        .appCanvas()
     }
 
     private var dayView: some View {
@@ -136,7 +137,7 @@ struct HomeView: View {
             .foregroundStyle(.primary)
             .padding()
             .frame(maxWidth: .infinity, minHeight: 300, alignment: .topLeading)
-            .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 18))
+            .background(AppSurface.card, in: RoundedRectangle(cornerRadius: 18))
         }
         .buttonStyle(.plain)
     }
@@ -178,7 +179,7 @@ struct HomeView: View {
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
-                .background(Calendar.current.isDateInToday(day) ? Color.red.opacity(0.09) : Color.secondary.opacity(0.07), in: RoundedRectangle(cornerRadius: 13))
+                .background(AppSurface.card, in: RoundedRectangle(cornerRadius: 13))
             }
         }
     }
@@ -273,7 +274,7 @@ struct HomeView: View {
             .font(.caption)
         }
         .padding(10)
-        .background(Color.secondary.opacity(0.06), in: RoundedRectangle(cornerRadius: 16))
+        .background(AppSurface.card, in: RoundedRectangle(cornerRadius: 16))
     }
 
     @ViewBuilder
@@ -296,7 +297,7 @@ struct HomeView: View {
             }
         }
         .padding()
-        .background(Color.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 18))
+        .background(AppSurface.card, in: RoundedRectangle(cornerRadius: 18))
     }
 
     private func popupCard(_ popup: HomePopup) -> some View {
@@ -313,7 +314,7 @@ struct HomeView: View {
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(cardColor(for: popup).opacity(0.12), in: RoundedRectangle(cornerRadius: 18))
+        .background(AppSurface.card, in: RoundedRectangle(cornerRadius: 18))
     }
 
     @ViewBuilder
@@ -375,13 +376,6 @@ struct HomeView: View {
         }
     }
 
-    private func cardColor(for popup: HomePopup) -> Color {
-        switch popup.kind {
-        case .morning: .orange
-        case .reward: .purple
-        }
-    }
-
     private func rewardDaysText(_ days: Int) -> String {
         if days == 0 { return L("Heute", "Today") }
         if days == 1 { return L("in 1 Tag", "in 1 day") }
@@ -438,36 +432,23 @@ struct HomeView: View {
     }
 
     private var plannedBudget: Int {
-        let sources = incomeForecastsForBudget
-        if !sources.isEmpty {
-            return sources.reduce(0) { total, forecast in
-                let projected = occurrenceCount(of: forecast) * abs(forecast.amountCents)
-                let booked = bookedIncome(for: forecast)
-                return total + max(projected, booked)
-            }
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: .now)
+        let start = calendar.startOfDay(for: budgetPeriodStart)
+        let periodIncome = entries.filter {
+            $0.kind == .income && $0.date >= start && $0.date <= budgetPeriodEnd
         }
-        let booked = entries
-            .filter { $0.kind == .income && $0.date >= budgetPeriodStart && $0.date <= budgetPeriodEnd }
-            .reduce(0) { $0 + abs($1.amountCents) }
-        if booked > 0 { return booked }
-        return variableBudgets.reduce(0) { $0 + $1.monthlyAmountCents } +
-            pools.filter(\.isActive).reduce(0) { $0 + $1.amountCents }
+        let booked = periodIncome.reduce(0) { $0 + abs($1.amountCents) }
+        let bookedFromToday = periodIncome.filter { $0.date >= today }.reduce(0) { $0 + abs($1.amountCents) }
+        let upcoming = forecasts.filter(\.isActive).reduce(0) { total, forecast in
+            total + upcomingAmount(of: forecast, from: today)
+        }
+        return booked + max(0, upcoming - bookedFromToday)
     }
 
-    private var incomeForecastsForBudget: [IncomeForecast] {
-        let secondary = UserDefaults.standard.dictionary(forKey: "secondaryIncomeMappings") as? [String: String] ?? [:]
-        var ids = Set(secondary.values.compactMap(UUID.init(uuidString:)))
-        if let primaryID = UserDefaults.standard.string(forKey: "primaryIncomeForecastID").flatMap(UUID.init(uuidString:)) {
-            ids.insert(primaryID)
-        }
-        let linked = forecasts.filter { ids.contains($0.id) }
-        let others = forecasts.filter { $0.isActive && !ids.contains($0.id) }
-        return linked + others
-    }
-
-    private func occurrenceCount(of forecast: IncomeForecast) -> Int {
-        let start = Calendar.current.startOfDay(for: budgetPeriodStart)
-        let end = Calendar.current.startOfDay(for: budgetPeriodEnd)
+    private func upcomingAmount(of forecast: IncomeForecast, from today: Date) -> Int {
+        let calendar = Calendar.current
+        let end = calendar.startOfDay(for: budgetPeriodEnd)
         return CalendarService.nextOccurrences(
             firstDate: forecast.firstPaymentDate,
             cadence: forecast.cadence,
@@ -477,21 +458,10 @@ struct HomeView: View {
             through: budgetPeriodEnd
         )
         .filter {
-            let day = Calendar.current.startOfDay(for: $0)
-            return day >= start && day <= end
+            let day = calendar.startOfDay(for: $0)
+            return day >= today && day <= end
         }
-        .count
-    }
-
-    private func bookedIncome(for forecast: IncomeForecast) -> Int {
-        entries
-            .filter {
-                $0.kind == .income &&
-                $0.date >= budgetPeriodStart &&
-                $0.date <= budgetPeriodEnd &&
-                IncomeAssignmentStore.forecastID(forEntryID: $0.id) == forecast.id
-            }
-            .reduce(0) { $0 + abs($1.amountCents) }
+        .count * abs(forecast.amountCents)
     }
 
     private var spentBudget: Int {
@@ -652,7 +622,7 @@ struct HomeView: View {
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 18))
+        .background(AppSurface.card, in: RoundedRectangle(cornerRadius: 18))
     }
 
     private var periodEntries: [LedgerEntry] {
@@ -720,9 +690,7 @@ struct HomeView: View {
                 content()
             }
         }
-        .padding(8)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
     }
 
     private func events(on day: Date) -> [ChallengeCalendarEvent] {
@@ -792,7 +760,7 @@ private struct BudgetSummaryCard: View {
             }
         }
         .padding()
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 22))
+        .background(AppSurface.card, in: RoundedRectangle(cornerRadius: 22))
     }
 
     private var progress: Double {

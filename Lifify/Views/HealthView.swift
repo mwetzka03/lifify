@@ -8,5 +8,7 @@ struct HealthView: View {
                 .font(.headline)
         }
         .foregroundStyle(.secondary)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .appCanvas()
     }
 }

@@ -58,6 +58,7 @@ struct ChallengeCalendarView: View {
                 .padding()
             }
         }
+        .appCanvas()
         .navigationTitle(L("Kalender", "Calendar"))
         .toolbar {
             Button { showingNewEvent = true } label: {
@@ -184,7 +185,7 @@ private struct DayAgendaCard: View {
             }
         }
         .padding()
-        .background(Calendar.current.isDateInToday(day) ? Color.accentColor.opacity(0.12) : Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 16))
+        .background(AppSurface.card, in: RoundedRectangle(cornerRadius: 16))
     }
 }
 

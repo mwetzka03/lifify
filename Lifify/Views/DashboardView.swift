@@ -76,7 +76,9 @@ struct DashboardView: View {
             }
             .padding(12)
         }
-        .navigationTitle(L("Finanzen", "Finance"))
+        .appCanvas()
+        .toolbar(isMainTab ? .hidden : .automatic, for: .navigationBar)
+        .navigationTitle(isMainTab ? "" : L("Finanzen", "Finance"))
         .navigationBarTitleDisplayMode(.inline)
     }
 
@@ -115,7 +117,7 @@ struct DashboardView: View {
         }
         .padding(.horizontal, 6)
         .padding(.vertical, 4)
-        .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 14))
+        .background(AppSurface.card, in: RoundedRectangle(cornerRadius: 14))
     }
 
     private func netWorthCard(_ forecast: PeriodForecast, period: ForecastPeriod) -> some View {
@@ -218,13 +220,19 @@ struct DashboardView: View {
     }
 
     private var sections: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            sectionLink(L("Budgetpools", "Budget pools"), systemImage: "tray.full") { BudgetPoolsView() }
-            sectionLink(L("Schulden", "Debts"), systemImage: "person.2") { DebtsView() }
-            sectionLink(L("Ausgabengruppen", "Expense groups"), systemImage: "square.stack.3d.up") { ExpenseGroupsView() }
-            sectionLink(L("Depot", "Portfolio"), systemImage: "chart.line.uptrend.xyaxis") { PortfolioView() }
+        VStack(alignment: .leading, spacing: 8) {
+            Text(L("Weitere Bereiche", "More"))
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 4)
+            VStack(alignment: .leading, spacing: 0) {
+                sectionLink(L("Budgetpools", "Budget pools"), systemImage: "tray.full") { BudgetPoolsView() }
+                sectionLink(L("Schulden", "Debts"), systemImage: "person.2") { DebtsView() }
+                sectionLink(L("Ausgabengruppen", "Expense groups"), systemImage: "square.stack.3d.up") { ExpenseGroupsView() }
+                sectionLink(L("Depot", "Portfolio"), systemImage: "chart.line.uptrend.xyaxis") { PortfolioView() }
+            }
+            .background(AppSurface.card, in: RoundedRectangle(cornerRadius: 14))
         }
-        .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 14))
     }
 
     private func sectionLink<Destination: View>(
@@ -242,9 +250,9 @@ struct DashboardView: View {
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.tertiary)
             }
-            .font(.subheadline)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 8)
+            .font(.body)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 16)
         }
         .buttonStyle(.plain)
     }
@@ -255,17 +263,16 @@ struct DashboardView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .lineLimit(2)
+                .frame(maxWidth: .infinity, minHeight: 32, alignment: .topLeading)
             Text(Money.signed(cents: amount))
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(flowColor(amount))
                 .minimumScaleFactor(0.5)
                 .lineLimit(1)
-            if let footnote {
-                Text(footnote)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
-            }
+            Text(footnote ?? " ")
+                .font(.caption2)
+                .foregroundStyle(footnote == nil ? .clear : .secondary)
+                .lineLimit(2)
         }
         .financeCard(padding: 8)
     }
@@ -276,16 +283,15 @@ struct DashboardView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .lineLimit(2)
+                .frame(maxWidth: .infinity, minHeight: 32, alignment: .topLeading)
             Text(Money.string(cents: amount))
                 .font(.subheadline.weight(.semibold))
                 .minimumScaleFactor(0.6)
                 .lineLimit(1)
-            if let delta {
-                Text(Money.signed(cents: delta))
-                    .font(.caption2)
-                    .foregroundStyle(flowColor(delta))
-                    .lineLimit(1)
-            }
+            Text(delta.map { Money.signed(cents: $0) } ?? " ")
+                .font(.caption2)
+                .foregroundStyle(delta.map { flowColor($0) } ?? .clear)
+                .lineLimit(1)
         }
         .financeCard(padding: 8)
     }
@@ -389,8 +395,8 @@ struct DashboardView: View {
 private extension View {
     func financeCard(padding: CGFloat = 10) -> some View {
         self
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .padding(padding)
-            .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 14))
+            .background(AppSurface.card, in: RoundedRectangle(cornerRadius: 14))
     }
 }
