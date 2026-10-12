@@ -81,7 +81,7 @@ struct TransactionsView: View {
     }
 }
 
-private struct TransactionRow: View {
+struct TransactionRow: View {
     let entry: LedgerEntry
 
     var body: some View {
@@ -97,13 +97,33 @@ private struct TransactionRow: View {
                     .foregroundStyle(.secondary)
             }
             Spacer()
-            Text(Money.string(cents: entry.kind == .expense ? -abs(entry.amountCents) : abs(entry.amountCents)))
-                .foregroundStyle(entry.kind == .expense ? .red : (entry.kind == .income ? .green : .primary))
+            Text(Money.string(cents: signedAmount))
+                .foregroundStyle(signedAmount < 0 ? .red : (entry.kind == .income || signedAmount > 0 && isPortfolioSale ? .green : .primary))
                 .monospacedDigit()
         }
     }
 
+    private var signedAmount: Int {
+        switch entry.kind {
+        case .expense: -abs(entry.amountCents)
+        case .income: abs(entry.amountCents)
+        case .transfer:
+            if isPortfolioPurchase { return -abs(entry.amountCents) }
+            return abs(entry.amountCents)
+        case .adjustment: abs(entry.amountCents)
+        }
+    }
+
+    private var isPortfolioPurchase: Bool {
+        entry.title.hasPrefix("Kauf:") || entry.title.hasPrefix("Buy:")
+    }
+
+    private var isPortfolioSale: Bool {
+        entry.title.hasPrefix("Verkauf:") || entry.title.hasPrefix("Sell:")
+    }
+
     private var icon: String {
+        if isPortfolioPurchase || isPortfolioSale { return "chart.line.uptrend.xyaxis" }
         let fallback: String = switch entry.kind {
         case .income: "arrow.down.left"
         case .expense: "arrow.up.right"
@@ -123,7 +143,7 @@ private struct TransactionRow: View {
     }
 }
 
-private struct TransactionDetailView: View {
+struct TransactionDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @Query private var accounts: [Account]
     let entry: LedgerEntry

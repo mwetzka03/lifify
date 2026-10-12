@@ -278,6 +278,8 @@ private struct HoldingDetailView: View {
     let holding: PortfolioHolding
     @AppStorage("portfolioPerformanceBasis") private var basis = PortfolioBasis.today.rawValue
     @AppStorage("portfolioPerformanceUnit") private var unit = PortfolioUnit.percent.rawValue
+    @State private var showingBuy = false
+    @State private var showingSell = false
 
     var body: some View {
         let performance = holdingPerformance(holding)
@@ -312,9 +314,14 @@ private struct HoldingDetailView: View {
                     L("Aktualisiert", "Updated"),
                     value: "\(AppDate.numeric(holding.updatedAt)) \(AppDate.time(holding.updatedAt))"
                 )
+                Button(L("Nachkaufen", "Buy more")) { showingBuy = true }
+                Button(L("Verkaufen", "Sell")) { showingSell = true }
+                    .disabled(holding.quantity <= 0)
             }
             .navigationTitle(holding.name)
             .navigationBarTitleDisplayMode(.inline)
+            .sheet(isPresented: $showingBuy) { HoldingTradeSheet(holding: holding, isSale: false) }
+            .sheet(isPresented: $showingSell) { HoldingTradeSheet(holding: holding, isSale: true) }
         }
     }
 }
@@ -334,6 +341,9 @@ private struct HoldingForm: View {
     @State private var suggestions: [StockSuggestion] = []
     @State private var selectedSuggestion: StockSuggestion?
     @State private var isSearching = false
+    @State private var depotName = ""
+    @State private var bookPurchase = false
+    @State private var checkingAccountID: UUID?
 
     init(holding: PortfolioHolding?) {
         existing = holding
@@ -355,9 +365,32 @@ private struct HoldingForm: View {
     var body: some View {
         NavigationStack {
             Form {
-                Picker(L("Depotkonto", "Portfolio account"), selection: $accountID) {
-                    Text(L("Keins", "None")).tag(Optional<UUID>.none)
-                    ForEach(accounts.filter { $0.kind == .portfolio }) { Text($0.name).tag(Optional($0.id)) }
+                if portfolioAccounts.isEmpty {
+                    Text(L(
+                        "Für eine Aktie brauchst du ein Depotkonto. Es wird als nicht liquide angelegt.",
+                        "A stock needs a portfolio account. It is created as non-liquid."
+                    ))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    TextField(L("Depotname", "Portfolio name"), text: $depotName)
+                } else {
+                    Picker(L("Depotkonto", "Portfolio account"), selection: $accountID) {
+                        ForEach(portfolioAccounts) { Text($0.name).tag(Optional($0.id)) }
+                    }
+                }
+                if existing == nil {
+                    Toggle(L("Kauf vom Girokonto abbuchen", "Debit the purchase from a checking account"), isOn: $bookPurchase)
+                    if bookPurchase {
+                        if checkingAccounts.isEmpty {
+                            Text(L("Lege zuerst ein Girokonto an.", "Create a checking account first."))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        } else {
+                            Picker(L("Girokonto", "Checking account"), selection: $checkingAccountID) {
+                                ForEach(checkingAccounts) { Text($0.name).tag(Optional($0.id)) }
+                            }
+                        }
+                    }
                 }
                 TextField("ISIN", text: $symbol)
                     .textInputAutocapitalization(.characters)
@@ -416,6 +449,11 @@ private struct HoldingForm: View {
                 }
             }
             .navigationTitle(L("Depotposition", "Holding"))
+            .onAppear {
+                if accountID == nil { accountID = portfolioAccounts.first?.id }
+                if checkingAccountID == nil { checkingAccountID = checkingAccounts.first?.id }
+                if depotName.isEmpty { depotName = L("Depot", "Portfolio") }
+            }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button(L("Abbrechen", "Cancel")) { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
@@ -442,8 +480,13 @@ private struct HoldingForm: View {
                             validationMessage = L("Bitte zuerst eine Aktie aus den Vorschlägen auswählen.", "Select a stock from the suggestions first.")
                             return
                         }
+                        if bookPurchase && existing == nil && checkingAccountID == nil {
+                            validationMessage = L("Bitte ein Girokonto auswählen.", "Select a checking account.")
+                            return
+                        }
+                        let portfolioAccount = resolvedPortfolioAccount()
                         let holding = existing ?? PortfolioHolding(name: selectedSuggestion.name, quantity: count, purchasePriceCents: purchase, currentPriceCents: current)
-                        holding.accountID = accountID
+                        holding.accountID = portfolioAccount.id
                         holding.name = selectedSuggestion.name
                         holding.symbol = normalizedISIN
                         holding.quantity = count
@@ -453,6 +496,17 @@ private struct HoldingForm: View {
                         if existing == nil {
                             context.insert(holding)
                             HoldingPurchaseDateStore.set(.now, for: holding.id)
+                            if bookPurchase, let checkingAccountID {
+                                let cost = Int((count * Double(abs(purchase))).rounded())
+                                context.insert(LedgerEntry(
+                                    date: .now,
+                                    title: "\(L("Kauf", "Buy")): \(holding.name)",
+                                    amountCents: cost,
+                                    kind: .transfer,
+                                    fromAccountID: checkingAccountID,
+                                    toAccountID: portfolioAccount.id
+                                ))
+                            }
                         }
                         if !selectedSuggestion.symbol.isEmpty {
                             MarketSymbolStore.set(selectedSuggestion.symbol, for: holding.id)
@@ -483,6 +537,31 @@ private struct HoldingForm: View {
         }
     }
 
+    private var portfolioAccounts: [Account] {
+        accounts.filter { $0.kind == .portfolio }
+    }
+
+    private var checkingAccounts: [Account] {
+        accounts.filter { $0.kind == .checking }
+    }
+
+    private func resolvedPortfolioAccount() -> Account {
+        if let accountID, let match = portfolioAccounts.first(where: { $0.id == accountID }) {
+            return match
+        }
+        if let existingAccount = portfolioAccounts.first {
+            return existingAccount
+        }
+        let trimmed = depotName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let account = Account(
+            name: trimmed.isEmpty ? L("Depot", "Portfolio") : trimmed,
+            kind: .portfolio,
+            isLiquid: false
+        )
+        context.insert(account)
+        return account
+    }
+
     @MainActor
     private func search() async {
         isSearching = true
@@ -508,5 +587,131 @@ private struct HoldingForm: View {
         } catch {
             validationMessage = L("Der aktuelle Kurs konnte nicht geladen werden.", "The current price could not be loaded.")
         }
+    }
+}
+
+private struct HoldingTradeSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var context
+    @Query(sort: \Account.name) private var accounts: [Account]
+    let holding: PortfolioHolding
+    let isSale: Bool
+    @State private var quantity = ""
+    @State private var price = ""
+    @State private var date = Date.now
+    @State private var checkingAccountID: UUID?
+    @State private var depotName = ""
+    @State private var validationMessage: String?
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                TextField(L("Stückzahl", "Quantity"), text: $quantity).keyboardType(.decimalPad)
+                TextField(L("Kurs", "Price"), text: $price).keyboardType(.decimalPad)
+                AppDateField(title: L("Datum", "Date"), selection: $date)
+                if checkingAccounts.isEmpty {
+                    Text(L("Lege zuerst ein Girokonto an.", "Create a checking account first."))
+                        .foregroundStyle(.secondary)
+                } else {
+                    Picker(L("Girokonto", "Checking account"), selection: $checkingAccountID) {
+                        ForEach(checkingAccounts) { Text($0.name).tag(Optional($0.id)) }
+                    }
+                }
+                if portfolioAccount == nil {
+                    Text(L(
+                        "Für die Buchung wird ein nicht liquides Depotkonto angelegt.",
+                        "A non-liquid portfolio account is created for this booking."
+                    ))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    TextField(L("Depotname", "Portfolio name"), text: $depotName)
+                }
+                if let validationMessage {
+                    Text(validationMessage).foregroundStyle(.red)
+                }
+            }
+            .navigationTitle(isSale ? L("Verkaufen", "Sell") : L("Nachkaufen", "Buy more"))
+            .navigationBarTitleDisplayMode(.inline)
+            .onAppear {
+                if price.isEmpty {
+                    price = String(format: "%.2f", Double(holding.currentPriceCents) / 100)
+                }
+                if checkingAccountID == nil { checkingAccountID = checkingAccounts.first?.id }
+                if depotName.isEmpty { depotName = L("Depot", "Portfolio") }
+            }
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button(L("Abbrechen", "Cancel")) { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) { Button(L("Buchen", "Book")) { save() } }
+            }
+        }
+    }
+
+    private var checkingAccounts: [Account] {
+        accounts.filter { $0.kind == .checking }
+    }
+
+    private var portfolioAccount: Account? {
+        if let id = holding.accountID, let match = accounts.first(where: { $0.id == id && $0.kind == .portfolio }) {
+            return match
+        }
+        return accounts.first { $0.kind == .portfolio }
+    }
+
+    private func save() {
+        let normalized = quantity.replacingOccurrences(of: ",", with: ".")
+        guard let count = Double(normalized), count > 0, let priceCents = Money.cents(from: price), priceCents > 0 else {
+            validationMessage = L("Bitte Stückzahl und Kurs prüfen.", "Check the quantity and price.")
+            return
+        }
+        if isSale, count > holding.quantity {
+            validationMessage = L("Du kannst nicht mehr verkaufen, als im Depot liegt.", "You cannot sell more than the holding contains.")
+            return
+        }
+        guard let checkingAccountID else {
+            validationMessage = L("Bitte ein Girokonto auswählen.", "Select a checking account.")
+            return
+        }
+        let portfolio: Account
+        if let existing = portfolioAccount {
+            portfolio = existing
+        } else {
+            let trimmed = depotName.trimmingCharacters(in: .whitespacesAndNewlines)
+            let account = Account(
+                name: trimmed.isEmpty ? L("Depot", "Portfolio") : trimmed,
+                kind: .portfolio,
+                isLiquid: false
+            )
+            context.insert(account)
+            portfolio = account
+        }
+        let amount = Int((count * Double(abs(priceCents))).rounded())
+        if isSale {
+            holding.quantity -= count
+            context.insert(LedgerEntry(
+                date: date,
+                title: "\(L("Verkauf", "Sell")): \(holding.name)",
+                amountCents: amount,
+                kind: .transfer,
+                fromAccountID: portfolio.id,
+                toAccountID: checkingAccountID
+            ))
+        } else {
+            let previousValue = holding.quantity * Double(holding.purchasePriceCents)
+            let nextQuantity = holding.quantity + count
+            holding.purchasePriceCents = Int(((previousValue + Double(amount)) / nextQuantity).rounded())
+            holding.quantity = nextQuantity
+            context.insert(LedgerEntry(
+                date: date,
+                title: "\(L("Kauf", "Buy")): \(holding.name)",
+                amountCents: amount,
+                kind: .transfer,
+                fromAccountID: checkingAccountID,
+                toAccountID: portfolio.id
+            ))
+        }
+        holding.accountID = portfolio.id
+        holding.updatedAt = .now
+        try? context.save()
+        dismiss()
     }
 }

@@ -19,32 +19,48 @@ struct DashboardView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 8) {
                 if let period = selectedPeriod {
                     periodBar(period)
                     let snapshot = forecast(for: period)
                     netWorthCard(snapshot, period: period)
-                    LazyVGrid(columns: columns, spacing: 12) {
-                        flowTile(L("Einnahmen", "Income"), amount: snapshot.income, footnote: incomeFootnote(snapshot, period: period))
-                        flowTile(L("Ausgaben", "Expenses"), amount: -snapshot.expenses, footnote: expenseFootnote(snapshot, period: period))
+                    accountsSection
+                    LazyVGrid(columns: metricColumns, spacing: 8) {
+                        NavigationLink { IncomeOverviewView() } label: {
+                            flowTile(L("Einnahmen", "Income"), amount: snapshot.income, footnote: incomeFootnote(snapshot, period: period))
+                        }
+                        .buttonStyle(.plain)
+                        flowTile(L("Ausgaben", "Expenses"), amount: -snapshot.bookedExpenses, footnote: expenseFootnote(snapshot, period: period))
+                        flowTile(L("Differenz", "Difference"), amount: snapshot.realDifference)
                     }
-                    flowTile(
-                        L("Differenz", "Difference"),
-                        amount: snapshot.difference,
-                        footnote: L("Einnahmen minus Ausgaben", "Income minus expenses")
-                    )
-                    LazyVGrid(columns: columns, spacing: 12) {
+                    LazyVGrid(columns: columns, spacing: 8) {
                         balanceTile(L("Startsaldo", "Opening balance"), amount: snapshot.startBalance)
                         balanceTile(
-                            L("Endsaldo", "Closing balance"),
+                            L("Endsaldo (Prognose)", "Closing balance (forecast)"),
                             amount: snapshot.endBalance,
                             delta: snapshot.balanceChange
                         )
-                        flowTile(L("Verbleibende Fixkosten", "Remaining fixed costs"), amount: -snapshot.remainingFixed)
-                        flowTile(L("Verbleibende variable Kosten", "Remaining variable costs"), amount: -snapshot.remainingVariable)
+                        NavigationLink { FixedCostsView() } label: {
+                            flowTile(
+                                L("Fixkosten", "Fixed costs"),
+                                amount: -snapshot.bookedFixed,
+                                footnote: openFootnote(snapshot.remainingFixed, period: period)
+                            )
+                        }
+                        .buttonStyle(.plain)
+                        NavigationLink { VariableBudgetsView() } label: {
+                            flowTile(
+                                L("Variable Kosten", "Variable costs"),
+                                amount: -snapshot.bookedVariable,
+                                footnote: openFootnote(snapshot.remainingVariable, period: period)
+                            )
+                        }
+                        .buttonStyle(.plain)
                     }
-                    biasCard(snapshot)
-                    eventsSection(snapshot)
+                    NavigationLink { ShoppingListView() } label: { biasCard(snapshot) }
+                        .buttonStyle(.plain)
+                    NavigationLink { TransactionsView() } label: { eventsSection(snapshot) }
+                        .buttonStyle(.plain)
                 } else {
                     ContentUnavailableView(
                         L("Noch kein Zeitraum", "No period yet"),
@@ -54,19 +70,22 @@ struct DashboardView: View {
                             "Create an account and a primary income."
                         ))
                     )
+                    accountsSection
                 }
-                accountsSection
                 if isMainTab { sections }
             }
-            .padding()
+            .padding(12)
         }
-        .background(Color(.systemGroupedBackground))
         .navigationTitle(L("Finanzen", "Finance"))
         .navigationBarTitleDisplayMode(.inline)
     }
 
     private var columns: [GridItem] {
-        [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)]
+        [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)]
+    }
+
+    private var metricColumns: [GridItem] {
+        Array(repeating: GridItem(.flexible(), spacing: 8), count: 3)
     }
 
     private func periodBar(_ period: ForecastPeriod) -> some View {
@@ -94,9 +113,9 @@ struct DashboardView: View {
             }
             .disabled(periodIndex == periods.count - 1)
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 6)
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16))
+        .padding(.horizontal, 6)
+        .padding(.vertical, 4)
+        .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 14))
     }
 
     private func netWorthCard(_ forecast: PeriodForecast, period: ForecastPeriod) -> some View {
@@ -105,21 +124,19 @@ struct DashboardView: View {
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
             Text(Money.string(cents: forecast.netWorth))
-                .font(.largeTitle.bold())
+                .font(.title.bold())
                 .minimumScaleFactor(0.6)
                 .lineLimit(1)
             Text(netWorthCaption(period))
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding()
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 18))
+        .financeCard()
     }
 
     private func biasCard(_ forecast: PeriodForecast) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(L("Bias (angewendet / geplant)", "Bias (applied / planned)"))
+            Text(L("Einkaufszettel", "Shopping list"))
                 .font(.caption)
                 .foregroundStyle(.secondary)
             HStack {
@@ -128,7 +145,7 @@ struct DashboardView: View {
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                     Text(Money.string(cents: forecast.biasApplied))
-                        .font(.headline)
+                        .font(.subheadline.weight(.semibold))
                 }
                 Spacer()
                 VStack(alignment: .trailing, spacing: 2) {
@@ -136,26 +153,24 @@ struct DashboardView: View {
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                     Text(Money.signed(cents: forecast.biasPlanned))
-                        .font(.headline)
+                        .font(.subheadline.weight(.semibold))
                         .foregroundStyle(forecast.biasPlanned > 0 ? .orange : .primary)
                 }
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(12)
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16))
+        .financeCard(padding: 8)
     }
 
     private func eventsSection(_ forecast: PeriodForecast) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 6) {
             Text(L("Ereignisse", "Events"))
-                .font(.headline)
+                .font(.subheadline.weight(.semibold))
             if forecast.events.isEmpty {
                 Text(L("In diesem Zeitraum liegen keine Ereignisse.", "There are no events in this period."))
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             } else {
-                let rows = runningTotals(forecast.events)
+                let rows = Array(runningTotals(forecast.events).reversed())
                 ForEach(rows, id: \.line.id) { row in
                     HStack(alignment: .firstTextBaseline, spacing: 8) {
                         VStack(alignment: .leading, spacing: 2) {
@@ -178,15 +193,13 @@ struct DashboardView: View {
                 }
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(12)
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16))
+        .financeCard(padding: 8)
     }
 
     private var accountsSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(L("Konten", "Accounts"))
-                .font(.headline)
+                .font(.subheadline.weight(.semibold))
             if accounts.filter({ $0.kind != .savingsGroup }).isEmpty {
                 Text(L("Noch keine Konten.", "No accounts yet."))
                     .foregroundStyle(.secondary)
@@ -201,24 +214,17 @@ struct DashboardView: View {
                 .font(.subheadline)
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(12)
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16))
+        .financeCard(padding: 8)
     }
 
     private var sections: some View {
         VStack(alignment: .leading, spacing: 0) {
-            sectionLink(L("Buchungen", "Transactions"), systemImage: "list.bullet.rectangle") { TransactionsView() }
-            sectionLink(L("Fixkosten", "Fixed costs"), systemImage: "repeat") { FixedCostsView() }
-            sectionLink(L("Variable Kosten", "Variable costs"), systemImage: "gauge.with.dots.needle.67percent") { VariableBudgetsView() }
             sectionLink(L("Budgetpools", "Budget pools"), systemImage: "tray.full") { BudgetPoolsView() }
-            sectionLink(L("Einnahmeprognosen", "Income forecasts"), systemImage: "calendar.badge.plus") { IncomeForecastsView() }
-            sectionLink(L("Einkaufszettel", "Shopping list"), systemImage: "cart") { ShoppingListView() }
             sectionLink(L("Schulden", "Debts"), systemImage: "person.2") { DebtsView() }
             sectionLink(L("Ausgabengruppen", "Expense groups"), systemImage: "square.stack.3d.up") { ExpenseGroupsView() }
             sectionLink(L("Depot", "Portfolio"), systemImage: "chart.line.uptrend.xyaxis") { PortfolioView() }
         }
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16))
+        .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 14))
     }
 
     private func sectionLink<Destination: View>(
@@ -237,22 +243,22 @@ struct DashboardView: View {
                     .foregroundStyle(.tertiary)
             }
             .font(.subheadline)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 11)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
         }
         .buttonStyle(.plain)
     }
 
     private func flowTile(_ title: String, amount: Int, footnote: String? = nil) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 3) {
             Text(title)
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .lineLimit(2)
             Text(Money.signed(cents: amount))
-                .font(.headline)
+                .font(.subheadline.weight(.semibold))
                 .foregroundStyle(flowColor(amount))
-                .minimumScaleFactor(0.7)
+                .minimumScaleFactor(0.5)
                 .lineLimit(1)
             if let footnote {
                 Text(footnote)
@@ -261,19 +267,18 @@ struct DashboardView: View {
                     .lineLimit(2)
             }
         }
-        .frame(maxWidth: .infinity, minHeight: 78, alignment: .leading)
-        .padding(12)
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16))
+        .financeCard(padding: 8)
     }
 
     private func balanceTile(_ title: String, amount: Int, delta: Int? = nil) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 4) {
             Text(title)
                 .font(.caption)
                 .foregroundStyle(.secondary)
+                .lineLimit(2)
             Text(Money.string(cents: amount))
-                .font(.headline)
-                .minimumScaleFactor(0.7)
+                .font(.subheadline.weight(.semibold))
+                .minimumScaleFactor(0.6)
                 .lineLimit(1)
             if let delta {
                 Text(Money.signed(cents: delta))
@@ -282,9 +287,7 @@ struct DashboardView: View {
                     .lineLimit(1)
             }
         }
-        .frame(maxWidth: .infinity, minHeight: 78, alignment: .leading)
-        .padding(12)
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16))
+        .financeCard(padding: 8)
     }
 
     private var periods: [ForecastPeriod] {
@@ -344,8 +347,12 @@ struct DashboardView: View {
     }
 
     private func expenseFootnote(_ forecast: PeriodForecast, period: ForecastPeriod) -> String? {
-        guard period.end >= Calendar.current.startOfDay(for: .now), forecast.bookedExpenses > 0 else { return nil }
-        return "\(L("Bereits", "Already")) \(Money.string(cents: forecast.bookedExpenses))"
+        openFootnote(forecast.openExpenses, period: period)
+    }
+
+    private func openFootnote(_ cents: Int, period: ForecastPeriod) -> String? {
+        guard period.end >= Calendar.current.startOfDay(for: .now) else { return nil }
+        return "\(L("Offen", "Open")) \(Money.signed(cents: -cents))"
     }
 
     private func netWorthCaption(_ period: ForecastPeriod) -> String {
@@ -357,7 +364,7 @@ struct DashboardView: View {
 
     private func runningTotals(_ lines: [ForecastLine]) -> [(line: ForecastLine, subtotal: Int)] {
         var sum = 0
-        return lines.map { line in
+        return lines.sorted { $0.date == $1.date ? $0.title < $1.title : $0.date < $1.date }.map { line in
             sum += line.amountCents
             return (line, sum)
         }
@@ -376,5 +383,14 @@ struct DashboardView: View {
         case .savingsGroup: "folder"
         case .portfolio: "chart.line.uptrend.xyaxis"
         }
+    }
+}
+
+private extension View {
+    func financeCard(padding: CGFloat = 10) -> some View {
+        self
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(padding)
+            .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 14))
     }
 }

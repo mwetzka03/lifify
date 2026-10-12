@@ -156,9 +156,9 @@ enum FinanceService {
     ) -> PeriodForecast {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: now)
-        let holdingsValue = accounts
-            .filter { $0.kind == .portfolio }
-            .reduce(0) { $0 + balance(for: $1, entries: entries, holdings: holdings) }
+        let holdingsValue = holdings.reduce(0) {
+            $0 + Int(($1.quantity * Double($1.currentPriceCents)).rounded())
+        }
         let variablePlan = variableBudgets.reduce(0) { $0 + abs($1.monthlyAmountCents) }
         let activeFixed = fixedCosts.filter(\.isActive)
         let incomeDates = incomeOccurrences(forecasts: forecasts, from: period.start, through: period.end)
@@ -168,6 +168,14 @@ enum FinanceService {
         let openIncome = max(0, plannedIncome - bookedIncome)
         let bookedExpenses = signedSum(entries: entries, kind: .expense, from: period.start, through: period.end)
         let fixedDates = fixedOccurrences(costs: activeFixed, from: period.start, through: period.end)
+        let bookedFixed = bookedFixedAmount(occurrences: fixedDates, entries: entries, from: period.start, through: period.end)
+        let bookedVariable = variableSpent(
+            in: period,
+            budgets: variableBudgets,
+            entries: entries,
+            splits: splits,
+            through: min(now, period.end)
+        )
         let remainingFixed = fixedDates
             .filter { occurrence in
                 guard calendar.startOfDay(for: occurrence.date) >= today else { return false }
@@ -175,19 +183,9 @@ enum FinanceService {
                 return match.date > now
             }
             .reduce(0) { $0 + $1.amount }
-        let spentVariable = variableSpent(
-            in: period,
-            budgets: variableBudgets,
-            entries: entries,
-            splits: splits,
-            through: now
-        )
-        let remainingVariable = period.end < today ? 0 : max(variablePlan - spentVariable, 0)
+        let remainingVariable = period.end < today ? 0 : max(variablePlan - bookedVariable, 0)
         let bias = biasAmounts(shopping: shopping, period: period)
         let outstandingBias = period.end < today ? 0 : bias.planned
-        let expenses = period.end < today
-            ? bookedExpenses
-            : remainingFixed + remainingVariable + outstandingBias
         let startBalance = projectedCash(
             on: period.start,
             chargeVariableThroughEnd: false,
@@ -226,9 +224,11 @@ enum FinanceService {
         } else {
             netWorth = endBalance + holdingsValue
         }
+        let openExpenses = period.end < today ? 0 : remainingFixed + remainingVariable + outstandingBias
         let events = eventLines(
             period: period,
             entries: entries,
+            accounts: accounts,
             fixedCosts: activeFixed,
             forecasts: forecasts,
             shopping: shopping
@@ -236,15 +236,19 @@ enum FinanceService {
         return PeriodForecast(
             netWorth: netWorth,
             income: income,
-            expenses: expenses,
+            expenses: bookedExpenses,
             startBalance: startBalance,
             endBalance: endBalance,
             remainingFixed: remainingFixed,
             remainingVariable: remainingVariable,
             biasApplied: bias.applied,
             biasPlanned: bias.planned,
+            bookedIncome: bookedIncome,
             bookedExpenses: bookedExpenses,
+            bookedFixed: bookedFixed,
+            bookedVariable: bookedVariable,
             openIncome: openIncome,
+            openExpenses: openExpenses,
             events: events
         )
     }
@@ -486,9 +490,32 @@ enum FinanceService {
             .reduce(0) { $0 + abs($1.amountCents) }
     }
 
+    private static func bookedFixedAmount(
+        occurrences: [(date: Date, amount: Int, title: String, costID: UUID)],
+        entries: [LedgerEntry],
+        from: Date,
+        through: Date
+    ) -> Int {
+        let start = Calendar.current.startOfDay(for: from)
+        let end = endOfDay(through)
+        var used = Set<UUID>()
+        var total = 0
+        for occurrence in occurrences {
+            guard let match = matchingExpense(occurrence, entries: entries),
+                  match.date >= start, match.date <= end, used.insert(match.id).inserted else { continue }
+            total += abs(match.amountCents)
+        }
+        for entry in entries where entry.kind == .expense && entry.fixedCostID != nil && entry.date >= start && entry.date <= end {
+            guard used.insert(entry.id).inserted else { continue }
+            total += abs(entry.amountCents)
+        }
+        return total
+    }
+
     private static func eventLines(
         period: ForecastPeriod,
         entries: [LedgerEntry],
+        accounts: [Account],
         fixedCosts: [FixedCost],
         forecasts: [IncomeForecast],
         shopping: [ShoppingItem]
@@ -534,6 +561,18 @@ enum FinanceService {
                 date: planned,
                 title: item.name,
                 amountCents: -abs(item.amountCents)
+            ))
+        }
+        let portfolioIDs = Set(accounts.filter { $0.kind == .portfolio }.map(\.id))
+        for entry in entries where entry.kind == .transfer && entry.date >= start && entry.date <= end {
+            let fromPortfolio = entry.fromAccountID.map { portfolioIDs.contains($0) } ?? false
+            let toPortfolio = entry.toAccountID.map { portfolioIDs.contains($0) } ?? false
+            guard fromPortfolio != toPortfolio else { continue }
+            lines.append(ForecastLine(
+                id: entry.id.uuidString,
+                date: entry.date,
+                title: entry.title,
+                amountCents: toPortfolio ? -abs(entry.amountCents) : abs(entry.amountCents)
             ))
         }
         return lines.sorted {
@@ -611,10 +650,14 @@ struct PeriodForecast {
     var remainingVariable: Int
     var biasApplied: Int
     var biasPlanned: Int
+    var bookedIncome: Int
     var bookedExpenses: Int
+    var bookedFixed: Int
+    var bookedVariable: Int
     var openIncome: Int
+    var openExpenses: Int
     var events: [ForecastLine]
-    var difference: Int { income - expenses }
+    var realDifference: Int { bookedIncome - bookedExpenses }
     var balanceChange: Int { endBalance - startBalance }
 }
 

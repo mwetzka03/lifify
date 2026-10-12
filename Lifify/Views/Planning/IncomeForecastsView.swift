@@ -1,6 +1,61 @@
 import SwiftData
 import SwiftUI
 
+struct IncomeOverviewView: View {
+    @Query(sort: \IncomeForecast.name) private var forecasts: [IncomeForecast]
+    @Query(sort: \LedgerEntry.date, order: .reverse) private var entries: [LedgerEntry]
+    @State private var showingNew = false
+    @State private var selected: LedgerEntry?
+
+    private var incomeEntries: [LedgerEntry] {
+        entries.filter { $0.kind == .income }
+    }
+
+    var body: some View {
+        List {
+            Section {
+                if forecasts.isEmpty {
+                    Text(L("Noch keine Einnahmeprognosen.", "No income forecasts yet."))
+                        .foregroundStyle(.secondary)
+                }
+                ForEach(forecasts) { forecast in
+                    HStack {
+                        VStack(alignment: .leading) {
+                            Text(forecast.name)
+                            Text("\(forecast.cadence.label) · \(forecast.dueRule.label)")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Text(Money.string(cents: abs(forecast.amountCents)))
+                            .foregroundStyle(.green)
+                    }
+                }
+                Button {
+                    showingNew = true
+                } label: {
+                    Label(L("Prognose hinzufügen", "Add forecast"), systemImage: "plus")
+                }
+            } header: {
+                Text(L("Einnahmeprognosen", "Income forecasts"))
+            }
+            Section(L("Buchungen", "Transactions")) {
+                if incomeEntries.isEmpty {
+                    Text(L("Noch keine Einnahmen.", "No income yet."))
+                        .foregroundStyle(.secondary)
+                }
+                ForEach(incomeEntries) { entry in
+                    Button { selected = entry } label: { TransactionRow(entry: entry) }
+                        .buttonStyle(.plain)
+                }
+            }
+        }
+        .navigationTitle(L("Einnahmen", "Income"))
+        .sheet(isPresented: $showingNew) { IncomeForecastForm() }
+        .sheet(item: $selected) { TransactionDetailView(entry: $0) }
+    }
+}
+
 struct IncomeForecastsView: View {
     @Environment(\.modelContext) private var context
     @Query(sort: \IncomeForecast.name) private var forecasts: [IncomeForecast]
