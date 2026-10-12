@@ -105,12 +105,15 @@ struct TransactionRow: View {
 
     private var signedAmount: Int {
         switch entry.kind {
-        case .expense: -abs(entry.amountCents)
-        case .income: abs(entry.amountCents)
+        case .expense:
+            return -abs(entry.amountCents)
+        case .income:
+            return abs(entry.amountCents)
         case .transfer:
             if isPortfolioPurchase { return -abs(entry.amountCents) }
             return abs(entry.amountCents)
-        case .adjustment: abs(entry.amountCents)
+        case .adjustment:
+            return abs(entry.amountCents)
         }
     }
 
