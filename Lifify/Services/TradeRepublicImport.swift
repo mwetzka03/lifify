@@ -66,23 +66,20 @@ enum TradeRepublicImporter {
 
     private static func transactionRows(in section: String, openingBalanceCents: Int) -> [ImportedTransaction] {
         let tokens = tokenize(loosen(section))
+        let typeIndexes = tokens.indices.filter { statementTypes.contains(tokens[$0]) }
         var rows: [ImportedTransaction] = []
         var balance = openingBalanceCents
-        var index = 0
-        while index < tokens.count {
-            guard let components = dateComponents(at: index, in: tokens),
-                  let typeAt = typeIndex(from: index + 3, through: index + 8, in: tokens)
-            else {
-                index += 1
-                continue
+        var carriedDate = firstDate(in: tokens)
+        for offset in typeIndexes.indices {
+            let typeAt = typeIndexes[offset]
+            let previous = offset > 0 ? typeIndexes[offset - 1] + 1 : 0
+            if let found = lastDate(in: Array(tokens[previous..<typeAt])) {
+                carriedDate = found
             }
-            let next = nextDateIndex(from: typeAt + 1, in: tokens)
+            let next = offset + 1 < typeIndexes.count ? typeIndexes[offset + 1] : tokens.count
             let chunk = Array(tokens[(typeAt + 1)..<next])
             let amountIndexes = chunk.indices.filter { amountCents(chunk[$0]) != nil }
-            guard amountIndexes.count >= 2 else {
-                index = max(next, index + 1)
-                continue
-            }
+            guard amountIndexes.count >= 2, let components = carriedDate else { continue }
             var used = Array(amountIndexes.suffix(2))
             if amountIndexes.count >= 3 {
                 let third = amountIndexes[amountIndexes.count - 3]
@@ -93,13 +90,9 @@ enum TradeRepublicImporter {
                 }
             }
             let values = used.compactMap { amountCents(chunk[$0]) }
-            guard values.count == used.count, let firstAmount = used.first else {
-                index = max(next, index + 1)
-                continue
-            }
-            let description = chunk[..<firstAmount]
-                .joined(separator: " ")
-                .replacingOccurrences(of: "  ", with: " ")
+            guard values.count == used.count, let firstAmount = used.first else { continue }
+            let rawDescription = chunk[..<firstAmount].joined(separator: " ")
+            let description = displayTitle(rawDescription)
             let signed: Int
             let saldo: Int
             if values.count == 3 {
@@ -118,7 +111,7 @@ enum TradeRepublicImporter {
             }
             balance = balance + signed == saldo ? balance + signed : saldo
             let type = tokens[typeAt]
-            let trade = securityTrade(type: type, description: description, inflow: signed > 0 ? signed : nil)
+            let trade = securityTrade(type: type, description: rawDescription, inflow: signed > 0 ? signed : nil)
             let title = trade.map { "\($0.isSale ? L("Verkauf", "Sale") : L("Kauf", "Purchase")): \($0.name)" } ?? description
             let counterparty = iban(in: description)
             let details = [
@@ -126,10 +119,7 @@ enum TradeRepublicImporter {
                 trade.map { "ISIN: \($0.isin)" },
                 trade.map { "\(L("Stück", "Quantity")): \(quantityText($0.quantity))" }
             ].compactMap { $0 }.joined(separator: "\n")
-            guard let date = statementDate(day: components.day, month: components.month, year: components.year) else {
-                index = max(next, index + 1)
-                continue
-            }
+            guard let date = statementDate(day: components.day, month: components.month, year: components.year) else { continue }
             rows.append(BankImportService.imported(
                 date: date,
                 title: title.isEmpty ? type : title,
@@ -141,13 +131,50 @@ enum TradeRepublicImporter {
                 details: details,
                 trade: trade
             ))
-            index = next
         }
         return rows
     }
 
+    private static func firstDate(in tokens: [String]) -> (day: Int, month: Int, year: Int)? {
+        var index = 0
+        while index < tokens.count {
+            if let components = dateComponents(at: index, in: tokens) { return components }
+            index += 1
+        }
+        return nil
+    }
+
+    private static func lastDate(in tokens: [String]) -> (day: Int, month: Int, year: Int)? {
+        var found: (day: Int, month: Int, year: Int)?
+        var index = 0
+        while index < tokens.count {
+            if let components = dateComponents(at: index, in: tokens) {
+                found = components
+                index += 3
+            } else {
+                index += 1
+            }
+        }
+        return found
+    }
+
+    private static func displayTitle(_ text: String) -> String {
+        var title = text.replacingOccurrences(of: "  ", with: " ").trimmingCharacters(in: .whitespacesAndNewlines)
+        let cutoffs = ["exchange rate", ", quantity", " quantity:"]
+        for cutoff in cutoffs {
+            if let range = title.range(of: cutoff, options: .caseInsensitive) {
+                title = String(title[..<range.lowerBound])
+            }
+        }
+        return title.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines.union(CharacterSet(charactersIn: ",-")))
+    }
+
     private static func loosen(_ text: String) -> String {
-        var spaced = text
+        var spaced = text.replacingOccurrences(
+            of: #"([A-Za-zÄÖÜäöü])-\s+([A-Za-zÄÖÜäöü])"#,
+            with: "$1$2",
+            options: .regularExpression
+        )
         for type in statementTypes.sorted(by: { $0.count > $1.count }) {
             spaced = spaced.replacingOccurrences(of: type, with: " \(type) ")
         }
@@ -175,25 +202,6 @@ enum TradeRepublicImporter {
               let year = Int(tokens[index + 2]), (2000...2100).contains(year)
         else { return nil }
         return (day, month, year)
-    }
-
-    private static func typeIndex(from start: Int, through end: Int, in tokens: [String]) -> Int? {
-        guard start < tokens.count else { return nil }
-        let limit = min(end, tokens.count)
-        guard start < limit else { return nil }
-        return (start..<limit).first { statementTypes.contains(tokens[$0]) }
-    }
-
-    private static func nextDateIndex(from start: Int, in tokens: [String]) -> Int {
-        var index = start
-        while index < tokens.count {
-            if dateComponents(at: index, in: tokens) != nil,
-               typeIndex(from: index + 3, through: index + 8, in: tokens) != nil {
-                return index
-            }
-            index += 1
-        }
-        return tokens.count
     }
 
     private static func amountCents(_ token: String) -> Int? {

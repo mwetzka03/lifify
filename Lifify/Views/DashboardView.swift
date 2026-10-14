@@ -13,6 +13,7 @@ struct DashboardView: View {
     @Query private var splits: [TransactionSplit]
     @Query(sort: \ShoppingItem.createdAt, order: .reverse) private var shopping: [ShoppingItem]
     @State private var selectedPeriodID: String?
+    @State private var accountFilter: UUID?
 
     init(isMainTab: Bool = false, path: Binding<NavigationPath>? = nil) {
         self.isMainTab = isMainTab
@@ -24,9 +25,10 @@ struct DashboardView: View {
             VStack(alignment: .leading, spacing: 8) {
                 if let period = selectedPeriod {
                     periodBar(period)
-                    let snapshot = forecast(for: period)
+                    accountFilterBar
+                    let snapshot = presented(forecast(for: period))
+                    let liquid = accountFilter == nil ? liquidForecast(for: period) : nil
                     netWorthCard(snapshot, period: period)
-                    accountsSection
                     HStack(alignment: .top, spacing: 8) {
                         linked(.income) {
                             flowTile(L("Einnahmen", "Income"), amount: snapshot.income, footnote: incomeFootnote(snapshot, period: period))
@@ -37,11 +39,16 @@ struct DashboardView: View {
                             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                     }
                     HStack(alignment: .top, spacing: 8) {
-                        balanceTile(L("Startsaldo", "Opening balance"), amount: snapshot.startBalance)
+                        balanceTile(
+                            L("Startsaldo", "Opening balance"),
+                            amount: snapshot.startBalance,
+                            liquid: liquid?.startBalance
+                        )
                         balanceTile(
                             L("Endsaldo (Prognose)", "Closing balance (forecast)"),
                             amount: snapshot.endBalance,
-                            delta: snapshot.balanceChange
+                            delta: snapshot.balanceChange,
+                            liquid: liquid?.endBalance
                         )
                     }
                     HStack(alignment: .top, spacing: 8) {
@@ -72,7 +79,6 @@ struct DashboardView: View {
                             "Create an account and a primary income."
                         ))
                     )
-                    accountsSection
                     if isMainTab { FinanceMoreSection(path: path) }
                 }
             }
@@ -226,28 +232,6 @@ struct DashboardView: View {
         .financeCard(padding: 12)
     }
 
-    private var accountsSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(L("Konten", "Accounts"))
-                .font(.title3.weight(.semibold))
-            if accounts.filter({ $0.kind != .savingsGroup }).isEmpty {
-                Text(L("Noch keine Konten.", "No accounts yet."))
-                    .font(.body)
-                    .foregroundStyle(.secondary)
-            }
-            ForEach(accounts.filter { $0.kind != .savingsGroup }) { account in
-                HStack {
-                    Label(account.name, systemImage: icon(for: account.kind))
-                    Spacer()
-                    Text(Money.string(cents: FinanceService.balance(for: account, entries: entries, holdings: holdings)))
-                        .monospacedDigit()
-                }
-                .font(.body)
-            }
-        }
-        .financeCard(padding: 12)
-    }
-
     private func flowTile(_ title: String, amount: Int, footnote: String? = nil) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(title)
@@ -267,7 +251,31 @@ struct DashboardView: View {
         .financeCard(padding: 12)
     }
 
-    private func balanceTile(_ title: String, amount: Int, delta: Int? = nil) -> some View {
+    private var accountFilterBar: some View {
+        Menu {
+            Button(L("Alle Konten", "All accounts")) { accountFilter = nil }
+            ForEach(filterAccounts) { account in
+                Button(account.name) { accountFilter = account.id }
+            }
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "line.3.horizontal.decrease.circle")
+                Text(filterTitle)
+                    .font(.headline)
+                    .lineLimit(1)
+                Spacer(minLength: 8)
+                Image(systemName: "chevron.down")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .background(AppSurface.card, in: RoundedRectangle(cornerRadius: 14))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func balanceTile(_ title: String, amount: Int, delta: Int? = nil, liquid: Int? = nil) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(title)
                 .font(.subheadline)
@@ -281,6 +289,15 @@ struct DashboardView: View {
                 .font(.footnote)
                 .foregroundStyle(delta.map { flowColor($0) } ?? .clear)
                 .lineLimit(1)
+            if let liquid {
+                Text(L("Liquide", "Liquid"))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Text(Money.string(cents: liquid))
+                    .font(.subheadline.weight(.semibold))
+                    .minimumScaleFactor(0.6)
+                    .lineLimit(1)
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .financeCard(padding: 12)
@@ -311,19 +328,79 @@ struct DashboardView: View {
         return forecasts.first { $0.id == id }
     }
 
+    private var filterAccounts: [Account] {
+        accounts.filter { $0.kind != .savingsGroup }
+    }
+
+    private var selectedFilterAccount: Account? {
+        guard let accountFilter else { return nil }
+        return filterAccounts.first { $0.id == accountFilter }
+    }
+
+    private var filterTitle: String {
+        selectedFilterAccount?.name ?? L("Alle Konten", "All accounts")
+    }
+
+    private var scopedAccounts: [Account] {
+        if let selectedFilterAccount { return [selectedFilterAccount] }
+        return accounts
+    }
+
+    private var scopedEntries: [LedgerEntry] {
+        guard let account = selectedFilterAccount else { return entries }
+        return entries.filter { entry in
+            entry.accountID == account.id || entry.fromAccountID == account.id || entry.toAccountID == account.id
+        }
+    }
+
+    private var scopedHoldings: [PortfolioHolding] {
+        guard let account = selectedFilterAccount else { return holdings }
+        return holdings.filter { $0.accountID == account.id }
+    }
+
+    private var includePlans: Bool {
+        accountFilter == nil || selectedFilterAccount?.isMain == true
+    }
+
     private func forecast(for period: ForecastPeriod) -> PeriodForecast {
         FinanceService.periodForecast(
             period: period,
             periods: periods,
-            accounts: accounts,
+            accounts: scopedAccounts,
+            entries: scopedEntries,
+            holdings: scopedHoldings,
+            fixedCosts: includePlans ? fixedCosts : [],
+            variableBudgets: includePlans ? variableBudgets : [],
+            splits: splits,
+            forecasts: includePlans ? forecasts : [],
+            shopping: includePlans ? shopping : []
+        )
+    }
+
+    private func liquidForecast(for period: ForecastPeriod) -> PeriodForecast {
+        let liquid = accounts.filter { $0.isLiquid && $0.kind != .portfolio && $0.kind != .savingsGroup }
+        return FinanceService.periodForecast(
+            period: period,
+            periods: periods,
+            accounts: liquid,
             entries: entries,
-            holdings: holdings,
+            holdings: [],
             fixedCosts: fixedCosts,
             variableBudgets: variableBudgets,
             splits: splits,
             forecasts: forecasts,
             shopping: shopping
         )
+    }
+
+    private func presented(_ snapshot: PeriodForecast) -> PeriodForecast {
+        guard let account = selectedFilterAccount, account.kind == .portfolio else { return snapshot }
+        let value = FinanceService.balance(for: account, entries: entries, holdings: holdings)
+        var copy = snapshot
+        copy.netWorth = value
+        copy.startBalance = value
+        copy.endBalance = value
+        return copy
     }
 
     private func shiftPeriod(_ delta: Int) {
@@ -372,14 +449,6 @@ struct DashboardView: View {
         return .primary
     }
 
-    private func icon(for kind: AccountKind) -> String {
-        switch kind {
-        case .checking: "building.columns"
-        case .savings: "banknote"
-        case .savingsGroup: "folder"
-        case .portfolio: "chart.line.uptrend.xyaxis"
-        }
-    }
 }
 
 private struct FinanceDestinationRegistration: ViewModifier {
@@ -404,13 +473,13 @@ private struct FinanceMoreSection: View {
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 4)
             VStack(alignment: .leading, spacing: 0) {
-                sectionLink(L("Budgetpools", "Budget pools"), systemImage: "tray.full", route: .budgetPools)
+                sectionLink(L("Depot", "Portfolio"), systemImage: "chart.line.uptrend.xyaxis", route: .portfolio)
                 Divider().padding(.leading, 54)
-                sectionLink(L("Schulden", "Debts"), systemImage: "person.2", route: .debts)
+                sectionLink(L("Budgetpools", "Budget pools"), systemImage: "tray.full", route: .budgetPools)
                 Divider().padding(.leading, 54)
                 sectionLink(L("Ausgabengruppen", "Expense groups"), systemImage: "square.stack.3d.up", route: .expenseGroups)
                 Divider().padding(.leading, 54)
-                sectionLink(L("Depot", "Portfolio"), systemImage: "chart.line.uptrend.xyaxis", route: .portfolio)
+                sectionLink(L("Schulden", "Debts"), systemImage: "person.2", route: .debts)
             }
             .background(AppSurface.card, in: RoundedRectangle(cornerRadius: 14))
         }

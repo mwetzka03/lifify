@@ -14,6 +14,7 @@ struct WorkoutSessionView: View {
     @State private var restToken = UUID()
     @State private var showDiscard = false
     @State private var didApplyFrequent = false
+    @State private var finishSummary: WorkoutFinishSummary?
 
     init(plan: WorkoutPlan) {
         self.plan = plan
@@ -32,29 +33,62 @@ struct WorkoutSessionView: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
+        List {
+            Section {
                 Text(plan.name)
                     .font(.largeTitle.bold())
-                if draft.exercises.isEmpty {
-                    ContentUnavailableView(
-                        L("Keine Übungen", "No exercises"),
-                        systemImage: "figure.strengthtraining.traditional",
-                        description: Text(L("Füge der Routine zuerst Übungen hinzu.", "Add exercises to the routine first."))
-                    )
-                }
-                ForEach(Array(draft.exercises.enumerated()), id: \.element.id) { index, exercise in
-                    exerciseCard(index: index, exercise: exercise)
+                    .listRowBackground(Color.clear)
+            }
+            if draft.exercises.isEmpty {
+                ContentUnavailableView(
+                    L("Keine Übungen", "No exercises"),
+                    systemImage: "figure.strengthtraining.traditional",
+                    description: Text(L("Füge der Routine zuerst Übungen hinzu.", "Add exercises to the routine first."))
+                )
+            }
+            ForEach(Array(draft.exercises.enumerated()), id: \.element.id) { index, exercise in
+                Section {
+                    exerciseHeader(exercise)
+                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                            Button(role: .destructive) {
+                                deleteExercise(exercise.id)
+                            } label: {
+                                Label(L("Übung löschen", "Delete exercise"), systemImage: "trash")
+                            }
+                        }
+                    if WorkoutProgress.readyToProgress(
+                        sessions: store.sessions,
+                        planID: plan.id,
+                        exerciseCode: exercise.code
+                    ) {
+                        suggestion(index: index, exercise: exercise)
+                    }
+                    columnHeader
+                    ForEach(Array(exercise.sets.enumerated()), id: \.element.id) { setIndex, set in
+                        setRow(exerciseIndex: index, exercise: exercise, setIndex: setIndex, set: set)
+                            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                Button(role: .destructive) {
+                                    deleteSet(exerciseID: exercise.id, setID: set.id)
+                                } label: {
+                                    Label(L("Satz löschen", "Delete set"), systemImage: "trash")
+                                }
+                            }
+                    }
                 }
             }
-            .padding(12)
         }
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
         .scrollDismissesKeyboard(.interactively)
         .appCanvas()
         .navigationTitle(L("Training", "Workout"))
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(true)
-        .background(WorkoutSwipeBackLock())
+        .background {
+            WorkoutSwipeBackLock()
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+        }
         .onAppear {
             UIApplication.shared.isIdleTimerDisabled = true
             guard !didApplyFrequent else { return }
@@ -71,6 +105,12 @@ struct WorkoutSessionView: View {
                     .buttonStyle(.borderedProminent)
                     .disabled(!hasCompletedSet)
             }
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button(L("Fertig", "Done")) {
+                    UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                }
+            }
         }
         .confirmationDialog(
             L("Training verwerfen?", "Discard workout?"),
@@ -83,47 +123,27 @@ struct WorkoutSessionView: View {
         .task(id: restToken) {
             await chimeWhenRestEnds()
         }
+        .sheet(item: $finishSummary, onDismiss: { dismiss() }) { summary in
+            WorkoutFinishSheet(summary: summary)
+        }
     }
 
     private var hasCompletedSet: Bool {
         draft.exercises.contains { exercise in exercise.sets.contains(where: \.completed) }
     }
 
-    private func exerciseCard(index: Int, exercise: WorkoutSessionExercise) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .center, spacing: 12) {
-                ExerciseArtwork(code: exercise.code)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(exercise.name)
-                        .font(.title3.weight(.semibold))
-                    Text("\(L("Pause", "Rest")) \(WorkoutFormat.rest(exercise.restSeconds))")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
-                Spacer(minLength: 8)
-                Button(role: .destructive) {
-                    deleteExercise(exercise.id)
-                } label: {
-                    Image(systemName: "trash")
-                        .frame(width: 32, height: 36)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(L("Übung entfernen", "Remove exercise"))
+    private func exerciseHeader(_ exercise: WorkoutSessionExercise) -> some View {
+        HStack(alignment: .center, spacing: 12) {
+            ExerciseArtwork(code: exercise.code)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(exercise.name)
+                    .font(.title3.weight(.semibold))
+                Text("\(L("Pause", "Rest")) \(WorkoutFormat.rest(exercise.restSeconds))")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
             }
-            if WorkoutProgress.readyToProgress(
-                sessions: store.sessions,
-                planID: plan.id,
-                exerciseCode: exercise.code
-            ) {
-                suggestion(index: index, exercise: exercise)
-            }
-            columnHeader
-            ForEach(Array(exercise.sets.enumerated()), id: \.element.id) { setIndex, set in
-                setRow(exerciseIndex: index, exercise: exercise, setIndex: setIndex, set: set)
-            }
+            Spacer(minLength: 8)
         }
-        .padding(14)
-        .background(AppSurface.card, in: RoundedRectangle(cornerRadius: 16))
     }
 
     private func suggestion(index: Int, exercise: WorkoutSessionExercise) -> some View {
@@ -200,12 +220,14 @@ struct WorkoutSessionView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 TextField("0", text: weightBinding(set.id))
                     .keyboardType(.decimalPad)
+                    .textFieldStyle(.plain)
                     .multilineTextAlignment(.center)
                     .font(.body.weight(.semibold))
                     .frame(width: 64, height: 36)
                     .background(AppSurface.canvas, in: RoundedRectangle(cornerRadius: 8))
                 TextField("0", text: repsBinding(set.id))
                     .keyboardType(.numberPad)
+                    .textFieldStyle(.plain)
                     .multilineTextAlignment(.center)
                     .font(.body.weight(.semibold))
                     .frame(width: 52, height: 36)
@@ -216,16 +238,7 @@ struct WorkoutSessionView: View {
                         .foregroundStyle(set.completed ? Color.green : Color.secondary)
                         .frame(width: 32, height: 36)
                 }
-                .buttonStyle(.plain)
-                Button {
-                    deleteSet(exerciseID: exercise.id, setID: set.id)
-                } label: {
-                    Image(systemName: "minus.circle")
-                        .frame(width: 28, height: 36)
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(.secondary)
-                .accessibilityLabel(L("Satz löschen", "Delete set"))
+                .buttonStyle(.borderless)
             }
             if restSetID == set.id, let restEndsAt {
                 RestCountdown(endsAt: restEndsAt, total: restTotal)
@@ -380,8 +393,68 @@ struct WorkoutSessionView: View {
         guard hasCompletedSet else { return }
         draft.finishedAt = .now
         draft.planName = plan.name
+        let grade = WorkoutProgress.grade(of: draft, comparedWith: store.sessions)
+        let records = WorkoutProgress.personalRecords(in: draft, sessions: store.sessions)
+        let phrase = WorkoutProgress.motivation(for: grade, seed: draft.id.hashValue)
         store.save(session: draft)
-        dismiss()
+        finishSummary = WorkoutFinishSummary(
+            phrase: phrase,
+            volume: WorkoutProgress.volume(of: draft),
+            records: records
+        )
+    }
+}
+
+private struct WorkoutFinishSummary: Identifiable {
+    let id = UUID()
+    let phrase: String
+    let volume: Double
+    let records: [WorkoutPersonalRecord]
+}
+
+private struct WorkoutFinishSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    let summary: WorkoutFinishSummary
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    Text(summary.phrase)
+                        .font(.title.bold())
+                    Text("\(L("Volumen", "Volume")) \(WorkoutProgress.volumeText(summary.volume))")
+                        .font(.title3.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                    if summary.records.isEmpty {
+                        Text(L("Kein neuer Rekord.", "No new record."))
+                            .foregroundStyle(.secondary)
+                    } else {
+                        ForEach(summary.records) { record in
+                            HStack(spacing: 8) {
+                                RecordBadge()
+                                Text(record.exerciseName)
+                                    .lineLimit(2)
+                                Spacer(minLength: 8)
+                                Text("\(WorkoutFormat.weight(record.weightKg)) kg × \(record.reps)")
+                                    .monospacedDigit()
+                            }
+                            .font(.body)
+                        }
+                    }
+                }
+                .padding(20)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .navigationTitle(L("Training fertig", "Workout finished"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(L("Fertig", "Done")) { dismiss() }
+                        .buttonStyle(.borderedProminent)
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
     }
 }
 
@@ -390,6 +463,13 @@ private struct WorkoutSwipeBackLock: UIViewControllerRepresentable {
     func updateUIViewController(_ controller: Controller, context: Context) {}
 
     final class Controller: UIViewController {
+        override func loadView() {
+            let view = UIView()
+            view.backgroundColor = .clear
+            view.isUserInteractionEnabled = false
+            self.view = view
+        }
+
         override func viewDidLoad() {
             super.viewDidLoad()
             view.backgroundColor = .clear

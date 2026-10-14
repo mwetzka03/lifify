@@ -2,6 +2,7 @@ import SwiftData
 import SwiftUI
 
 struct AppEntryView: View {
+    @Environment(\.modelContext) private var modelContext
     @Query private var accounts: [Account]
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
     @AppStorage("onboardingInProgress") private var onboardingInProgress = false
@@ -28,6 +29,7 @@ struct AppEntryView: View {
                       hasMainAccount {
                 hasCompletedOnboarding = true
             }
+            PortfolioConsolidation.consolidate(context: modelContext)
             didCheckExistingInstallation = true
         }
         .environment(\.locale, AppDate.locale)

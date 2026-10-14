@@ -92,6 +92,7 @@ struct TransactionRow: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text(entry.title)
                     .foregroundStyle(.primary)
+                    .lineLimit(2)
                 Text("\(entry.kind.label) · \(AppDate.numeric(entry.date))")
                     .font(.caption)
                     .foregroundStyle(.secondary)

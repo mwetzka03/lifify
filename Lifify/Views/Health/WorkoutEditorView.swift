@@ -25,30 +25,55 @@ struct WorkoutEditorView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
+            List {
+                Section {
                     TextField(L("Name, z. B. Push", "Name, for example Push"), text: $plan.name)
                         .font(.title2.bold())
-                        .padding(14)
-                        .background(AppSurface.card, in: RoundedRectangle(cornerRadius: 14))
-
-                    ForEach(plan.exercises) { exercise in
-                        exerciseCard(exercise)
+                }
+                ForEach(plan.exercises) { exercise in
+                    Section {
+                        exerciseHeader(exercise)
+                            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                Button(role: .destructive) {
+                                    plan.exercises.removeAll { $0.id == exercise.id }
+                                } label: {
+                                    Label(L("Übung löschen", "Delete exercise"), systemImage: "trash")
+                                }
+                            }
+                        restControls(exercise)
+                        columnHeader
+                        ForEach(Array(exercise.sets.enumerated()), id: \.element.id) { index, set in
+                            setRow(exercise: exercise, index: index, set: set)
+                                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                    Button(role: .destructive) {
+                                        removeSet(exerciseID: exercise.id, setID: set.id)
+                                    } label: {
+                                        Label(L("Satz löschen", "Delete set"), systemImage: "trash")
+                                    }
+                                }
+                            if index < exercise.sets.count - 1 {
+                                restDivider(exercise.restSeconds)
+                            }
+                        }
+                        Button {
+                            addSet(to: exercise.id)
+                        } label: {
+                            Text("+ \(L("Satz", "Set")) (\(WorkoutFormat.rest(exercise.restSeconds)))")
+                                .font(.body.weight(.semibold))
+                        }
+                        .buttonStyle(.borderless)
                     }
-
+                }
+                Section {
                     Button {
                         showingSearch = true
                     } label: {
                         Label(L("Übung hinzufügen", "Add exercise"), systemImage: "plus")
-                            .font(.body.weight(.semibold))
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 14)
                     }
-                    .buttonStyle(.plain)
-                    .background(AppSurface.card, in: RoundedRectangle(cornerRadius: 14))
                 }
-                .padding(12)
             }
+            .listStyle(.insetGrouped)
+            .scrollContentBackground(.hidden)
             .scrollDismissesKeyboard(.interactively)
             .appCanvas()
             .navigationTitle(L("Routine bearbeiten", "Edit routine"))
@@ -87,60 +112,38 @@ struct WorkoutEditorView: View {
         }
     }
 
-    private func exerciseCard(_ exercise: WorkoutPlanExercise) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .center, spacing: 12) {
-                ExerciseArtwork(code: exercise.code)
-                Text(exercise.name)
-                    .font(.title3.weight(.semibold))
-                Spacer(minLength: 8)
-                Menu {
-                    Button(L("Nach oben", "Move up")) { move(exercise.id, by: -1) }
-                    Button(L("Nach unten", "Move down")) { move(exercise.id, by: 1) }
-                    Button(L("Entfernen", "Remove"), role: .destructive) {
-                        plan.exercises.removeAll { $0.id == exercise.id }
-                    }
-                } label: {
-                    Image(systemName: "ellipsis.circle")
-                        .font(.title3)
-                }
-            }
-
-            HStack {
-                Text(L("Pause", "Rest"))
-                    .foregroundStyle(.secondary)
-                Spacer()
-                Button { changeRest(exercise.id, by: -15) } label: { Image(systemName: "minus") }
-                    .disabled(exercise.restSeconds <= 0)
-                Text(WorkoutFormat.rest(exercise.restSeconds))
-                    .font(.body.weight(.semibold))
-                    .monospacedDigit()
-                    .frame(minWidth: 52)
-                Button { changeRest(exercise.id, by: 15) } label: { Image(systemName: "plus") }
-                    .disabled(exercise.restSeconds >= 600)
-            }
-            .font(.body)
-
-            columnHeader
-            ForEach(Array(exercise.sets.enumerated()), id: \.element.id) { index, set in
-                setRow(exercise: exercise, index: index, set: set)
-                if index < exercise.sets.count - 1 {
-                    restDivider(exercise.restSeconds)
-                }
-            }
-            Button {
-                addSet(to: exercise.id)
+    private func exerciseHeader(_ exercise: WorkoutPlanExercise) -> some View {
+        HStack(alignment: .center, spacing: 12) {
+            ExerciseArtwork(code: exercise.code)
+            Text(exercise.name)
+                .font(.title3.weight(.semibold))
+            Spacer(minLength: 8)
+            Menu {
+                Button(L("Nach oben", "Move up")) { move(exercise.id, by: -1) }
+                Button(L("Nach unten", "Move down")) { move(exercise.id, by: 1) }
             } label: {
-                Text("+ \(L("Satz", "Set")) (\(WorkoutFormat.rest(exercise.restSeconds)))")
-                    .font(.body.weight(.semibold))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 10)
-                    .background(AppSurface.canvas, in: RoundedRectangle(cornerRadius: 10))
+                Image(systemName: "ellipsis.circle")
+                    .font(.title3)
             }
-            .buttonStyle(.plain)
         }
-        .padding(14)
-        .background(AppSurface.card, in: RoundedRectangle(cornerRadius: 16))
+    }
+
+    private func restControls(_ exercise: WorkoutPlanExercise) -> some View {
+        HStack {
+            Text(L("Pause", "Rest"))
+                .foregroundStyle(.secondary)
+            Spacer()
+            Button { changeRest(exercise.id, by: -15) } label: { Image(systemName: "minus") }
+                .disabled(exercise.restSeconds <= 0)
+            Text(WorkoutFormat.rest(exercise.restSeconds))
+                .font(.body.weight(.semibold))
+                .monospacedDigit()
+                .frame(minWidth: 52)
+            Button { changeRest(exercise.id, by: 15) } label: { Image(systemName: "plus") }
+                .disabled(exercise.restSeconds >= 600)
+        }
+        .font(.body)
+        .buttonStyle(.borderless)
     }
 
     private var columnHeader: some View {
@@ -149,7 +152,6 @@ struct WorkoutEditorView: View {
             Text(L("Vorherige", "Previous")).frame(maxWidth: .infinity, alignment: .leading)
             Text("kg").frame(width: 64)
             Text(L("Wdh.", "Reps")).frame(width: 52)
-            Color.clear.frame(width: 28)
         }
         .font(.caption.weight(.semibold))
         .foregroundStyle(.secondary)
@@ -185,22 +187,18 @@ struct WorkoutEditorView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             TextField("0", text: weightBinding(set.id))
                 .keyboardType(.decimalPad)
+                .textFieldStyle(.plain)
                 .multilineTextAlignment(.center)
                 .font(.body.weight(.semibold))
                 .frame(width: 64, height: 36)
                 .background(AppSurface.canvas, in: RoundedRectangle(cornerRadius: 8))
             TextField("0", text: repsBinding(set.id))
                 .keyboardType(.numberPad)
+                .textFieldStyle(.plain)
                 .multilineTextAlignment(.center)
                 .font(.body.weight(.semibold))
                 .frame(width: 52, height: 36)
                 .background(AppSurface.canvas, in: RoundedRectangle(cornerRadius: 8))
-            Button { removeSet(exerciseID: exercise.id, setID: set.id) } label: {
-                Image(systemName: "minus")
-                    .frame(width: 28, height: 36)
-            }
-            .buttonStyle(.plain)
-            .foregroundStyle(.secondary)
         }
     }
 
@@ -252,9 +250,7 @@ struct WorkoutEditorView: View {
     }
 
     private func removeSet(exerciseID: UUID, setID: UUID) {
-        guard let index = plan.exercises.firstIndex(where: { $0.id == exerciseID }),
-              plan.exercises[index].sets.count > 1
-        else { return }
+        guard let index = plan.exercises.firstIndex(where: { $0.id == exerciseID }) else { return }
         plan.exercises[index].sets.removeAll { $0.id == setID }
     }
 
