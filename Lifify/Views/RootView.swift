@@ -9,7 +9,9 @@ struct RootView: View {
     @Query private var challenges: [ChallengeItem]
     @AppStorage("appLanguage") private var language = "de"
     @AppStorage("appTheme") private var theme = AppTheme.system.rawValue
+    @StateObject private var workouts = WorkoutStore()
     @State private var selectedTab = 0
+    @State private var financePath = NavigationPath()
 
     private var colorScheme: ColorScheme? {
         switch AppTheme(rawValue: theme) ?? .system {
@@ -24,7 +26,10 @@ struct RootView: View {
             NavigationStack { HomeView() }
                 .tabItem { Image(systemName: "house").accessibilityLabel(L("Home", "Home")) }
                 .tag(0)
-            NavigationStack { DashboardView(isMainTab: true) }
+            NavigationStack(path: $financePath) {
+                DashboardView(isMainTab: true, path: $financePath)
+                    .navigationDestination(for: FinanceRoute.self) { FinanceRouteScreen(route: $0) }
+            }
                 .tabItem { Image(systemName: "eurosign.circle").accessibilityLabel(L("Finanzen", "Finance")) }
                 .tag(1)
             NavigationStack { ChallengesView() }
@@ -38,6 +43,7 @@ struct RootView: View {
                 .tag(4)
         }
         .id(language)
+        .environmentObject(workouts)
         .preferredColorScheme(colorScheme)
         .task {
             await MarketDataService.refresh(holdings: holdings, context: context)

@@ -2,9 +2,11 @@ import SwiftData
 import SwiftUI
 
 struct IncomeOverviewView: View {
+    @Environment(\.modelContext) private var context
     @Query(sort: \IncomeForecast.name) private var forecasts: [IncomeForecast]
     @Query(sort: \LedgerEntry.date, order: .reverse) private var entries: [LedgerEntry]
     @State private var showingNew = false
+    @State private var edited: IncomeForecast?
     @State private var selected: LedgerEntry?
 
     private var incomeEntries: [LedgerEntry] {
@@ -19,17 +21,21 @@ struct IncomeOverviewView: View {
                         .foregroundStyle(.secondary)
                 }
                 ForEach(forecasts) { forecast in
-                    HStack {
-                        VStack(alignment: .leading) {
-                            Text(forecast.name)
-                            Text("\(forecast.cadence.label) · \(forecast.dueRule.label)")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+                    forecastRow(forecast)
+                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                            Button(role: .destructive) {
+                                context.delete(forecast)
+                                try? context.save()
+                            } label: {
+                                Label(L("Löschen", "Delete"), systemImage: "trash")
+                            }
                         }
-                        Spacer()
-                        Text(Money.string(cents: abs(forecast.amountCents)))
-                            .foregroundStyle(.green)
-                    }
+                        .swipeActions(edge: .leading, allowsFullSwipe: false) {
+                            Button { edited = forecast } label: {
+                                Label(L("Bearbeiten", "Edit"), systemImage: "pencil")
+                            }
+                            .tint(.blue)
+                        }
                 }
                 Button {
                     showingNew = true
@@ -51,8 +57,23 @@ struct IncomeOverviewView: View {
             }
         }
         .navigationTitle(L("Einnahmen", "Income"))
-        .sheet(isPresented: $showingNew) { IncomeForecastForm() }
+        .sheet(isPresented: $showingNew) { IncomeForecastForm(forecast: nil) }
+        .sheet(item: $edited) { IncomeForecastForm(forecast: $0) }
         .sheet(item: $selected) { TransactionDetailView(entry: $0) }
+    }
+
+    private func forecastRow(_ forecast: IncomeForecast) -> some View {
+        HStack {
+            VStack(alignment: .leading) {
+                Text(forecast.name)
+                Text("\(forecast.cadence.label) · \(forecast.dueRule.label)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            Text(Money.string(cents: abs(forecast.amountCents)))
+                .foregroundStyle(.green)
+        }
     }
 }
 
@@ -60,6 +81,7 @@ struct IncomeForecastsView: View {
     @Environment(\.modelContext) private var context
     @Query(sort: \IncomeForecast.name) private var forecasts: [IncomeForecast]
     @State private var showingNew = false
+    @State private var edited: IncomeForecast?
 
     var body: some View {
         List {
@@ -75,10 +97,20 @@ struct IncomeForecastsView: View {
                     Text(Money.string(cents: abs(forecast.amountCents)))
                         .foregroundStyle(.green)
                 }
-            }
-            .onDelete { offsets in
-                offsets.map { forecasts[$0] }.forEach(context.delete)
-                try? context.save()
+                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                    Button(role: .destructive) {
+                        context.delete(forecast)
+                        try? context.save()
+                    } label: {
+                        Label(L("Löschen", "Delete"), systemImage: "trash")
+                    }
+                }
+                .swipeActions(edge: .leading, allowsFullSwipe: false) {
+                    Button { edited = forecast } label: {
+                        Label(L("Bearbeiten", "Edit"), systemImage: "pencil")
+                    }
+                    .tint(.blue)
+                }
             }
         }
         .overlay {
@@ -88,7 +120,8 @@ struct IncomeForecastsView: View {
         }
         .navigationTitle(L("Einnahmeprognosen", "Income forecasts"))
         .toolbar { Button { showingNew = true } label: { Image(systemName: "plus") } }
-        .sheet(isPresented: $showingNew) { IncomeForecastForm() }
+        .sheet(isPresented: $showingNew) { IncomeForecastForm(forecast: nil) }
+        .sheet(item: $edited) { IncomeForecastForm(forecast: $0) }
     }
 }
 
@@ -96,13 +129,25 @@ private struct IncomeForecastForm: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
     @Query(sort: \Account.name) private var accounts: [Account]
-    @State private var name = ""
-    @State private var amount = ""
+    private let existing: IncomeForecast?
+    @State private var name: String
+    @State private var amount: String
     @State private var accountID: UUID?
-    @State private var cadence = Cadence.monthly
-    @State private var firstDate = Date.now
-    @State private var dueRule = DueRule.calendarDay
-    @State private var day = 1
+    @State private var cadence: Cadence
+    @State private var firstDate: Date
+    @State private var dueRule: DueRule
+    @State private var day: Int
+
+    init(forecast: IncomeForecast?) {
+        existing = forecast
+        _name = State(initialValue: forecast?.name ?? "")
+        _amount = State(initialValue: forecast.map { String(format: "%.2f", Double($0.amountCents) / 100) } ?? "")
+        _accountID = State(initialValue: forecast?.accountID)
+        _cadence = State(initialValue: forecast?.cadence ?? .monthly)
+        _firstDate = State(initialValue: forecast?.firstPaymentDate ?? .now)
+        _dueRule = State(initialValue: forecast?.dueRule ?? .calendarDay)
+        _day = State(initialValue: forecast?.dayOfMonth ?? 1)
+    }
 
     var body: some View {
         NavigationStack {
@@ -126,18 +171,28 @@ private struct IncomeForecastForm: View {
                     Stepper("\(L("Tag", "Day")): \(day)", value: $day, in: 1...31)
                 }
             }
-            .navigationTitle(L("Neue Prognose", "New forecast"))
+            .navigationTitle(existing == nil ? L("Neue Prognose", "New forecast") : L("Prognose bearbeiten", "Edit forecast"))
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button(L("Abbrechen", "Cancel")) { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button(L("Speichern", "Save")) {
-                        guard let cents = Money.cents(from: amount), !name.isEmpty else { return }
-                        context.insert(IncomeForecast(name: name, amountCents: abs(cents), accountID: accountID, cadence: cadence, firstPaymentDate: firstDate, dueRule: dueRule, dayOfMonth: day))
-                        try? context.save()
-                        dismiss()
-                    }
+                    Button(L("Speichern", "Save")) { save() }
                 }
             }
         }
+    }
+
+    private func save() {
+        guard let cents = Money.cents(from: amount), !name.isEmpty else { return }
+        let forecast = existing ?? IncomeForecast(name: name, amountCents: abs(cents))
+        forecast.name = name
+        forecast.amountCents = abs(cents)
+        forecast.accountID = accountID
+        forecast.cadence = cadence
+        forecast.firstPaymentDate = firstDate
+        forecast.dueRule = dueRule
+        forecast.dayOfMonth = day
+        if existing == nil { context.insert(forecast) }
+        try? context.save()
+        dismiss()
     }
 }
