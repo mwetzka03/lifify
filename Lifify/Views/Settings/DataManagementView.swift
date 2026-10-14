@@ -33,20 +33,21 @@ struct DataManagementView: View {
     var body: some View {
         Form {
             Section {
-                Picker(L("Zielkonto", "Destination account"), selection: $viewModel.selectedAccountID) {
-                    Text(L("Auswählen", "Select")).tag(Optional<UUID>.none)
-                    ForEach(accounts.filter { $0.kind != .portfolio && $0.kind != .savingsGroup }) {
-                        Text($0.name).tag(Optional($0.id))
+                Picker(L("Zielkonto", "Destination account"), selection: $viewModel.destination) {
+                    Text(L("Auswählen", "Select")).tag(Optional<BankImportDestination>.none)
+                    Text(L("Neues separates Girokonto", "New separate checking account")).tag(Optional(BankImportDestination.separateChecking))
+                    ForEach(accounts.filter { $0.kind != .portfolio && $0.kind != .savingsGroup }) { account in
+                        Text(account.name).tag(Optional(BankImportDestination.account(account.id)))
                     }
                 }
                 Button {
                     importingBank = true
                 } label: {
-                    Label(L("CSV oder einzelne CAMT-Datei importieren", "Import CSV or one CAMT file"), systemImage: "square.and.arrow.down")
+                    Label(L("CSV, CAMT oder PDF importieren", "Import CSV, CAMT, or PDF"), systemImage: "square.and.arrow.down")
                 }
                 Text(L(
-                    "Unterstützt CSV und eine CAMT-XML-Datei. ZIP und MT940 werden nicht verarbeitet.",
-                    "Supports CSV and one CAMT XML file. ZIP and MT940 are not processed."
+                    "CSV, eine CAMT-XML-Datei oder ein Trade-Republic-Kontoauszug. Beim PDF zählt nur die Umsatzübersicht. Ohne Auswahl wird dafür ein separates Girokonto angelegt; das Hauptkonto bleibt, außer du wählst es aus. Aktien aus Handel landen im verknüpften Depot.",
+                    "CSV, one CAMT XML file, or a Trade Republic statement. Only the transaction overview of a PDF is imported. With no selection, that statement creates a separate checking account; the main account stays unless you choose it. Stock trades go into the linked portfolio."
                 ))
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -76,7 +77,7 @@ struct DataManagementView: View {
         .navigationTitle(L("Import & Sicherung", "Import & backup"))
         .fileImporter(
             isPresented: $importingBank,
-            allowedContentTypes: [.commaSeparatedText, .xml, .plainText],
+            allowedContentTypes: [.commaSeparatedText, .xml, .plainText, .pdf],
             allowsMultipleSelection: false
         ) { result in
             if case let .success(urls) = result, let url = urls.first {

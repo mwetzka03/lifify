@@ -4,7 +4,7 @@ import SwiftData
 
 @MainActor
 final class DataImportViewModel: ObservableObject {
-    @Published var selectedAccountID: UUID?
+    @Published var destination: BankImportDestination?
     @Published var message: String?
 
     func importBankFile(
@@ -15,40 +15,62 @@ final class DataImportViewModel: ObservableObject {
         let accessing = url.startAccessingSecurityScopedResource()
         defer { if accessing { url.stopAccessingSecurityScopedResource() } }
         do {
-            guard let accountID = selectedAccountID else {
+            let data = try Data(contentsOf: url)
+            let document = try BankImportService.parseDocument(data: data, fileExtension: url.pathExtension)
+            let target: BankImportDestination
+            if let destination {
+                target = destination
+            } else if document.tradeRepublic != nil {
+                target = .separateChecking
+            } else {
                 message = L("Bitte zuerst ein Zielkonto auswählen.", "Select a destination account first.")
                 return
             }
-            let data = try Data(contentsOf: url)
-            let rows = try BankImportService.parse(data: data, fileExtension: url.pathExtension)
-            var known = Set(existingEntries.compactMap(\.importFingerprint))
-            var imported = 0
-            for row in rows {
+            let known = Set(existingEntries.compactMap(\.importFingerprint))
+            let result = try BankImportApplier.apply(
+                document: document,
+                to: target,
+                openingBalanceCents: nil,
+                context: context
+            )
+            for row in document.rows where row.amountCents > 0 && row.trade == nil {
                 let fingerprints = [row.fingerprint, row.legacyFingerprint].compactMap { $0 }
-                guard known.isDisjoint(with: fingerprints) else { continue }
-                let kind: LedgerKind = row.amountCents < 0 ? .expense : .income
-                let entry = LedgerEntry(
-                    date: row.date,
-                    title: row.title,
-                    notes: row.notes,
-                    amountCents: row.amountCents,
-                    kind: kind,
-                    accountID: accountID,
-                    importFingerprint: row.fingerprint
-                )
-                context.insert(entry)
-                if row.amountCents > 0,
-                   let forecastID = IncomeAssignmentStore.forecastID(for: row.senderIBAN) {
-                    IncomeAssignmentStore.assign(entryID: entry.id, to: forecastID)
-                }
-                known.formUnion(fingerprints)
-                imported += 1
+                guard known.isDisjoint(with: fingerprints),
+                      let entryID = result.entryIDs[row.fingerprint],
+                      let forecastID = IncomeAssignmentStore.forecastID(for: row.senderIBAN)
+                else { continue }
+                IncomeAssignmentStore.assign(entryID: entryID, to: forecastID)
             }
-            try context.save()
-            message = String(format: L("%d Buchungen importiert.", "%d transactions imported."), imported)
+            message = importMessage(for: result)
         } catch {
             message = error.localizedDescription
         }
+    }
+
+    private func importMessage(for result: BankImportResult) -> String {
+        var parts: [String] = []
+        if result.createdSeparateChecking {
+            parts.append(String(
+                format: L("Separates Girokonto „%@“ angelegt.", "Created the separate checking account “%@”."),
+                result.accountName
+            ))
+        } else {
+            parts.append(String(
+                format: L("Auf „%@“ gebucht.", "Booked to “%@”."),
+                result.accountName
+            ))
+        }
+        parts.append(String(
+            format: L("%d Buchungen importiert.", "%d transactions imported."),
+            result.importedCount
+        ))
+        if result.holdingCount > 0 {
+            parts.append(String(
+                format: L("%d Depotpositionen übernommen.", "%d portfolio positions imported."),
+                result.holdingCount
+            ))
+        }
+        return parts.joined(separator: " ")
     }
 
     func restoreBackup(from url: URL, context: ModelContext) {

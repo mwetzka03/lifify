@@ -12,6 +12,7 @@ struct ImportedTransaction: Identifiable {
     let recipientIBAN: String
     let fingerprint: String
     let legacyFingerprint: String?
+    let trade: ImportedSecurityTrade?
 
     init(
         id: UUID = UUID(),
@@ -23,7 +24,8 @@ struct ImportedTransaction: Identifiable {
         senderIBAN: String,
         recipientIBAN: String,
         fingerprint: String,
-        legacyFingerprint: String? = nil
+        legacyFingerprint: String? = nil,
+        trade: ImportedSecurityTrade? = nil
     ) {
         self.id = id
         self.date = date
@@ -35,32 +37,72 @@ struct ImportedTransaction: Identifiable {
         self.recipientIBAN = recipientIBAN
         self.fingerprint = fingerprint
         self.legacyFingerprint = legacyFingerprint
+        self.trade = trade
     }
+}
+
+struct ImportedSecurityTrade: Hashable {
+    var isin: String
+    var name: String
+    var quantity: Double
+    var isSale: Bool
+}
+
+struct TradeRepublicStatement {
+    var iban: String
+    var openingBalanceCents: Int
+    var closingBalanceCents: Int
+    var rows: [ImportedTransaction]
+}
+
+struct BankImportDocument {
+    var rows: [ImportedTransaction]
+    var tradeRepublic: TradeRepublicStatement?
+}
+
+enum BankImportDestination: Hashable {
+    case separateChecking
+    case account(UUID)
 }
 
 enum BankImportError: LocalizedError {
     case unreadableFile
     case unsupportedCSV
+    case unsupportedPDF
     case invalidXML
+    case missingAccount
 
     var errorDescription: String? {
         switch self {
         case .unreadableFile: L("Datei konnte nicht gelesen werden.", "The file could not be read.")
         case .unsupportedCSV: L("CSV-Spalten wurden nicht erkannt.", "CSV columns were not recognized.")
+        case .unsupportedPDF: L("Dieses PDF ist kein Trade-Republic-Kontoauszug.", "This PDF is not a Trade Republic statement.")
         case .invalidXML: L("CAMT-XML ist ungültig.", "The CAMT XML is invalid.")
+        case .missingAccount: L("Das gewählte Konto wurde nicht gefunden.", "The selected account was not found.")
         }
     }
 }
 
 enum BankImportService {
-    static func parse(data: Data, fileExtension: String) throws -> [ImportedTransaction] {
-        if fileExtension.lowercased() == "xml" || data.firstNonWhitespace == UInt8(ascii: "<") {
-            return try parseCAMT(data: data)
+    @MainActor
+    static func parseDocument(data: Data, fileExtension: String) throws -> BankImportDocument {
+        let extensionName = fileExtension.lowercased()
+        if extensionName == "pdf" || data.starts(with: Data("%PDF".utf8)) {
+            let statement = try TradeRepublicImporter.parse(data: data)
+            return BankImportDocument(rows: statement.rows, tradeRepublic: statement)
+        }
+        if extensionName == "xml" || data.firstNonWhitespace == UInt8(ascii: "<") {
+            return BankImportDocument(rows: try parseCAMT(data: data), tradeRepublic: nil)
         }
         guard let text = String(data: data, encoding: .utf8) ?? String(data: data, encoding: .isoLatin1) else {
             throw BankImportError.unreadableFile
         }
-        return try parseCSV(text)
+        return BankImportDocument(rows: try parseCSV(text), tradeRepublic: nil)
+    }
+
+    @MainActor
+    static func parse(data: Data, fileExtension: String) throws -> [ImportedTransaction] {
+        try parseDocument(data: data, fileExtension: fileExtension).rows
     }
 
     static func parseCSV(_ text: String) throws -> [ImportedTransaction] {
@@ -152,7 +194,7 @@ enum BankImportService {
         return delegate.rows
     }
 
-    private static func imported(
+    static func imported(
         date: Date,
         title: String,
         amount: Int,
@@ -160,7 +202,8 @@ enum BankImportService {
         recipientIBAN: String,
         legacyIBAN: String,
         legacyTitle: String,
-        details: String
+        details: String,
+        trade: ImportedSecurityTrade? = nil
     ) -> ImportedTransaction {
         let senderIBAN = validIBAN(senderIBAN) ?? ""
         let recipientIBAN = validIBAN(recipientIBAN) ?? ""
@@ -184,11 +227,12 @@ enum BankImportService {
             senderIBAN: senderIBAN,
             recipientIBAN: recipientIBAN,
             fingerprint: fingerprint,
-            legacyFingerprint: legacyFingerprint == fingerprint ? nil : legacyFingerprint
+            legacyFingerprint: legacyFingerprint == fingerprint ? nil : legacyFingerprint,
+            trade: trade
         )
     }
 
-    fileprivate static func makeFingerprint(date: Date, amount: Int, title: String, iban: String) -> String {
+    static func makeFingerprint(date: Date, amount: Int, title: String, iban: String) -> String {
         let source = "\(date.dayKey)|\(amount)|\(title)|\(iban)"
         return SHA256.hash(data: Data(source.utf8))
             .map { String(format: "%02x", $0) }
@@ -210,7 +254,7 @@ enum BankImportService {
         return candidate
     }
 
-    fileprivate static func ibanNotes(sender: String, recipient: String) -> String {
+    static func ibanNotes(sender: String, recipient: String) -> String {
         [
             sender.isEmpty ? nil : "\(L("Sender-IBAN", "Sender IBAN")): \(sender)",
             recipient.isEmpty ? nil : "\(L("Empfänger-IBAN", "Recipient IBAN")): \(recipient)"
