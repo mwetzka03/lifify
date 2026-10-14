@@ -133,7 +133,7 @@ enum TradeRepublicImporter {
             let lines = groupedLines(page)
             if lines.contains(where: { $0.contains { $0.text == "TRANSAKTIONSÜBERSICHT" } }) {
                 if let columns = columns(in: lines) ?? carried {
-                    rows.append(contentsOf: rows(on: lines, columns: columns))
+                    rows.append(contentsOf: transactions(on: lines, columns: columns))
                 }
                 break
             }
@@ -141,7 +141,7 @@ enum TradeRepublicImporter {
                 carried = detected
             }
             guard let columns = carried else { continue }
-            rows.append(contentsOf: rows(on: lines, columns: columns))
+            rows.append(contentsOf: transactions(on: lines, columns: columns))
         }
         return rows
     }
@@ -163,7 +163,7 @@ enum TradeRepublicImporter {
         return nil
     }
 
-    private static func rows(on lines: [[StatementWord]], columns: StatementColumns) -> [ImportedTransaction] {
+    private static func transactions(on lines: [[StatementWord]], columns: StatementColumns) -> [ImportedTransaction] {
         var content = lines.filter { ($0.map(\.y).max() ?? 0) < columns.headerY - 2 }
         if let stop = content.firstIndex(where: { line in
             line.contains {
