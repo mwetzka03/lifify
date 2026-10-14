@@ -142,7 +142,7 @@ enum WorkoutFormat {
         return String(format: "%d:%02d", clamped / 60, clamped % 60)
     }
 
-    static func previous(weight: Double, reps: Int) -> String {
-        "\(weight(weight)) kg × \(reps)"
+    static func previous(weight weightKg: Double, reps: Int) -> String {
+        "\(weight(weightKg)) kg × \(reps)"
     }
 }
