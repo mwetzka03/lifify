@@ -4,31 +4,17 @@ enum HealthRoute: Hashable {
     case plan(UUID)
     case session(UUID)
     case history(UUID)
+    case historyList
 }
 
 struct HealthView: View {
     @EnvironmentObject private var store: WorkoutStore
-    @AppStorage(WorkoutAPIKey.storageKey) private var apiKey = ""
     @State private var editorPlan: WorkoutPlan?
-    @State private var showingKey = false
+    @State private var showingMeal = false
 
     var body: some View {
         List {
-            if apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                Section {
-                    Button {
-                        showingKey = true
-                    } label: {
-                        Label(L("Workout-API-Schlüssel hinterlegen", "Add Workout API key"), systemImage: "key")
-                    }
-                } footer: {
-                    Text(L(
-                        "Übungen und Bilder kommen aus der Workout API.",
-                        "Exercises and images come from the Workout API."
-                    ))
-                }
-            }
-            Section(L("Trainingspläne", "Workout plans")) {
+            Section {
                 if store.plans.isEmpty {
                     Text(L("Noch kein Trainingsplan.", "No workout plan yet."))
                         .foregroundStyle(.secondary)
@@ -68,13 +54,20 @@ struct HealthView: View {
                         .tint(.blue)
                     }
                 }
+                Button {
+                    editorPlan = WorkoutPlan(name: "")
+                } label: {
+                    Label(L("Training anlegen", "Create workout"), systemImage: "plus")
+                }
+            } header: {
+                sectionTitle(L("Training", "Training"))
             }
-            Section(L("Verlauf", "History")) {
+            Section {
                 if store.sessions.isEmpty {
                     Text(L("Noch kein abgeschlossenes Training.", "No finished workout yet."))
                         .foregroundStyle(.secondary)
                 }
-                ForEach(store.sessions) { session in
+                ForEach(Array(store.sessions.prefix(3))) { session in
                     NavigationLink(value: HealthRoute.history(session.id)) {
                         HStack(spacing: 12) {
                             VStack(alignment: .leading, spacing: 4) {
@@ -86,7 +79,7 @@ struct HealthView: View {
                             }
                             Spacer(minLength: 8)
                             HStack(spacing: -10) {
-                                ForEach(session.exercises.prefix(3)) { exercise in
+                                ForEach(session.performedExercises.prefix(3)) { exercise in
                                     ExerciseArtwork(code: exercise.code, side: 36)
                                 }
                             }
@@ -101,31 +94,63 @@ struct HealthView: View {
                         }
                     }
                 }
-            }
-        }
-        .navigationTitle(L("Gesundheit", "Health"))
-        .navigationDestination(for: HealthRoute.self) { HealthRouteScreen(route: $0) }
-        .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                Button { showingKey = true } label: { Image(systemName: "key") }
-                    .accessibilityLabel(L("API-Schlüssel", "API key"))
-            }
-            ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    editorPlan = WorkoutPlan(name: "")
-                } label: {
-                    Image(systemName: "plus")
+                if store.sessions.count > 3 {
+                    NavigationLink(value: HealthRoute.historyList) {
+                        Text(L("Gesamter Verlauf", "Full history"))
+                    }
                 }
-                .accessibilityLabel(L("Trainingsplan anlegen", "Create workout plan"))
+            } header: {
+                sectionTitle(L("Verlauf", "History"))
+            }
+            Section {
+                if store.meals.isEmpty {
+                    Text(L("Noch kein Eintrag.", "Nothing here yet."))
+                        .foregroundStyle(.secondary)
+                }
+                ForEach(store.meals) { meal in
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(meal.name)
+                            .font(.body.weight(.semibold))
+                        Text(meal.detail.isEmpty ? AppDate.numeric(meal.date) : "\(AppDate.numeric(meal.date)) · \(meal.detail)")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.vertical, 4)
+                    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                        Button(role: .destructive) {
+                            store.deleteMeal(id: meal.id)
+                        } label: {
+                            Label(L("Löschen", "Delete"), systemImage: "trash")
+                        }
+                    }
+                }
+                Button {
+                    showingMeal = true
+                } label: {
+                    Label(L("Eintrag hinzufügen", "Add entry"), systemImage: "plus")
+                }
+            } header: {
+                sectionTitle(L("Ernährung", "Nutrition"))
             }
         }
+        .navigationTitle("")
+        .navigationBarTitleDisplayMode(.inline)
+        .navigationDestination(for: HealthRoute.self) { HealthRouteScreen(route: $0) }
         .sheet(item: $editorPlan) { plan in
             WorkoutEditorView(plan: plan)
                 .environmentObject(store)
         }
-        .sheet(isPresented: $showingKey) {
-            WorkoutAPIKeySheet()
+        .sheet(isPresented: $showingMeal) {
+            MealEntrySheet()
+                .environmentObject(store)
         }
+    }
+
+    private func sectionTitle(_ title: String) -> some View {
+        Text(title)
+            .font(.title3.weight(.semibold))
+            .foregroundStyle(.primary)
+            .textCase(nil)
     }
 
     private func planSummary(_ plan: WorkoutPlan) -> String {
@@ -155,6 +180,8 @@ struct HealthRouteScreen: View {
             WorkoutSessionRoute(planID: id)
         case .history(let id):
             WorkoutHistoryView(sessionID: id)
+        case .historyList:
+            WorkoutHistoryListView()
         }
     }
 }
@@ -248,7 +275,12 @@ struct WorkoutHistoryView: View {
                         Text(AppDate.numeric(session.finishedAt))
                             .font(.headline)
                             .foregroundStyle(.secondary)
-                        ForEach(session.exercises) { exercise in
+                        let performed = session.performedExercises
+                        if performed.isEmpty {
+                            Text(L("Keine abgeschlossene Übung.", "No completed exercise."))
+                                .foregroundStyle(.secondary)
+                        }
+                        ForEach(performed) { exercise in
                             VStack(alignment: .leading, spacing: 8) {
                                 HStack(spacing: 12) {
                                     ExerciseArtwork(code: exercise.code)
@@ -262,8 +294,8 @@ struct WorkoutHistoryView: View {
                                         Text("\(WorkoutFormat.weight(set.weightKg)) kg × \(set.reps)")
                                             .monospacedDigit()
                                         Spacer()
-                                        Image(systemName: set.completed ? "checkmark.circle.fill" : "circle")
-                                            .foregroundStyle(set.completed ? Color.green : Color.secondary)
+                                        Image(systemName: "checkmark.circle.fill")
+                                            .foregroundStyle(Color.green)
                                     }
                                     .font(.body)
                                 }
@@ -284,23 +316,55 @@ struct WorkoutHistoryView: View {
     }
 }
 
-private struct WorkoutAPIKeySheet: View {
+struct WorkoutHistoryListView: View {
+    @EnvironmentObject private var store: WorkoutStore
+
+    var body: some View {
+        List {
+            if store.sessions.isEmpty {
+                Text(L("Noch kein abgeschlossenes Training.", "No finished workout yet."))
+                    .foregroundStyle(.secondary)
+            }
+            ForEach(store.sessions) { session in
+                NavigationLink(value: HealthRoute.history(session.id)) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(session.planName)
+                            .font(.body.weight(.semibold))
+                        Text(AppDate.numeric(session.finishedAt))
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.vertical, 4)
+                }
+                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                    Button(role: .destructive) {
+                        store.deleteSession(id: session.id)
+                    } label: {
+                        Label(L("Löschen", "Delete"), systemImage: "trash")
+                    }
+                }
+            }
+        }
+        .navigationTitle(L("Verlauf", "History"))
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+private struct MealEntrySheet: View {
     @Environment(\.dismiss) private var dismiss
-    @AppStorage(WorkoutAPIKey.storageKey) private var apiKey = ""
-    @State private var draft = ""
+    @EnvironmentObject private var store: WorkoutStore
+    @State private var name = ""
+    @State private var detail = ""
+    @State private var date = Date.now
 
     var body: some View {
         NavigationStack {
             Form {
-                SecureField(L("API-Schlüssel", "API key"), text: $draft)
-                Text(L(
-                    "Den Schlüssel findest du im Konto auf workoutapi.com. Er bleibt nur auf diesem Gerät gespeichert.",
-                    "The key is in your workoutapi.com account. It stays on this device only."
-                ))
-                .font(.footnote)
-                .foregroundStyle(.secondary)
+                TextField(L("Bezeichnung", "Name"), text: $name)
+                TextField(L("Notiz", "Note"), text: $detail)
+                DatePicker(L("Datum", "Date"), selection: $date, displayedComponents: .date)
             }
-            .navigationTitle(L("Workout API", "Workout API"))
+            .navigationTitle(L("Ernährung", "Nutrition"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -308,13 +372,16 @@ private struct WorkoutAPIKeySheet: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(L("Speichern", "Save")) {
-                        apiKey = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+                        store.save(meal: MealEntry(
+                            name: name.trimmingCharacters(in: .whitespacesAndNewlines),
+                            detail: detail.trimmingCharacters(in: .whitespacesAndNewlines),
+                            date: date
+                        ))
                         dismiss()
                     }
-                    .disabled(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
             }
-            .onAppear { draft = apiKey }
         }
     }
 }

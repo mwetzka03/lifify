@@ -72,6 +72,16 @@ struct WorkoutSession: Codable, Identifiable, Hashable {
             )
         }
     }
+
+    var performedExercises: [WorkoutSessionExercise] {
+        exercises.compactMap { exercise in
+            let completed = exercise.sets.filter(\.completed)
+            guard !completed.isEmpty else { return nil }
+            var copy = exercise
+            copy.sets = completed
+            return copy
+        }
+    }
 }
 
 struct WorkoutSessionExercise: Codable, Identifiable, Hashable {
@@ -112,6 +122,20 @@ struct WorkoutSessionSet: Codable, Identifiable, Hashable {
         self.completed = completed
         self.targetWeightKg = targetWeightKg
         self.targetReps = targetReps
+    }
+}
+
+struct MealEntry: Codable, Identifiable, Hashable {
+    var id: UUID
+    var name: String
+    var detail: String
+    var date: Date
+
+    init(id: UUID = UUID(), name: String, detail: String = "", date: Date = .now) {
+        self.id = id
+        self.name = name
+        self.detail = detail
+        self.date = date
     }
 }
 

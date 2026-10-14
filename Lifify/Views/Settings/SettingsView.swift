@@ -10,6 +10,8 @@ struct SettingsView: View {
     @AppStorage("userName") private var userName = ""
     @AppStorage("dashboardPeriodMode") private var dashboardPeriod = DashboardPeriodMode.calendarMonth.rawValue
     @AppStorage("onboardingStep") private var onboardingStep = 0
+    @AppStorage(WorkoutAPIKey.storageKey) private var workoutAPIKey = ""
+    @AppStorage(RestChime.storageKey) private var restChimeID = 1005
     @State private var destructiveAction: DestructiveAction?
     @State private var resetError: String?
 
@@ -32,6 +34,22 @@ struct SettingsView: View {
                 Picker(L("Erscheinungsbild", "Appearance"), selection: $theme) {
                     ForEach(AppTheme.allCases) { Text($0.label).tag($0.rawValue) }
                 }
+            }
+            Section {
+                NavigationLink {
+                    RestChimePicker(selection: $restChimeID)
+                } label: {
+                    LabeledContent(L("Klingelton", "Chime"), value: RestChime.tones.first { $0.id == restChimeID }?.name ?? RestChime.selectedName)
+                }
+                SecureField(L("Workout-API-Schlüssel", "Workout API key"), text: $workoutAPIKey)
+                Text(L(
+                    "Der Klingelton beendet die Satzpause. Der Schlüssel lädt Übungen und Bilder und bleibt auf diesem Gerät.",
+                    "The chime ends a rest period. The key loads exercises and images and stays on this device."
+                ))
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+            } header: {
+                Text(L("Training", "Training"))
             }
             Section(L("Daten", "Data")) {
                 NavigationLink {
@@ -138,5 +156,30 @@ private enum DestructiveAction {
                 "Accounts and settings will also be deleted. Initial setup starts again afterward."
             )
         }
+    }
+}
+
+private struct RestChimePicker: View {
+    @Binding var selection: Int
+
+    var body: some View {
+        List(RestChime.tones) { tone in
+            Button {
+                selection = tone.id
+                RestChime.preview(tone.id)
+            } label: {
+                HStack {
+                    Text(tone.name)
+                        .foregroundStyle(.primary)
+                    Spacer()
+                    if tone.id == selection {
+                        Image(systemName: "checkmark")
+                            .foregroundStyle(Color.accentColor)
+                    }
+                }
+            }
+        }
+        .navigationTitle(L("Klingelton", "Chime"))
+        .navigationBarTitleDisplayMode(.inline)
     }
 }

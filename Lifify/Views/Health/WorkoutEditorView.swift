@@ -7,6 +7,7 @@ struct WorkoutEditorView: View {
     @State private var weightText: [UUID: String]
     @State private var repsText: [UUID: String]
     @State private var showingSearch = false
+    @State private var didApplyFrequent = false
 
     init(plan: WorkoutPlan) {
         _plan = State(initialValue: plan)
@@ -60,6 +61,22 @@ struct WorkoutEditorView: View {
                     Button(L("Speichern", "Save")) { save() }
                         .buttonStyle(.borderedProminent)
                         .disabled(plan.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            }
+            .onAppear {
+                guard !didApplyFrequent else { return }
+                didApplyFrequent = true
+                for exerciseIndex in plan.exercises.indices {
+                    let code = plan.exercises[exerciseIndex].code
+                    for setIndex in plan.exercises[exerciseIndex].sets.indices {
+                        guard let frequent = WorkoutProgress.frequentWeight(
+                            sessions: store.sessions,
+                            exerciseCode: code,
+                            setIndex: setIndex
+                        ) else { continue }
+                        plan.exercises[exerciseIndex].sets[setIndex].weightKg = frequent
+                        weightText[plan.exercises[exerciseIndex].sets[setIndex].id] = WorkoutFormat.weight(frequent)
+                    }
                 }
             }
             .sheet(isPresented: $showingSearch) {
@@ -154,7 +171,11 @@ struct WorkoutEditorView: View {
                 } else {
                     Text("–").foregroundStyle(.tertiary)
                 }
-                if let frequent = WorkoutProgress.frequentWeight(sessions: store.sessions, exerciseCode: exercise.code) {
+                if let frequent = WorkoutProgress.frequentWeight(
+                    sessions: store.sessions,
+                    exerciseCode: exercise.code,
+                    setIndex: index
+                ) {
                     Text("\(L("Häufig", "Usual")) \(WorkoutFormat.weight(frequent)) kg")
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -180,7 +201,6 @@ struct WorkoutEditorView: View {
             }
             .buttonStyle(.plain)
             .foregroundStyle(.secondary)
-            .disabled(exercise.sets.count <= 1)
         }
     }
 

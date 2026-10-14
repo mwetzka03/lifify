@@ -76,7 +76,7 @@ enum BankImportError: LocalizedError {
         switch self {
         case .unreadableFile: L("Datei konnte nicht gelesen werden.", "The file could not be read.")
         case .unsupportedCSV: L("CSV-Spalten wurden nicht erkannt.", "CSV columns were not recognized.")
-        case .unsupportedPDF: L("Dieses PDF ist kein Trade-Republic-Kontoauszug.", "This PDF is not a Trade Republic statement.")
+        case .unsupportedPDF: L("Dieses PDF ist kein Kontoauszug.", "This PDF is not a bank statement.")
         case .invalidXML: L("CAMT-XML ist ungültig.", "The CAMT XML is invalid.")
         case .missingAccount: L("Das gewählte Konto wurde nicht gefunden.", "The selected account was not found.")
         }

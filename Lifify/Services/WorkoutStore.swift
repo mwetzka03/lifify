@@ -4,6 +4,7 @@ import Foundation
 final class WorkoutStore: ObservableObject {
     @Published private(set) var plans: [WorkoutPlan] = []
     @Published private(set) var sessions: [WorkoutSession] = []
+    @Published private(set) var meals: [MealEntry] = []
 
     private let fileURL: URL
     private let encoder: JSONEncoder
@@ -53,6 +54,7 @@ final class WorkoutStore: ObservableObject {
             sessions.insert(session, at: 0)
         }
         sessions.sort { $0.finishedAt > $1.finishedAt }
+        rememberFrequentWeights(from: session)
         persist()
     }
 
@@ -61,9 +63,71 @@ final class WorkoutStore: ObservableObject {
         persist()
     }
 
+    func save(meal: MealEntry) {
+        if let index = meals.firstIndex(where: { $0.id == meal.id }) {
+            meals[index] = meal
+        } else {
+            meals.insert(meal, at: 0)
+        }
+        meals.sort { $0.date > $1.date }
+        persist()
+    }
+
+    func deleteMeal(id: UUID) {
+        meals.removeAll { $0.id == id }
+        persist()
+    }
+
+    private func rememberFrequentWeights(from session: WorkoutSession) {
+        guard var plan = plans.first(where: { $0.id == session.planID }) else { return }
+        let history = sessions
+        for exerciseIndex in plan.exercises.indices {
+            let code = plan.exercises[exerciseIndex].code
+            for setIndex in plan.exercises[exerciseIndex].sets.indices {
+                guard let frequent = WorkoutProgress.frequentWeight(
+                    sessions: history,
+                    exerciseCode: code,
+                    setIndex: setIndex
+                ) else { continue }
+                plan.exercises[exerciseIndex].sets[setIndex].weightKg = frequent
+            }
+        }
+        plan.updatedAt = .now
+        if let index = plans.firstIndex(where: { $0.id == plan.id }) {
+            plans[index] = plan
+        }
+    }
+
     private struct Snapshot: Codable {
         var plans: [WorkoutPlan]
         var sessions: [WorkoutSession]
+        var meals: [MealEntry]
+
+        private enum CodingKeys: String, CodingKey {
+            case plans
+            case sessions
+            case meals
+        }
+
+        init(plans: [WorkoutPlan], sessions: [WorkoutSession], meals: [MealEntry]) {
+            self.plans = plans
+            self.sessions = sessions
+            self.meals = meals
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            plans = try container.decode([WorkoutPlan].self, forKey: .plans)
+            sessions = try container.decode([WorkoutSession].self, forKey: .sessions)
+            meals = try container.decodeIfPresent([MealEntry].self, forKey: .meals) ?? []
+        }
+
+        func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode(plans, forKey: .plans)
+            try container.encode(sessions, forKey: .sessions)
+            try container.encode(meals, forKey: .meals)
+        }
     }
 
     private func load() {
@@ -73,6 +137,7 @@ final class WorkoutStore: ObservableObject {
             let snapshot = try decoder.decode(Snapshot.self, from: data)
             plans = snapshot.plans.sorted { $0.updatedAt > $1.updatedAt }
             sessions = snapshot.sessions.sorted { $0.finishedAt > $1.finishedAt }
+            meals = snapshot.meals.sorted { $0.date > $1.date }
         } catch {
             let broken = fileURL.deletingLastPathComponent().appendingPathComponent("workouts-broken.json")
             try? FileManager.default.removeItem(at: broken)
@@ -84,7 +149,7 @@ final class WorkoutStore: ObservableObject {
         do {
             let directory = fileURL.deletingLastPathComponent()
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-            let data = try encoder.encode(Snapshot(plans: plans, sessions: sessions))
+            let data = try encoder.encode(Snapshot(plans: plans, sessions: sessions, meals: meals))
             try data.write(to: fileURL, options: .atomic)
         } catch {
             return

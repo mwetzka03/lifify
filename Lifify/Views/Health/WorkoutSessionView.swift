@@ -13,6 +13,7 @@ struct WorkoutSessionView: View {
     @State private var restSetID: UUID?
     @State private var restToken = UUID()
     @State private var showDiscard = false
+    @State private var didApplyFrequent = false
 
     init(plan: WorkoutPlan) {
         self.plan = plan
@@ -54,7 +55,12 @@ struct WorkoutSessionView: View {
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(true)
         .background(WorkoutSwipeBackLock())
-        .onAppear { UIApplication.shared.isIdleTimerDisabled = true }
+        .onAppear {
+            UIApplication.shared.isIdleTimerDisabled = true
+            guard !didApplyFrequent else { return }
+            didApplyFrequent = true
+            applyFrequentWeights()
+        }
         .onDisappear { UIApplication.shared.isIdleTimerDisabled = false }
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
@@ -94,6 +100,15 @@ struct WorkoutSessionView: View {
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
+                Spacer(minLength: 8)
+                Button(role: .destructive) {
+                    deleteExercise(exercise.id)
+                } label: {
+                    Image(systemName: "trash")
+                        .frame(width: 32, height: 36)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(L("Übung entfernen", "Remove exercise"))
             }
             if WorkoutProgress.readyToProgress(
                 sessions: store.sessions,
@@ -173,7 +188,8 @@ struct WorkoutSessionView: View {
                     }
                     if let frequent = WorkoutProgress.frequentWeight(
                         sessions: store.sessions,
-                        exerciseCode: exercise.code
+                        exerciseCode: exercise.code,
+                        setIndex: setIndex
                     ) {
                         Text("\(L("Häufig", "Usual")) \(WorkoutFormat.weight(frequent)) kg")
                             .font(.caption)
@@ -201,6 +217,15 @@ struct WorkoutSessionView: View {
                         .frame(width: 32, height: 36)
                 }
                 .buttonStyle(.plain)
+                Button {
+                    deleteSet(exerciseID: exercise.id, setID: set.id)
+                } label: {
+                    Image(systemName: "minus.circle")
+                        .frame(width: 28, height: 36)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+                .accessibilityLabel(L("Satz löschen", "Delete set"))
             }
             if restSetID == set.id, let restEndsAt {
                 RestCountdown(endsAt: restEndsAt, total: restTotal)
@@ -222,18 +247,66 @@ struct WorkoutSessionView: View {
     }
 
     private func weightBinding(_ id: UUID) -> Binding<String> {
-        Binding(get: { weightText[id] ?? "" }, set: { weightText[id] = $0 })
+        Binding(get: { weightText[id] ?? "" }, set: { newValue in
+            weightText[id] = newValue
+            guard let weight = WorkoutFormat.weight(from: newValue) else { return }
+            for exerciseIndex in draft.exercises.indices {
+                guard let setIndex = draft.exercises[exerciseIndex].sets.firstIndex(where: { $0.id == id }) else { continue }
+                draft.exercises[exerciseIndex].sets[setIndex].weightKg = weight
+            }
+        })
     }
 
     private func repsBinding(_ id: UUID) -> Binding<String> {
         Binding(get: { repsText[id] ?? "" }, set: { repsText[id] = $0.filter(\.isNumber) })
     }
 
-    private func applyWeight(_ weight: Double, exerciseIndex: Int) {
+    private func applyFrequentWeights() {
+        for exerciseIndex in draft.exercises.indices {
+            let code = draft.exercises[exerciseIndex].code
+            for setIndex in draft.exercises[exerciseIndex].sets.indices {
+                guard let frequent = WorkoutProgress.frequentWeight(
+                    sessions: store.sessions,
+                    exerciseCode: code,
+                    setIndex: setIndex
+                ) else { continue }
+                let id = draft.exercises[exerciseIndex].sets[setIndex].id
+                draft.exercises[exerciseIndex].sets[setIndex].weightKg = frequent
+                weightText[id] = WorkoutFormat.weight(frequent)
+            }
+        }
+    }
+
+    private func deleteExercise(_ id: UUID) {
+        if let exercise = draft.exercises.first(where: { $0.id == id }) {
+            for set in exercise.sets {
+                weightText[set.id] = nil
+                repsText[set.id] = nil
+                if restSetID == set.id {
+                    restEndsAt = nil
+                    restSetID = nil
+                }
+            }
+        }
+        draft.exercises.removeAll { $0.id == id }
+    }
+
+    private func deleteSet(exerciseID: UUID, setID: UUID) {
+        guard let exerciseIndex = draft.exercises.firstIndex(where: { $0.id == exerciseID }) else { return }
+        draft.exercises[exerciseIndex].sets.removeAll { $0.id == setID }
+        weightText[setID] = nil
+        repsText[setID] = nil
+        if restSetID == setID {
+            restEndsAt = nil
+            restSetID = nil
+        }
+    }
+
+    private func applyWeight(_ weightKg: Double, exerciseIndex: Int) {
         for setIndex in draft.exercises[exerciseIndex].sets.indices {
             guard !draft.exercises[exerciseIndex].sets[setIndex].completed else { continue }
-            draft.exercises[exerciseIndex].sets[setIndex].weightKg = weight
-            weightText[draft.exercises[exerciseIndex].sets[setIndex].id] = WorkoutFormat.weight(weight)
+            draft.exercises[exerciseIndex].sets[setIndex].weightKg = weightKg
+            weightText[draft.exercises[exerciseIndex].sets[setIndex].id] = WorkoutFormat.weight(weightKg)
         }
     }
 

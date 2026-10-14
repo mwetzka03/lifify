@@ -32,10 +32,12 @@ enum WorkoutProgress {
         setIndex: Int
     ) -> (weight: Double, reps: Int)? {
         for session in sessionsNewestFirst(sessions) {
-            guard let exercise = session.exercises.first(where: { $0.code == exerciseCode }) else { continue }
-            let completed = exercise.sets.filter(\.completed)
-            guard completed.indices.contains(setIndex) else { continue }
-            return (completed[setIndex].weightKg, completed[setIndex].reps)
+            guard let exercise = session.exercises.first(where: { $0.code == exerciseCode }),
+                  exercise.sets.indices.contains(setIndex)
+            else { continue }
+            let set = exercise.sets[setIndex]
+            guard set.completed else { continue }
+            return (set.weightKg, set.reps)
         }
         return nil
     }
@@ -43,12 +45,16 @@ enum WorkoutProgress {
     static func frequentWeight(
         sessions: [WorkoutSession],
         exerciseCode: String,
+        setIndex: Int,
         limit: Int = 5
     ) -> Double? {
         let weights = sessionsNewestFirst(sessions).compactMap { session -> [Double]? in
-            guard let exercise = session.exercises.first(where: { $0.code == exerciseCode }) else { return nil }
-            let completed = exercise.sets.filter(\.completed).map(\.weightKg)
-            return completed.isEmpty ? nil : completed
+            guard let exercise = session.exercises.first(where: { $0.code == exerciseCode }),
+                  exercise.sets.indices.contains(setIndex)
+            else { return nil }
+            let set = exercise.sets[setIndex]
+            guard set.completed else { return nil }
+            return [set.weightKg]
         }
         return frequentWeight(weightsNewestFirst: weights, limit: limit)
     }

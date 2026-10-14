@@ -17,8 +17,8 @@ struct ExerciseSearchView: View {
                         L("API-Schlüssel fehlt", "API key missing"),
                         systemImage: "key",
                         description: Text(L(
-                            "Hinterlege den Schlüssel aus deinem Workout-API-Konto, damit Übungen und Bilder geladen werden.",
-                            "Add the key from your Workout API account so exercises and images can load."
+                            "Hinterlege den Schlüssel in den Einstellungen, damit Übungen und Bilder geladen werden.",
+                            "Add the key in Settings so exercises and images can load."
                         ))
                     )
                 } else {
