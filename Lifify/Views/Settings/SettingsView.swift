@@ -12,6 +12,9 @@ struct SettingsView: View {
     @AppStorage("onboardingStep") private var onboardingStep = 0
     @AppStorage(WorkoutAPIKey.storageKey) private var workoutAPIKey = ""
     @AppStorage(RestChime.storageKey) private var restChimeID = 1005
+    @AppStorage(TradeFeePreference.storageKey) private var defaultTradeFeeCents = TradeFeePreference.defaultCents
+    @EnvironmentObject private var workouts: WorkoutStore
+    @State private var feeText = ""
     @State private var destructiveAction: DestructiveAction?
     @State private var resetError: String?
 
@@ -50,6 +53,26 @@ struct SettingsView: View {
                 .foregroundStyle(.secondary)
             } header: {
                 Text(L("Training", "Training"))
+            }
+            Section {
+                HStack {
+                    Text(L("Gebühr pro Buchung", "Fee per booking"))
+                    Spacer()
+                    TextField("1,00", text: $feeText)
+                        .keyboardType(.decimalPad)
+                        .multilineTextAlignment(.trailing)
+                        .frame(maxWidth: 90)
+                    Text("€")
+                        .foregroundStyle(.secondary)
+                }
+                Text(L(
+                    "Standard für Nachkauf und Verkauf ist 1 €. Die Gebühr gilt einmal pro Buchung, nicht pro Stück.",
+                    "The default for additional buys and sales is €1. The fee applies once per booking, not per share."
+                ))
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+            } header: {
+                Text(L("Depot", "Portfolio"))
             }
             Section(L("Daten", "Data")) {
                 NavigationLink {
@@ -103,6 +126,10 @@ struct SettingsView: View {
                         try BackupService.deleteUserData(from: context)
                     case .resetApp:
                         try BackupService.resetApp(from: context)
+                        workouts.reset()
+                        ExerciseImageStore.removeAll()
+                        defaultTradeFeeCents = TradeFeePreference.defaultCents
+                        feeText = TradeFeePreference.editString(cents: TradeFeePreference.defaultCents)
                         language = "de"
                         theme = AppTheme.system.rawValue
                         userName = ""
@@ -120,6 +147,15 @@ struct SettingsView: View {
             }
         } message: {
             Text(destructiveAction?.message ?? "")
+        }
+        .onAppear {
+            if feeText.isEmpty {
+                feeText = TradeFeePreference.editString(cents: defaultTradeFeeCents)
+            }
+        }
+        .onChange(of: feeText) {
+            guard let cents = Money.cents(from: feeText), cents >= 0 else { return }
+            defaultTradeFeeCents = cents
         }
         .alert(L("Zurücksetzen fehlgeschlagen", "Reset failed"), isPresented: Binding(
             get: { resetError != nil },
@@ -152,8 +188,8 @@ private enum DestructiveAction {
             )
         case .resetApp:
             L(
-                "Auch Konten und Einstellungen werden gelöscht. Danach beginnt die Ersteinrichtung erneut.",
-                "Accounts and settings will also be deleted. Initial setup starts again afterward."
+                "Auch Konten, Trainingsdaten und Einstellungen werden gelöscht. Danach beginnt die Ersteinrichtung erneut.",
+                "Accounts, workout data, and settings will also be deleted. Initial setup starts again afterward."
             )
         }
     }

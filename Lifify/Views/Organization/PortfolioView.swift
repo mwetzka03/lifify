@@ -68,7 +68,7 @@ struct PortfolioView: View {
                 }
                 .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                     Button(role: .destructive) {
-                        delete(holding)
+                        deleteHolding(holding)
                     } label: {
                         Label(L("Löschen", "Delete"), systemImage: "trash")
                     }
@@ -112,7 +112,7 @@ struct PortfolioView: View {
         .sheet(item: $selected) { HoldingDetailView(holding: $0) }
     }
 
-    private func delete(_ holding: PortfolioHolding) {
+    fileprivate func deleteHolding(_ holding: PortfolioHolding) {
         MarketSymbolStore.remove(for: holding.id)
         PreviousCloseStore.remove(for: holding.id)
         HoldingPurchaseDateStore.remove(for: holding.id)
@@ -145,6 +145,173 @@ struct PortfolioView: View {
     }
 
     private func selectedPerformanceLabel(_ performance: HoldingPerformance) -> some View {
+        let selected = performance.selected(basis: basis, unit: unit)
+        return Text(selected.text)
+            .font(.caption.bold())
+            .foregroundStyle(selected.cents < 0 ? .red : (selected.cents > 0 ? .green : .secondary))
+    }
+}
+
+struct PortfolioElementsView: View {
+    var accountID: UUID?
+    @Environment(\.modelContext) private var context
+    @Query(sort: \PortfolioHolding.name) private var holdings: [PortfolioHolding]
+    @AppStorage("portfolioPerformanceBasis") private var basis = PortfolioBasis.today.rawValue
+    @AppStorage("portfolioPerformanceUnit") private var unit = PortfolioUnit.percent.rawValue
+    @AppStorage("portfolioSort") private var sort = PortfolioSort.value.rawValue
+    @State private var showingNew = false
+    @State private var edited: PortfolioHolding?
+    @State private var selected: PortfolioHolding?
+    @State private var isRefreshing = false
+
+    private var visibleHoldings: [PortfolioHolding] {
+        guard let accountID else { return holdings }
+        return holdings.filter { $0.accountID == accountID }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(L("Depotwert", "Portfolio value"))
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                Text(Money.string(cents: portfolioTotals.value))
+                    .font(.title2.bold())
+                performanceLabel(portfolioTotals)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(12)
+            .background(AppSurface.card, in: RoundedRectangle(cornerRadius: 14))
+
+            VStack(alignment: .leading, spacing: 8) {
+                Picker(L("Zeitraum", "Period"), selection: $basis) {
+                    ForEach(PortfolioBasis.allCases) { Text($0.label).tag($0.rawValue) }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                Picker(L("Einheit", "Unit"), selection: $unit) {
+                    ForEach(PortfolioUnit.allCases) { Text($0.label).tag($0.rawValue) }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                Picker(L("Sortierung", "Sort"), selection: $sort) {
+                    ForEach(PortfolioSort.allCases) { Text($0.label).tag($0.rawValue) }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+            }
+            .padding(12)
+            .background(AppSurface.card, in: RoundedRectangle(cornerRadius: 14))
+
+            HStack {
+                Button {
+                    Task {
+                        isRefreshing = true
+                        await MarketDataService.refresh(holdings: visibleHoldings, context: context)
+                        isRefreshing = false
+                    }
+                } label: {
+                    if isRefreshing {
+                        ProgressView()
+                    } else {
+                        Label(L("Kurse", "Quotes"), systemImage: "arrow.clockwise")
+                    }
+                }
+                .disabled(isRefreshing || visibleHoldings.isEmpty)
+                Spacer()
+                Button {
+                    showingNew = true
+                } label: {
+                    Label(L("Position", "Holding"), systemImage: "plus")
+                }
+            }
+            .font(.body.weight(.semibold))
+
+            if sortedHoldings.isEmpty {
+                Text(L("Keine Depotpositionen", "No holdings"))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(12)
+                    .background(AppSurface.card, in: RoundedRectangle(cornerRadius: 14))
+            } else {
+                ForEach(sortedHoldings) { holding in
+                    holdingRow(holding)
+                }
+            }
+        }
+        .onAppear {
+            for holding in visibleHoldings where HoldingPurchaseDateStore.date(for: holding.id) == nil {
+                HoldingPurchaseDateStore.set(holding.updatedAt, for: holding.id)
+            }
+        }
+        .sheet(isPresented: $showingNew) { HoldingForm(holding: nil, preferredAccountID: accountID) }
+        .sheet(item: $edited) { HoldingForm(holding: $0, preferredAccountID: accountID) }
+        .sheet(item: $selected) { HoldingDetailView(holding: $0) }
+    }
+
+    private var portfolioTotals: HoldingPerformance {
+        visibleHoldings.reduce(HoldingPerformance()) { $0.adding(holdingPerformance($1)) }
+    }
+
+    private func holdingRow(_ holding: PortfolioHolding) -> some View {
+        let performance = holdingPerformance(holding)
+        return Button {
+            selected = holding
+        } label: {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(holding.name).foregroundStyle(.primary)
+                    Text("\(holding.quantity.formatted()) × \(Money.string(cents: holding.currentPriceCents))")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 12)
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text(Money.string(cents: performance.value))
+                        .foregroundStyle(.primary)
+                    performanceLabel(performance)
+                }
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(AppSurface.card, in: RoundedRectangle(cornerRadius: 14))
+        }
+        .buttonStyle(.plain)
+        .contextMenu {
+            Button(L("Bearbeiten", "Edit")) { edited = holding }
+            Button(L("Löschen", "Delete"), role: .destructive) {
+                delete(holding)
+            }
+        }
+    }
+
+    private func delete(_ holding: PortfolioHolding) {
+        MarketSymbolStore.remove(for: holding.id)
+        PreviousCloseStore.remove(for: holding.id)
+        HoldingPurchaseDateStore.remove(for: holding.id)
+        context.delete(holding)
+        try? context.save()
+    }
+
+    private var sortedHoldings: [PortfolioHolding] {
+        switch PortfolioSort(rawValue: sort) ?? .value {
+        case .value:
+            return visibleHoldings.sorted { holdingPerformance($0).value > holdingPerformance($1).value }
+        case .purchase:
+            return visibleHoldings.sorted { lhs, rhs in
+                let left = HoldingPurchaseDateStore.date(for: lhs.id) ?? .distantPast
+                let right = HoldingPurchaseDateStore.date(for: rhs.id) ?? .distantPast
+                if left != right { return left > right }
+                return lhs.name.localizedCaseInsensitiveCompare(rhs.name) == .orderedAscending
+            }
+        case .name:
+            return visibleHoldings.sorted {
+                $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
+            }
+        }
+    }
+
+    private func performanceLabel(_ performance: HoldingPerformance) -> some View {
         let selected = performance.selected(basis: basis, unit: unit)
         return Text(selected.text)
             .font(.caption.bold())
@@ -286,6 +453,19 @@ private struct HoldingDetailView: View {
         let selected = performance.selected(basis: basis, unit: unit)
         NavigationStack {
             Form {
+                HStack(spacing: 12) {
+                    tradeIcon(L("Nachkauf", "Buy more"), systemImage: "plus.circle.fill") {
+                        showingBuy = true
+                    }
+                    tradeIcon(
+                        L("Verkaufen", "Sell"),
+                        systemImage: "minus.circle.fill",
+                        disabled: holding.quantity <= 0
+                    ) {
+                        showingSell = true
+                    }
+                }
+                .listRowBackground(Color.clear)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(Money.string(cents: performance.value))
                         .font(.title2.bold())
@@ -314,15 +494,33 @@ private struct HoldingDetailView: View {
                     L("Aktualisiert", "Updated"),
                     value: "\(AppDate.numeric(holding.updatedAt)) \(AppDate.time(holding.updatedAt))"
                 )
-                Button(L("Nachkaufen", "Buy more")) { showingBuy = true }
-                Button(L("Verkaufen", "Sell")) { showingSell = true }
-                    .disabled(holding.quantity <= 0)
             }
             .navigationTitle(holding.name)
             .navigationBarTitleDisplayMode(.inline)
             .sheet(isPresented: $showingBuy) { HoldingTradeSheet(holding: holding, isSale: false) }
             .sheet(isPresented: $showingSell) { HoldingTradeSheet(holding: holding, isSale: true) }
         }
+    }
+
+    private func tradeIcon(
+        _ title: String,
+        systemImage: String,
+        disabled: Bool = false,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            VStack(spacing: 6) {
+                Image(systemName: systemImage)
+                    .font(.system(size: 28, weight: .semibold))
+                Text(title)
+                    .font(.caption.weight(.semibold))
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 8)
+        }
+        .buttonStyle(.bordered)
+        .disabled(disabled)
+        .accessibilityLabel(title)
     }
 }
 
@@ -345,9 +543,9 @@ private struct HoldingForm: View {
     @State private var bookPurchase = false
     @State private var checkingAccountID: UUID?
 
-    init(holding: PortfolioHolding?) {
+    init(holding: PortfolioHolding?, preferredAccountID: UUID? = nil) {
         existing = holding
-        _accountID = State(initialValue: holding?.accountID)
+        _accountID = State(initialValue: holding?.accountID ?? preferredAccountID)
         _name = State(initialValue: holding?.name ?? "")
         _symbol = State(initialValue: holding?.symbol ?? "")
         _quantity = State(initialValue: holding.map { String($0.quantity) } ?? "")
@@ -594,10 +792,13 @@ private struct HoldingTradeSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
     @Query(sort: \Account.name) private var accounts: [Account]
+    @AppStorage(TradeFeePreference.storageKey) private var defaultFeeCents = TradeFeePreference.defaultCents
     let holding: PortfolioHolding
     let isSale: Bool
     @State private var quantity = ""
     @State private var price = ""
+    @State private var fee = ""
+    @State private var isTransfer = false
     @State private var date = Date.now
     @State private var checkingAccountID: UUID?
     @State private var depotName = ""
@@ -606,15 +807,39 @@ private struct HoldingTradeSheet: View {
     var body: some View {
         NavigationStack {
             Form {
+                if !isSale {
+                    Picker(L("Art", "Type"), selection: $isTransfer) {
+                        Text(L("Kauf", "Purchase")).tag(false)
+                        Text(L("Übertrag", "Transfer")).tag(true)
+                    }
+                    .pickerStyle(.segmented)
+                    if isTransfer {
+                        Text(L("Ohne Abbuchung vom Girokonto.", "No debit from the checking account."))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
                 TextField(L("Stückzahl", "Quantity"), text: $quantity).keyboardType(.decimalPad)
-                TextField(L("Kurs", "Price"), text: $price).keyboardType(.decimalPad)
+                TextField(L("Kurs", "Price"), text: $price, prompt: Text(isSale ? L("Kurs", "Price") : L("Kurs eingeben", "Enter price")))
+                    .keyboardType(.decimalPad)
+                if !isTransfer {
+                    TextField(L("Gebühr (optional)", "Fee (optional)"), text: $fee).keyboardType(.decimalPad)
+                    Text(L(
+                        "Die Gebühr gilt einmal für diese Buchung, unabhängig von der Stückzahl.",
+                        "The fee applies once to this booking, regardless of quantity."
+                    ))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                }
                 AppDateField(title: L("Datum", "Date"), selection: $date)
-                if checkingAccounts.isEmpty {
-                    Text(L("Lege zuerst ein Girokonto an.", "Create a checking account first."))
-                        .foregroundStyle(.secondary)
-                } else {
-                    Picker(L("Girokonto", "Checking account"), selection: $checkingAccountID) {
-                        ForEach(checkingAccounts) { Text($0.name).tag(Optional($0.id)) }
+                if !isTransfer {
+                    if checkingAccounts.isEmpty {
+                        Text(L("Lege zuerst ein Girokonto an.", "Create a checking account first."))
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Picker(L("Girokonto", "Checking account"), selection: $checkingAccountID) {
+                            ForEach(checkingAccounts) { Text($0.name).tag(Optional($0.id)) }
+                        }
                     }
                 }
                 if portfolioAccount == nil {
@@ -633,8 +858,11 @@ private struct HoldingTradeSheet: View {
             .navigationTitle(isSale ? L("Verkaufen", "Sell") : L("Nachkaufen", "Buy more"))
             .navigationBarTitleDisplayMode(.inline)
             .onAppear {
-                if price.isEmpty {
+                if isSale, price.isEmpty {
                     price = String(format: "%.2f", Double(holding.currentPriceCents) / 100)
+                }
+                if fee.isEmpty {
+                    fee = TradeFeePreference.editString(cents: defaultFeeCents)
                 }
                 if checkingAccountID == nil { checkingAccountID = checkingAccounts.first?.id }
                 if depotName.isEmpty { depotName = L("Depot", "Portfolio") }
@@ -667,7 +895,18 @@ private struct HoldingTradeSheet: View {
             validationMessage = L("Du kannst nicht mehr verkaufen, als im Depot liegt.", "You cannot sell more than the holding contains.")
             return
         }
-        guard let checkingAccountID else {
+        let feeCents = resolvedFeeCents
+        guard feeCents >= 0 else {
+            validationMessage = L("Bitte die Gebühr prüfen.", "Check the fee.")
+            return
+        }
+        let sharesValue = Int((count * Double(abs(priceCents))).rounded())
+        if !isTransfer, isSale, feeCents > sharesValue {
+            validationMessage = L("Die Gebühr ist höher als der Verkaufserlös.", "The fee is higher than the sale proceeds.")
+            return
+        }
+        let booksCash = !isTransfer
+        if booksCash, checkingAccountID == nil {
             validationMessage = L("Bitte ein Girokonto auswählen.", "Select a checking account.")
             return
         }
@@ -684,34 +923,53 @@ private struct HoldingTradeSheet: View {
             context.insert(account)
             portfolio = account
         }
-        let amount = Int((count * Double(abs(priceCents))).rounded())
+        let appliedFee = booksCash ? feeCents : 0
         if isSale {
             holding.quantity -= count
-            context.insert(LedgerEntry(
-                date: date,
-                title: "\(L("Verkauf", "Sell")): \(holding.name)",
-                amountCents: amount,
-                kind: .transfer,
-                fromAccountID: portfolio.id,
-                toAccountID: checkingAccountID
-            ))
+            if let checkingAccountID {
+                context.insert(LedgerEntry(
+                    date: date,
+                    title: "\(L("Verkauf", "Sell")): \(holding.name)",
+                    notes: feeNote(appliedFee),
+                    amountCents: sharesValue - appliedFee,
+                    kind: .transfer,
+                    fromAccountID: portfolio.id,
+                    toAccountID: checkingAccountID
+                ))
+            }
         } else {
+            let addedCost = sharesValue + appliedFee
             let previousValue = holding.quantity * Double(holding.purchasePriceCents)
             let nextQuantity = holding.quantity + count
-            holding.purchasePriceCents = Int(((previousValue + Double(amount)) / nextQuantity).rounded())
+            holding.purchasePriceCents = Int(((previousValue + Double(addedCost)) / nextQuantity).rounded())
             holding.quantity = nextQuantity
-            context.insert(LedgerEntry(
-                date: date,
-                title: "\(L("Kauf", "Buy")): \(holding.name)",
-                amountCents: amount,
-                kind: .transfer,
-                fromAccountID: checkingAccountID,
-                toAccountID: portfolio.id
-            ))
+            if booksCash, let checkingAccountID {
+                context.insert(LedgerEntry(
+                    date: date,
+                    title: "\(L("Kauf", "Buy")): \(holding.name)",
+                    notes: feeNote(appliedFee),
+                    amountCents: addedCost,
+                    kind: .transfer,
+                    fromAccountID: checkingAccountID,
+                    toAccountID: portfolio.id
+                ))
+            }
         }
         holding.accountID = portfolio.id
         holding.updatedAt = .now
         try? context.save()
         dismiss()
+    }
+
+    private var resolvedFeeCents: Int {
+        if isTransfer { return 0 }
+        let trimmed = fee.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty { return 0 }
+        return Money.cents(from: trimmed) ?? -1
+    }
+
+    private func feeNote(_ cents: Int) -> String {
+        guard cents > 0 else { return "" }
+        return "\(L("Gebühr", "Fee")): \(Money.string(cents: cents))"
     }
 }

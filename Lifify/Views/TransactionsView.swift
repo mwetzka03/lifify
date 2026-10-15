@@ -3,22 +3,65 @@ import SwiftUI
 
 struct TransactionsView: View {
     @Environment(\.modelContext) private var context
+    @EnvironmentObject private var filters: FinanceFilterStore
+    @Query(sort: \Account.createdAt) private var accounts: [Account]
     @Query(sort: \LedgerEntry.date, order: .reverse) private var entries: [LedgerEntry]
+    @Query private var forecasts: [IncomeForecast]
     @Query private var splits: [TransactionSplit]
     @State private var search = ""
     @State private var showingNew = false
     @State private var editing: LedgerEntry?
     @State private var selected: LedgerEntry?
 
+    private var filterAccounts: [Account] {
+        accounts.filter { $0.kind != .savingsGroup }
+    }
+
+    private var periods: [ForecastPeriod] {
+        FinancePeriods.all(entries: entries, forecasts: forecasts)
+    }
+
     private var filtered: [LedgerEntry] {
-        guard !search.isEmpty else { return entries }
-        return entries.filter {
-            $0.title.localizedCaseInsensitiveContains(search) ||
-            $0.notes.localizedCaseInsensitiveContains(search)
+        let period = filters.period(in: periods)
+        let account = filters.account(in: filterAccounts)
+        return entries.filter { entry in
+            guard FinancePeriods.includes(entry, period: period, account: account) else { return false }
+            guard !search.isEmpty else { return true }
+            return entry.title.localizedCaseInsensitiveContains(search)
+                || entry.notes.localizedCaseInsensitiveContains(search)
         }
     }
 
     var body: some View {
+        VStack(spacing: 8) {
+            FinanceFilterControls(periods: periods, accounts: filterAccounts)
+                .padding(.horizontal, 12)
+                .padding(.top, 8)
+            transactionList
+        }
+        .appCanvas()
+        .navigationTitle(L("Buchungen", "Transactions"))
+        .navigationBarTitleDisplayMode(.inline)
+        .searchable(text: $search, prompt: L("Titel oder Notiz", "Title or note"))
+        .toolbar {
+            Button {
+                showingNew = true
+            } label: {
+                Label(L("Buchung hinzufügen", "Add transaction"), systemImage: "plus")
+            }
+        }
+        .sheet(isPresented: $showingNew) {
+            TransactionFormView(entry: nil, splits: splits)
+        }
+        .sheet(item: $editing) { entry in
+            TransactionFormView(entry: entry, splits: splits)
+        }
+        .sheet(item: $selected) { entry in
+            TransactionDetailView(entry: entry)
+        }
+    }
+
+    private var transactionList: some View {
         List {
             ForEach(filtered) { entry in
                 Button {
@@ -44,32 +87,17 @@ struct TransactionsView: View {
                 }
             }
         }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         .overlay {
-            if entries.isEmpty {
+            if filtered.isEmpty {
                 ContentUnavailableView(
                     L("Keine Buchungen", "No transactions"),
                     systemImage: "list.bullet.rectangle",
-                    description: Text(L("Erfasse eine Einnahme, Ausgabe, Umbuchung oder Saldo-Korrektur.", "Add income, an expense, a transfer or a balance adjustment."))
+                    description: Text(entries.isEmpty
+                        ? L("Erfasse eine Einnahme, Ausgabe, Umbuchung oder Saldo-Korrektur.", "Add income, an expense, a transfer or a balance adjustment.")
+                        : L("In diesem Zeitraum und Konto liegen keine Buchungen.", "There are no transactions in this period and account."))
                 )
             }
-        }
-        .navigationTitle(L("Buchungen", "Transactions"))
-        .searchable(text: $search, prompt: L("Titel oder Notiz", "Title or note"))
-        .toolbar {
-            Button {
-                showingNew = true
-            } label: {
-                Label(L("Buchung hinzufügen", "Add transaction"), systemImage: "plus")
-            }
-        }
-        .sheet(isPresented: $showingNew) {
-            TransactionFormView(entry: nil, splits: splits)
-        }
-        .sheet(item: $editing) { entry in
-            TransactionFormView(entry: entry, splits: splits)
-        }
-        .sheet(item: $selected) { entry in
-            TransactionDetailView(entry: entry)
         }
     }
 

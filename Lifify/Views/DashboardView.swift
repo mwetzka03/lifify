@@ -12,8 +12,7 @@ struct DashboardView: View {
     @Query private var variableBudgets: [VariableBudget]
     @Query private var splits: [TransactionSplit]
     @Query(sort: \ShoppingItem.createdAt, order: .reverse) private var shopping: [ShoppingItem]
-    @State private var selectedPeriodID: String?
-    @State private var accountFilter: UUID?
+    @EnvironmentObject private var filters: FinanceFilterStore
 
     init(isMainTab: Bool = false, path: Binding<NavigationPath>? = nil) {
         self.isMainTab = isMainTab
@@ -24,50 +23,54 @@ struct DashboardView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 8) {
                 if let period = selectedPeriod {
-                    periodBar(period)
-                    accountFilterBar
+                    FinanceFilterControls(periods: periods, accounts: filterAccounts)
                     let snapshot = presented(forecast(for: period))
-                    let liquid = accountFilter == nil ? liquidForecast(for: period) : nil
                     netWorthCard(snapshot, period: period)
-                    HStack(alignment: .top, spacing: 8) {
-                        linked(.income) {
-                            flowTile(L("Einnahmen", "Income"), amount: snapshot.income, footnote: incomeFootnote(snapshot, period: period))
+                    if selectedFilterAccount?.kind == .portfolio {
+                        PortfolioElementsView(accountID: selectedFilterAccount?.id)
+                    } else {
+                        let liquid = selectedFilterAccount == nil ? liquidForecast(for: period) : nil
+                        HStack(alignment: .top, spacing: 8) {
+                            linked(.income) {
+                                flowTile(L("Einnahmen", "Income"), amount: snapshot.income, footnote: incomeFootnote(snapshot, period: period))
+                            }
+                            linked(.expenses) {
+                                flowTile(L("Ausgaben", "Expenses"), amount: -snapshot.bookedExpenses, footnote: expenseFootnote(snapshot, period: period))
+                            }
+                            flowTile(L("Differenz", "Difference"), amount: snapshot.realDifference)
+                                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                         }
-                        flowTile(L("Ausgaben", "Expenses"), amount: -snapshot.bookedExpenses, footnote: expenseFootnote(snapshot, period: period))
-                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                        flowTile(L("Differenz", "Difference"), amount: snapshot.realDifference)
-                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                    }
-                    HStack(alignment: .top, spacing: 8) {
-                        balanceTile(
-                            L("Startsaldo", "Opening balance"),
-                            amount: snapshot.startBalance,
-                            liquid: liquid?.startBalance
-                        )
-                        balanceTile(
-                            L("Endsaldo (Prognose)", "Closing balance (forecast)"),
-                            amount: snapshot.endBalance,
-                            delta: snapshot.balanceChange,
-                            liquid: liquid?.endBalance
-                        )
-                    }
-                    HStack(alignment: .top, spacing: 8) {
-                        linked(.fixedCosts) {
-                            flowTile(
-                                L("Fixkosten", "Fixed costs"),
-                                amount: -snapshot.bookedFixed,
-                                footnote: openFootnote(snapshot.remainingFixed, period: period)
+                        HStack(alignment: .top, spacing: 8) {
+                            balanceTile(
+                                L("Startsaldo", "Opening balance"),
+                                amount: snapshot.startBalance,
+                                liquid: liquid?.startBalance
+                            )
+                            balanceTile(
+                                L("Endsaldo (Prognose)", "Closing balance (forecast)"),
+                                amount: snapshot.endBalance,
+                                delta: snapshot.balanceChange,
+                                liquid: liquid?.endBalance
                             )
                         }
-                        linked(.variableCosts) {
-                            flowTile(
-                                L("Variable Kosten", "Variable costs"),
-                                amount: -snapshot.bookedVariable,
-                                footnote: openFootnote(snapshot.remainingVariable, period: period)
-                            )
+                        HStack(alignment: .top, spacing: 8) {
+                            linked(.fixedCosts) {
+                                flowTile(
+                                    L("Fixkosten", "Fixed costs"),
+                                    amount: -snapshot.bookedFixed,
+                                    footnote: openFootnote(snapshot.remainingFixed, period: period)
+                                )
+                            }
+                            linked(.variableCosts) {
+                                flowTile(
+                                    L("Variable Kosten", "Variable costs"),
+                                    amount: -snapshot.bookedVariable,
+                                    footnote: openFootnote(snapshot.remainingVariable, period: period)
+                                )
+                            }
                         }
+                        linked(.shopping) { biasCard(snapshot) }
                     }
-                    linked(.shopping) { biasCard(snapshot) }
                     if isMainTab { FinanceMoreSection(path: path) }
                     eventsSection(snapshot)
                 } else {
@@ -105,38 +108,6 @@ struct DashboardView: View {
         }
         .buttonStyle(.plain)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-    }
-
-    private func periodBar(_ period: ForecastPeriod) -> some View {
-        HStack(spacing: 8) {
-            Button { shiftPeriod(-1) } label: {
-                Image(systemName: "chevron.left")
-                    .font(.title3.weight(.semibold))
-                    .frame(width: 40, height: 40)
-            }
-            .disabled(periodIndex == 0)
-            Spacer(minLength: 0)
-            VStack(spacing: 2) {
-                Text(AppDate.range(from: period.start, to: period.end))
-                    .font(.headline)
-                    .multilineTextAlignment(.center)
-                    .minimumScaleFactor(0.7)
-                    .lineLimit(2)
-                Button(L("Heute", "Today")) { jumpToToday() }
-                    .font(.subheadline.weight(.semibold))
-                    .disabled(period.contains(.now))
-            }
-            Spacer(minLength: 0)
-            Button { shiftPeriod(1) } label: {
-                Image(systemName: "chevron.right")
-                    .font(.title3.weight(.semibold))
-                    .frame(width: 40, height: 40)
-            }
-            .disabled(periodIndex == periods.count - 1)
-        }
-        .padding(.horizontal, 6)
-        .padding(.vertical, 4)
-        .background(AppSurface.card, in: RoundedRectangle(cornerRadius: 14))
     }
 
     private func netWorthCard(_ forecast: PeriodForecast, period: ForecastPeriod) -> some View {
@@ -251,30 +222,6 @@ struct DashboardView: View {
         .financeCard(padding: 12)
     }
 
-    private var accountFilterBar: some View {
-        Menu {
-            Button(L("Alle Konten", "All accounts")) { accountFilter = nil }
-            ForEach(filterAccounts) { account in
-                Button(account.name) { accountFilter = account.id }
-            }
-        } label: {
-            HStack(spacing: 8) {
-                Image(systemName: "line.3.horizontal.decrease.circle")
-                Text(filterTitle)
-                    .font(.headline)
-                    .lineLimit(1)
-                Spacer(minLength: 8)
-                Image(systemName: "chevron.down")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.secondary)
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 12)
-            .background(AppSurface.card, in: RoundedRectangle(cornerRadius: 14))
-        }
-        .buttonStyle(.plain)
-    }
-
     private func balanceTile(_ title: String, amount: Int, delta: Int? = nil, liquid: Int? = nil) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(title)
@@ -304,28 +251,11 @@ struct DashboardView: View {
     }
 
     private var periods: [ForecastPeriod] {
-        let earliest = entries.map(\.date).min() ?? .now
-        let latest = Calendar.current.date(byAdding: .month, value: 18, to: .now) ?? .now
-        return FinanceService.forecastPeriods(primary: primaryForecast, earliest: earliest, latest: latest)
+        FinancePeriods.all(entries: entries, forecasts: forecasts)
     }
 
     private var selectedPeriod: ForecastPeriod? {
-        if let selectedPeriodID, let match = periods.first(where: { $0.id == selectedPeriodID }) {
-            return match
-        }
-        return periods.first { $0.contains(.now) } ?? periods.last
-    }
-
-    private var periodIndex: Int? {
-        guard let selectedPeriod else { return nil }
-        return periods.firstIndex(of: selectedPeriod)
-    }
-
-    private var primaryForecast: IncomeForecast? {
-        guard let id = UserDefaults.standard.string(forKey: "primaryIncomeForecastID").flatMap(UUID.init(uuidString:)) else {
-            return nil
-        }
-        return forecasts.first { $0.id == id }
+        filters.period(in: periods)
     }
 
     private var filterAccounts: [Account] {
@@ -333,12 +263,7 @@ struct DashboardView: View {
     }
 
     private var selectedFilterAccount: Account? {
-        guard let accountFilter else { return nil }
-        return filterAccounts.first { $0.id == accountFilter }
-    }
-
-    private var filterTitle: String {
-        selectedFilterAccount?.name ?? L("Alle Konten", "All accounts")
+        filters.account(in: filterAccounts)
     }
 
     private var scopedAccounts: [Account] {
@@ -359,7 +284,7 @@ struct DashboardView: View {
     }
 
     private var includePlans: Bool {
-        accountFilter == nil || selectedFilterAccount?.isMain == true
+        selectedFilterAccount == nil || selectedFilterAccount?.isMain == true
     }
 
     private func forecast(for period: ForecastPeriod) -> PeriodForecast {
@@ -401,17 +326,6 @@ struct DashboardView: View {
         copy.startBalance = value
         copy.endBalance = value
         return copy
-    }
-
-    private func shiftPeriod(_ delta: Int) {
-        guard let index = periodIndex else { return }
-        let next = index + delta
-        guard periods.indices.contains(next) else { return }
-        withAnimation { selectedPeriodID = periods[next].id }
-    }
-
-    private func jumpToToday() {
-        withAnimation { selectedPeriodID = periods.first { $0.contains(.now) }?.id }
     }
 
     private func incomeFootnote(_ forecast: PeriodForecast, period: ForecastPeriod) -> String? {

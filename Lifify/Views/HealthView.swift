@@ -31,7 +31,7 @@ struct HealthView: View {
                             Spacer(minLength: 8)
                             HStack(spacing: -10) {
                                 ForEach(plan.exercises.prefix(3)) { exercise in
-                                    ExerciseArtwork(code: exercise.code, side: 36)
+                                    ExerciseArtwork(code: exercise.code, side: 36, playsVideo: false)
                                 }
                             }
                         }
@@ -65,7 +65,7 @@ struct HealthView: View {
                 sectionTitle(L("Training", "Training"))
             }
             Section {
-                Text(L("Kommt bald", "Coming soon"))
+                Text(L("Noch nicht verfügbar", "Not available yet"))
                     .foregroundStyle(.secondary)
             } header: {
                 sectionTitle(L("Ernährung", "Nutrition"))

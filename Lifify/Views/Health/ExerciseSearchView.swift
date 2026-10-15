@@ -8,27 +8,28 @@ struct ExerciseSearchView: View {
     @State private var exercises: [WorkoutExerciseInfo] = []
     @State private var isLoading = false
     @State private var errorMessage: String?
+    @State private var manualName = ""
 
     var body: some View {
         NavigationStack {
             Group {
-                if apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    ContentUnavailableView(
-                        L("API-Schlüssel fehlt", "API key missing"),
+                if apiKeyMissing {
+                    manualEntry(
+                        title: L("API-Schlüssel fehlt", "API key missing"),
                         systemImage: "key",
-                        description: Text(L(
-                            "Hinterlege den Schlüssel in den Einstellungen, damit Übungen und Bilder geladen werden.",
-                            "Add the key in Settings so exercises and images can load."
-                        ))
+                        message: L(
+                            "Hinterlege den Schlüssel in den Einstellungen, damit Übungen und Bilder geladen werden. Ohne Schlüssel legst du die Übung mit einem Namen an.",
+                            "Add the key in Settings so exercises and images can load. Without a key, create the exercise with a name."
+                        )
                     )
                 } else {
                     List(exercises) { exercise in
-                        Button {
-                            onPick(exercise)
-                            dismiss()
-                        } label: {
-                            HStack(spacing: 12) {
-                                ExerciseArtwork(code: exercise.code, side: 72)
+                        HStack(spacing: 12) {
+                            ExerciseArtwork(code: exercise.code, side: 72)
+                            Button {
+                                onPick(exercise)
+                                dismiss()
+                            } label: {
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text(exercise.name)
                                         .font(.body.weight(.semibold))
@@ -39,19 +40,20 @@ struct ExerciseSearchView: View {
                                             .foregroundStyle(.secondary)
                                     }
                                 }
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.vertical, 4)
                             }
-                            .padding(.vertical, 4)
+                            .buttonStyle(.plain)
                         }
-                        .buttonStyle(.plain)
                     }
                     .overlay {
                         if isLoading && exercises.isEmpty {
                             ProgressView()
                         } else if let errorMessage, exercises.isEmpty {
-                            ContentUnavailableView(
-                                L("Übungen nicht geladen", "Exercises not loaded"),
+                            manualEntry(
+                                title: L("Übungen nicht geladen", "Exercises not loaded"),
                                 systemImage: "wifi.exclamationmark",
-                                description: Text(errorMessage)
+                                message: errorMessage
                             )
                         } else if exercises.isEmpty {
                             ContentUnavailableView(L("Keine Treffer", "No matches"), systemImage: "magnifyingglass")
@@ -68,6 +70,35 @@ struct ExerciseSearchView: View {
                 }
             }
             .task(id: query) { await reload() }
+        }
+    }
+
+    private var apiKeyMissing: Bool {
+        apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private func manualEntry(title: String, systemImage: String, message: String) -> some View {
+        VStack(spacing: 16) {
+            ContentUnavailableView(title, systemImage: systemImage, description: Text(message))
+            VStack(alignment: .leading, spacing: 8) {
+                TextField(L("Name der Übung", "Exercise name"), text: $manualName)
+                    .textFieldStyle(.roundedBorder)
+                Button(L("Übung anlegen", "Create exercise")) {
+                    let name = manualName.trimmingCharacters(in: .whitespacesAndNewlines)
+                    guard !name.isEmpty else { return }
+                    onPick(WorkoutExerciseInfo(
+                        id: UUID().uuidString,
+                        code: "MANUAL-\(UUID().uuidString)",
+                        name: name,
+                        detail: "",
+                        muscle: ""
+                    ))
+                    dismiss()
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(manualName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+            .padding(.horizontal, 24)
         }
     }
 

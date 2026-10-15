@@ -1,5 +1,12 @@
 import Foundation
 
+enum ExerciseMedia {
+    static func isRemote(_ code: String) -> Bool {
+        let trimmed = code.trimmingCharacters(in: .whitespacesAndNewlines)
+        return !trimmed.isEmpty && !trimmed.hasPrefix("MANUAL-")
+    }
+}
+
 struct WorkoutExerciseInfo: Identifiable, Hashable {
     var id: String
     var code: String
@@ -58,6 +65,15 @@ actor WorkoutAPIClient {
         return try await fetchExercises(
             path: "/exercises/search",
             queryItems: [URLQueryItem(name: "q", value: trimmed)]
+        )
+    }
+
+    func animationGIF(code: String) async throws -> Data {
+        let encoded = code.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? code
+        return try await fetch(
+            path: "/exercises/code/\(encoded)/animation",
+            queryItems: [URLQueryItem(name: "variant", value: "basic")],
+            accept: "image/gif"
         )
     }
 
