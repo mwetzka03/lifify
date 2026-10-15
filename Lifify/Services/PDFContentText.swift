@@ -54,7 +54,7 @@ enum PDFContentText {
         guard let provider = CGDataProvider(data: data as CFData),
               let document = CGPDFDocument(provider),
               document.numberOfPages > 0 else { return nil }
-        let table = CGPDFOperatorTableCreate()
+        guard let table = CGPDFOperatorTableCreate() else { return nil }
         defer { CGPDFOperatorTableRelease(table) }
         CGPDFOperatorTableSetCallback(table, "BT", trBeginText)
         CGPDFOperatorTableSetCallback(table, "Tm", trSetMatrix)
@@ -107,7 +107,7 @@ private final class PDFTextCollector {
     func loadFont(_ name: String) {
         fontName = name
         guard maps[name] == nil, let content else { return }
-        let object = CGPDFContentStreamGetResource(content, "Font", name)
+        guard let object = CGPDFContentStreamGetResource(content, "Font", name) else { return }
         var dictionary: CGPDFDictionaryRef?
         guard withUnsafeMutablePointer(to: &dictionary, { pointer in
             CGPDFObjectGetValue(object, .dictionary, UnsafeMutableRawPointer(pointer))
