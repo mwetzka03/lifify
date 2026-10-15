@@ -309,9 +309,7 @@ enum BankImportApplier {
         }
         let resetIDs = Set(reset.map(\.id))
         holdings.removeAll { resetIDs.contains($0.id) }
-        if let portfolioID {
-            SavingsPlanStore.removeAll(portfolioID: portfolioID)
-        }
+        SavingsPlanStore.removeAll(portfolioID: portfolioID)
     }
 
     private static func counterpartyAccount(
