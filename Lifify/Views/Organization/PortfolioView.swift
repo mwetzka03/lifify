@@ -571,11 +571,12 @@ private struct SavingsPlanLabel: View {
     }
 }
 
+@MainActor
 private func savingsPlanRow(
     _ plan: SavingsPlanRecord,
     accounts: [Account],
-    onEdit: @escaping (SavingsPlanRecord) -> Void,
-    onDelete: @escaping (SavingsPlanRecord) -> Void
+    onEdit: @escaping @MainActor (SavingsPlanRecord) -> Void,
+    onDelete: @escaping @MainActor (SavingsPlanRecord) -> Void
 ) -> some View {
     SavingsPlanLabel(
         plan: plan,

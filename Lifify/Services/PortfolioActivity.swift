@@ -181,25 +181,31 @@ enum SavingsPlanStore {
 
 @MainActor
 enum HoldingMaintenance {
-    /// Rebuilds the holding from its lots. A position that was fully sold, or whose lots were all removed, disappears.
-    @discardableResult
-    static func sync(_ holding: PortfolioHolding, context: ModelContext) -> Bool {
-        let lots = HoldingLotStore.lots(for: holding.id).sorted { $0.date < $1.date }
+    /// Einstand is the cash paid divided by the shares still held, rounded once.
+    static func averagePurchaseCents(for lots: [HoldingLot]) -> (quantity: Double, priceCents: Int)? {
+        let ordered = lots.sorted { $0.date < $1.date }
         var quantity = 0.0
         var cost = 0.0
-        for lot in lots {
+        for lot in ordered {
             if lot.isSale {
                 guard quantity > 0.0000005 else { continue }
                 let sold = min(lot.quantity, quantity)
-                let average = cost / quantity
+                cost *= (quantity - sold) / quantity
                 quantity -= sold
-                cost = average * quantity
             } else {
                 quantity += lot.quantity
                 cost += Double(abs(lot.amountCents))
             }
         }
-        if quantity < 0.0000005 {
+        guard quantity > 0.0000005 else { return nil }
+        return (quantity, max(0, Int((cost / quantity).rounded())))
+    }
+
+    /// Rebuilds the holding from its lots. A position that was fully sold, or whose lots were all removed, disappears.
+    @discardableResult
+    static func sync(_ holding: PortfolioHolding, context: ModelContext) -> Bool {
+        let lots = HoldingLotStore.lots(for: holding.id)
+        guard let position = averagePurchaseCents(for: lots) else {
             HoldingLotStore.removeAll(for: holding.id)
             MarketSymbolStore.remove(for: holding.id)
             PreviousCloseStore.remove(for: holding.id)
@@ -208,8 +214,8 @@ enum HoldingMaintenance {
             try? context.save()
             return false
         }
-        holding.quantity = quantity
-        holding.purchasePriceCents = max(0, Int((cost / quantity).rounded()))
+        holding.quantity = position.quantity
+        holding.purchasePriceCents = position.priceCents
         holding.updatedAt = .now
         if let first = lots.first(where: { !$0.isSale }) {
             HoldingPurchaseDateStore.set(first.date, for: holding.id)

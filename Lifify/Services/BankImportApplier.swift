@@ -200,6 +200,11 @@ enum BankImportApplier {
             let closedIDs = Set(closed.map(\.id))
             holdings.removeAll { closedIDs.contains($0.id) }
             insertedHoldings.removeAll { closedIDs.contains($0.id) }
+            for holding in holdings where holding.accountID == portfolio.account.id {
+                if let position = HoldingMaintenance.averagePurchaseCents(for: HoldingLotStore.lots(for: holding.id)) {
+                    holding.purchasePriceCents = position.priceCents
+                }
+            }
             let plans = SavingsPlanBuilder.build(
                 rows: document.rows,
                 checkingID: checking.account.id,
