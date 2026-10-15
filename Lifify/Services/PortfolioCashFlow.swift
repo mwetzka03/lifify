@@ -16,13 +16,12 @@ enum PortfolioCashFlow {
         account: Account?
     ) -> [Line] {
         guard kind == .income || kind == .expense else { return [] }
-        let portfolioIDs = Set(accounts.filter { $0.kind == .portfolio }.map(\.id))
+        let known = Set(accounts.map(\.id))
         var lines: [Line] = []
         for entry in entries where entry.kind == .transfer {
             if let period, !period.contains(entry.date) { continue }
-            let fromPortfolio = entry.fromAccountID.map { portfolioIDs.contains($0) } ?? false
-            let toPortfolio = entry.toAccountID.map { portfolioIDs.contains($0) } ?? false
-            guard fromPortfolio != toPortfolio else { continue }
+            guard let from = entry.fromAccountID, let to = entry.toAccountID else { continue }
+            guard known.isEmpty || known.contains(from) || known.contains(to) else { continue }
             let amount = abs(entry.amountCents)
             if let account {
                 if kind == .expense, entry.fromAccountID == account.id {

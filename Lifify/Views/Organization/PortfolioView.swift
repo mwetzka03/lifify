@@ -11,6 +11,8 @@ struct PortfolioView: View {
     @State private var edited: PortfolioHolding?
     @State private var selected: PortfolioHolding?
     @State private var isRefreshing = false
+    @State private var savingsPlans: [SavingsPlanRecord] = []
+    @Query(sort: \Account.name) private var planAccounts: [Account]
 
     var body: some View {
         List {
@@ -45,6 +47,13 @@ struct PortfolioView: View {
                 }
                 .pickerStyle(.segmented)
                 .labelsHidden()
+            }
+            if !savingsPlans.isEmpty {
+                Section(L("Sparpläne", "Savings plans")) {
+                    ForEach(savingsPlans) { plan in
+                        SavingsPlanLabel(plan: plan, checkingName: planAccounts.first { $0.id == plan.checkingAccountID }?.name ?? "")
+                    }
+                }
             }
             ForEach(sortedHoldings) { holding in
                 let performance = holdingPerformance(holding)
@@ -106,6 +115,8 @@ struct PortfolioView: View {
             for holding in holdings where HoldingPurchaseDateStore.date(for: holding.id) == nil {
                 HoldingPurchaseDateStore.set(holding.updatedAt, for: holding.id)
             }
+            SavingsPlanRunner.bookDue(context: context)
+            savingsPlans = SavingsPlanStore.all()
         }
         .sheet(isPresented: $showingNew) { HoldingForm(holding: nil) }
         .sheet(item: $edited) { HoldingForm(holding: $0) }
@@ -116,6 +127,7 @@ struct PortfolioView: View {
         MarketSymbolStore.remove(for: holding.id)
         PreviousCloseStore.remove(for: holding.id)
         HoldingPurchaseDateStore.remove(for: holding.id)
+        HoldingLotStore.removeAll(for: holding.id)
         context.delete(holding)
         try? context.save()
     }
@@ -154,6 +166,7 @@ struct PortfolioView: View {
 
 struct PortfolioElementsView: View {
     var accountID: UUID?
+    var showsValueHeader = true
     @Environment(\.modelContext) private var context
     @Query(sort: \PortfolioHolding.name) private var holdings: [PortfolioHolding]
     @AppStorage("portfolioPerformanceBasis") private var basis = PortfolioBasis.today.rawValue
@@ -163,6 +176,8 @@ struct PortfolioElementsView: View {
     @State private var edited: PortfolioHolding?
     @State private var selected: PortfolioHolding?
     @State private var isRefreshing = false
+    @State private var savingsPlans: [SavingsPlanRecord] = []
+    @Query(sort: \Account.name) private var accounts: [Account]
 
     private var visibleHoldings: [PortfolioHolding] {
         guard let accountID else { return holdings }
@@ -171,17 +186,20 @@ struct PortfolioElementsView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(L("Depotwert", "Portfolio value"))
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                Text(Money.string(cents: portfolioTotals.value))
-                    .font(.title2.bold())
-                performanceLabel(portfolioTotals)
+            if showsValueHeader {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(L("Depotwert", "Portfolio value"))
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    Text(Money.string(cents: portfolioTotals.value))
+                        .font(.title2.bold())
+                    performanceLabel(portfolioTotals)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(12)
+                .background(AppSurface.card, in: RoundedRectangle(cornerRadius: 14))
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(12)
-            .background(AppSurface.card, in: RoundedRectangle(cornerRadius: 14))
+            savingsPlanCard
 
             VStack(alignment: .leading, spacing: 8) {
                 Picker(L("Zeitraum", "Period"), selection: $basis) {
@@ -243,10 +261,35 @@ struct PortfolioElementsView: View {
             for holding in visibleHoldings where HoldingPurchaseDateStore.date(for: holding.id) == nil {
                 HoldingPurchaseDateStore.set(holding.updatedAt, for: holding.id)
             }
+            SavingsPlanRunner.bookDue(context: context)
+            savingsPlans = SavingsPlanStore.all()
         }
         .sheet(isPresented: $showingNew) { HoldingForm(holding: nil, preferredAccountID: accountID) }
         .sheet(item: $edited) { HoldingForm(holding: $0, preferredAccountID: accountID) }
         .sheet(item: $selected) { HoldingDetailView(holding: $0) }
+    }
+
+    private var visiblePlans: [SavingsPlanRecord] {
+        savingsPlans.filter { accountID == nil || $0.portfolioAccountID == accountID }
+    }
+
+    @ViewBuilder
+    private var savingsPlanCard: some View {
+        if !visiblePlans.isEmpty {
+            VStack(alignment: .leading, spacing: 8) {
+                Text(L("Sparpläne", "Savings plans"))
+                    .font(.headline)
+                ForEach(visiblePlans) { plan in
+                    SavingsPlanLabel(
+                        plan: plan,
+                        checkingName: accounts.first { $0.id == plan.checkingAccountID }?.name ?? ""
+                    )
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(12)
+            .background(AppSurface.card, in: RoundedRectangle(cornerRadius: 14))
+        }
     }
 
     private var portfolioTotals: HoldingPerformance {
@@ -289,6 +332,7 @@ struct PortfolioElementsView: View {
         MarketSymbolStore.remove(for: holding.id)
         PreviousCloseStore.remove(for: holding.id)
         HoldingPurchaseDateStore.remove(for: holding.id)
+        HoldingLotStore.removeAll(for: holding.id)
         context.delete(holding)
         try? context.save()
     }
@@ -360,7 +404,7 @@ private enum PortfolioUnit: String, CaseIterable, Identifiable {
     }
 }
 
-private func holdingPerformance(_ holding: PortfolioHolding) -> HoldingPerformance {
+func holdingPerformance(_ holding: PortfolioHolding) -> HoldingPerformance {
     let value = Int((holding.quantity * Double(holding.currentPriceCents)).rounded())
     let purchaseValue = Int((holding.quantity * Double(holding.purchasePriceCents)).rounded())
     let previous = PreviousCloseStore.cents(for: holding.id)
@@ -382,7 +426,7 @@ private func holdingPerformance(_ holding: PortfolioHolding) -> HoldingPerforman
     )
 }
 
-private struct HoldingPerformance {
+struct HoldingPerformance {
     var value = 0
     var dayCents: Int?
     var dayBase = 0
@@ -441,12 +485,40 @@ private struct HoldingPerformance {
     }
 }
 
+private struct SavingsPlanLabel: View {
+    let plan: SavingsPlanRecord
+    var checkingName: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack {
+                Text(plan.name)
+                Spacer()
+                Text(Money.string(cents: plan.amountCents))
+                    .foregroundStyle(.primary)
+            }
+            Text(subtitle)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private var subtitle: String {
+        let account = checkingName.isEmpty ? L("Girokonto", "Checking account") : checkingName
+        if plan.active, let next = plan.nextExecution() {
+            return "\(plan.cadence.label) · \(L("Aktiv", "Active")) · \(L("Nächste", "Next")) \(AppDate.numeric(next)) · \(account)"
+        }
+        return "\(plan.cadence.label) · \(L("Beendet", "Ended")) · \(L("Letzte", "Last")) \(AppDate.numeric(plan.lastExecution)) · \(account)"
+    }
+}
+
 private struct HoldingDetailView: View {
     let holding: PortfolioHolding
     @AppStorage("portfolioPerformanceBasis") private var basis = PortfolioBasis.today.rawValue
     @AppStorage("portfolioPerformanceUnit") private var unit = PortfolioUnit.percent.rawValue
     @State private var showingBuy = false
     @State private var showingSell = false
+    @State private var lots: [HoldingLot] = []
 
     var body: some View {
         let performance = holdingPerformance(holding)
@@ -494,12 +566,40 @@ private struct HoldingDetailView: View {
                     L("Aktualisiert", "Updated"),
                     value: "\(AppDate.numeric(holding.updatedAt)) \(AppDate.time(holding.updatedAt))"
                 )
+                if !lots.isEmpty {
+                    Section(L("Einzelpositionen", "Individual positions")) {
+                        ForEach(lots) { lot in
+                            VStack(alignment: .leading, spacing: 2) {
+                                HStack {
+                                    Text(lotTitle(lot))
+                                    Spacer()
+                                    Text(AppDate.numeric(lot.date))
+                                        .foregroundStyle(.secondary)
+                                }
+                                Text("\(lot.quantity.formatted()) × \(Money.string(cents: lot.unitPriceCents)) · \(Money.string(cents: abs(lot.amountCents)))")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                }
             }
             .navigationTitle(holding.name)
             .navigationBarTitleDisplayMode(.inline)
-            .sheet(isPresented: $showingBuy) { HoldingTradeSheet(holding: holding, isSale: false) }
-            .sheet(isPresented: $showingSell) { HoldingTradeSheet(holding: holding, isSale: true) }
+            .onAppear(perform: reloadLots)
+            .sheet(isPresented: $showingBuy, onDismiss: reloadLots) { HoldingTradeSheet(holding: holding, isSale: false) }
+            .sheet(isPresented: $showingSell, onDismiss: reloadLots) { HoldingTradeSheet(holding: holding, isSale: true) }
         }
+    }
+
+    private func reloadLots() {
+        lots = HoldingLotStore.lots(for: holding.id).sorted { $0.date < $1.date }
+    }
+
+    private func lotTitle(_ lot: HoldingLot) -> String {
+        if lot.isSale { return L("Verkauf", "Sale") }
+        if lot.isSavingsPlan { return L("Sparplan", "Savings plan") }
+        return L("Kauf", "Purchase")
     }
 
     private func tradeIcon(
@@ -701,6 +801,17 @@ private struct HoldingForm: View {
                         if existing == nil {
                             context.insert(holding)
                             HoldingPurchaseDateStore.set(.now, for: holding.id)
+                            HoldingLotStore.add(
+                                HoldingLot(
+                                    date: .now,
+                                    quantity: count,
+                                    unitPriceCents: purchase,
+                                    amountCents: -Int((count * Double(abs(purchase))).rounded()),
+                                    isSale: false,
+                                    isSavingsPlan: false
+                                ),
+                                holdingID: holding.id
+                            )
                             if bookPurchase, let checkingAccountID {
                                 let cost = Int((count * Double(abs(purchase))).rounded())
                                 context.insert(LedgerEntry(
@@ -981,6 +1092,17 @@ private struct HoldingTradeSheet: View {
             portfolio = account
         }
         let appliedFee = booksCash ? feeCents : 0
+        HoldingLotStore.add(
+            HoldingLot(
+                date: date,
+                quantity: count,
+                unitPriceCents: priceCents,
+                amountCents: isSale ? sharesValue - appliedFee : -(sharesValue + appliedFee),
+                isSale: isSale,
+                isSavingsPlan: false
+            ),
+            holdingID: holding.id
+        )
         if isSale {
             holding.quantity -= count
             if let checkingAccountID {

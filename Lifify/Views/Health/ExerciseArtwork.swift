@@ -7,9 +7,8 @@ struct ExerciseArtwork: View {
     var side: CGFloat = 64
     var playsVideo = true
     @State private var data: Data?
-    @State private var videoData: Data?
     @State private var isLoadingVideo = false
-    @State private var showVideo = false
+    @State private var presentation: ExerciseVideoPresentation?
 
     var body: some View {
         Group {
@@ -21,8 +20,8 @@ struct ExerciseArtwork: View {
                 framed
             }
         }
-        .sheet(isPresented: $showVideo) {
-            ExerciseVideoSheet(name: name, data: videoData)
+        .sheet(item: $presentation) { item in
+            ExerciseVideoSheet(name: item.name, data: item.data)
         }
     }
 
@@ -37,7 +36,12 @@ struct ExerciseArtwork: View {
                 }
             }
             .task(id: code) {
-                data = ExerciseImageStore.animationData(for: code)
+                if let cached = ExerciseImageStore.animationData(for: code), !cached.isEmpty {
+                    data = cached
+                    return
+                }
+                guard ExerciseMedia.isRemote(code) else { return }
+                data = await ExerciseImageLoader.load(code: code)
             }
     }
 
@@ -65,9 +69,13 @@ struct ExerciseArtwork: View {
 
     private func openVideo() {
         guard !isLoadingVideo, ExerciseMedia.isRemote(code) else { return }
+        if let data, !data.isEmpty {
+            present(data)
+            return
+        }
         if let cached = ExerciseImageStore.animationData(for: code), !cached.isEmpty {
-            videoData = cached
-            showVideo = true
+            data = cached
+            present(cached)
             return
         }
         isLoadingVideo = true
@@ -78,25 +86,39 @@ struct ExerciseArtwork: View {
                 guard !loaded.isEmpty else { return }
                 ExerciseImageStore.saveAnimation(loaded, code: code)
                 data = loaded
-                videoData = loaded
-                showVideo = true
+                present(loaded)
             } catch {
                 return
             }
         }
     }
+
+    private func present(_ gif: Data) {
+        presentation = ExerciseVideoPresentation(name: ExerciseName.formatted(name), data: gif)
+    }
+}
+
+private struct ExerciseVideoPresentation: Identifiable {
+    let id = UUID()
+    let name: String
+    let data: Data
 }
 
 private struct ExerciseVideoSheet: View {
     @Environment(\.dismiss) private var dismiss
     let name: String
-    let data: Data?
+    let data: Data
 
     var body: some View {
         NavigationStack {
             Group {
-                if let data, !GIFDecoder.frames(from: data).isEmpty {
+                if !GIFDecoder.frames(from: data).isEmpty {
                     AnimatedGIFView(data: data)
+                        .padding(24)
+                } else if let preview = stillFrame(data) {
+                    Image(decorative: preview, scale: 1, orientation: .up)
+                        .resizable()
+                        .scaledToFit()
                         .padding(24)
                 } else {
                     ContentUnavailableView(
@@ -116,6 +138,11 @@ private struct ExerciseVideoSheet: View {
                 }
             }
         }
+    }
+
+    private func stillFrame(_ data: Data) -> CGImage? {
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil) else { return nil }
+        return CGImageSourceCreateImageAtIndex(source, 0, nil)
     }
 }
 

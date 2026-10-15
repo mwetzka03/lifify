@@ -76,15 +76,51 @@ struct FilteredLedgerView: View {
 
     var body: some View {
         VStack(spacing: 8) {
-            if kind == .income {
-                forecastPanel
-                    .padding(.horizontal, 12)
-                    .padding(.top, 8)
-            }
             FinanceFilterControls(periods: periods, accounts: filterAccounts)
                 .padding(.horizontal, 12)
-                .padding(.top, kind == .income ? 0 : 8)
+                .padding(.top, 8)
             List {
+                if kind == .income {
+                    Section {
+                        if upcomingForecasts.isEmpty {
+                            Text(L("Keine offenen Prognosen.", "No open forecasts."))
+                                .foregroundStyle(.secondary)
+                        }
+                        ForEach(upcomingForecasts) { item in
+                            HStack {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(item.forecast.name)
+                                    Text(AppDate.numeric(item.date))
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                Text(Money.string(cents: item.amount))
+                                    .foregroundStyle(.green)
+                            }
+                            .contentShape(Rectangle())
+                            .onTapGesture { editedForecast = item.forecast }
+                            .contextMenu {
+                                Button(L("Bearbeiten", "Edit")) { editedForecast = item.forecast }
+                                Button(L("Löschen", "Delete"), role: .destructive) {
+                                    context.delete(item.forecast)
+                                    try? context.save()
+                                }
+                            }
+                        }
+                    } header: {
+                        HStack {
+                            Text(L("Einnahmeprognosen", "Income forecasts"))
+                            Spacer()
+                            Button {
+                                showingNewForecast = true
+                            } label: {
+                                Image(systemName: "plus.circle.fill")
+                            }
+                            .accessibilityLabel(L("Prognose hinzufügen", "Add forecast"))
+                        }
+                    }
+                }
                 if flowRows.isEmpty {
                     Text(emptyText)
                         .foregroundStyle(.secondary)
@@ -127,56 +163,11 @@ struct FilteredLedgerView: View {
         .sheet(item: $editedForecast) { IncomeForecastForm(forecast: $0) }
     }
 
-    private var forecastPanel: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text(L("Einnahmeprognosen", "Income forecasts"))
-                    .font(.headline)
-                Spacer()
-                Button {
-                    showingNewForecast = true
-                } label: {
-                    Image(systemName: "plus.circle.fill")
-                }
-                .accessibilityLabel(L("Prognose hinzufügen", "Add forecast"))
-            }
-            if upcomingForecasts.isEmpty {
-                Text(L("Keine offenen Prognosen.", "No open forecasts."))
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
-            ForEach(upcomingForecasts) { item in
-                HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(item.forecast.name)
-                        Text(AppDate.numeric(item.date))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                    Text(Money.string(cents: item.amount))
-                        .foregroundStyle(.green)
-                }
-                .contentShape(Rectangle())
-                .onTapGesture { editedForecast = item.forecast }
-                .contextMenu {
-                    Button(L("Bearbeiten", "Edit")) { editedForecast = item.forecast }
-                    Button(L("Löschen", "Delete"), role: .destructive) {
-                        context.delete(item.forecast)
-                        try? context.save()
-                    }
-                }
-            }
-        }
-        .padding(12)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(AppSurface.card, in: RoundedRectangle(cornerRadius: 14))
-    }
-
     private var upcomingForecasts: [ForecastOccurrence] {
+        guard let period = selectedPeriod else { return [] }
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: .now)
-        let horizon = periods.last?.end ?? calendar.date(byAdding: .month, value: 18, to: today) ?? today
+        guard period.end >= today else { return [] }
         var items: [ForecastOccurrence] = []
         for forecast in forecasts where forecast.isActive {
             let dates = CalendarService.nextOccurrences(
@@ -185,20 +176,19 @@ struct FilteredLedgerView: View {
                 rule: forecast.dueRule,
                 day: forecast.dayOfMonth,
                 endDate: forecast.endPaymentDate,
-                through: horizon
+                through: period.end
             )
-            for date in dates {
-                let day = calendar.startOfDay(for: date)
-                guard day >= today, day <= calendar.startOfDay(for: horizon) else { continue }
-                let period = periods.first { $0.contains(day) }
-                if forecastIsBooked(forecast, period: period, day: day) { continue }
-                items.append(ForecastOccurrence(
-                    id: "\(forecast.id.uuidString)-\(day.dayKey)",
-                    forecast: forecast,
-                    date: day,
-                    amount: abs(forecast.amountCents)
-                ))
-            }
+            guard let date = dates.first(where: { candidate in
+                let day = calendar.startOfDay(for: candidate)
+                return day >= today && period.contains(day) && !forecastIsBooked(forecast, period: period, day: day)
+            }) else { continue }
+            let day = calendar.startOfDay(for: date)
+            items.append(ForecastOccurrence(
+                id: "\(forecast.id.uuidString)-\(day.dayKey)",
+                forecast: forecast,
+                date: day,
+                amount: abs(forecast.amountCents)
+            ))
         }
         return items.sorted { $0.date < $1.date }
     }

@@ -168,7 +168,15 @@ enum BankImportApplier {
             insertedEntries.append(entry)
             entries.append(entry)
             if let trade = row.trade, let portfolio {
-                apply(trade, cashCents: row.amountCents, portfolio: portfolio.account, context: context, holdings: &holdings, insertedHoldings: &insertedHoldings)
+                apply(
+                    trade,
+                    cashCents: row.amountCents,
+                    date: row.date,
+                    portfolio: portfolio.account,
+                    context: context,
+                    holdings: &holdings,
+                    insertedHoldings: &insertedHoldings
+                )
             }
             known.formUnion(fingerprints)
             if row.trade == nil {
@@ -179,6 +187,15 @@ enum BankImportApplier {
         }
         if checking.account.iban.isEmpty, let iban = document.tradeRepublic?.iban, !iban.isEmpty {
             checking.account.iban = iban
+        }
+        if let portfolio {
+            let plans = SavingsPlanBuilder.build(
+                rows: document.rows,
+                checkingID: checking.account.id,
+                portfolioID: portfolio.account.id,
+                holdings: holdings
+            )
+            SavingsPlanStore.replace(plans, portfolioID: portfolio.account.id)
         }
         let portfolioID = portfolio?.account.id
         let holdingCount = holdings.filter { holding in
@@ -285,9 +302,16 @@ enum BankImportApplier {
         let reset = holdings.filter { holding in
             holding.accountID == portfolioID && isins.contains(holding.symbol.uppercased())
         }
-        reset.forEach(context.delete)
+        for holding in reset {
+            HoldingLotStore.removeAll(for: holding.id)
+            HoldingPurchaseDateStore.remove(for: holding.id)
+            context.delete(holding)
+        }
         let resetIDs = Set(reset.map(\.id))
         holdings.removeAll { resetIDs.contains($0.id) }
+        if let portfolioID {
+            SavingsPlanStore.removeAll(portfolioID: portfolioID)
+        }
     }
 
     private static func counterpartyAccount(
@@ -428,18 +452,29 @@ enum BankImportApplier {
     private static func apply(
         _ trade: ImportedSecurityTrade,
         cashCents: Int,
+        date: Date,
         portfolio: Account,
         context: ModelContext,
         holdings: inout [PortfolioHolding],
         insertedHoldings: inout [PortfolioHolding]
     ) {
         let price = Int((Double(abs(cashCents)) / trade.quantity).rounded())
+        let lot = HoldingLot(
+            date: date,
+            quantity: trade.quantity,
+            unitPriceCents: max(price, 0),
+            amountCents: cashCents,
+            isSale: trade.isSale,
+            isSavingsPlan: trade.isSavingsPlan
+        )
         if trade.isSale {
             guard let holding = holdings.first(where: { $0.accountID == portfolio.id && $0.symbol.caseInsensitiveCompare(trade.isin) == .orderedSame }) else { return }
+            HoldingLotStore.add(lot, holdingID: holding.id)
             holding.quantity = max(0, holding.quantity - trade.quantity)
             holding.currentPriceCents = max(price, 0)
             holding.updatedAt = .now
             if holding.quantity < 0.0000005 {
+                HoldingLotStore.removeAll(for: holding.id)
                 context.delete(holding)
                 holdings.removeAll { $0.id == holding.id }
                 insertedHoldings.removeAll { $0.id == holding.id }
@@ -454,6 +489,8 @@ enum BankImportApplier {
             holding.currentPriceCents = max(price, 0)
             holding.name = trade.name
             holding.updatedAt = .now
+            HoldingLotStore.add(lot, holdingID: holding.id)
+            rememberPurchase(date, holdingID: holding.id)
             return
         }
         let holding = PortfolioHolding(
@@ -462,11 +499,19 @@ enum BankImportApplier {
             symbol: trade.isin,
             quantity: trade.quantity,
             purchasePriceCents: max(price, 0),
-            currentPriceCents: max(price, 0)
+            currentPriceCents: max(price, 0),
+            updatedAt: date
         )
         context.insert(holding)
         holdings.append(holding)
         insertedHoldings.append(holding)
+        HoldingLotStore.add(lot, holdingID: holding.id)
+        HoldingPurchaseDateStore.set(date, for: holding.id)
+    }
+
+    private static func rememberPurchase(_ date: Date, holdingID: UUID) {
+        if let existing = HoldingPurchaseDateStore.date(for: holdingID), existing <= date { return }
+        HoldingPurchaseDateStore.set(date, for: holdingID)
     }
 
     private static func entryTouches(_ entry: LedgerEntry, accountID: UUID) -> Bool {

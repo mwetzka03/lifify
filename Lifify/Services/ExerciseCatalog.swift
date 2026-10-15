@@ -55,7 +55,22 @@ enum ExerciseCatalog {
               let decoded = try? JSONDecoder().decode([CatalogExercise].self, from: data) else {
             return []
         }
-        return decoded
+        return decoded.map { exercise in
+            var named = exercise
+            named.name = ExerciseName.formatted(exercise.name)
+            return named
+        }
+    }
+}
+
+enum ExerciseName {
+    static func formatted(_ name: String) -> String {
+        name.split(separator: " ", omittingEmptySubsequences: true).map { word in
+            word.split(separator: "-", omittingEmptySubsequences: false).map { part in
+                guard let first = part.first else { return String(part) }
+                return String(first).uppercased() + part.dropFirst().lowercased()
+            }.joined(separator: "-")
+        }.joined(separator: " ")
     }
 }
 

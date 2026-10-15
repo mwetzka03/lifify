@@ -21,7 +21,7 @@ struct ExerciseSearchView: View {
                         onPick(WorkoutExerciseInfo(
                             id: UUID().uuidString,
                             code: "MANUAL-\(UUID().uuidString)",
-                            name: name,
+                            name: ExerciseName.formatted(name),
                             detail: "",
                             muscle: ""
                         ))

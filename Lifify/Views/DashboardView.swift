@@ -13,6 +13,8 @@ struct DashboardView: View {
     @Query private var splits: [TransactionSplit]
     @Query(sort: \ShoppingItem.createdAt, order: .reverse) private var shopping: [ShoppingItem]
     @EnvironmentObject private var filters: FinanceFilterStore
+    @AppStorage("portfolioPerformanceBasis") private var portfolioBasis = "today"
+    @AppStorage("portfolioPerformanceUnit") private var portfolioUnit = "percent"
 
     init(isMainTab: Bool = false, path: Binding<NavigationPath>? = nil) {
         self.isMainTab = isMainTab
@@ -27,7 +29,7 @@ struct DashboardView: View {
                     let snapshot = presented(forecast(for: period))
                     netWorthCard(snapshot, period: period)
                     if selectedFilterAccount?.kind == .portfolio {
-                        PortfolioElementsView(accountID: selectedFilterAccount?.id)
+                        PortfolioElementsView(accountID: selectedFilterAccount?.id, showsValueHeader: false)
                     } else {
                         let liquid = selectedFilterAccount == nil ? liquidForecast(for: period) : nil
                         HStack(alignment: .top, spacing: 8) {
@@ -119,9 +121,16 @@ struct DashboardView: View {
                 .font(.largeTitle.bold())
                 .minimumScaleFactor(0.6)
                 .lineLimit(1)
-            Text(netWorthCaption(period))
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+            if selectedFilterAccount?.kind == .portfolio {
+                let change = portfolioChange
+                Text(change.text)
+                    .font(.subheadline.bold())
+                    .foregroundStyle(change.cents < 0 ? .red : (change.cents > 0 ? .green : .secondary))
+            } else {
+                Text(netWorthCaption(period))
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
         }
         .financeCard()
     }
@@ -276,6 +285,11 @@ struct DashboardView: View {
         return entries.filter { entry in
             entry.accountID == account.id || entry.fromAccountID == account.id || entry.toAccountID == account.id
         }
+    }
+
+    private var portfolioChange: (text: String, cents: Int) {
+        let total = scopedHoldings.reduce(HoldingPerformance()) { $0.adding(holdingPerformance($1)) }
+        return total.selected(basis: portfolioBasis, unit: portfolioUnit)
     }
 
     private var scopedHoldings: [PortfolioHolding] {

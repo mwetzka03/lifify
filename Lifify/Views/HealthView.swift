@@ -157,7 +157,7 @@ struct WorkoutPlanDetailView: View {
                                 HStack(spacing: 12) {
                                     ExerciseArtwork(code: exercise.code, name: exercise.name)
                                     VStack(alignment: .leading, spacing: 2) {
-                                        Text(exercise.name)
+                                        Text(ExerciseName.formatted(exercise.name))
                                             .font(.title3.weight(.semibold))
                                         Text("\(L("Pause", "Rest")) \(WorkoutFormat.rest(exercise.restSeconds))")
                                             .font(.subheadline)
@@ -220,7 +220,7 @@ struct WorkoutHistoryView: View {
                             VStack(alignment: .leading, spacing: 8) {
                                 HStack(spacing: 12) {
                                     ExerciseArtwork(code: exercise.code, name: exercise.name)
-                                    Text(exercise.name)
+                                    Text(ExerciseName.formatted(exercise.name))
                                         .font(.title3.weight(.semibold))
                                     Spacer(minLength: 8)
                                     Text(WorkoutProgress.volumeText(WorkoutProgress.volume(of: exercise)))

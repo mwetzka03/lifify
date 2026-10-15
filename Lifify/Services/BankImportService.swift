@@ -46,6 +46,7 @@ struct ImportedSecurityTrade: Hashable {
     var name: String
     var quantity: Double
     var isSale: Bool
+    var isSavingsPlan: Bool = false
 }
 
 struct TradeRepublicStatement {

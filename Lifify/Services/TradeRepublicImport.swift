@@ -25,10 +25,11 @@ enum TradeRepublicImporter {
         let balances = cashBalances(in: header)
         let parsed = transactionRows(in: section, openingBalanceCents: balances.opening)
         guard !parsed.isEmpty else { throw BankImportError.unsupportedPDF }
+        let closing = balances.opening + parsed.reduce(0) { $0 + $1.amountCents }
         return TradeRepublicStatement(
             iban: accountIBAN(in: header),
             openingBalanceCents: balances.opening,
-            closingBalanceCents: balances.closing,
+            closingBalanceCents: closing,
             rows: parsed
         )
     }
@@ -38,10 +39,11 @@ enum TradeRepublicImporter {
     private static func columnStatement(in document: PDFDocument) -> TradeRepublicStatement? {
         var rows: [ImportedTransaction] = []
         var inTable = false
-        var columns: StatementColumns?
         var opening: Int?
         var openingAnchor: CGFloat?
-        var closing = 0
+        var running = 0
+        var seeded = false
+        var matches = 0
         var headerText = ""
         for index in 0..<document.pageCount {
             guard let page = document.page(at: index) else { continue }
@@ -55,6 +57,8 @@ enum TradeRepublicImporter {
                 let joined = line.text
                 if !inTable, isOverviewTitle(joined) {
                     inTable = true
+                    running = opening ?? 0
+                    seeded = true
                     continue
                 }
                 if !inTable {
@@ -77,79 +81,115 @@ enum TradeRepublicImporter {
                     break
                 }
                 if containsMarker("Zahlungsausgang", in: joined), containsMarker("Saldo", in: joined), containsMarker("Datum", in: joined) {
-                    columns = StatementColumns(line: line)
                     continue
                 }
                 pending.append(line)
             }
-            rows.append(contentsOf: transactions(in: pending, columns: columns, closing: &closing))
+            if inTable {
+                if !seeded {
+                    running = opening ?? 0
+                    seeded = true
+                }
+                rows.append(contentsOf: transactions(in: pending, running: &running, matches: &matches))
+            }
             if stopped { break }
         }
         guard inTable, !rows.isEmpty else { return nil }
+        // A column reading that does not follow the printed balance is discarded.
+        // The text parser then derives each booking from the saldo change.
+        if rows.count - matches > 3 { return nil }
         return TradeRepublicStatement(
             iban: accountIBAN(in: headerText),
             openingBalanceCents: opening ?? 0,
-            closingBalanceCents: closing,
+            closingBalanceCents: running,
             rows: rows
         )
     }
 
-    private static func transactions(in lines: [TextLine], columns: StatementColumns?, closing: inout Int) -> [ImportedTransaction] {
-        guard let columns else { return [] }
+    private static func transactions(
+        in lines: [TextLine],
+        running: inout Int,
+        matches: inout Int
+    ) -> [ImportedTransaction] {
         var parsed: [ImportedTransaction] = []
         for cluster in clusters(from: lines) {
             let words = cluster.flatMap(\.words)
-            guard let type = words.first(where: { statementTypes.contains($0.text) && $0.minX < 150 })?.text else { continue }
-            var inflow: Int?
-            var outflow: Int?
-            var saldo: Int?
-            var description: [String] = []
+            guard let type = words.first(where: { statementTypes.contains($0.text) && $0.minX < 170 })?.text else { continue }
+            var descriptionWords: [PlacedWord] = []
             var dates: [String] = []
+            var amounts: [(x: CGFloat, cents: Int)] = []
             for word in words.sorted(by: { lhs, rhs in
                 if lhs.midY != rhs.midY { return lhs.midY > rhs.midY }
                 return lhs.minX < rhs.minX
             }) {
                 if let cents = amountCents(word.text) {
-                    if abs(word.minX - columns.inflowX) <= 18 {
-                        inflow = cents
-                    } else if abs(word.minX - columns.outflowX) <= 18 {
-                        outflow = cents
-                    } else if abs(word.maxX - columns.saldoMaxX) <= 36 || word.minX > columns.outflowX + 40 {
-                        saldo = cents
-                    }
-                } else if word.minX < 96 {
+                    amounts.append((word.minX, cents))
+                } else if word.minX < 110 {
                     dates.append(word.text)
-                } else if word.minX >= 140, word.minX < columns.inflowX - 8, !statementTypes.contains(word.text) {
-                    description.append(word.text)
+                } else if !statementTypes.contains(word.text) {
+                    descriptionWords.append(word)
                 }
             }
-            guard inflow != nil || outflow != nil else { continue }
-            let signed = inflow ?? -(outflow ?? 0)
-            if let saldo { closing = saldo }
-            guard let date = date(in: dates.joined(separator: " ")) else { continue }
-            let rawDescription = description.joined(separator: " ")
-            let titleText = displayTitle(rawDescription)
-            let trade = securityTrade(type: type, description: rawDescription, inflow: signed > 0 ? signed : nil)
-            let title = trade.map { "\($0.isSale ? L("Verkauf", "Sale") : L("Kauf", "Purchase")): \($0.name)" } ?? titleText
-            let counterparty = iban(in: rawDescription)
-            let details = [
-                "\(L("Typ", "Type")): \(type)",
-                trade.map { "ISIN: \($0.isin)" },
-                trade.map { "\(L("Stück", "Quantity")): \(quantityText($0.quantity))" }
-            ].compactMap { $0 }.joined(separator: "\n")
-            parsed.append(BankImportService.imported(
-                date: date,
-                title: title.isEmpty ? type : title,
-                amount: signed,
-                senderIBAN: signed >= 0 ? counterparty : "",
-                recipientIBAN: signed < 0 ? counterparty : "",
-                legacyIBAN: "",
-                legacyTitle: title.isEmpty ? type : title,
-                details: details,
-                trade: trade
-            ))
+            let ordered = amounts.sorted { $0.x < $1.x }
+            guard ordered.count >= 2, let date = date(in: dates.joined(separator: " ")) else { continue }
+            let cashX = ordered[ordered.count - 2].x
+            let resolved = booking(earlier: ordered[ordered.count - 2].cents, later: ordered[ordered.count - 1].cents, previous: running)
+            if resolved.matched { matches += 1 }
+            running = resolved.saldo
+            let rawDescription = descriptionWords
+                .filter { $0.minX < cashX - 4 }
+                .map(\.text)
+                .joined(separator: " ")
+            parsed.append(importedRow(date: date, type: type, description: rawDescription, signed: resolved.signed))
         }
         return parsed
+    }
+
+    /// The right-hand amount is the balance after the booking. The amount beside it is the cash movement.
+    /// Zahlungseingang increases the balance, Zahlungsausgang decreases it. The saldo itself is never the booking.
+    private static func booking(earlier: Int, later: Int, previous: Int) -> (signed: Int, saldo: Int, matched: Bool) {
+        let forward = later - previous
+        if abs(abs(forward) - earlier) <= 1 {
+            return (forward, later, true)
+        }
+        let backward = earlier - previous
+        if abs(abs(backward) - later) <= 1 {
+            return (backward, earlier, true)
+        }
+        let signed = forward < 0 ? -earlier : earlier
+        return (signed, previous + signed, false)
+    }
+
+    private static func importedRow(date: Date, type: String, description rawDescription: String, signed: Int) -> ImportedTransaction {
+        let titleText = displayTitle(rawDescription)
+        let trade = securityTrade(type: type, description: rawDescription, inflow: signed > 0 ? signed : nil)
+        let title = eventTitle(trade: trade, fallback: titleText, type: type)
+        let counterparty = iban(in: rawDescription)
+        let unitPrice = trade.map { Int((Double(abs(signed)) / $0.quantity).rounded()) }
+        let details = [
+            "\(L("Typ", "Type")): \(type)",
+            trade.map { "ISIN: \($0.isin)" },
+            trade.map { "\(L("Stück", "Quantity")): \(quantityText($0.quantity))" },
+            unitPrice.map { "\(L("Kurs", "Price")): \(Money.string(cents: $0))" }
+        ].compactMap { $0 }.joined(separator: "\n")
+        return BankImportService.imported(
+            date: date,
+            title: title,
+            amount: signed,
+            senderIBAN: signed >= 0 ? counterparty : "",
+            recipientIBAN: signed < 0 ? counterparty : "",
+            legacyIBAN: "",
+            legacyTitle: title,
+            details: details,
+            trade: trade
+        )
+    }
+
+    private static func eventTitle(trade: ImportedSecurityTrade?, fallback: String, type: String) -> String {
+        guard let trade else { return fallback.isEmpty ? type : fallback }
+        if trade.isSavingsPlan { return "\(L("Sparplan", "Savings plan")): \(trade.name)" }
+        let action = trade.isSale ? L("Verkauf", "Sale") : L("Kauf", "Purchase")
+        return "\(action): \(trade.name)"
     }
 
     private static func clusters(from lines: [TextLine]) -> [[TextLine]] {
@@ -198,6 +238,7 @@ enum TradeRepublicImporter {
 
     nonisolated private static func isSectionEnd(_ text: String) -> Bool {
         let value = folded(text)
+        if value.contains("treuhandkonten") { return true }
         if value.contains("barmittel") && value.contains("bersicht") { return true }
         if value.contains("transaktions") && value.contains("bersicht") { return true }
         return value.contains("hinweise zum")
@@ -291,7 +332,7 @@ enum TradeRepublicImporter {
     }
 
     private static func stopIndex(in text: String, after start: String.Index) -> String.Index {
-        let markers = ["Transaktionsübersicht", "Barmittelübersicht", "Hinweise"]
+        let markers = ["Transaktionsübersicht", "Barmittelübersicht", "Treuhandkonten", "Hinweise"]
         let indices = markers.compactMap { markerRange($0, in: text, from: start)?.lowerBound }
         return indices.min() ?? text.endIndex
     }
@@ -327,57 +368,15 @@ enum TradeRepublicImporter {
             let chunk = Array(tokens[(typeAt + 1)..<next])
             let amountIndexes = chunk.indices.filter { amountCents(chunk[$0]) != nil }
             guard amountIndexes.count >= 2, let components = carriedDate else { continue }
-            var used = Array(amountIndexes.suffix(2))
-            if amountIndexes.count >= 3 {
-                let third = amountIndexes[amountIndexes.count - 3]
-                let last = amountIndexes[amountIndexes.count - 1]
-                let between = chunk[(third + 1)..<last]
-                if between.allSatisfy({ amountCents($0) != nil }) {
-                    used = Array(amountIndexes.suffix(3))
-                }
-            }
-            let values = used.compactMap { amountCents(chunk[$0]) }
-            guard values.count == used.count, let firstAmount = used.first else { continue }
-            let rawDescription = chunk[..<firstAmount].joined(separator: " ")
-            let description = displayTitle(rawDescription)
-            let signed: Int
-            let saldo: Int
-            if values.count == 3 {
-                signed = values[0] - values[1]
-                saldo = values[2]
-            } else {
-                let movement = values[0]
-                saldo = values[1]
-                if balance + movement == saldo {
-                    signed = movement
-                } else if balance - movement == saldo {
-                    signed = -movement
-                } else {
-                    signed = saldo - balance
-                }
-            }
-            balance = balance + signed == saldo ? balance + signed : saldo
-            let type = tokens[typeAt]
-            let trade = securityTrade(type: type, description: rawDescription, inflow: signed > 0 ? signed : nil)
-            let title = trade.map { "\($0.isSale ? L("Verkauf", "Sale") : L("Kauf", "Purchase")): \($0.name)" } ?? description
-            let counterparty = iban(in: description)
-            let details = [
-                "\(L("Typ", "Type")): \(type)",
-                trade.map { "ISIN: \($0.isin)" },
-                trade.map { "\(L("Stück", "Quantity")): \(quantityText($0.quantity))" }
-            ].compactMap { $0 }.joined(separator: "\n")
+            let cashIndex = amountIndexes[amountIndexes.count - 2]
+            guard let cash = amountCents(chunk[cashIndex]),
+                  let saldo = amountCents(chunk[amountIndexes[amountIndexes.count - 1]])
+            else { continue }
+            let rawDescription = chunk[..<cashIndex].joined(separator: " ")
+            let resolved = booking(earlier: cash, later: saldo, previous: balance)
+            balance = resolved.saldo
             guard let date = statementDate(day: components.day, month: components.month, year: components.year) else { continue }
-            rows.append(BankImportService.imported(
-                date: date,
-                title: title.isEmpty ? type : title,
-                amount: signed,
-                senderIBAN: signed >= 0 ? counterparty : "",
-                recipientIBAN: signed < 0 ? counterparty : "",
-                legacyIBAN: "",
-                legacyTitle: title.isEmpty ? type : title,
-                details: details,
-                trade: trade
-            ))
+            rows.append(importedRow(date: date, type: tokens[typeAt], description: rawDescription, signed: resolved.signed))
         }
         return rows
     }
@@ -423,7 +422,8 @@ enum TradeRepublicImporter {
             options: .regularExpression
         )
         for type in statementTypes.sorted(by: { $0.count > $1.count }) {
-            spaced = spaced.replacingOccurrences(of: type, with: " \(type) ")
+            let pattern = "(?<![\\p{L}\\p{N}])\(NSRegularExpression.escapedPattern(for: type))(?![\\p{L}\\p{N}])"
+            spaced = spaced.replacingOccurrences(of: pattern, with: " \(type) ", options: .regularExpression)
         }
         let pattern = #"(\d{1,2})((?:Jan(?:uar)?|Feb(?:ruar)?|Mär(?:z)?|Maerz|Mar(?:z)?|Mrz|Apr(?:il)?|Mai|Juni?|Juli?|Aug(?:ust)?|Sept(?:ember)?|Sep|Okt(?:ober)?|Nov(?:ember)?|Dez(?:ember)?)\.?)(20\d{2})"#
         return spaced.replacingOccurrences(
@@ -468,8 +468,9 @@ enum TradeRepublicImporter {
               quantity > 0
         else { return nil }
         let lower = description.lowercased()
+        let isSavings = lower.contains("savings plan") || lower.contains("sparplan")
         var isSale = lower.contains("sell trade") || lower.contains("verkauf")
-        let isBuy = lower.contains("buy trade") || lower.contains("savings plan") || lower.contains("sparplan")
+        let isBuy = lower.contains("buy trade") || isSavings
         let cancels = lower.contains("cancellation") || lower.contains("storno") || lower.contains("rückerstattung") || lower.contains("rueckerstattung")
         if cancels {
             if isSale || isBuy {
@@ -481,7 +482,13 @@ enum TradeRepublicImporter {
             isSale = inflow != nil
         }
         let name = instrumentName(description: description, isin: isin)
-        return ImportedSecurityTrade(isin: isin, name: name.isEmpty ? isin : name, quantity: quantity, isSale: isSale)
+        return ImportedSecurityTrade(
+            isin: isin,
+            name: name.isEmpty ? isin : name,
+            quantity: quantity,
+            isSale: isSale,
+            isSavingsPlan: isSavings && !isSale
+        )
     }
 
     private static func instrumentName(description: String, isin: String) -> String {
@@ -557,24 +564,6 @@ enum TradeRepublicImporter {
         var midY: CGFloat
         var words: [PlacedWord]
         var text: String { words.map(\.text).joined(separator: " ") }
-    }
-
-    private struct StatementColumns {
-        var inflowX: CGFloat
-        var outflowX: CGFloat
-        var saldoMaxX: CGFloat
-
-        init?(line: TextLine) {
-            func placed(_ marker: String) -> PlacedWord? {
-                line.words.first { TradeRepublicImporter.containsMarker(marker, in: $0.text) }
-            }
-            guard let inflow = placed("Zahlungseingang"),
-                  let outflow = placed("Zahlungsausgang"),
-                  let saldo = placed("Saldo") else { return nil }
-            inflowX = inflow.minX
-            outflowX = outflow.minX
-            saldoMaxX = saldo.maxX
-        }
     }
 
     private static let statementTypes: Set<String> = [
