@@ -7,6 +7,9 @@ enum TradeRepublicImporter {
         guard let document = PDFDocument(data: data), document.pageCount > 0 else {
             throw BankImportError.unreadableFile
         }
+        if let statement = columnStatement(in: document) {
+            return statement
+        }
         let text = (0..<document.pageCount).compactMap { index -> String? in
             guard let page = document.page(at: index) else { return nil }
             let plain = page.string ?? ""
@@ -28,6 +31,250 @@ enum TradeRepublicImporter {
             closingBalanceCents: balances.closing,
             rows: parsed
         )
+    }
+
+    /// Reads only the Umsatzübersicht. The booking amount is Zahlungseingang or Zahlungsausgang.
+    /// The Saldo column is the running balance and is never used as the trade value.
+    private static func columnStatement(in document: PDFDocument) -> TradeRepublicStatement? {
+        var rows: [ImportedTransaction] = []
+        var inTable = false
+        var columns: StatementColumns?
+        var opening: Int?
+        var openingAnchor: CGFloat?
+        var closing = 0
+        var headerText = ""
+        for index in 0..<document.pageCount {
+            guard let page = document.page(at: index) else { continue }
+            if !inTable {
+                headerText += (page.string ?? "") + "\n"
+            }
+            let lines = textLines(on: page)
+            var pending: [TextLine] = []
+            var stopped = false
+            for line in lines {
+                let joined = line.text
+                if !inTable, isOverviewTitle(joined) {
+                    inTable = true
+                    continue
+                }
+                if !inTable {
+                    if containsMarker("Anfangssaldo", in: joined), let word = line.words.first(where: { containsMarker("Anfangssaldo", in: $0.text) }) {
+                        openingAnchor = word.minX
+                    }
+                    if containsMarker("Cashkonto", in: joined), let anchor = openingAnchor {
+                        let amounts = line.words.compactMap { word -> (CGFloat, Int)? in
+                            guard let cents = amountCents(word.text) else { return nil }
+                            return (word.minX, cents)
+                        }
+                        if let nearest = amounts.min(by: { abs($0.0 - anchor) < abs($1.0 - anchor) }) {
+                            opening = nearest.1
+                        }
+                    }
+                    continue
+                }
+                if isSectionEnd(joined) {
+                    stopped = true
+                    break
+                }
+                if containsMarker("Zahlungsausgang", in: joined), containsMarker("Saldo", in: joined), containsMarker("Datum", in: joined) {
+                    columns = StatementColumns(line: line)
+                    continue
+                }
+                pending.append(line)
+            }
+            rows.append(contentsOf: rows(in: pending, columns: columns, closing: &closing))
+            if stopped { break }
+        }
+        guard inTable, !rows.isEmpty else { return nil }
+        return TradeRepublicStatement(
+            iban: accountIBAN(in: headerText),
+            openingBalanceCents: opening ?? 0,
+            closingBalanceCents: closing,
+            rows: rows
+        )
+    }
+
+    private static func rows(in lines: [TextLine], columns: StatementColumns?, closing: inout Int) -> [ImportedTransaction] {
+        guard let columns else { return [] }
+        var parsed: [ImportedTransaction] = []
+        for cluster in clusters(from: lines) {
+            let words = cluster.flatMap(\.words)
+            guard let type = words.first(where: { statementTypes.contains($0.text) && $0.minX < 150 })?.text else { continue }
+            var inflow: Int?
+            var outflow: Int?
+            var saldo: Int?
+            var description: [String] = []
+            var dates: [String] = []
+            for word in words.sorted(by: { lhs, rhs in
+                if lhs.midY != rhs.midY { return lhs.midY > rhs.midY }
+                return lhs.minX < rhs.minX
+            }) {
+                if let cents = amountCents(word.text) {
+                    if abs(word.minX - columns.inflowX) <= 18 {
+                        inflow = cents
+                    } else if abs(word.minX - columns.outflowX) <= 18 {
+                        outflow = cents
+                    } else if abs(word.maxX - columns.saldoMaxX) <= 36 || word.minX > columns.outflowX + 40 {
+                        saldo = cents
+                    }
+                } else if word.minX < 96 {
+                    dates.append(word.text)
+                } else if word.minX >= 140, word.minX < columns.inflowX - 8, !statementTypes.contains(word.text) {
+                    description.append(word.text)
+                }
+            }
+            guard inflow != nil || outflow != nil else { continue }
+            let signed = inflow ?? -(outflow ?? 0)
+            if let saldo { closing = saldo }
+            guard let date = date(in: dates.joined(separator: " ")) else { continue }
+            let rawDescription = description.joined(separator: " ")
+            let titleText = displayTitle(rawDescription)
+            let trade = securityTrade(type: type, description: rawDescription, inflow: signed > 0 ? signed : nil)
+            let title = trade.map { "\($0.isSale ? L("Verkauf", "Sale") : L("Kauf", "Purchase")): \($0.name)" } ?? titleText
+            let counterparty = iban(in: rawDescription)
+            let details = [
+                "\(L("Typ", "Type")): \(type)",
+                trade.map { "ISIN: \($0.isin)" },
+                trade.map { "\(L("Stück", "Quantity")): \(quantityText($0.quantity))" }
+            ].compactMap { $0 }.joined(separator: "\n")
+            parsed.append(BankImportService.imported(
+                date: date,
+                title: title.isEmpty ? type : title,
+                amount: signed,
+                senderIBAN: signed >= 0 ? counterparty : "",
+                recipientIBAN: signed < 0 ? counterparty : "",
+                legacyIBAN: "",
+                legacyTitle: title.isEmpty ? type : title,
+                details: details,
+                trade: trade
+            ))
+        }
+        return parsed
+    }
+
+    private static func clusters(from lines: [TextLine]) -> [[TextLine]] {
+        var clusters: [[TextLine]] = []
+        var current: [TextLine] = []
+        var previous: CGFloat?
+        for line in lines {
+            if let previous, previous - line.midY > 12, !current.isEmpty {
+                clusters.append(current)
+                current = []
+            }
+            current.append(line)
+            previous = line.midY
+        }
+        if !current.isEmpty { clusters.append(current) }
+        return clusters
+    }
+
+    private static func date(in text: String) -> Date? {
+        let pattern = #"(\d{1,2})\.?\s+((?:Jan(?:uar)?|Feb(?:ruar)?|Mär(?:z)?|Maerz|Mar(?:z)?|Mrz|Apr(?:il)?|Mai|Juni?|Juli?|Aug(?:ust)?|Sept(?:ember)?|Sep|Okt(?:ober)?|Nov(?:ember)?|Dez(?:ember)?)\.?)\s+(20\d{2})"#
+        guard let expression = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]),
+              let match = expression.matches(in: text, range: NSRange(text.startIndex..., in: text)).last,
+              match.numberOfRanges > 3,
+              let dayRange = Range(match.range(at: 1), in: text),
+              let monthRange = Range(match.range(at: 2), in: text),
+              let yearRange = Range(match.range(at: 3), in: text),
+              let day = Int(text[dayRange]),
+              let month = monthNumber(String(text[monthRange])),
+              let year = Int(text[yearRange])
+        else { return nil }
+        return statementDate(day: day, month: month, year: year)
+    }
+
+    private static func containsMarker(_ marker: String, in text: String) -> Bool {
+        text.range(of: marker, options: [.caseInsensitive, .diacriticInsensitive]) != nil
+    }
+
+    private static func folded(_ text: String) -> String {
+        text.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "de_DE"))
+    }
+
+    private static func isOverviewTitle(_ text: String) -> Bool {
+        let value = folded(text)
+        return value.contains("umsatz") && value.contains("bersicht") && !value.contains("konto")
+    }
+
+    private static func isSectionEnd(_ text: String) -> Bool {
+        let value = folded(text)
+        if value.contains("barmittel") && value.contains("bersicht") { return true }
+        if value.contains("transaktions") && value.contains("bersicht") { return true }
+        return value.contains("hinweise zum")
+    }
+
+    private static func textLines(on page: PDFPage) -> [TextLine] {
+        guard let raw = page.string, !raw.isEmpty else { return [] }
+        let ns = raw as NSString
+        var glyphs: [Glyph] = []
+        var index = 0
+        while index < ns.length {
+            let range = NSRange(location: index, length: 1)
+            let character = ns.substring(with: range)
+            let bounds = page.characterBounds(at: index)
+            index += range.length
+            guard !character.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { continue }
+            guard !bounds.isNull, !bounds.isInfinite, bounds.width > 0.05, bounds.height > 0.05 else { continue }
+            glyphs.append(Glyph(text: character, minX: bounds.minX, maxX: bounds.maxX, midY: bounds.midY))
+        }
+        let sorted = glyphs.sorted { lhs, rhs in
+            if lhs.midY != rhs.midY { return lhs.midY > rhs.midY }
+            return lhs.minX < rhs.minX
+        }
+        var glyphLines: [[Glyph]] = []
+        for glyph in sorted {
+            if var last = glyphLines.last, let sample = last.first, abs(sample.midY - glyph.midY) <= 2 {
+                last.append(glyph)
+                glyphLines[glyphLines.count - 1] = last
+            } else {
+                glyphLines.append([glyph])
+            }
+        }
+        return glyphLines.compactMap { lineGlyphs in
+            let ordered = lineGlyphs.sorted { $0.minX < $1.minX }
+            let words = words(from: ordered)
+            guard !words.isEmpty else { return nil }
+            let midY = ordered.map(\.midY).reduce(0, +) / CGFloat(ordered.count)
+            return TextLine(midY: midY, words: words)
+        }
+    }
+
+    private static func words(from glyphs: [Glyph]) -> [PlacedWord] {
+        var words: [PlacedWord] = []
+        var buffer = ""
+        var minX: CGFloat = 0
+        var maxX: CGFloat = 0
+        var midY: CGFloat = 0
+        func flush() {
+            let text = buffer.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !text.isEmpty {
+                words.append(PlacedWord(text: text, minX: minX, maxX: maxX, midY: midY))
+            }
+            buffer = ""
+        }
+        for glyph in glyphs {
+            if buffer.isEmpty {
+                buffer = glyph.text
+                minX = glyph.minX
+                maxX = glyph.maxX
+                midY = glyph.midY
+                continue
+            }
+            let gap = glyph.minX - maxX
+            if gap <= 2.2 {
+                buffer += glyph.text
+                maxX = max(maxX, glyph.maxX)
+                minX = min(minX, glyph.minX)
+            } else {
+                flush()
+                buffer = glyph.text
+                minX = glyph.minX
+                maxX = glyph.maxX
+                midY = glyph.midY
+            }
+        }
+        flush()
+        return words
     }
 
     private static func markerRange(_ marker: String, in text: String, from: String.Index? = nil) -> Range<String.Index>? {
@@ -205,7 +452,10 @@ enum TradeRepublicImporter {
     }
 
     private static func amountCents(_ token: String) -> Int? {
-        let trimmed = token.trimmingCharacters(in: CharacterSet(charactersIn: "€"))
+        let trimmed = token
+            .replacingOccurrences(of: "€", with: "")
+            .replacingOccurrences(of: "\u{00a0}", with: "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.range(of: #"^\d{1,3}(\.\d{3})*,\d{2}$"#, options: .regularExpression) != nil else { return nil }
         return Money.cents(from: trimmed)
     }
@@ -287,6 +537,44 @@ enum TradeRepublicImporter {
         while text.contains("."), text.last == "0" { text.removeLast() }
         if text.last == "." { text.removeLast() }
         return text
+    }
+
+    private struct Glyph {
+        var text: String
+        var minX: CGFloat
+        var maxX: CGFloat
+        var midY: CGFloat
+    }
+
+    private struct PlacedWord {
+        var text: String
+        var minX: CGFloat
+        var maxX: CGFloat
+        var midY: CGFloat
+    }
+
+    private struct TextLine {
+        var midY: CGFloat
+        var words: [PlacedWord]
+        var text: String { words.map(\.text).joined(separator: " ") }
+    }
+
+    private struct StatementColumns {
+        var inflowX: CGFloat
+        var outflowX: CGFloat
+        var saldoMaxX: CGFloat
+
+        init?(line: TextLine) {
+            func placed(_ marker: String) -> PlacedWord? {
+                line.words.first { TradeRepublicImporter.containsMarker(marker, in: $0.text) }
+            }
+            guard let inflow = placed("Zahlungseingang"),
+                  let outflow = placed("Zahlungsausgang"),
+                  let saldo = placed("Saldo") else { return nil }
+            inflowX = inflow.minX
+            outflowX = outflow.minX
+            saldoMaxX = saldo.maxX
+        }
     }
 
     private static let statementTypes: Set<String> = [

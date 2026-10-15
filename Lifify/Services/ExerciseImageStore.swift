@@ -61,19 +61,27 @@ enum ExerciseImageLoader {
     private static var inflight: [String: Task<Data?, Never>] = [:]
 
     static func load(code: String) async -> Data? {
+        if let cached = ExerciseImageStore.animationData(for: code), !cached.isEmpty { return cached }
         guard ExerciseMedia.isRemote(code) else { return nil }
-        if let cached = ExerciseImageStore.data(for: code) { return cached }
         if let task = inflight[code] { return await task.value }
         let task = Task<Data?, Never> {
-            guard let data = try? await WorkoutAPIClient.shared.imagePNG(code: code), !data.isEmpty else {
-                return nil
-            }
-            ExerciseImageStore.save(data, code: code)
+            guard let data = try? await gif(for: code), !data.isEmpty else { return nil }
             return data
         }
         inflight[code] = task
         let data = await task.value
         inflight[code] = nil
+        return data
+    }
+
+    static func gif(for code: String) async throws -> Data {
+        if let cached = ExerciseImageStore.animationData(for: code), !cached.isEmpty { return cached }
+        guard let url = ExerciseCatalog.gifURL(for: code) else { return Data() }
+        let (data, response) = try await URLSession.shared.data(from: url)
+        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode), !data.isEmpty else {
+            return Data()
+        }
+        ExerciseImageStore.saveAnimation(data, code: code)
         return data
     }
 }

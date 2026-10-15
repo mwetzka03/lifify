@@ -288,7 +288,7 @@ struct DashboardView: View {
     }
 
     private func forecast(for period: ForecastPeriod) -> PeriodForecast {
-        FinanceService.periodForecast(
+        var snapshot = FinanceService.periodForecast(
             period: period,
             periods: periods,
             accounts: scopedAccounts,
@@ -300,6 +300,24 @@ struct DashboardView: View {
             forecasts: includePlans ? forecasts : [],
             shopping: includePlans ? shopping : []
         )
+        let tradedIncome = PortfolioCashFlow.countedCents(
+            kind: .income,
+            entries: scopedEntries,
+            accounts: accounts,
+            period: period,
+            account: selectedFilterAccount
+        )
+        let tradedExpenses = PortfolioCashFlow.countedCents(
+            kind: .expense,
+            entries: scopedEntries,
+            accounts: accounts,
+            period: period,
+            account: selectedFilterAccount
+        )
+        snapshot.bookedIncome += tradedIncome
+        snapshot.bookedExpenses += tradedExpenses
+        snapshot.income += tradedIncome
+        return snapshot
     }
 
     private func liquidForecast(for period: ForecastPeriod) -> PeriodForecast {

@@ -59,6 +59,14 @@ enum FinancePeriods {
     }
 }
 
+enum TradeAccountPreference {
+    static let storageKey = "defaultTradeCheckingAccountID"
+
+    static func accountID() -> UUID? {
+        UserDefaults.standard.string(forKey: storageKey).flatMap(UUID.init(uuidString:))
+    }
+}
+
 enum TradeFeePreference {
     static let storageKey = "defaultTradeFeeCents"
     static let defaultCents = 100

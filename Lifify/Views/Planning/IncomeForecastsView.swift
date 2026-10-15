@@ -125,7 +125,7 @@ struct IncomeForecastsView: View {
     }
 }
 
-private struct IncomeForecastForm: View {
+struct IncomeForecastForm: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
     @Query(sort: \Account.name) private var accounts: [Account]

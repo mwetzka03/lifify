@@ -134,7 +134,7 @@ struct WorkoutSessionView: View {
 
     private func exerciseHeader(_ exercise: WorkoutSessionExercise) -> some View {
         HStack(alignment: .center, spacing: 12) {
-            ExerciseArtwork(code: exercise.code)
+            ExerciseArtwork(code: exercise.code, name: exercise.name)
             VStack(alignment: .leading, spacing: 2) {
                 Text(exercise.name)
                     .font(.title3.weight(.semibold))

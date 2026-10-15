@@ -649,7 +649,14 @@ private struct HoldingForm: View {
             .navigationTitle(L("Depotposition", "Holding"))
             .onAppear {
                 if accountID == nil { accountID = portfolioAccounts.first?.id }
-                if checkingAccountID == nil { checkingAccountID = checkingAccounts.first?.id }
+                if checkingAccountID == nil {
+                    if let id = TradeAccountPreference.accountID(),
+                       checkingAccounts.contains(where: { $0.id == id }) {
+                        checkingAccountID = id
+                    } else {
+                        checkingAccountID = checkingAccounts.first?.id
+                    }
+                }
                 if depotName.isEmpty { depotName = L("Depot", "Portfolio") }
             }
             .toolbar {
@@ -798,6 +805,9 @@ private struct HoldingTradeSheet: View {
     @State private var quantity = ""
     @State private var price = ""
     @State private var fee = ""
+    @State private var includeFee = false
+    @State private var sellByPercent = false
+    @State private var percentText = "100"
     @State private var isTransfer = false
     @State private var date = Date.now
     @State private var checkingAccountID: UUID?
@@ -819,17 +829,40 @@ private struct HoldingTradeSheet: View {
                             .foregroundStyle(.secondary)
                     }
                 }
-                TextField(L("Stückzahl", "Quantity"), text: $quantity).keyboardType(.decimalPad)
+                if isSale {
+                    Picker(L("Menge", "Amount"), selection: $sellByPercent) {
+                        Text(L("Stückzahl", "Quantity")).tag(false)
+                        Text(L("Prozent", "Percent")).tag(true)
+                    }
+                    .pickerStyle(.segmented)
+                }
+                if isSale && sellByPercent {
+                    TextField(L("Prozent", "Percent"), text: $percentText).keyboardType(.decimalPad)
+                    HStack {
+                        ForEach([25, 50, 75, 100], id: \.self) { value in
+                            Button("\(value) %") { percentText = "\(value)" }
+                                .buttonStyle(.bordered)
+                        }
+                    }
+                    Text(L("Das sind \(sharePreview) Stück.", "That is \(sharePreview) shares."))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else {
+                    TextField(L("Stückzahl", "Quantity"), text: $quantity).keyboardType(.decimalPad)
+                }
                 TextField(L("Kurs", "Price"), text: $price, prompt: Text(isSale ? L("Kurs", "Price") : L("Kurs eingeben", "Enter price")))
                     .keyboardType(.decimalPad)
                 if !isTransfer {
-                    TextField(L("Gebühr (optional)", "Fee (optional)"), text: $fee).keyboardType(.decimalPad)
-                    Text(L(
-                        "Die Gebühr gilt einmal für diese Buchung, unabhängig von der Stückzahl.",
-                        "The fee applies once to this booking, regardless of quantity."
-                    ))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    Toggle(L("Gebühr", "Fee"), isOn: $includeFee)
+                    if includeFee {
+                        TextField(L("Gebühr", "Fee"), text: $fee).keyboardType(.decimalPad)
+                        Text(L(
+                            "Die Gebühr gilt einmal für diese Buchung, unabhängig von der Stückzahl.",
+                            "The fee applies once to this booking, regardless of quantity."
+                        ))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    }
                 }
                 AppDateField(title: L("Datum", "Date"), selection: $date)
                 if !isTransfer {
@@ -861,11 +894,12 @@ private struct HoldingTradeSheet: View {
                 if isSale, price.isEmpty {
                     price = String(format: "%.2f", Double(holding.currentPriceCents) / 100)
                 }
-                if fee.isEmpty {
-                    fee = TradeFeePreference.editString(cents: defaultFeeCents)
-                }
-                if checkingAccountID == nil { checkingAccountID = checkingAccounts.first?.id }
+                if checkingAccountID == nil { checkingAccountID = preferredCheckingAccount?.id }
                 if depotName.isEmpty { depotName = L("Depot", "Portfolio") }
+            }
+            .onChange(of: includeFee) {
+                guard includeFee, fee.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+                fee = TradeFeePreference.editString(cents: defaultFeeCents)
             }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button(L("Abbrechen", "Cancel")) { dismiss() } }
@@ -878,6 +912,19 @@ private struct HoldingTradeSheet: View {
         accounts.filter { $0.kind == .checking }
     }
 
+    private var preferredCheckingAccount: Account? {
+        if let id = TradeAccountPreference.accountID(),
+           let match = checkingAccounts.first(where: { $0.id == id }) {
+            return match
+        }
+        return checkingAccounts.first
+    }
+
+    private var sharePreview: String {
+        let percent = Double(percentText.replacingOccurrences(of: ",", with: ".")) ?? 0
+        return max(0, holding.quantity * percent / 100).formatted()
+    }
+
     private var portfolioAccount: Account? {
         if let id = holding.accountID, let match = accounts.first(where: { $0.id == id && $0.kind == .portfolio }) {
             return match
@@ -886,8 +933,18 @@ private struct HoldingTradeSheet: View {
     }
 
     private func save() {
-        let normalized = quantity.replacingOccurrences(of: ",", with: ".")
-        guard let count = Double(normalized), count > 0, let priceCents = Money.cents(from: price), priceCents > 0 else {
+        let count: Double
+        if isSale && sellByPercent {
+            let percent = Double(percentText.replacingOccurrences(of: ",", with: ".")) ?? -1
+            guard percent > 0, percent <= 100 else {
+                validationMessage = L("Bitte einen Prozentwert zwischen 0 und 100 eingeben.", "Enter a percentage between 0 and 100.")
+                return
+            }
+            count = percent >= 99.995 ? holding.quantity : holding.quantity * percent / 100
+        } else {
+            count = Double(quantity.replacingOccurrences(of: ",", with: ".")) ?? 0
+        }
+        guard count > 0, let priceCents = Money.cents(from: price), priceCents > 0 else {
             validationMessage = L("Bitte Stückzahl und Kurs prüfen.", "Check the quantity and price.")
             return
         }
@@ -962,7 +1019,7 @@ private struct HoldingTradeSheet: View {
     }
 
     private var resolvedFeeCents: Int {
-        if isTransfer { return 0 }
+        if isTransfer || !includeFee { return 0 }
         let trimmed = fee.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.isEmpty { return 0 }
         return Money.cents(from: trimmed) ?? -1

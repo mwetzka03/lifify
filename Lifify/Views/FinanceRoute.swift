@@ -24,7 +24,7 @@ struct FinanceRouteScreen: View {
         case .expenses:
             FilteredLedgerView(kind: .expense)
         case .incomeForecasts:
-            IncomeForecastsView()
+            FilteredLedgerView(kind: .income)
         case .fixedCosts:
             FixedCostsView()
         case .variableCosts:

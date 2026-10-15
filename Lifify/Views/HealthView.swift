@@ -31,7 +31,7 @@ struct HealthView: View {
                             Spacer(minLength: 8)
                             HStack(spacing: -10) {
                                 ForEach(plan.exercises.prefix(3)) { exercise in
-                                    ExerciseArtwork(code: exercise.code, side: 36, playsVideo: false)
+                                    ExerciseArtwork(code: exercise.code, name: exercise.name, side: 36, playsVideo: false)
                                 }
                             }
                         }
@@ -155,7 +155,7 @@ struct WorkoutPlanDetailView: View {
                         ForEach(plan.exercises) { exercise in
                             VStack(alignment: .leading, spacing: 8) {
                                 HStack(spacing: 12) {
-                                    ExerciseArtwork(code: exercise.code)
+                                    ExerciseArtwork(code: exercise.code, name: exercise.name)
                                     VStack(alignment: .leading, spacing: 2) {
                                         Text(exercise.name)
                                             .font(.title3.weight(.semibold))
@@ -219,7 +219,7 @@ struct WorkoutHistoryView: View {
                         ForEach(performed) { exercise in
                             VStack(alignment: .leading, spacing: 8) {
                                 HStack(spacing: 12) {
-                                    ExerciseArtwork(code: exercise.code)
+                                    ExerciseArtwork(code: exercise.code, name: exercise.name)
                                     Text(exercise.name)
                                         .font(.title3.weight(.semibold))
                                     Spacer(minLength: 8)

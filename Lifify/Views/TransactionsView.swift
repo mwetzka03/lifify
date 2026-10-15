@@ -346,7 +346,8 @@ private struct TransactionFormView: View {
         Picker(title, selection: selection) {
             Text(L("Auswählen", "Select")).tag(Optional<UUID>.none)
             ForEach(accounts.filter { $0.kind != .savingsGroup }) { account in
-                Text(account.name).tag(Optional(account.id))
+                Text(account.kind == .checking ? account.name : "\(account.name) · \(account.kind.label)")
+                    .tag(Optional(account.id))
             }
         }
     }

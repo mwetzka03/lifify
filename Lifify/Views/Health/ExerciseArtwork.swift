@@ -3,6 +3,7 @@ import SwiftUI
 
 struct ExerciseArtwork: View {
     let code: String
+    var name: String = ""
     var side: CGFloat = 64
     var playsVideo = true
     @State private var data: Data?
@@ -21,7 +22,7 @@ struct ExerciseArtwork: View {
             }
         }
         .sheet(isPresented: $showVideo) {
-            ExerciseVideoSheet(data: videoData)
+            ExerciseVideoSheet(name: name, data: videoData)
         }
     }
 
@@ -36,7 +37,7 @@ struct ExerciseArtwork: View {
                 }
             }
             .task(id: code) {
-                data = await ExerciseImageLoader.load(code: code)
+                data = ExerciseImageStore.animationData(for: code)
             }
     }
 
@@ -73,9 +74,10 @@ struct ExerciseArtwork: View {
         Task {
             defer { isLoadingVideo = false }
             do {
-                let loaded = try await WorkoutAPIClient.shared.animationGIF(code: code)
+                let loaded = try await ExerciseImageLoader.gif(for: code)
                 guard !loaded.isEmpty else { return }
                 ExerciseImageStore.saveAnimation(loaded, code: code)
+                data = loaded
                 videoData = loaded
                 showVideo = true
             } catch {
@@ -87,6 +89,7 @@ struct ExerciseArtwork: View {
 
 private struct ExerciseVideoSheet: View {
     @Environment(\.dismiss) private var dismiss
+    let name: String
     let data: Data?
 
     var body: some View {
@@ -105,7 +108,7 @@ private struct ExerciseVideoSheet: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(AppSurface.canvas)
-            .navigationTitle(L("Video", "Video"))
+            .navigationTitle(name.isEmpty ? L("Übung", "Exercise") : name)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
