@@ -13,6 +13,8 @@ struct ImportedTransaction: Identifiable {
     let fingerprint: String
     let legacyFingerprint: String?
     let trade: ImportedSecurityTrade?
+    /// Saldo printed in the rightmost statement column after this row.
+    let statementBalanceCents: Int?
 
     init(
         id: UUID = UUID(),
@@ -25,7 +27,8 @@ struct ImportedTransaction: Identifiable {
         recipientIBAN: String,
         fingerprint: String,
         legacyFingerprint: String? = nil,
-        trade: ImportedSecurityTrade? = nil
+        trade: ImportedSecurityTrade? = nil,
+        statementBalanceCents: Int? = nil
     ) {
         self.id = id
         self.date = date
@@ -38,6 +41,7 @@ struct ImportedTransaction: Identifiable {
         self.fingerprint = fingerprint
         self.legacyFingerprint = legacyFingerprint
         self.trade = trade
+        self.statementBalanceCents = statementBalanceCents
     }
 }
 
@@ -214,7 +218,8 @@ enum BankImportService {
         legacyIBAN: String,
         legacyTitle: String,
         details: String,
-        trade: ImportedSecurityTrade? = nil
+        trade: ImportedSecurityTrade? = nil,
+        statementBalanceCents: Int? = nil
     ) -> ImportedTransaction {
         let senderIBAN = validIBAN(senderIBAN) ?? ""
         let recipientIBAN = validIBAN(recipientIBAN) ?? ""
@@ -239,7 +244,8 @@ enum BankImportService {
             recipientIBAN: recipientIBAN,
             fingerprint: fingerprint,
             legacyFingerprint: legacyFingerprint == fingerprint ? nil : legacyFingerprint,
-            trade: trade
+            trade: trade,
+            statementBalanceCents: statementBalanceCents
         )
     }
 

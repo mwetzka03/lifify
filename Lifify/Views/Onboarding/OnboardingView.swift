@@ -34,6 +34,10 @@ struct OnboardingView: View {
     @State private var pendingImportRows: [ImportedTransaction] = []
     @State private var pendingDocument: BankImportDocument?
     @State private var importedRows: [ImportedTransaction] = []
+    @State private var tradeRepublicRows: [ImportedTransaction] = []
+    @State private var tradeRepublicImported = false
+    @State private var tradeRepublicBooked = 0
+    @State private var skippedOutsidePeriod = 0
     @State private var importedHoldingCount = 0
     @State private var importedAccountName = ""
     @State private var createdSeparateChecking = false
@@ -55,7 +59,7 @@ struct OnboardingView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                ProgressView(value: Double(step + 1), total: 7)
+                ProgressView(value: Double(step + 1), total: 8)
                     .padding()
                 Form {
                     switch step {
@@ -64,7 +68,8 @@ struct OnboardingView: View {
                     case 2: nameStep
                     case 3: periodStep
                     case 4: accountStep
-                    case 5: importStep
+                    case 5: bankImportStep
+                    case 6: tradeRepublicStep
                     default: incomeStep
                     }
                 }
@@ -192,14 +197,62 @@ struct OnboardingView: View {
     }
 
     @ViewBuilder
-    private var importStep: some View {
+    private var bankImportStep: some View {
         Section {
-            if pendingImportRows.isEmpty && pendingDocument == nil && importedRows.isEmpty {
+            if pendingImportRows.isEmpty && importedRows.isEmpty {
                 Button {
                     importingBank = true
                 } label: {
                     Label(L("CSV oder CAMT auswählen", "Select CSV or CAMT"), systemImage: "tablecells")
                 }
+            }
+            if let balanceDate = openingBalanceDate, !pendingImportRows.isEmpty {
+                Text(String(
+                    format: L(
+                        "Wie hoch war der Kontostand am %@?",
+                        "What was the account balance on %@?"
+                    ),
+                    AppDate.weekdayAndNumeric(balanceDate)
+                ))
+                .font(.headline)
+                TextField(L("Kontostand", "Account balance"), text: $openingBalance)
+                    .keyboardType(.decimalPad)
+                Button(L("Import abschließen", "Finish import")) {
+                    commitBankImport()
+                }
+                .disabled(Money.cents(from: openingBalance) == nil)
+            }
+            if !importedRows.isEmpty {
+                Label(
+                    "\(importedRows.count) \(L("Buchungen importiert", "transactions imported"))",
+                    systemImage: "checkmark.circle.fill"
+                )
+                .foregroundStyle(.green)
+            }
+        } header: {
+            Text(L("Hauptkonto importieren (optional)", "Import the main account (optional)"))
+        } footer: {
+            Text(L(
+                "CSV und CAMT landen auf dem Hauptkonto und legen den ersten Zeitraum fest. Der Trade-Republic-Auszug folgt als eigener Schritt.",
+                "CSV and CAMT go to the main account and define the first period. The Trade Republic statement follows as its own step."
+            ))
+        }
+        Section {
+            if !importedRows.isEmpty {
+                nextButton { step = 6 }
+            }
+            Button(L("Ohne Import fortfahren", "Continue without import")) {
+                pendingImportRows = []
+                step = 6
+            }
+            .disabled(!importedRows.isEmpty)
+        }
+    }
+
+    @ViewBuilder
+    private var tradeRepublicStep: some View {
+        Section {
+            if !tradeRepublicImported && pendingDocument == nil {
                 Button {
                     importingTradeRepublic = true
                 } label: {
@@ -229,25 +282,9 @@ struct OnboardingView: View {
                     pendingDocument = nil
                 }
             }
-            if let balanceDate = openingBalanceDate, !pendingImportRows.isEmpty {
-                Text(String(
-                    format: L(
-                        "Wie hoch war der Kontostand am %@?",
-                        "What was the account balance on %@?"
-                    ),
-                    AppDate.weekdayAndNumeric(balanceDate)
-                ))
-                .font(.headline)
-                TextField(L("Kontostand", "Account balance"), text: $openingBalance)
-                    .keyboardType(.decimalPad)
-                Button(L("Import abschließen", "Finish import")) {
-                    commitBankImport()
-                }
-                .disabled(Money.cents(from: openingBalance) == nil)
-            }
-            if !importedRows.isEmpty {
+            if tradeRepublicImported {
                 Label(
-                    "\(importedRows.count) \(L("Buchungen importiert", "transactions imported"))",
+                    "\(tradeRepublicBooked) \(L("Buchungen importiert", "transactions imported"))",
                     systemImage: "checkmark.circle.fill"
                 )
                 .foregroundStyle(.green)
@@ -267,25 +304,35 @@ struct OnboardingView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 }
+                if skippedOutsidePeriod > 0 {
+                    Text(L(
+                        "Buchungen außerhalb des ersten Zeitraums wurden nicht angelegt. Die Depotstände sind vollständig.",
+                        "Transactions outside the first period were not booked. The portfolio positions are complete."
+                    ))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                }
             }
+            Text(firstPeriodNote)
+                .font(.caption)
+                .foregroundStyle(.secondary)
         } header: {
-            Text(L("Bankexport (optional)", "Bank export (optional)"))
+            Text("Trade Republic")
         } footer: {
             Text(L(
-                "CSV und CAMT fragen nach dem Kontostand. Der Trade-Republic-Auszug ist ein eigener Import und legt Girokonto und Depot an.",
-                "CSV and CAMT ask for the account balance. The Trade Republic statement is a separate import and creates the checking account and portfolio."
+                "Kein Zielkonto. Der Startsaldo des ersten Zeitraums ist der Saldo aus der rechten Spalte am Starttag, sonst vom letzten Tag davor.",
+                "No destination account. The opening balance of the first period is the right-hand balance on the start day, or from the previous day."
             ))
         }
         Section {
-            if !importedRows.isEmpty {
-                nextButton { step = 6 }
+            if tradeRepublicImported {
+                nextButton { step = 7 }
             }
             Button(L("Ohne Import fortfahren", "Continue without import")) {
-                pendingImportRows = []
                 pendingDocument = nil
-                step = 6
+                step = 7
             }
-            .disabled(!importedRows.isEmpty)
+            .disabled(tradeRepublicImported)
         }
     }
 
@@ -366,8 +413,29 @@ struct OnboardingView: View {
     }
 
     private var positiveRows: [ImportedTransaction] {
-        let rows = importedRows.isEmpty ? restoredImportedRows : importedRows
+        let rows = importedRows.isEmpty && tradeRepublicRows.isEmpty ? restoredImportedRows : importedRows + tradeRepublicRows
         return rows.filter { $0.amountCents > 0 && $0.trade == nil }.sorted { $0.date > $1.date }
+    }
+
+    private var firstPeriodNote: String {
+        if let period = BankImportApplier.firstMainAccountPeriod(
+            entries: existingEntries,
+            accounts: accounts,
+            context: context
+        ) {
+            return String(
+                format: L(
+                    "Erster Zeitraum des Hauptkontos: %@. Buchungen außerhalb davon werden nicht angelegt. Depotstände aus dem ganzen Auszug werden übernommen. Der Startsaldo ist der Saldo am %@, sonst vom letzten Tag davor.",
+                    "First period of the main account: %@. Transactions outside it are not booked. Portfolio positions from the whole statement are imported. The opening balance is the balance on %@, or the previous day."
+                ),
+                AppDate.range(from: period.start, to: period.end),
+                AppDate.numeric(period.start)
+            )
+        }
+        return L(
+            "Ohne Buchungen auf dem Hauptkonto gibt es noch keinen Zeitraum. Dann werden alle Buchungen übernommen.",
+            "Without bookings on the main account there is no period yet. Every transaction is imported."
+        )
     }
 
     private var restoredImportedRows: [ImportedTransaction] {
@@ -480,10 +548,13 @@ struct OnboardingView: View {
                 context: context
             )
             importedEntryIDs.merge(result.entryIDs) { _, new in new }
-            importedRows = result.selectableRows
+            tradeRepublicRows = result.selectableRows
+            tradeRepublicBooked = result.importedCount
             importedHoldingCount = result.holdingCount
             importedAccountName = result.accountName
             createdSeparateChecking = result.createdSeparateChecking
+            skippedOutsidePeriod = result.skippedOutsidePeriod
+            tradeRepublicImported = true
             pendingDocument = nil
         } catch {
             message = error.localizedDescription

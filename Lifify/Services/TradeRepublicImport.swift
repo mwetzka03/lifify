@@ -4,18 +4,35 @@ import PDFKit
 @MainActor
 enum TradeRepublicImporter {
     static func parse(data: Data) throws -> TradeRepublicStatement {
+        if let pages = PDFContentText.wordPages(in: data) {
+            let placed = pages.map { page in
+                page.map { PlacedWord(text: $0.text, minX: $0.minX, maxX: $0.maxX, midY: $0.midY) }
+            }
+            if let statement = columnStatement(from: placed), !statement.rows.isEmpty {
+                return statement
+            }
+        }
         guard let document = PDFDocument(data: data), document.pageCount > 0 else {
             throw BankImportError.unreadableFile
         }
-        guard let statement = columnStatement(in: document) else {
+        guard let statement = columnStatement(in: document), !statement.rows.isEmpty else {
             throw BankImportError.unsupportedPDF
         }
         return statement
     }
 
+    private static func columnStatement(in document: PDFDocument) -> TradeRepublicStatement? {
+        var pages: [[PlacedWord]] = []
+        for index in 0..<document.pageCount {
+            guard let page = document.page(at: index) else { continue }
+            pages.append(textLines(on: page).flatMap(\.words))
+        }
+        return columnStatement(from: pages)
+    }
+
     /// Reads only the Umsatzübersicht. The booking amount is Zahlungseingang or Zahlungsausgang.
     /// The Saldo column is the running balance and is never used as the trade value.
-    private static func columnStatement(in document: PDFDocument) -> TradeRepublicStatement? {
+    private static func columnStatement(from pages: [[PlacedWord]]) -> TradeRepublicStatement? {
         var rows: [ImportedTransaction] = []
         var inTable = false
         var opening: Int?
@@ -23,16 +40,15 @@ enum TradeRepublicImporter {
         var running = 0
         var seeded = false
         var headerText = ""
-        for index in 0..<document.pageCount {
-            guard let page = document.page(at: index) else { continue }
-            if !inTable {
-                headerText += (page.string ?? "") + "\n"
-            }
-            let lines = textLines(on: page)
+        for page in pages {
+            let lines = groupedLines(page)
             var pending: [TextLine] = []
             var stopped = false
             for line in lines {
                 let joined = line.text
+                if !inTable {
+                    headerText += joined + "\n"
+                }
                 if !inTable, isOverviewTitle(joined) {
                     inTable = true
                     running = opening ?? 0
@@ -134,7 +150,13 @@ enum TradeRepublicImporter {
             let delta = saldo - running
             let signed = abs(abs(delta) - cash.cents) <= 1 ? delta : (cash.x < 405 ? cash.cents : -cash.cents)
             running = saldo
-            parsed.append(importedRow(date: date, type: type, description: rawDescription, signed: signed))
+            parsed.append(importedRow(
+                date: date,
+                type: type,
+                description: rawDescription,
+                signed: signed,
+                balance: saldo
+            ))
         }
         return parsed
     }
@@ -144,7 +166,13 @@ enum TradeRepublicImporter {
         return min(18, max(6, abs(neighbor - anchor) / 2 - 0.4))
     }
 
-    private static func importedRow(date: Date, type: String, description rawDescription: String, signed: Int) -> ImportedTransaction {
+    private static func importedRow(
+        date: Date,
+        type: String,
+        description rawDescription: String,
+        signed: Int,
+        balance: Int
+    ) -> ImportedTransaction {
         let titleText = displayTitle(rawDescription)
         let trade = securityTrade(type: type, description: rawDescription, inflow: signed > 0 ? signed : nil)
         let title = eventTitle(trade: trade, fallback: titleText, type: type)
@@ -165,7 +193,8 @@ enum TradeRepublicImporter {
             legacyIBAN: "",
             legacyTitle: title,
             details: details,
-            trade: trade
+            trade: trade,
+            statementBalanceCents: balance
         )
     }
 
@@ -215,6 +244,27 @@ enum TradeRepublicImporter {
         if value.contains("barmittel") && value.contains("bersicht") { return true }
         if value.contains("transaktions") && value.contains("bersicht") { return true }
         return value.contains("hinweise zum")
+    }
+
+    private static func groupedLines(_ words: [PlacedWord]) -> [TextLine] {
+        let sorted = words.sorted { lhs, rhs in
+            if lhs.midY != rhs.midY { return lhs.midY > rhs.midY }
+            return lhs.minX < rhs.minX
+        }
+        var groups: [[PlacedWord]] = []
+        for word in sorted {
+            if var last = groups.last, let sample = last.first, abs(sample.midY - word.midY) <= 2 {
+                last.append(word)
+                groups[groups.count - 1] = last
+            } else {
+                groups.append([word])
+            }
+        }
+        return groups.map { group in
+            let ordered = group.sorted { $0.minX < $1.minX }
+            let midY = ordered.map(\.midY).reduce(0, +) / CGFloat(max(ordered.count, 1))
+            return TextLine(midY: midY, words: ordered)
+        }
     }
 
     private static func textLines(on page: PDFPage) -> [TextLine] {
