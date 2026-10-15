@@ -13,7 +13,7 @@ struct ExerciseSearchView: View {
     var body: some View {
         NavigationStack {
             List {
-                Section(L("Eigene Übung", "Custom exercise")) {
+                Section {
                     TextField(L("Name der Übung", "Exercise name"), text: $manualName)
                     Button(L("Übung anlegen", "Create exercise")) {
                         let name = manualName.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -28,8 +28,10 @@ struct ExerciseSearchView: View {
                         dismiss()
                     }
                     .disabled(manualName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                } header: {
+                    Text(L("Eigene Übung", "Custom exercise"))
                 }
-                Section(L("Datenbank", "Database")) {
+                Section {
                     if results.isEmpty {
                         Text(L("Keine Treffer", "No matches"))
                             .foregroundStyle(.secondary)
@@ -57,6 +59,8 @@ struct ExerciseSearchView: View {
                             .buttonStyle(.plain)
                         }
                     }
+                } header: {
+                    Text(L("Datenbank", "Database"))
                 }
             }
             .navigationTitle(L("Übung suchen", "Search exercise"))

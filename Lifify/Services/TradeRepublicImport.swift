@@ -82,7 +82,7 @@ enum TradeRepublicImporter {
                 }
                 pending.append(line)
             }
-            rows.append(contentsOf: rows(in: pending, columns: columns, closing: &closing))
+            rows.append(contentsOf: transactions(in: pending, columns: columns, closing: &closing))
             if stopped { break }
         }
         guard inTable, !rows.isEmpty else { return nil }
@@ -94,7 +94,7 @@ enum TradeRepublicImporter {
         )
     }
 
-    private static func rows(in lines: [TextLine], columns: StatementColumns?, closing: inout Int) -> [ImportedTransaction] {
+    private static func transactions(in lines: [TextLine], columns: StatementColumns?, closing: inout Int) -> [ImportedTransaction] {
         guard let columns else { return [] }
         var parsed: [ImportedTransaction] = []
         for cluster in clusters(from: lines) {
@@ -183,20 +183,20 @@ enum TradeRepublicImporter {
         return statementDate(day: day, month: month, year: year)
     }
 
-    private static func containsMarker(_ marker: String, in text: String) -> Bool {
+    nonisolated private static func containsMarker(_ marker: String, in text: String) -> Bool {
         text.range(of: marker, options: [.caseInsensitive, .diacriticInsensitive]) != nil
     }
 
-    private static func folded(_ text: String) -> String {
+    nonisolated private static func folded(_ text: String) -> String {
         text.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "de_DE"))
     }
 
-    private static func isOverviewTitle(_ text: String) -> Bool {
+    nonisolated private static func isOverviewTitle(_ text: String) -> Bool {
         let value = folded(text)
         return value.contains("umsatz") && value.contains("bersicht") && !value.contains("konto")
     }
 
-    private static func isSectionEnd(_ text: String) -> Bool {
+    nonisolated private static func isSectionEnd(_ text: String) -> Bool {
         let value = folded(text)
         if value.contains("barmittel") && value.contains("bersicht") { return true }
         if value.contains("transaktions") && value.contains("bersicht") { return true }
