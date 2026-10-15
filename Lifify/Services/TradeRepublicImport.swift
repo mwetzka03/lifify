@@ -4,7 +4,7 @@ import PDFKit
 @MainActor
 enum TradeRepublicImporter {
     static func parse(data: Data) throws -> TradeRepublicStatement {
-        if let pages = PDFContentText.wordPages(in: data) {
+        for pages in PDFContentText.candidateWordPages(in: data) {
             let placed = pages.map { page in
                 page.map { PlacedWord(text: $0.text, minX: $0.minX, maxX: $0.maxX, midY: $0.midY) }
             }
@@ -49,7 +49,7 @@ enum TradeRepublicImporter {
                 if !inTable {
                     headerText += joined + "\n"
                 }
-                if !inTable, isOverviewTitle(joined) {
+                if !inTable, isOverviewTitle(joined) || line.words.contains(where: { isOverviewTitle($0.text) }) {
                     inTable = true
                     running = opening ?? 0
                     seeded = true
@@ -70,7 +70,7 @@ enum TradeRepublicImporter {
                     }
                     continue
                 }
-                if isSectionEnd(joined) {
+                if isSectionEnd(joined) || line.words.contains(where: { isSectionEnd($0.text) }) {
                     stopped = true
                     break
                 }

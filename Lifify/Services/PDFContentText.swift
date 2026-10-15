@@ -1,12 +1,13 @@
 import Compression
+import CoreGraphics
 import Foundation
 
 /// Positioned text from a PDF content stream.
 ///
 /// Trade Republic statements are written by OpenPDF with an Identity-H subset font.
 /// PDFKit often returns no `characterBounds` for that font, so the page looks empty and the
-/// statement is rejected. The content stream still carries each text run with a `Tm` position
-/// and a ToUnicode map, which is enough to rebuild the Umsatzübersicht columns.
+/// statement is rejected. Core Graphics still reports each `Tj` with its `Tm` position, and the
+/// ToUnicode map turns those bytes back into the Umsatzübersicht columns.
 enum PDFContentText {
     struct Word {
         var text: String
@@ -15,14 +16,185 @@ enum PDFContentText {
         var midY: CGFloat
     }
 
-    static func wordPages(in data: Data) -> [[Word]]? {
-        guard data.starts(with: Data("%PDF".utf8)) else { return nil }
+    /// Every reader that found text, Core Graphics first. The caller keeps the first set that
+    /// yields Umsatzübersicht rows.
+    static func candidateWordPages(in data: Data) -> [[[Word]]] {
+        guard data.starts(with: Data("%PDF".utf8)) else { return [] }
+        var sets: [[[Word]]] = []
+        if let pages = coreGraphicsWordPages(in: data), containsStatementTitle(pages) {
+            sets.append(pages)
+        }
+        if let pages = contentStreamWordPages(in: data), containsStatementTitle(pages) {
+            sets.append(pages)
+        }
+        return sets
+    }
+
+    private static func contentStreamWordPages(in data: Data) -> [[Word]]? {
         let reader = PDFContentReader(data: data)
         guard reader.open(), !reader.pages.isEmpty else { return nil }
         let pages = reader.pages.map { reader.words(on: $0) }
         guard pages.contains(where: { !$0.isEmpty }) else { return nil }
         return pages
     }
+
+    private static func containsStatementTitle(_ pages: [[Word]]) -> Bool {
+        pages.contains { page in
+            page.contains { word in
+                let folded = word.text.folding(
+                    options: [.caseInsensitive, .diacriticInsensitive],
+                    locale: Locale(identifier: "de_DE")
+                )
+                return folded.contains("umsatz") && folded.contains("bersicht") && !folded.contains("konto")
+            }
+        }
+    }
+
+    private static func coreGraphicsWordPages(in data: Data) -> [[Word]]? {
+        guard let provider = CGDataProvider(data: data as CFData),
+              let document = CGPDFDocument(provider),
+              document.numberOfPages > 0 else { return nil }
+        let table = CGPDFOperatorTableCreate()
+        defer { CGPDFOperatorTableRelease(table) }
+        CGPDFOperatorTableSetCallback(table, "BT", trBeginText)
+        CGPDFOperatorTableSetCallback(table, "Tm", trSetMatrix)
+        CGPDFOperatorTableSetCallback(table, "Td", trMoveText)
+        CGPDFOperatorTableSetCallback(table, "TD", trMoveText)
+        CGPDFOperatorTableSetCallback(table, "Tf", trSetFont)
+        CGPDFOperatorTableSetCallback(table, "Tj", trShowText)
+        var pages: [[Word]] = []
+        for index in 1...document.numberOfPages {
+            guard let page = document.page(at: index) else {
+                pages.append([])
+                continue
+            }
+            let content = CGPDFContentStreamCreateWithPage(page)
+            let collector = PDFTextCollector()
+            collector.content = content
+            let scanner = CGPDFScannerCreate(content, table, Unmanaged.passUnretained(collector).toOpaque())
+            CGPDFScannerScan(scanner)
+            CGPDFScannerRelease(scanner)
+            CGPDFContentStreamRelease(content)
+            pages.append(collector.words)
+        }
+        guard pages.contains(where: { !$0.isEmpty }) else { return nil }
+        return pages
+    }
+}
+
+private final class PDFTextCollector {
+    var content: CGPDFContentStreamRef?
+    var maps: [String: PDFCMap] = [:]
+    var fontName = ""
+    var fontSize: CGFloat = 6
+    var a: CGFloat = 1
+    var b: CGFloat = 0
+    var c: CGFloat = 0
+    var d: CGFloat = 1
+    var e: CGFloat = 0
+    var f: CGFloat = 0
+    var words: [PDFContentText.Word] = []
+
+    func resetText() {
+        a = 1
+        b = 0
+        c = 0
+        d = 1
+        e = 0
+        f = 0
+    }
+
+    func loadFont(_ name: String) {
+        fontName = name
+        guard maps[name] == nil, let content else { return }
+        let object = CGPDFContentStreamGetResource(content, "Font", name)
+        var dictionary: CGPDFDictionaryRef?
+        guard withUnsafeMutablePointer(to: &dictionary, { pointer in
+            CGPDFObjectGetValue(object, .dictionary, UnsafeMutableRawPointer(pointer))
+        }), let dictionary else { return }
+        var encodingPointer: UnsafePointer<CChar>?
+        CGPDFDictionaryGetName(dictionary, "Encoding", &encodingPointer)
+        let encoding = encodingPointer.map { String(cString: $0) } ?? ""
+        var stream: CGPDFStreamRef?
+        if !CGPDFDictionaryGetStream(dictionary, "ToUnicode", &stream) {
+            var descendants: CGPDFArrayRef?
+            var descendant: CGPDFDictionaryRef?
+            if CGPDFDictionaryGetArray(dictionary, "DescendantFonts", &descendants),
+               let descendants,
+               CGPDFArrayGetDictionary(descendants, 0, &descendant),
+               let descendant {
+                CGPDFDictionaryGetStream(descendant, "ToUnicode", &stream)
+            }
+        }
+        var map = PDFCMap(width: encoding == "Identity-H" || encoding == "Identity-V" ? 2 : 1, characters: [:])
+        if let stream {
+            var format = CGPDFDataFormat.raw
+            if let copied = CGPDFStreamCopyData(stream, &format) {
+                let parsed = PDFContentReader.cmap(from: copied as Data)
+                if parsed.width > 0 { map.width = parsed.width }
+                if !parsed.characters.isEmpty { map.characters = parsed.characters }
+            }
+        }
+        maps[name] = map
+    }
+
+    func show(_ data: Data) {
+        guard let map = maps[fontName] ?? maps.values.first else { return }
+        let text = PDFContentReader.decode(data, map: map).trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return }
+        let width = CGFloat(text.count) * CGFloat(fontSize) * 0.5
+        words.append(PDFContentText.Word(text: text, minX: e, maxX: e + width, midY: f))
+    }
+}
+
+private func trCollector(_ info: UnsafeMutableRawPointer?) -> PDFTextCollector? {
+    guard let info else { return nil }
+    return Unmanaged<PDFTextCollector>.fromOpaque(info).takeUnretainedValue()
+}
+
+private func trBeginText(_ scanner: CGPDFScannerRef, _ info: UnsafeMutableRawPointer?) {
+    trCollector(info)?.resetText()
+}
+
+private func trSetMatrix(_ scanner: CGPDFScannerRef, _ info: UnsafeMutableRawPointer?) {
+    guard let collector = trCollector(info) else { return }
+    var values: [CGPDFReal] = []
+    for _ in 0..<6 {
+        var number: CGPDFReal = 0
+        guard CGPDFScannerPopNumber(scanner, &number) else { return }
+        values.append(number)
+    }
+    collector.f = values[0]
+    collector.e = values[1]
+    collector.d = values[2]
+    collector.c = values[3]
+    collector.b = values[4]
+    collector.a = values[5]
+}
+
+private func trMoveText(_ scanner: CGPDFScannerRef, _ info: UnsafeMutableRawPointer?) {
+    guard let collector = trCollector(info) else { return }
+    var y: CGPDFReal = 0
+    var x: CGPDFReal = 0
+    guard CGPDFScannerPopNumber(scanner, &y), CGPDFScannerPopNumber(scanner, &x) else { return }
+    collector.e += x * collector.a + y * collector.c
+    collector.f += x * collector.b + y * collector.d
+}
+
+private func trSetFont(_ scanner: CGPDFScannerRef, _ info: UnsafeMutableRawPointer?) {
+    guard let collector = trCollector(info) else { return }
+    var size: CGPDFReal = 0
+    var name: UnsafePointer<CChar>?
+    guard CGPDFScannerPopNumber(scanner, &size), CGPDFScannerPopName(scanner, &name), let name else { return }
+    collector.fontSize = size
+    collector.loadFont(String(cString: name))
+}
+
+private func trShowText(_ scanner: CGPDFScannerRef, _ info: UnsafeMutableRawPointer?) {
+    guard let collector = trCollector(info) else { return }
+    var string: CGPDFStringRef?
+    guard CGPDFScannerPopString(scanner, &string), let string, let pointer = CGPDFStringGetBytePtr(string) else { return }
+    collector.show(Data(bytes: pointer, count: CGPDFStringGetLength(string)))
 }
 
 private struct PDFCMap {
@@ -638,7 +810,7 @@ private final class PDFContentReader {
         return inflate(data)
     }
 
-    private static func cmap(from data: Data) -> PDFCMap {
+    fileprivate static func cmap(from data: Data) -> PDFCMap {
         let text = String(decoding: data, as: UTF8.self)
         var width = 0
         if let start = text.range(of: "begincodespacerange") {
@@ -698,7 +870,7 @@ private final class PDFContentReader {
         return PDFCMap(width: width, characters: characters)
     }
 
-    private static func decode(_ data: Data, map: PDFCMap) -> String {
+    fileprivate static func decode(_ data: Data, map: PDFCMap) -> String {
         let width = max(map.width, 1)
         let raw = [UInt8](data)
         var text = ""
@@ -759,30 +931,32 @@ private final class PDFContentReader {
 
     private static func inflate(_ source: Data) -> Data? {
         guard !source.isEmpty else { return Data() }
-        let scratchSize = compression_decode_scratch_buffer_size(COMPRESSION_ZLIB)
+        let scratchSize = max(compression_decode_scratch_buffer_size(COMPRESSION_ZLIB), 1)
         let scratch = UnsafeMutableRawPointer.allocate(byteCount: scratchSize, alignment: 16)
+        scratch.initializeMemory(as: UInt8.self, repeating: 0, count: scratchSize)
         defer { scratch.deallocate() }
-        var capacity = max(source.count * 8, 16_384)
-        while capacity <= 16_777_216 {
+        var capacity = max(source.count * 8, 65_536)
+        while capacity <= 33_554_432 {
             var output = Data(count: capacity)
-            let written = output.withUnsafeMutableBytes { destination in
+            let written: Int = output.withUnsafeMutableBytes { destination in
                 source.withUnsafeBytes { input in
-                    guard let destinationBase = destination.baseAddress?.assumingMemoryBound(to: UInt8.self),
-                          let inputBase = input.baseAddress?.assumingMemoryBound(to: UInt8.self) else { return 0 }
+                    let destinationBuffer = destination.bindMemory(to: UInt8.self)
+                    let sourceBuffer = input.bindMemory(to: UInt8.self)
+                    guard let destinationBase = destinationBuffer.baseAddress,
+                          let sourceBase = sourceBuffer.baseAddress else { return 0 }
                     return compression_decode_buffer(
                         destinationBase,
-                        capacity,
-                        inputBase,
-                        source.count,
+                        destinationBuffer.count,
+                        sourceBase,
+                        sourceBuffer.count,
                         scratch,
                         COMPRESSION_ZLIB
                     )
                 }
             }
-            if written > 0 && written < capacity {
+            if written > 0, written < capacity {
                 return output.prefix(written)
             }
-            if written == 0 { return nil }
             capacity *= 2
         }
         return nil
