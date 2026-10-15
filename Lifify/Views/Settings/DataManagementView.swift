@@ -63,8 +63,8 @@ struct DataManagementView: View {
                     Label(L("Kontoauszug hochladen", "Upload statement"), systemImage: "doc.badge.plus")
                 }
                 Text(L(
-                    "Nur die Umsatzübersicht. Das Girokonto wird über die IBAN wiederverwendet oder neu angelegt, das Depot hängt daran. Buchungen außerhalb des ersten Zeitraums vom Hauptkonto werden nicht angelegt, die Depotstände schon. Der Startsaldo ist der Saldo am Starttag, sonst vom letzten Tag davor.",
-                    "Only the transaction overview. The checking account is reused by IBAN or created, and the portfolio is linked to it. Transactions outside the main account’s first period are not booked; the portfolio positions are. The opening balance is the balance on the start day, or the previous day."
+                    "Nur die Umsatzübersicht. Das Girokonto wird über die IBAN wiederverwendet oder neu angelegt, das Depot hängt daran. Buchungen vor dem Start des ersten Zeitraums vom Hauptkonto werden nicht angelegt, spätere schon. Die Depotstände aus dem ganzen Auszug werden übernommen. Der Startsaldo ist der Saldo am Starttag, sonst vom letzten Tag davor.",
+                    "Only the transaction overview. The checking account is reused by IBAN or created, and the portfolio is linked to it. Transactions before the start of the main account’s first period are not booked; later ones are. Portfolio positions from the whole statement are imported. The opening balance is the balance on the start day, or the previous day."
                 ))
                 .font(.caption)
                 .foregroundStyle(.secondary)

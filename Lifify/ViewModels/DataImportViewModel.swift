@@ -97,10 +97,10 @@ final class DataImportViewModel: ObservableObject {
                 result.holdingCount
             ))
         }
-        if result.skippedOutsidePeriod > 0 {
+        if result.skippedBeforeStart > 0 {
             parts.append(L(
-                "Buchungen außerhalb des ersten Zeitraums wurden nicht angelegt. Der Startsaldo kommt aus der Saldo-Spalte.",
-                "Transactions outside the first period were not booked. The opening balance comes from the balance column."
+                "Buchungen vor dem Start des ersten Zeitraums wurden nicht angelegt. Spätere Buchungen sind dabei. Der Startsaldo kommt aus der Saldo-Spalte.",
+                "Transactions before the start of the first period were not booked. Later transactions are included. The opening balance comes from the balance column."
             ))
         }
         return parts.joined(separator: " ")

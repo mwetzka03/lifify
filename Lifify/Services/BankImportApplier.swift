@@ -9,7 +9,7 @@ struct BankImportResult {
     var createdSeparateChecking: Bool
     var entryIDs: [String: UUID]
     var selectableRows: [ImportedTransaction]
-    var skippedOutsidePeriod: Int = 0
+    var skippedBeforeStart: Int = 0
 }
 
 enum PortfolioLinkStore {
@@ -147,10 +147,11 @@ enum BankImportApplier {
         var entryIDs: [String: UUID] = [:]
         var selectable: [ImportedTransaction] = []
         var imported = 0
-        var skippedOutsidePeriod = 0
+        var skippedBeforeStart = 0
         let directory = accounts + checking.created
+        let periodStart = period.map { Calendar.current.startOfDay(for: $0.start) }
         for row in document.rows {
-            if let period, !period.contains(row.date) {
+            if let periodStart, Calendar.current.startOfDay(for: row.date) < periodStart {
                 if let trade = row.trade, let portfolio {
                     apply(
                         trade,
@@ -163,7 +164,7 @@ enum BankImportApplier {
                         ledgerEntryID: nil
                     )
                 }
-                skippedOutsidePeriod += 1
+                skippedBeforeStart += 1
                 continue
             }
             let fingerprints = [row.fingerprint, row.legacyFingerprint].compactMap { $0 }
@@ -272,7 +273,7 @@ enum BankImportApplier {
             createdSeparateChecking: checking.createdSeparate,
             entryIDs: entryIDs,
             selectableRows: selectable,
-            skippedOutsidePeriod: skippedOutsidePeriod
+            skippedBeforeStart: skippedBeforeStart
         )
     }
 

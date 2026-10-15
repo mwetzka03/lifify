@@ -37,7 +37,7 @@ struct OnboardingView: View {
     @State private var tradeRepublicRows: [ImportedTransaction] = []
     @State private var tradeRepublicImported = false
     @State private var tradeRepublicBooked = 0
-    @State private var skippedOutsidePeriod = 0
+    @State private var skippedBeforeStart = 0
     @State private var importedHoldingCount = 0
     @State private var importedAccountName = ""
     @State private var createdSeparateChecking = false
@@ -304,10 +304,10 @@ struct OnboardingView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 }
-                if skippedOutsidePeriod > 0 {
+                if skippedBeforeStart > 0 {
                     Text(L(
-                        "Buchungen außerhalb des ersten Zeitraums wurden nicht angelegt. Die Depotstände sind vollständig.",
-                        "Transactions outside the first period were not booked. The portfolio positions are complete."
+                        "Buchungen vor dem Start des ersten Zeitraums wurden nicht angelegt. Spätere Buchungen sind dabei. Die Depotstände sind vollständig.",
+                        "Transactions before the start of the first period were not booked. Later transactions are included. The portfolio positions are complete."
                     ))
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -320,8 +320,8 @@ struct OnboardingView: View {
             Text("Trade Republic")
         } footer: {
             Text(L(
-                "Kein Zielkonto. Der Startsaldo des ersten Zeitraums ist der Saldo aus der rechten Spalte am Starttag, sonst vom letzten Tag davor.",
-                "No destination account. The opening balance of the first period is the right-hand balance on the start day, or from the previous day."
+                "Kein Zielkonto. Buchungen vor dem Start des ersten Zeitraums werden nicht angelegt, danach schon. Der Startsaldo ist der Saldo aus der rechten Spalte am Starttag, sonst vom letzten Tag davor.",
+                "No destination account. Transactions before the start of the first period are not booked; later ones are. The opening balance is the right-hand balance on the start day, or from the previous day."
             ))
         }
         Section {
@@ -425,8 +425,8 @@ struct OnboardingView: View {
         ) {
             return String(
                 format: L(
-                    "Erster Zeitraum des Hauptkontos: %@. Buchungen außerhalb davon werden nicht angelegt. Depotstände aus dem ganzen Auszug werden übernommen. Der Startsaldo ist der Saldo am %@, sonst vom letzten Tag davor.",
-                    "First period of the main account: %@. Transactions outside it are not booked. Portfolio positions from the whole statement are imported. The opening balance is the balance on %@, or the previous day."
+                    "Erster Zeitraum des Hauptkontos: %@. Buchungen vor dem Starttag werden nicht angelegt, spätere schon. Depotstände aus dem ganzen Auszug werden übernommen. Der Startsaldo ist der Saldo am %@, sonst vom letzten Tag davor.",
+                    "First period of the main account: %@. Transactions before the start date are not booked; later ones are. Portfolio positions from the whole statement are imported. The opening balance is the balance on %@, or the previous day."
                 ),
                 AppDate.range(from: period.start, to: period.end),
                 AppDate.numeric(period.start)
@@ -553,7 +553,7 @@ struct OnboardingView: View {
             importedHoldingCount = result.holdingCount
             importedAccountName = result.accountName
             createdSeparateChecking = result.createdSeparateChecking
-            skippedOutsidePeriod = result.skippedOutsidePeriod
+            skippedBeforeStart = result.skippedBeforeStart
             tradeRepublicImported = true
             pendingDocument = nil
         } catch {
