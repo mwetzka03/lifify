@@ -26,6 +26,7 @@ struct DataManagementView: View {
     @Query private var bucketItems: [BucketListItem]
     @StateObject private var viewModel = DataImportViewModel()
     @State private var importingBank = false
+    @State private var importingTradeRepublic = false
     @State private var importingBackup = false
     @State private var exportingBackup = false
     @State private var backupDocument = BackupDocument()
@@ -43,16 +44,32 @@ struct DataManagementView: View {
                 Button {
                     importingBank = true
                 } label: {
-                    Label(L("CSV, CAMT oder PDF importieren", "Import CSV, CAMT, or PDF"), systemImage: "square.and.arrow.down")
+                    Label(L("CSV oder CAMT importieren", "Import CSV or CAMT"), systemImage: "square.and.arrow.down")
                 }
                 Text(L(
-                    "CSV, eine CAMT-XML-Datei oder ein Trade-Republic-Kontoauszug. Beim PDF zählt nur die Umsatzübersicht. Ohne Auswahl wird dafür ein separates Girokonto angelegt; das Hauptkonto bleibt, außer du wählst es aus. Aktien aus Handel landen im verknüpften Depot.",
-                    "CSV, one CAMT XML file, or a Trade Republic statement. Only the transaction overview of a PDF is imported. With no selection, that statement creates a separate checking account; the main account stays unless you choose it. Stock trades go into the linked portfolio."
+                    "Das Zielkonto gilt nur für CSV und CAMT. Ein PDF wird hier nicht gelesen.",
+                    "The destination account is only for CSV and CAMT. A PDF is not read here."
                 ))
                 .font(.caption)
                 .foregroundStyle(.secondary)
             } header: {
                 Text(L("Bankimport", "Bank import"))
+            }
+
+            Section {
+                Button {
+                    importingTradeRepublic = true
+                } label: {
+                    Label(L("Kontoauszug hochladen", "Upload statement"), systemImage: "doc.badge.plus")
+                }
+                Text(L(
+                    "Nur die Umsatzübersicht. Das Girokonto wird über die IBAN wiederverwendet oder neu angelegt, das Depot hängt daran. Kein Zielkonto und keine automatische Erkennung.",
+                    "Only the transaction overview. The checking account is reused by IBAN or created, and the portfolio is linked to it. No destination account and no automatic detection."
+                ))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            } header: {
+                Text("Trade Republic")
             }
 
             Section(L("JSON-Sicherung", "JSON backup")) {
@@ -77,11 +94,22 @@ struct DataManagementView: View {
         .navigationTitle(L("Import & Sicherung", "Import & backup"))
         .fileImporter(
             isPresented: $importingBank,
-            allowedContentTypes: [.commaSeparatedText, .xml, .plainText, .pdf],
+            allowedContentTypes: [.commaSeparatedText, .xml, .plainText],
             allowsMultipleSelection: false
         ) { result in
             if case let .success(urls) = result, let url = urls.first {
                 viewModel.importBankFile(from: url, context: context, existingEntries: entries)
+            } else if case let .failure(error) = result {
+                viewModel.message = error.localizedDescription
+            }
+        }
+        .fileImporter(
+            isPresented: $importingTradeRepublic,
+            allowedContentTypes: [.pdf],
+            allowsMultipleSelection: false
+        ) { result in
+            if case let .success(urls) = result, let url = urls.first {
+                viewModel.importTradeRepublic(from: url, context: context, existingEntries: entries)
             } else if case let .failure(error) = result {
                 viewModel.message = error.localizedDescription
             }

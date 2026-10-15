@@ -12,6 +12,8 @@ struct PortfolioView: View {
     @State private var selected: PortfolioHolding?
     @State private var isRefreshing = false
     @State private var savingsPlans: [SavingsPlanRecord] = []
+    @State private var plansExpanded = true
+    @State private var editedPlan: SavingsPlanRecord?
     @Query(sort: \Account.name) private var planAccounts: [Account]
 
     var body: some View {
@@ -49,9 +51,12 @@ struct PortfolioView: View {
                 .labelsHidden()
             }
             if !savingsPlans.isEmpty {
-                Section(L("Sparpläne", "Savings plans")) {
-                    ForEach(savingsPlans) { plan in
-                        SavingsPlanLabel(plan: plan, checkingName: planAccounts.first { $0.id == plan.checkingAccountID }?.name ?? "")
+                Section {
+                    savingsPlanHeader
+                    if plansExpanded {
+                        ForEach(savingsPlans) { plan in
+                            savingsPlanRow(plan, accounts: planAccounts, onEdit: { editedPlan = $0 }, onDelete: { deletePlan($0) })
+                        }
                     }
                 }
             }
@@ -121,6 +126,31 @@ struct PortfolioView: View {
         .sheet(isPresented: $showingNew) { HoldingForm(holding: nil) }
         .sheet(item: $edited) { HoldingForm(holding: $0) }
         .sheet(item: $selected) { HoldingDetailView(holding: $0) }
+        .sheet(item: $editedPlan) { plan in
+            SavingsPlanEditor(plan: plan) { saved in
+                SavingsPlanStore.upsert(saved)
+                savingsPlans = SavingsPlanStore.all()
+            }
+        }
+    }
+
+    private func deletePlan(_ plan: SavingsPlanRecord) {
+        SavingsPlanStore.remove(id: plan.id)
+        savingsPlans = SavingsPlanStore.all()
+    }
+
+    private var savingsPlanHeader: some View {
+        Button {
+            plansExpanded.toggle()
+        } label: {
+            HStack {
+                Text(L("Sparpläne", "Savings plans"))
+                Spacer()
+                Image(systemName: plansExpanded ? "chevron.down" : "chevron.right")
+                    .font(.caption.weight(.semibold))
+            }
+        }
+        .buttonStyle(.plain)
     }
 
     fileprivate func deleteHolding(_ holding: PortfolioHolding) {
@@ -177,6 +207,8 @@ struct PortfolioElementsView: View {
     @State private var selected: PortfolioHolding?
     @State private var isRefreshing = false
     @State private var savingsPlans: [SavingsPlanRecord] = []
+    @State private var plansExpanded = true
+    @State private var editedPlan: SavingsPlanRecord?
     @Query(sort: \Account.name) private var accounts: [Account]
 
     private var visibleHoldings: [PortfolioHolding] {
@@ -267,6 +299,17 @@ struct PortfolioElementsView: View {
         .sheet(isPresented: $showingNew) { HoldingForm(holding: nil, preferredAccountID: accountID) }
         .sheet(item: $edited) { HoldingForm(holding: $0, preferredAccountID: accountID) }
         .sheet(item: $selected) { HoldingDetailView(holding: $0) }
+        .sheet(item: $editedPlan) { plan in
+            SavingsPlanEditor(plan: plan) { saved in
+                SavingsPlanStore.upsert(saved)
+                savingsPlans = SavingsPlanStore.all()
+            }
+        }
+    }
+
+    private func deletePlan(_ plan: SavingsPlanRecord) {
+        SavingsPlanStore.remove(id: plan.id)
+        savingsPlans = SavingsPlanStore.all()
     }
 
     private var visiblePlans: [SavingsPlanRecord] {
@@ -277,13 +320,29 @@ struct PortfolioElementsView: View {
     private var savingsPlanCard: some View {
         if !visiblePlans.isEmpty {
             VStack(alignment: .leading, spacing: 8) {
-                Text(L("Sparpläne", "Savings plans"))
-                    .font(.headline)
-                ForEach(visiblePlans) { plan in
-                    SavingsPlanLabel(
-                        plan: plan,
-                        checkingName: accounts.first { $0.id == plan.checkingAccountID }?.name ?? ""
-                    )
+                Button {
+                    plansExpanded.toggle()
+                } label: {
+                    HStack {
+                        Text(L("Sparpläne", "Savings plans"))
+                            .font(.headline)
+                        Spacer()
+                        Image(systemName: plansExpanded ? "chevron.down" : "chevron.right")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .buttonStyle(.plain)
+                if plansExpanded {
+                    List {
+                        ForEach(visiblePlans) { plan in
+                            savingsPlanRow(plan, accounts: accounts, onEdit: { editedPlan = $0 }, onDelete: { deletePlan($0) })
+                        }
+                    }
+                    .listStyle(.plain)
+                    .scrollContentBackground(.hidden)
+                    .scrollDisabled(true)
+                    .frame(height: CGFloat(visiblePlans.count) * 76)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -512,13 +571,187 @@ private struct SavingsPlanLabel: View {
     }
 }
 
+private func savingsPlanRow(
+    _ plan: SavingsPlanRecord,
+    accounts: [Account],
+    onEdit: @escaping (SavingsPlanRecord) -> Void,
+    onDelete: @escaping (SavingsPlanRecord) -> Void
+) -> some View {
+    SavingsPlanLabel(
+        plan: plan,
+        checkingName: accounts.first { $0.id == plan.checkingAccountID }?.name ?? ""
+    )
+    .contextMenu {
+        Button(L("Bearbeiten", "Edit")) { onEdit(plan) }
+        Button(L("Löschen", "Delete"), role: .destructive) { onDelete(plan) }
+    }
+    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+        Button(role: .destructive) { onDelete(plan) } label: {
+            Label(L("Löschen", "Delete"), systemImage: "trash")
+        }
+    }
+    .swipeActions(edge: .leading, allowsFullSwipe: false) {
+        Button { onEdit(plan) } label: {
+            Label(L("Bearbeiten", "Edit"), systemImage: "pencil")
+        }
+        .tint(.blue)
+    }
+}
+
+private struct SavingsPlanEditor: View {
+    @Environment(\.dismiss) private var dismiss
+    @State private var name: String
+    @State private var amount: String
+    @State private var cadence: Cadence
+    @State private var active: Bool
+    @State private var lastExecution: Date
+    private let plan: SavingsPlanRecord
+    private let onSave: (SavingsPlanRecord) -> Void
+
+    init(plan: SavingsPlanRecord, onSave: @escaping (SavingsPlanRecord) -> Void) {
+        self.plan = plan
+        self.onSave = onSave
+        _name = State(initialValue: plan.name)
+        _amount = State(initialValue: String(format: "%.2f", Double(plan.amountCents) / 100))
+        _cadence = State(initialValue: plan.cadence)
+        _active = State(initialValue: plan.active)
+        _lastExecution = State(initialValue: plan.lastExecution)
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                TextField(L("Name", "Name"), text: $name)
+                TextField(L("Betrag", "Amount"), text: $amount)
+                    .keyboardType(.decimalPad)
+                Picker(L("Rhythmus", "Cadence"), selection: $cadence) {
+                    ForEach(Cadence.allCases) { Text($0.label).tag($0) }
+                }
+                Toggle(L("Aktiv", "Active"), isOn: $active)
+                DatePicker(L("Letzte Ausführung", "Last execution"), selection: $lastExecution, displayedComponents: .date)
+            }
+            .navigationTitle(L("Sparplan", "Savings plan"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(L("Abbrechen", "Cancel")) { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(L("Speichern", "Save")) { save() }
+                }
+            }
+        }
+    }
+
+    private func save() {
+        guard let cents = Money.cents(from: amount), cents > 0 else { return }
+        var updated = plan
+        updated.name = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        updated.amountCents = cents
+        updated.cadenceRaw = cadence.rawValue
+        updated.active = active
+        updated.lastExecution = lastExecution
+        onSave(updated)
+        dismiss()
+    }
+}
+
+private struct LotEditor: View {
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var context
+    let holding: PortfolioHolding
+    let lot: HoldingLot
+    var onFinish: (Bool) -> Void
+    @State private var date: Date
+    @State private var quantity: String
+    @State private var amount: String
+    @State private var kind: LotKind
+
+    init(holding: PortfolioHolding, lot: HoldingLot, onFinish: @escaping (Bool) -> Void) {
+        self.holding = holding
+        self.lot = lot
+        self.onFinish = onFinish
+        _date = State(initialValue: lot.date)
+        _quantity = State(initialValue: String(lot.quantity))
+        _amount = State(initialValue: String(format: "%.2f", Double(abs(lot.amountCents)) / 100))
+        if lot.isSale {
+            _kind = State(initialValue: .sale)
+        } else if lot.isSavingsPlan {
+            _kind = State(initialValue: .savings)
+        } else {
+            _kind = State(initialValue: .buy)
+        }
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                DatePicker(L("Datum", "Date"), selection: $date, displayedComponents: .date)
+                TextField(L("Stückzahl", "Quantity"), text: $quantity)
+                    .keyboardType(.decimalPad)
+                TextField(L("Betrag", "Amount"), text: $amount)
+                    .keyboardType(.decimalPad)
+                Picker(L("Art", "Type"), selection: $kind) {
+                    ForEach(LotKind.allCases) { Text($0.label).tag($0) }
+                }
+            }
+            .navigationTitle(L("Einzelposition", "Individual position"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(L("Abbrechen", "Cancel")) { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(L("Speichern", "Save")) { save() }
+                }
+            }
+        }
+    }
+
+    private func save() {
+        let count = Double(quantity.replacingOccurrences(of: ",", with: ".")) ?? 0
+        guard count > 0, let cents = Money.cents(from: amount), cents > 0 else { return }
+        var updated = lot
+        updated.date = date
+        updated.quantity = count
+        updated.unitPriceCents = Int((Double(cents) / count).rounded())
+        updated.amountCents = kind == .sale ? cents : -cents
+        updated.isSale = kind == .sale
+        updated.isSavingsPlan = kind == .savings
+        var lots = HoldingLotStore.lots(for: holding.id)
+        if let index = lots.firstIndex(where: { $0.id == lot.id }) {
+            lots[index] = updated
+            HoldingLotStore.replace(lots, holdingID: holding.id)
+        }
+        HoldingMaintenance.updateLedger(previous: lot, updated: updated, holding: holding, context: context)
+        let kept = HoldingMaintenance.sync(holding, context: context)
+        onFinish(kept)
+        dismiss()
+    }
+}
+
+private enum LotKind: String, CaseIterable, Identifiable {
+    case buy, savings, sale
+    var id: String { rawValue }
+    var label: String {
+        switch self {
+        case .buy: L("Kauf", "Purchase")
+        case .savings: L("Sparplan", "Savings plan")
+        case .sale: L("Verkauf", "Sale")
+        }
+    }
+}
+
 private struct HoldingDetailView: View {
     let holding: PortfolioHolding
+    @Environment(\.modelContext) private var context
+    @Environment(\.dismiss) private var dismiss
     @AppStorage("portfolioPerformanceBasis") private var basis = PortfolioBasis.today.rawValue
     @AppStorage("portfolioPerformanceUnit") private var unit = PortfolioUnit.percent.rawValue
     @State private var showingBuy = false
     @State private var showingSell = false
     @State private var lots: [HoldingLot] = []
+    @State private var editedLot: HoldingLot?
 
     var body: some View {
         let performance = holdingPerformance(holding)
@@ -580,6 +813,19 @@ private struct HoldingDetailView: View {
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }
+                            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                Button(role: .destructive) {
+                                    deleteLot(lot)
+                                } label: {
+                                    Label(L("Löschen", "Delete"), systemImage: "trash")
+                                }
+                            }
+                            .swipeActions(edge: .leading, allowsFullSwipe: false) {
+                                Button { editedLot = lot } label: {
+                                    Label(L("Bearbeiten", "Edit"), systemImage: "pencil")
+                                }
+                                .tint(.blue)
+                            }
                         }
                     }
                 }
@@ -589,6 +835,25 @@ private struct HoldingDetailView: View {
             .onAppear(perform: reloadLots)
             .sheet(isPresented: $showingBuy, onDismiss: reloadLots) { HoldingTradeSheet(holding: holding, isSale: false) }
             .sheet(isPresented: $showingSell, onDismiss: reloadLots) { HoldingTradeSheet(holding: holding, isSale: true) }
+            .sheet(item: $editedLot) { lot in
+                LotEditor(holding: holding, lot: lot) { kept in
+                    if kept {
+                        reloadLots()
+                    } else {
+                        dismiss()
+                    }
+                }
+            }
+        }
+    }
+
+    private func deleteLot(_ lot: HoldingLot) {
+        HoldingMaintenance.deleteLedger(lot, holding: holding, context: context)
+        HoldingLotStore.remove(lotID: lot.id, holdingID: holding.id)
+        if HoldingMaintenance.sync(holding, context: context) {
+            reloadLots()
+        } else {
+            dismiss()
         }
     }
 

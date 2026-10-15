@@ -89,7 +89,6 @@ enum BankImportApplier {
             replacePreviousStatement(
                 on: checking.account.id,
                 portfolioID: portfolio?.account.id,
-                rows: document.rows,
                 entries: &entries,
                 holdings: &holdings,
                 context: context
@@ -175,7 +174,8 @@ enum BankImportApplier {
                     portfolio: portfolio.account,
                     context: context,
                     holdings: &holdings,
-                    insertedHoldings: &insertedHoldings
+                    insertedHoldings: &insertedHoldings,
+                    ledgerEntryID: entry.id
                 )
             }
             known.formUnion(fingerprints)
@@ -189,6 +189,17 @@ enum BankImportApplier {
             checking.account.iban = iban
         }
         if let portfolio {
+            let closed = holdings.filter { $0.accountID == portfolio.account.id && $0.quantity < 0.0000005 }
+            for holding in closed {
+                HoldingLotStore.removeAll(for: holding.id)
+                HoldingPurchaseDateStore.remove(for: holding.id)
+                MarketSymbolStore.remove(for: holding.id)
+                PreviousCloseStore.remove(for: holding.id)
+                context.delete(holding)
+            }
+            let closedIDs = Set(closed.map(\.id))
+            holdings.removeAll { closedIDs.contains($0.id) }
+            insertedHoldings.removeAll { closedIDs.contains($0.id) }
             let plans = SavingsPlanBuilder.build(
                 rows: document.rows,
                 checkingID: checking.account.id,
@@ -278,7 +289,6 @@ enum BankImportApplier {
     private static func replacePreviousStatement(
         on checkingID: UUID,
         portfolioID: UUID?,
-        rows: [ImportedTransaction],
         entries: inout [LedgerEntry],
         holdings: inout [PortfolioHolding],
         context: ModelContext
@@ -286,7 +296,8 @@ enum BankImportApplier {
         let doomed = entries.filter { entry in
             entry.importFingerprint != nil
                 && entryTouches(entry, accountID: checkingID)
-                && entry.notes.localizedCaseInsensitiveContains("Typ: ")
+                && (entry.notes.localizedCaseInsensitiveContains("Typ: ")
+                    || entry.notes.localizedCaseInsensitiveContains("Type: "))
         }
         guard !doomed.isEmpty else { return }
         let doomedIDs = Set(doomed.map(\.id))
@@ -297,14 +308,13 @@ enum BankImportApplier {
         }
         doomed.forEach(context.delete)
         entries.removeAll { doomedIDs.contains($0.id) }
-        let isins = Set(rows.compactMap { $0.trade?.isin.uppercased() })
-        guard let portfolioID, !isins.isEmpty else { return }
-        let reset = holdings.filter { holding in
-            holding.accountID == portfolioID && isins.contains(holding.symbol.uppercased())
-        }
+        guard let portfolioID else { return }
+        let reset = holdings.filter { $0.accountID == portfolioID }
         for holding in reset {
             HoldingLotStore.removeAll(for: holding.id)
             HoldingPurchaseDateStore.remove(for: holding.id)
+            MarketSymbolStore.remove(for: holding.id)
+            PreviousCloseStore.remove(for: holding.id)
             context.delete(holding)
         }
         let resetIDs = Set(reset.map(\.id))
@@ -454,7 +464,8 @@ enum BankImportApplier {
         portfolio: Account,
         context: ModelContext,
         holdings: inout [PortfolioHolding],
-        insertedHoldings: inout [PortfolioHolding]
+        insertedHoldings: inout [PortfolioHolding],
+        ledgerEntryID: UUID
     ) {
         let price = Int((Double(abs(cashCents)) / trade.quantity).rounded())
         let lot = HoldingLot(
@@ -463,7 +474,8 @@ enum BankImportApplier {
             unitPriceCents: max(price, 0),
             amountCents: cashCents,
             isSale: trade.isSale,
-            isSavingsPlan: trade.isSavingsPlan
+            isSavingsPlan: trade.isSavingsPlan,
+            ledgerEntryID: ledgerEntryID
         )
         if trade.isSale {
             guard let holding = holdings.first(where: { $0.accountID == portfolio.id && $0.symbol.caseInsensitiveCompare(trade.isin) == .orderedSame }) else { return }
@@ -471,12 +483,6 @@ enum BankImportApplier {
             holding.quantity = max(0, holding.quantity - trade.quantity)
             holding.currentPriceCents = max(price, 0)
             holding.updatedAt = .now
-            if holding.quantity < 0.0000005 {
-                HoldingLotStore.removeAll(for: holding.id)
-                context.delete(holding)
-                holdings.removeAll { $0.id == holding.id }
-                insertedHoldings.removeAll { $0.id == holding.id }
-            }
             return
         }
         if let holding = holdings.first(where: { $0.accountID == portfolio.id && $0.symbol.caseInsensitiveCompare(trade.isin) == .orderedSame }) {

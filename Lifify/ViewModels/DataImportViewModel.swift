@@ -16,20 +16,47 @@ final class DataImportViewModel: ObservableObject {
         defer { if accessing { url.stopAccessingSecurityScopedResource() } }
         do {
             let data = try Data(contentsOf: url)
-            let document = try BankImportService.parseDocument(data: data, fileExtension: url.pathExtension)
-            let target: BankImportDestination
-            if let destination {
-                target = destination
-            } else if document.tradeRepublic != nil {
-                target = .separateChecking
-            } else {
+            guard let destination else {
                 message = L("Bitte zuerst ein Zielkonto auswählen.", "Select a destination account first.")
                 return
             }
+            let document = try BankImportService.parseDocument(data: data, fileExtension: url.pathExtension)
+            let target = destination
             let known = Set(existingEntries.compactMap(\.importFingerprint))
             let result = try BankImportApplier.apply(
                 document: document,
                 to: target,
+                openingBalanceCents: nil,
+                context: context
+            )
+            for row in document.rows where row.amountCents > 0 && row.trade == nil {
+                let fingerprints = [row.fingerprint, row.legacyFingerprint].compactMap { $0 }
+                guard known.isDisjoint(with: fingerprints),
+                      let entryID = result.entryIDs[row.fingerprint],
+                      let forecastID = IncomeAssignmentStore.forecastID(for: row.senderIBAN)
+                else { continue }
+                IncomeAssignmentStore.assign(entryID: entryID, to: forecastID)
+            }
+            message = importMessage(for: result)
+        } catch {
+            message = error.localizedDescription
+        }
+    }
+
+    func importTradeRepublic(
+        from url: URL,
+        context: ModelContext,
+        existingEntries: [LedgerEntry]
+    ) {
+        let accessing = url.startAccessingSecurityScopedResource()
+        defer { if accessing { url.stopAccessingSecurityScopedResource() } }
+        do {
+            let data = try Data(contentsOf: url)
+            let document = try BankImportService.parseTradeRepublic(data: data)
+            let known = Set(existingEntries.compactMap(\.importFingerprint))
+            let result = try BankImportApplier.apply(
+                document: document,
+                to: .separateChecking,
                 openingBalanceCents: nil,
                 context: context
             )

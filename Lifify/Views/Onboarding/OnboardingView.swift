@@ -33,7 +33,6 @@ struct OnboardingView: View {
     @State private var openingBalance = ""
     @State private var pendingImportRows: [ImportedTransaction] = []
     @State private var pendingDocument: BankImportDocument?
-    @State private var tradeRepublicUsesMainAccount = false
     @State private var importedRows: [ImportedTransaction] = []
     @State private var importedHoldingCount = 0
     @State private var importedAccountName = ""
@@ -49,6 +48,7 @@ struct OnboardingView: View {
     @State private var secondaryDrafts: [SecondaryIncomeDraft] = []
     @State private var importingBackup = false
     @State private var importingBank = false
+    @State private var importingTradeRepublic = false
     @State private var isFinishing = false
     @State private var message: String?
 
@@ -79,9 +79,15 @@ struct OnboardingView: View {
             )
             .fileImporter(
                 isPresented: $importingBank,
-                allowedContentTypes: [.commaSeparatedText, .xml, .plainText, .pdf],
+                allowedContentTypes: [.commaSeparatedText, .xml, .plainText],
                 allowsMultipleSelection: false,
                 onCompletion: importBankFile
+            )
+            .fileImporter(
+                isPresented: $importingTradeRepublic,
+                allowedContentTypes: [.pdf],
+                allowsMultipleSelection: false,
+                onCompletion: importTradeRepublicFile
             )
             .alert(L("Lifify", "Lifify"), isPresented: Binding(
                 get: { message != nil },
@@ -192,7 +198,12 @@ struct OnboardingView: View {
                 Button {
                     importingBank = true
                 } label: {
-                    Label(L("CSV, CAMT oder PDF auswählen", "Select CSV, CAMT, or PDF"), systemImage: "doc.badge.plus")
+                    Label(L("CSV oder CAMT auswählen", "Select CSV or CAMT"), systemImage: "tablecells")
+                }
+                Button {
+                    importingTradeRepublic = true
+                } label: {
+                    Label(L("Trade-Republic-Kontoauszug hochladen", "Upload a Trade Republic statement"), systemImage: "doc.badge.plus")
                 }
             }
             if let statement = pendingDocument?.tradeRepublic {
@@ -205,18 +216,17 @@ struct OnboardingView: View {
                     Money.string(cents: statement.closingBalanceCents)
                 ))
                 .font(.headline)
-                Picker(L("Zielkonto", "Destination account"), selection: $tradeRepublicUsesMainAccount) {
-                    Text(L("Separates Girokonto", "Separate checking account")).tag(false)
-                    Text(L("Hauptkonto verwenden", "Use main account")).tag(true)
-                }
                 Text(L(
-                    "Standard ist ein separates Girokonto. Das Hauptkonto wird nur verwendet, wenn du es hier auswählst.",
-                    "A separate checking account is the default. The main account is used only when you choose it here."
+                    "Daraus wird ein separates Trade-Republic-Girokonto. Ist die IBAN schon vorhanden, wird dieses Konto verwendet. Das Depot hängt daran.",
+                    "This creates a separate Trade Republic checking account. An existing IBAN is reused. The portfolio is linked to it."
                 ))
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 Button(L("Import abschließen", "Finish import")) {
                     commitTradeRepublicImport()
+                }
+                Button(L("Andere Datei wählen", "Choose another file")) {
+                    pendingDocument = nil
                 }
             }
             if let balanceDate = openingBalanceDate, !pendingImportRows.isEmpty {
@@ -262,8 +272,8 @@ struct OnboardingView: View {
             Text(L("Bankexport (optional)", "Bank export (optional)"))
         } footer: {
             Text(L(
-                "Ein Trade-Republic-Auszug kann hier das Depot mit anlegen. Ohne eigene Auswahl entsteht dafür ein separates Girokonto.",
-                "A Trade Republic statement can create the portfolio here. Without your own choice it uses a separate checking account."
+                "CSV und CAMT fragen nach dem Kontostand. Der Trade-Republic-Auszug ist ein eigener Import und legt Girokonto und Depot an.",
+                "CSV and CAMT ask for the account balance. The Trade Republic statement is a separate import and creates the checking account and portfolio."
             ))
         }
         Section {
@@ -428,14 +438,8 @@ struct OnboardingView: View {
                 message = L("Der Export enthält keine Buchungen.", "The export contains no transactions.")
                 return
             }
-            if document.tradeRepublic != nil {
-                pendingDocument = document
-                pendingImportRows = []
-                tradeRepublicUsesMainAccount = false
-            } else {
-                pendingDocument = nil
-                pendingImportRows = document.rows.sorted { $0.date < $1.date }
-            }
+            pendingDocument = nil
+            pendingImportRows = document.rows.sorted { $0.date < $1.date }
         } catch {
             message = error.localizedDescription
         }
@@ -446,25 +450,32 @@ struct OnboardingView: View {
         return Calendar.current.date(byAdding: .day, value: -1, to: firstDate)
     }
 
-    private func commitTradeRepublicImport() {
-        guard let document = pendingDocument else { return }
-        let destination: BankImportDestination
-        if tradeRepublicUsesMainAccount {
-            guard let accountID = mainAccountID ?? accounts.first(where: \.isMain)?.id else {
-                message = L(
-                    "Das Hauptkonto fehlt. Bitte gehe zurück und speichere es erneut.",
-                    "The main account is missing. Go back and save it again."
-                )
+    private func importTradeRepublicFile(_ result: Result<[URL], Error>) {
+        guard case let .success(urls) = result, let url = urls.first else {
+            if case let .failure(error) = result { message = error.localizedDescription }
+            return
+        }
+        let access = url.startAccessingSecurityScopedResource()
+        defer { if access { url.stopAccessingSecurityScopedResource() } }
+        do {
+            let document = try BankImportService.parseTradeRepublic(data: Data(contentsOf: url))
+            guard !document.rows.isEmpty else {
+                message = L("Der Auszug enthält keine Buchungen.", "The statement contains no transactions.")
                 return
             }
-            destination = .account(accountID)
-        } else {
-            destination = .separateChecking
+            pendingDocument = document
+            pendingImportRows = []
+        } catch {
+            message = error.localizedDescription
         }
+    }
+
+    private func commitTradeRepublicImport() {
+        guard let document = pendingDocument else { return }
         do {
             let result = try BankImportApplier.apply(
                 document: document,
-                to: destination,
+                to: .separateChecking,
                 openingBalanceCents: nil,
                 context: context
             )

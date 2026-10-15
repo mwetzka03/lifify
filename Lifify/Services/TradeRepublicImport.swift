@@ -7,31 +7,10 @@ enum TradeRepublicImporter {
         guard let document = PDFDocument(data: data), document.pageCount > 0 else {
             throw BankImportError.unreadableFile
         }
-        if let statement = columnStatement(in: document) {
-            return statement
-        }
-        let text = (0..<document.pageCount).compactMap { index -> String? in
-            guard let page = document.page(at: index) else { return nil }
-            let plain = page.string ?? ""
-            let selected = page.selection(for: page.bounds(for: .mediaBox))?.string ?? ""
-            let pageText = selected.count > plain.count ? selected : plain
-            return pageText.isEmpty ? nil : pageText
-        }.joined(separator: "\n")
-        guard let overview = markerRange("Umsatzübersicht", in: text) ?? markerRange("Zahlungsausgang", in: text) else {
+        guard let statement = columnStatement(in: document) else {
             throw BankImportError.unsupportedPDF
         }
-        let header = String(text[..<overview.lowerBound])
-        let section = String(text[overview.upperBound..<stopIndex(in: text, after: overview.upperBound)])
-        let balances = cashBalances(in: header)
-        let parsed = transactionRows(in: section, openingBalanceCents: balances.opening)
-        guard !parsed.isEmpty else { throw BankImportError.unsupportedPDF }
-        let closing = balances.opening + parsed.reduce(0) { $0 + $1.amountCents }
-        return TradeRepublicStatement(
-            iban: accountIBAN(in: header),
-            openingBalanceCents: balances.opening,
-            closingBalanceCents: closing,
-            rows: parsed
-        )
+        return statement
     }
 
     /// Reads only the Umsatzübersicht. The booking amount is Zahlungseingang or Zahlungsausgang.
@@ -43,7 +22,6 @@ enum TradeRepublicImporter {
         var openingAnchor: CGFloat?
         var running = 0
         var seeded = false
-        var matches = 0
         var headerText = ""
         for index in 0..<document.pageCount {
             guard let page = document.page(at: index) else { continue }
@@ -90,14 +68,11 @@ enum TradeRepublicImporter {
                     running = opening ?? 0
                     seeded = true
                 }
-                rows.append(contentsOf: transactions(in: pending, running: &running, matches: &matches))
+                rows.append(contentsOf: anchorTransactions(in: pending, running: &running))
             }
             if stopped { break }
         }
         guard inTable, !rows.isEmpty else { return nil }
-        // A column reading that does not follow the printed balance is discarded.
-        // The text parser then derives each booking from the saldo change.
-        if rows.count - matches > 3 { return nil }
         return TradeRepublicStatement(
             iban: accountIBAN(in: headerText),
             openingBalanceCents: opening ?? 0,
@@ -106,58 +81,67 @@ enum TradeRepublicImporter {
         )
     }
 
-    private static func transactions(
+    /// PDFKit reads the page by vertical position, so a gap-based line cluster mixes the next row
+    /// into this one. Each booking is therefore anchored on its type word. Amounts share that line.
+    /// The date and the description sit a few points above and below it. The rightmost amount is the
+    /// saldo and is never the booked value.
+    private static func anchorTransactions(
         in lines: [TextLine],
-        running: inout Int,
-        matches: inout Int
+        running: inout Int
     ) -> [ImportedTransaction] {
+        let words = lines.flatMap(\.words)
+        let anchorIndexes = words.indices.filter { index in
+            let word = words[index]
+            return canonicalType(word.text) != nil && word.minX > 80 && word.minX < 150
+        }.sorted { words[$0].midY > words[$1].midY }
         var parsed: [ImportedTransaction] = []
-        for cluster in clusters(from: lines) {
-            let words = cluster.flatMap(\.words)
-            guard let type = words.first(where: { statementTypes.contains($0.text) && $0.minX < 170 })?.text else { continue }
-            var descriptionWords: [PlacedWord] = []
-            var dates: [String] = []
-            var amounts: [(x: CGFloat, cents: Int)] = []
-            for word in words.sorted(by: { lhs, rhs in
-                if lhs.midY != rhs.midY { return lhs.midY > rhs.midY }
-                return lhs.minX < rhs.minX
-            }) {
-                if let cents = amountCents(word.text) {
-                    amounts.append((word.minX, cents))
-                } else if word.minX < 110 {
-                    dates.append(word.text)
-                } else if !statementTypes.contains(word.text) {
-                    descriptionWords.append(word)
-                }
+        for offset in anchorIndexes.indices {
+            let anchor = words[anchorIndexes[offset]]
+            guard let type = canonicalType(anchor.text) else { continue }
+            let above = bandLimit(from: anchor.midY, toward: offset > 0 ? words[anchorIndexes[offset - 1]].midY : nil)
+            let below = bandLimit(from: anchor.midY, toward: offset + 1 < anchorIndexes.count ? words[anchorIndexes[offset + 1]].midY : nil)
+            let band = words.enumerated().compactMap { item -> PlacedWord? in
+                guard item.offset != anchorIndexes[offset] else { return nil }
+                guard item.element.midY < anchor.midY + above, item.element.midY > anchor.midY - below else { return nil }
+                return item.element
             }
-            let ordered = amounts.sorted { $0.x < $1.x }
-            guard ordered.count >= 2, let date = date(in: dates.joined(separator: " ")) else { continue }
-            let cashX = ordered[ordered.count - 2].x
-            let resolved = booking(earlier: ordered[ordered.count - 2].cents, later: ordered[ordered.count - 1].cents, previous: running)
-            if resolved.matched { matches += 1 }
-            running = resolved.saldo
-            let rawDescription = descriptionWords
-                .filter { $0.minX < cashX - 4 }
+            let amounts = band.compactMap { word -> (x: CGFloat, cents: Int)? in
+                guard abs(word.midY - anchor.midY) <= 5, let cents = amountCents(word.text) else { return nil }
+                return (word.minX, cents)
+            }.sorted { $0.x < $1.x }
+            guard amounts.count >= 2 else { continue }
+            let cash = amounts[amounts.count - 2]
+            let saldo = amounts[amounts.count - 1].cents
+            let dateText = band
+                .filter { $0.minX < 95 && amountCents($0.text) == nil && canonicalType($0.text) == nil }
+                .sorted { lhs, rhs in
+                    if lhs.midY != rhs.midY { return lhs.midY > rhs.midY }
+                    return lhs.minX < rhs.minX
+                }
                 .map(\.text)
                 .joined(separator: " ")
-            parsed.append(importedRow(date: date, type: type, description: rawDescription, signed: resolved.signed))
+            guard let date = date(in: dateText) else { continue }
+            let rawDescription = band
+                .filter { word in
+                    word.minX >= 140 && word.minX < cash.x - 4 && amountCents(word.text) == nil && canonicalType(word.text) == nil
+                }
+                .sorted { lhs, rhs in
+                    if lhs.midY != rhs.midY { return lhs.midY > rhs.midY }
+                    return lhs.minX < rhs.minX
+                }
+                .map(\.text)
+                .joined(separator: " ")
+            let delta = saldo - running
+            let signed = abs(abs(delta) - cash.cents) <= 1 ? delta : (cash.x < 405 ? cash.cents : -cash.cents)
+            running = saldo
+            parsed.append(importedRow(date: date, type: type, description: rawDescription, signed: signed))
         }
         return parsed
     }
 
-    /// The right-hand amount is the balance after the booking. The amount beside it is the cash movement.
-    /// Zahlungseingang increases the balance, Zahlungsausgang decreases it. The saldo itself is never the booking.
-    private static func booking(earlier: Int, later: Int, previous: Int) -> (signed: Int, saldo: Int, matched: Bool) {
-        let forward = later - previous
-        if abs(abs(forward) - earlier) <= 1 {
-            return (forward, later, true)
-        }
-        let backward = earlier - previous
-        if abs(abs(backward) - later) <= 1 {
-            return (backward, earlier, true)
-        }
-        let signed = forward < 0 ? -earlier : earlier
-        return (signed, previous + signed, false)
+    private static func bandLimit(from anchor: CGFloat, toward neighbor: CGFloat?) -> CGFloat {
+        guard let neighbor else { return 18 }
+        return min(18, max(6, abs(neighbor - anchor) / 2 - 0.4))
     }
 
     private static func importedRow(date: Date, type: String, description rawDescription: String, signed: Int) -> ImportedTransaction {
@@ -192,22 +176,6 @@ enum TradeRepublicImporter {
         return "\(action): \(trade.name)"
     }
 
-    private static func clusters(from lines: [TextLine]) -> [[TextLine]] {
-        var clusters: [[TextLine]] = []
-        var current: [TextLine] = []
-        var previous: CGFloat?
-        for line in lines {
-            if let previous, previous - line.midY > 12, !current.isEmpty {
-                clusters.append(current)
-                current = []
-            }
-            current.append(line)
-            previous = line.midY
-        }
-        if !current.isEmpty { clusters.append(current) }
-        return clusters
-    }
-
     private static func date(in text: String) -> Date? {
         let pattern = #"(\d{1,2})\.?\s+((?:Jan(?:uar)?|Feb(?:ruar)?|Mär(?:z)?|Maerz|Mar(?:z)?|Mrz|Apr(?:il)?|Mai|Juni?|Juli?|Aug(?:ust)?|Sept(?:ember)?|Sep|Okt(?:ober)?|Nov(?:ember)?|Dez(?:ember)?)\.?)\s+(20\d{2})"#
         guard let expression = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]),
@@ -234,6 +202,11 @@ enum TradeRepublicImporter {
     nonisolated private static func isOverviewTitle(_ text: String) -> Bool {
         let value = folded(text)
         return value.contains("umsatz") && value.contains("bersicht") && !value.contains("konto")
+    }
+
+    private static func canonicalType(_ text: String) -> String? {
+        let value = folded(text)
+        return statementTypes.first { folded($0) == value }
     }
 
     nonisolated private static func isSectionEnd(_ text: String) -> Bool {
@@ -302,7 +275,7 @@ enum TradeRepublicImporter {
                 continue
             }
             let gap = glyph.minX - maxX
-            if gap <= 2.2 {
+            if gap <= 3.2 {
                 buffer += glyph.text
                 maxX = max(maxX, glyph.maxX)
                 minX = min(minX, glyph.minX)
@@ -318,90 +291,11 @@ enum TradeRepublicImporter {
         return words
     }
 
-    private static func markerRange(_ marker: String, in text: String, from: String.Index? = nil) -> Range<String.Index>? {
-        let ns = text as NSString
-        let start = from.map { text.utf16.distance(from: text.startIndex, to: $0) } ?? 0
-        guard start <= ns.length else { return nil }
-        let found = ns.range(
-            of: marker,
-            options: [.caseInsensitive, .diacriticInsensitive],
-            range: NSRange(location: start, length: ns.length - start)
-        )
-        guard found.location != NSNotFound, let range = Range(found, in: text) else { return nil }
-        return range
-    }
-
-    private static func stopIndex(in text: String, after start: String.Index) -> String.Index {
-        let markers = ["Transaktionsübersicht", "Barmittelübersicht", "Treuhandkonten", "Hinweise"]
-        let indices = markers.compactMap { markerRange($0, in: text, from: start)?.lowerBound }
-        return indices.min() ?? text.endIndex
-    }
-
     private static func accountIBAN(in header: String) -> String {
         let source = header.replacingOccurrences(of: "\u{00a0}", with: " ").uppercased()
         guard let match = firstMatch(#"IBAN\s+([A-Z]{2}[0-9]{2}[A-Z0-9]{11,30})"#, in: source) else { return "" }
         let candidate = match.replacingOccurrences(of: " ", with: "")
         return isIBAN(candidate) ? candidate : ""
-    }
-
-    private static func cashBalances(in header: String) -> (opening: Int, closing: Int) {
-        guard let range = markerRange("Cashkonto", in: header) else { return (0, 0) }
-        let tail = String(header[range.lowerBound...].prefix(240))
-        let amounts = tokenize(tail).compactMap(amountCents)
-        guard let opening = amounts.first else { return (0, 0) }
-        return (opening, amounts.last ?? opening)
-    }
-
-    private static func transactionRows(in section: String, openingBalanceCents: Int) -> [ImportedTransaction] {
-        let tokens = tokenize(loosen(section))
-        let typeIndexes = tokens.indices.filter { statementTypes.contains(tokens[$0]) }
-        var rows: [ImportedTransaction] = []
-        var balance = openingBalanceCents
-        var carriedDate = firstDate(in: tokens)
-        for offset in typeIndexes.indices {
-            let typeAt = typeIndexes[offset]
-            let previous = offset > 0 ? typeIndexes[offset - 1] + 1 : 0
-            if let found = lastDate(in: Array(tokens[previous..<typeAt])) {
-                carriedDate = found
-            }
-            let next = offset + 1 < typeIndexes.count ? typeIndexes[offset + 1] : tokens.count
-            let chunk = Array(tokens[(typeAt + 1)..<next])
-            let amountIndexes = chunk.indices.filter { amountCents(chunk[$0]) != nil }
-            guard amountIndexes.count >= 2, let components = carriedDate else { continue }
-            let cashIndex = amountIndexes[amountIndexes.count - 2]
-            guard let cash = amountCents(chunk[cashIndex]),
-                  let saldo = amountCents(chunk[amountIndexes[amountIndexes.count - 1]])
-            else { continue }
-            let rawDescription = chunk[..<cashIndex].joined(separator: " ")
-            let resolved = booking(earlier: cash, later: saldo, previous: balance)
-            balance = resolved.saldo
-            guard let date = statementDate(day: components.day, month: components.month, year: components.year) else { continue }
-            rows.append(importedRow(date: date, type: tokens[typeAt], description: rawDescription, signed: resolved.signed))
-        }
-        return rows
-    }
-
-    private static func firstDate(in tokens: [String]) -> (day: Int, month: Int, year: Int)? {
-        var index = 0
-        while index < tokens.count {
-            if let components = dateComponents(at: index, in: tokens) { return components }
-            index += 1
-        }
-        return nil
-    }
-
-    private static func lastDate(in tokens: [String]) -> (day: Int, month: Int, year: Int)? {
-        var found: (day: Int, month: Int, year: Int)?
-        var index = 0
-        while index < tokens.count {
-            if let components = dateComponents(at: index, in: tokens) {
-                found = components
-                index += 3
-            } else {
-                index += 1
-            }
-        }
-        return found
     }
 
     private static func displayTitle(_ text: String) -> String {
@@ -413,42 +307,6 @@ enum TradeRepublicImporter {
             }
         }
         return title.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines.union(CharacterSet(charactersIn: ",-")))
-    }
-
-    private static func loosen(_ text: String) -> String {
-        var spaced = text.replacingOccurrences(
-            of: #"([A-Za-zÄÖÜäöü])-\s+([A-Za-zÄÖÜäöü])"#,
-            with: "$1$2",
-            options: .regularExpression
-        )
-        for type in statementTypes.sorted(by: { $0.count > $1.count }) {
-            let pattern = "(?<![\\p{L}\\p{N}])\(NSRegularExpression.escapedPattern(for: type))(?![\\p{L}\\p{N}])"
-            spaced = spaced.replacingOccurrences(of: pattern, with: " \(type) ", options: .regularExpression)
-        }
-        let pattern = #"(\d{1,2})((?:Jan(?:uar)?|Feb(?:ruar)?|Mär(?:z)?|Maerz|Mar(?:z)?|Mrz|Apr(?:il)?|Mai|Juni?|Juli?|Aug(?:ust)?|Sept(?:ember)?|Sep|Okt(?:ober)?|Nov(?:ember)?|Dez(?:ember)?)\.?)(20\d{2})"#
-        return spaced.replacingOccurrences(
-            of: pattern,
-            with: "$1 $2 $3",
-            options: [.regularExpression, .caseInsensitive]
-        )
-    }
-
-    private static func tokenize(_ text: String) -> [String] {
-        text
-            .replacingOccurrences(of: "\u{00a0}", with: " ")
-            .replacingOccurrences(of: "€", with: " ")
-            .split(whereSeparator: \.isWhitespace)
-            .map(String.init)
-    }
-
-    private static func dateComponents(at index: Int, in tokens: [String]) -> (day: Int, month: Int, year: Int)? {
-        guard index + 2 < tokens.count else { return nil }
-        let dayText = tokens[index].trimmingCharacters(in: CharacterSet(charactersIn: "."))
-        guard let day = Int(dayText), (1...31).contains(day),
-              let month = monthNumber(tokens[index + 1]),
-              let year = Int(tokens[index + 2]), (2000...2100).contains(year)
-        else { return nil }
-        return (day, month, year)
     }
 
     private static func amountCents(_ token: String) -> Int? {

@@ -9,6 +9,7 @@ struct HoldingLot: Codable, Identifiable, Hashable {
     var amountCents: Int
     var isSale: Bool
     var isSavingsPlan: Bool
+    var ledgerEntryID: UUID?
 
     init(
         id: UUID = UUID(),
@@ -17,7 +18,8 @@ struct HoldingLot: Codable, Identifiable, Hashable {
         unitPriceCents: Int,
         amountCents: Int,
         isSale: Bool,
-        isSavingsPlan: Bool
+        isSavingsPlan: Bool,
+        ledgerEntryID: UUID? = nil
     ) {
         self.id = id
         self.date = date
@@ -26,6 +28,35 @@ struct HoldingLot: Codable, Identifiable, Hashable {
         self.amountCents = amountCents
         self.isSale = isSale
         self.isSavingsPlan = isSavingsPlan
+        self.ledgerEntryID = ledgerEntryID
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id, date, quantity, unitPriceCents, amountCents, isSale, isSavingsPlan, ledgerEntryID
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        date = try container.decode(Date.self, forKey: .date)
+        quantity = try container.decode(Double.self, forKey: .quantity)
+        unitPriceCents = try container.decode(Int.self, forKey: .unitPriceCents)
+        amountCents = try container.decode(Int.self, forKey: .amountCents)
+        isSale = try container.decode(Bool.self, forKey: .isSale)
+        isSavingsPlan = try container.decode(Bool.self, forKey: .isSavingsPlan)
+        ledgerEntryID = try container.decodeIfPresent(UUID.self, forKey: .ledgerEntryID)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(date, forKey: .date)
+        try container.encode(quantity, forKey: .quantity)
+        try container.encode(unitPriceCents, forKey: .unitPriceCents)
+        try container.encode(amountCents, forKey: .amountCents)
+        try container.encode(isSale, forKey: .isSale)
+        try container.encode(isSavingsPlan, forKey: .isSavingsPlan)
+        try container.encodeIfPresent(ledgerEntryID, forKey: .ledgerEntryID)
     }
 }
 
@@ -43,6 +74,22 @@ enum HoldingLotStore {
         rows.append(lot)
         map[holdingID.uuidString] = rows
         save(map)
+    }
+
+    static func replace(_ lots: [HoldingLot], holdingID: UUID) {
+        var map = all()
+        if lots.isEmpty {
+            map.removeValue(forKey: holdingID.uuidString)
+        } else {
+            map[holdingID.uuidString] = lots
+        }
+        save(map)
+    }
+
+    static func remove(lotID: UUID, holdingID: UUID) {
+        var rows = lots(for: holdingID)
+        rows.removeAll { $0.id == lotID }
+        replace(rows, holdingID: holdingID)
     }
 
     static func removeAll(for holdingID: UUID) {
@@ -112,9 +159,122 @@ enum SavingsPlanStore {
         save(all().filter { $0.portfolioAccountID != portfolioID })
     }
 
+    static func upsert(_ plan: SavingsPlanRecord) {
+        var plans = all()
+        if let index = plans.firstIndex(where: { $0.id == plan.id }) {
+            plans[index] = plan
+        } else {
+            plans.append(plan)
+        }
+        save(plans)
+    }
+
+    static func remove(id: UUID) {
+        save(all().filter { $0.id != id })
+    }
+
     static func save(_ plans: [SavingsPlanRecord]) {
         guard let data = try? JSONEncoder().encode(plans) else { return }
         UserDefaults.standard.set(data, forKey: key)
+    }
+}
+
+@MainActor
+enum HoldingMaintenance {
+    /// Rebuilds the holding from its lots. A position that was fully sold, or whose lots were all removed, disappears.
+    @discardableResult
+    static func sync(_ holding: PortfolioHolding, context: ModelContext) -> Bool {
+        let lots = HoldingLotStore.lots(for: holding.id).sorted { $0.date < $1.date }
+        var quantity = 0.0
+        var cost = 0.0
+        for lot in lots {
+            if lot.isSale {
+                guard quantity > 0.0000005 else { continue }
+                let sold = min(lot.quantity, quantity)
+                let average = cost / quantity
+                quantity -= sold
+                cost = average * quantity
+            } else {
+                quantity += lot.quantity
+                cost += Double(abs(lot.amountCents))
+            }
+        }
+        if quantity < 0.0000005 {
+            HoldingLotStore.removeAll(for: holding.id)
+            MarketSymbolStore.remove(for: holding.id)
+            PreviousCloseStore.remove(for: holding.id)
+            HoldingPurchaseDateStore.remove(for: holding.id)
+            context.delete(holding)
+            try? context.save()
+            return false
+        }
+        holding.quantity = quantity
+        holding.purchasePriceCents = max(0, Int((cost / quantity).rounded()))
+        holding.updatedAt = .now
+        if let first = lots.first(where: { !$0.isSale }) {
+            HoldingPurchaseDateStore.set(first.date, for: holding.id)
+        }
+        try? context.save()
+        return true
+    }
+
+    static func ledgerEntry(for lot: HoldingLot, holding: PortfolioHolding, context: ModelContext) -> LedgerEntry? {
+        let entries = (try? context.fetch(FetchDescriptor<LedgerEntry>())) ?? []
+        if let id = lot.ledgerEntryID, let entry = entries.first(where: { $0.id == id }) {
+            return entry
+        }
+        let symbol = holding.symbol.uppercased()
+        let calendar = Calendar.current
+        return entries.first { entry in
+            calendar.isDate(entry.date, inSameDayAs: lot.date)
+                && abs(entry.amountCents) == abs(lot.amountCents)
+                && (symbol.isEmpty
+                    || entry.notes.uppercased().contains(symbol)
+                    || entry.title.localizedCaseInsensitiveContains(holding.name))
+        }
+    }
+
+    static func updateLedger(previous: HoldingLot, updated: HoldingLot, holding: PortfolioHolding, context: ModelContext) {
+        guard let entry = ledgerEntry(for: previous, holding: holding, context: context) else { return }
+        let portfolioID = holding.accountID
+        let other: UUID?
+        if entry.fromAccountID == portfolioID {
+            other = entry.toAccountID
+        } else if entry.toAccountID == portfolioID {
+            other = entry.fromAccountID
+        } else {
+            other = entry.accountID ?? entry.fromAccountID ?? entry.toAccountID
+        }
+        entry.date = updated.date
+        entry.amountCents = abs(updated.amountCents)
+        entry.kind = .transfer
+        entry.accountID = nil
+        if updated.isSale {
+            entry.fromAccountID = portfolioID
+            entry.toAccountID = other
+            entry.title = "\(L("Verkauf", "Sale")): \(holding.name)"
+        } else if updated.isSavingsPlan {
+            entry.fromAccountID = other
+            entry.toAccountID = portfolioID
+            entry.title = "\(L("Sparplan", "Savings plan")): \(holding.name)"
+        } else {
+            entry.fromAccountID = other
+            entry.toAccountID = portfolioID
+            entry.title = "\(L("Kauf", "Purchase")): \(holding.name)"
+        }
+        var stored = updated
+        stored.ledgerEntryID = entry.id
+        var lots = HoldingLotStore.lots(for: holding.id)
+        if let index = lots.firstIndex(where: { $0.id == updated.id }) {
+            lots[index] = stored
+            HoldingLotStore.replace(lots, holdingID: holding.id)
+        }
+    }
+
+    static func deleteLedger(_ lot: HoldingLot, holding: PortfolioHolding, context: ModelContext) {
+        if let entry = ledgerEntry(for: lot, holding: holding, context: context) {
+            context.delete(entry)
+        }
     }
 }
 
@@ -148,8 +308,9 @@ enum SavingsPlanBuilder {
             let interval = intervalDays(cadence)
             let active = since <= max(Int(Double(interval) * 1.5), interval + 3)
             let holding = holdings.first {
-                $0.accountID == portfolioID && $0.symbol.uppercased() == isin
+                $0.accountID == portfolioID && $0.symbol.uppercased() == isin && $0.quantity > 0.0000005
             }
+            guard holding != nil else { return nil }
             return SavingsPlanRecord(
                 id: UUID(),
                 isin: isin,
@@ -277,17 +438,6 @@ enum SavingsPlanRunner {
             holdings.append(created)
             target = created
         }
-        HoldingLotStore.add(
-            HoldingLot(
-                date: date,
-                quantity: quantity,
-                unitPriceCents: price,
-                amountCents: -plan.amountCents,
-                isSale: false,
-                isSavingsPlan: true
-            ),
-            holdingID: target.id
-        )
         let entry = LedgerEntry(
             date: date,
             title: "\(L("Sparplan", "Savings plan")): \(plan.name)",
@@ -300,6 +450,18 @@ enum SavingsPlanRunner {
         )
         context.insert(entry)
         entries.append(entry)
+        HoldingLotStore.add(
+            HoldingLot(
+                date: date,
+                quantity: quantity,
+                unitPriceCents: price,
+                amountCents: -plan.amountCents,
+                isSale: false,
+                isSavingsPlan: true,
+                ledgerEntryID: entry.id
+            ),
+            holdingID: target.id
+        )
         return target.id
     }
 
