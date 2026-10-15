@@ -11,6 +11,10 @@ struct PortfolioView: View {
     @State private var edited: PortfolioHolding?
     @State private var selected: PortfolioHolding?
     @State private var isRefreshing = false
+    @State private var savingsPlans: [SavingsPlanRecord] = []
+    @State private var plansExpanded = true
+    @State private var editedPlan: SavingsPlanRecord?
+    @Query(sort: \Account.name) private var planAccounts: [Account]
 
     var body: some View {
         List {
@@ -46,6 +50,16 @@ struct PortfolioView: View {
                 .pickerStyle(.segmented)
                 .labelsHidden()
             }
+            if !savingsPlans.isEmpty {
+                Section {
+                    savingsPlanHeader
+                    if plansExpanded {
+                        ForEach(savingsPlans) { plan in
+                            savingsPlanRow(plan, accounts: planAccounts, onEdit: { editedPlan = $0 }, onDelete: { deletePlan($0) })
+                        }
+                    }
+                }
+            }
             ForEach(sortedHoldings) { holding in
                 let performance = holdingPerformance(holding)
                 Button {
@@ -68,7 +82,7 @@ struct PortfolioView: View {
                 }
                 .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                     Button(role: .destructive) {
-                        delete(holding)
+                        deleteHolding(holding)
                     } label: {
                         Label(L("Löschen", "Delete"), systemImage: "trash")
                     }
@@ -106,16 +120,44 @@ struct PortfolioView: View {
             for holding in holdings where HoldingPurchaseDateStore.date(for: holding.id) == nil {
                 HoldingPurchaseDateStore.set(holding.updatedAt, for: holding.id)
             }
+            SavingsPlanRunner.bookDue(context: context)
+            savingsPlans = SavingsPlanStore.all()
         }
         .sheet(isPresented: $showingNew) { HoldingForm(holding: nil) }
         .sheet(item: $edited) { HoldingForm(holding: $0) }
         .sheet(item: $selected) { HoldingDetailView(holding: $0) }
+        .sheet(item: $editedPlan) { plan in
+            SavingsPlanEditor(plan: plan) { saved in
+                SavingsPlanStore.upsert(saved)
+                savingsPlans = SavingsPlanStore.all()
+            }
+        }
     }
 
-    private func delete(_ holding: PortfolioHolding) {
+    private func deletePlan(_ plan: SavingsPlanRecord) {
+        SavingsPlanStore.remove(id: plan.id)
+        savingsPlans = SavingsPlanStore.all()
+    }
+
+    private var savingsPlanHeader: some View {
+        Button {
+            plansExpanded.toggle()
+        } label: {
+            HStack {
+                Text(L("Sparpläne", "Savings plans"))
+                Spacer()
+                Image(systemName: plansExpanded ? "chevron.down" : "chevron.right")
+                    .font(.caption.weight(.semibold))
+            }
+        }
+        .buttonStyle(.plain)
+    }
+
+    fileprivate func deleteHolding(_ holding: PortfolioHolding) {
         MarketSymbolStore.remove(for: holding.id)
         PreviousCloseStore.remove(for: holding.id)
         HoldingPurchaseDateStore.remove(for: holding.id)
+        HoldingLotStore.removeAll(for: holding.id)
         context.delete(holding)
         try? context.save()
     }
@@ -145,6 +187,234 @@ struct PortfolioView: View {
     }
 
     private func selectedPerformanceLabel(_ performance: HoldingPerformance) -> some View {
+        let selected = performance.selected(basis: basis, unit: unit)
+        return Text(selected.text)
+            .font(.caption.bold())
+            .foregroundStyle(selected.cents < 0 ? .red : (selected.cents > 0 ? .green : .secondary))
+    }
+}
+
+struct PortfolioElementsView: View {
+    var accountID: UUID?
+    var showsValueHeader = true
+    @Environment(\.modelContext) private var context
+    @Query(sort: \PortfolioHolding.name) private var holdings: [PortfolioHolding]
+    @AppStorage("portfolioPerformanceBasis") private var basis = PortfolioBasis.today.rawValue
+    @AppStorage("portfolioPerformanceUnit") private var unit = PortfolioUnit.percent.rawValue
+    @AppStorage("portfolioSort") private var sort = PortfolioSort.value.rawValue
+    @State private var showingNew = false
+    @State private var edited: PortfolioHolding?
+    @State private var selected: PortfolioHolding?
+    @State private var isRefreshing = false
+    @State private var savingsPlans: [SavingsPlanRecord] = []
+    @State private var plansExpanded = true
+    @State private var editedPlan: SavingsPlanRecord?
+    @Query(sort: \Account.name) private var accounts: [Account]
+
+    private var visibleHoldings: [PortfolioHolding] {
+        guard let accountID else { return holdings }
+        return holdings.filter { $0.accountID == accountID }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if showsValueHeader {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(L("Depotwert", "Portfolio value"))
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    Text(Money.string(cents: portfolioTotals.value))
+                        .font(.title2.bold())
+                    performanceLabel(portfolioTotals)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(12)
+                .background(AppSurface.card, in: RoundedRectangle(cornerRadius: 14))
+            }
+            savingsPlanCard
+
+            VStack(alignment: .leading, spacing: 8) {
+                Picker(L("Zeitraum", "Period"), selection: $basis) {
+                    ForEach(PortfolioBasis.allCases) { Text($0.label).tag($0.rawValue) }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                Picker(L("Einheit", "Unit"), selection: $unit) {
+                    ForEach(PortfolioUnit.allCases) { Text($0.label).tag($0.rawValue) }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                Picker(L("Sortierung", "Sort"), selection: $sort) {
+                    ForEach(PortfolioSort.allCases) { Text($0.label).tag($0.rawValue) }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+            }
+            .padding(12)
+            .background(AppSurface.card, in: RoundedRectangle(cornerRadius: 14))
+
+            HStack {
+                Button {
+                    Task {
+                        isRefreshing = true
+                        await MarketDataService.refresh(holdings: visibleHoldings, context: context)
+                        isRefreshing = false
+                    }
+                } label: {
+                    if isRefreshing {
+                        ProgressView()
+                    } else {
+                        Label(L("Kurse", "Quotes"), systemImage: "arrow.clockwise")
+                    }
+                }
+                .disabled(isRefreshing || visibleHoldings.isEmpty)
+                Spacer()
+                Button {
+                    showingNew = true
+                } label: {
+                    Label(L("Position", "Holding"), systemImage: "plus")
+                }
+            }
+            .font(.body.weight(.semibold))
+
+            if sortedHoldings.isEmpty {
+                Text(L("Keine Depotpositionen", "No holdings"))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(12)
+                    .background(AppSurface.card, in: RoundedRectangle(cornerRadius: 14))
+            } else {
+                ForEach(sortedHoldings) { holding in
+                    holdingRow(holding)
+                }
+            }
+        }
+        .onAppear {
+            for holding in visibleHoldings where HoldingPurchaseDateStore.date(for: holding.id) == nil {
+                HoldingPurchaseDateStore.set(holding.updatedAt, for: holding.id)
+            }
+            SavingsPlanRunner.bookDue(context: context)
+            savingsPlans = SavingsPlanStore.all()
+        }
+        .sheet(isPresented: $showingNew) { HoldingForm(holding: nil, preferredAccountID: accountID) }
+        .sheet(item: $edited) { HoldingForm(holding: $0, preferredAccountID: accountID) }
+        .sheet(item: $selected) { HoldingDetailView(holding: $0) }
+        .sheet(item: $editedPlan) { plan in
+            SavingsPlanEditor(plan: plan) { saved in
+                SavingsPlanStore.upsert(saved)
+                savingsPlans = SavingsPlanStore.all()
+            }
+        }
+    }
+
+    private func deletePlan(_ plan: SavingsPlanRecord) {
+        SavingsPlanStore.remove(id: plan.id)
+        savingsPlans = SavingsPlanStore.all()
+    }
+
+    private var visiblePlans: [SavingsPlanRecord] {
+        savingsPlans.filter { accountID == nil || $0.portfolioAccountID == accountID }
+    }
+
+    @ViewBuilder
+    private var savingsPlanCard: some View {
+        if !visiblePlans.isEmpty {
+            VStack(alignment: .leading, spacing: 8) {
+                Button {
+                    plansExpanded.toggle()
+                } label: {
+                    HStack {
+                        Text(L("Sparpläne", "Savings plans"))
+                            .font(.headline)
+                        Spacer()
+                        Image(systemName: plansExpanded ? "chevron.down" : "chevron.right")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .buttonStyle(.plain)
+                if plansExpanded {
+                    List {
+                        ForEach(visiblePlans) { plan in
+                            savingsPlanRow(plan, accounts: accounts, onEdit: { editedPlan = $0 }, onDelete: { deletePlan($0) })
+                        }
+                    }
+                    .listStyle(.plain)
+                    .scrollContentBackground(.hidden)
+                    .scrollDisabled(true)
+                    .frame(height: CGFloat(visiblePlans.count) * 76)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(12)
+            .background(AppSurface.card, in: RoundedRectangle(cornerRadius: 14))
+        }
+    }
+
+    private var portfolioTotals: HoldingPerformance {
+        visibleHoldings.reduce(HoldingPerformance()) { $0.adding(holdingPerformance($1)) }
+    }
+
+    private func holdingRow(_ holding: PortfolioHolding) -> some View {
+        let performance = holdingPerformance(holding)
+        return Button {
+            selected = holding
+        } label: {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(holding.name).foregroundStyle(.primary)
+                    Text("\(holding.quantity.formatted()) × \(Money.string(cents: holding.currentPriceCents))")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 12)
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text(Money.string(cents: performance.value))
+                        .foregroundStyle(.primary)
+                    performanceLabel(performance)
+                }
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(AppSurface.card, in: RoundedRectangle(cornerRadius: 14))
+        }
+        .buttonStyle(.plain)
+        .contextMenu {
+            Button(L("Bearbeiten", "Edit")) { edited = holding }
+            Button(L("Löschen", "Delete"), role: .destructive) {
+                delete(holding)
+            }
+        }
+    }
+
+    private func delete(_ holding: PortfolioHolding) {
+        MarketSymbolStore.remove(for: holding.id)
+        PreviousCloseStore.remove(for: holding.id)
+        HoldingPurchaseDateStore.remove(for: holding.id)
+        HoldingLotStore.removeAll(for: holding.id)
+        context.delete(holding)
+        try? context.save()
+    }
+
+    private var sortedHoldings: [PortfolioHolding] {
+        switch PortfolioSort(rawValue: sort) ?? .value {
+        case .value:
+            return visibleHoldings.sorted { holdingPerformance($0).value > holdingPerformance($1).value }
+        case .purchase:
+            return visibleHoldings.sorted { lhs, rhs in
+                let left = HoldingPurchaseDateStore.date(for: lhs.id) ?? .distantPast
+                let right = HoldingPurchaseDateStore.date(for: rhs.id) ?? .distantPast
+                if left != right { return left > right }
+                return lhs.name.localizedCaseInsensitiveCompare(rhs.name) == .orderedAscending
+            }
+        case .name:
+            return visibleHoldings.sorted {
+                $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
+            }
+        }
+    }
+
+    private func performanceLabel(_ performance: HoldingPerformance) -> some View {
         let selected = performance.selected(basis: basis, unit: unit)
         return Text(selected.text)
             .font(.caption.bold())
@@ -193,7 +463,7 @@ private enum PortfolioUnit: String, CaseIterable, Identifiable {
     }
 }
 
-private func holdingPerformance(_ holding: PortfolioHolding) -> HoldingPerformance {
+func holdingPerformance(_ holding: PortfolioHolding) -> HoldingPerformance {
     let value = Int((holding.quantity * Double(holding.currentPriceCents)).rounded())
     let purchaseValue = Int((holding.quantity * Double(holding.purchasePriceCents)).rounded())
     let previous = PreviousCloseStore.cents(for: holding.id)
@@ -215,7 +485,7 @@ private func holdingPerformance(_ holding: PortfolioHolding) -> HoldingPerforman
     )
 }
 
-private struct HoldingPerformance {
+struct HoldingPerformance {
     var value = 0
     var dayCents: Int?
     var dayBase = 0
@@ -274,18 +544,234 @@ private struct HoldingPerformance {
     }
 }
 
+private struct SavingsPlanLabel: View {
+    let plan: SavingsPlanRecord
+    var checkingName: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack {
+                Text(plan.name)
+                Spacer()
+                Text(Money.string(cents: plan.amountCents))
+                    .foregroundStyle(.primary)
+            }
+            Text(subtitle)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private var subtitle: String {
+        let account = checkingName.isEmpty ? L("Girokonto", "Checking account") : checkingName
+        if plan.active, let next = plan.nextExecution() {
+            return "\(plan.cadence.label) · \(L("Aktiv", "Active")) · \(L("Nächste", "Next")) \(AppDate.numeric(next)) · \(account)"
+        }
+        return "\(plan.cadence.label) · \(L("Beendet", "Ended")) · \(L("Letzte", "Last")) \(AppDate.numeric(plan.lastExecution)) · \(account)"
+    }
+}
+
+@MainActor
+private func savingsPlanRow(
+    _ plan: SavingsPlanRecord,
+    accounts: [Account],
+    onEdit: @escaping @MainActor (SavingsPlanRecord) -> Void,
+    onDelete: @escaping @MainActor (SavingsPlanRecord) -> Void
+) -> some View {
+    SavingsPlanLabel(
+        plan: plan,
+        checkingName: accounts.first { $0.id == plan.checkingAccountID }?.name ?? ""
+    )
+    .contextMenu {
+        Button(L("Bearbeiten", "Edit")) { onEdit(plan) }
+        Button(L("Löschen", "Delete"), role: .destructive) { onDelete(plan) }
+    }
+    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+        Button(role: .destructive) { onDelete(plan) } label: {
+            Label(L("Löschen", "Delete"), systemImage: "trash")
+        }
+    }
+    .swipeActions(edge: .leading, allowsFullSwipe: false) {
+        Button { onEdit(plan) } label: {
+            Label(L("Bearbeiten", "Edit"), systemImage: "pencil")
+        }
+        .tint(.blue)
+    }
+}
+
+private struct SavingsPlanEditor: View {
+    @Environment(\.dismiss) private var dismiss
+    @State private var name: String
+    @State private var amount: String
+    @State private var cadence: Cadence
+    @State private var active: Bool
+    @State private var lastExecution: Date
+    private let plan: SavingsPlanRecord
+    private let onSave: (SavingsPlanRecord) -> Void
+
+    init(plan: SavingsPlanRecord, onSave: @escaping (SavingsPlanRecord) -> Void) {
+        self.plan = plan
+        self.onSave = onSave
+        _name = State(initialValue: plan.name)
+        _amount = State(initialValue: String(format: "%.2f", Double(plan.amountCents) / 100))
+        _cadence = State(initialValue: plan.cadence)
+        _active = State(initialValue: plan.active)
+        _lastExecution = State(initialValue: plan.lastExecution)
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                TextField(L("Name", "Name"), text: $name)
+                TextField(L("Betrag", "Amount"), text: $amount)
+                    .keyboardType(.decimalPad)
+                Picker(L("Rhythmus", "Cadence"), selection: $cadence) {
+                    ForEach(Cadence.allCases) { Text($0.label).tag($0) }
+                }
+                Toggle(L("Aktiv", "Active"), isOn: $active)
+                DatePicker(L("Letzte Ausführung", "Last execution"), selection: $lastExecution, displayedComponents: .date)
+            }
+            .navigationTitle(L("Sparplan", "Savings plan"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(L("Abbrechen", "Cancel")) { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(L("Speichern", "Save")) { save() }
+                }
+            }
+        }
+    }
+
+    private func save() {
+        guard let cents = Money.cents(from: amount), cents > 0 else { return }
+        var updated = plan
+        updated.name = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        updated.amountCents = cents
+        updated.cadenceRaw = cadence.rawValue
+        updated.active = active
+        updated.lastExecution = lastExecution
+        onSave(updated)
+        dismiss()
+    }
+}
+
+private struct LotEditor: View {
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var context
+    let holding: PortfolioHolding
+    let lot: HoldingLot
+    var onFinish: (Bool) -> Void
+    @State private var date: Date
+    @State private var quantity: String
+    @State private var amount: String
+    @State private var kind: LotKind
+
+    init(holding: PortfolioHolding, lot: HoldingLot, onFinish: @escaping (Bool) -> Void) {
+        self.holding = holding
+        self.lot = lot
+        self.onFinish = onFinish
+        _date = State(initialValue: lot.date)
+        _quantity = State(initialValue: String(lot.quantity))
+        _amount = State(initialValue: String(format: "%.2f", Double(abs(lot.amountCents)) / 100))
+        if lot.isSale {
+            _kind = State(initialValue: .sale)
+        } else if lot.isSavingsPlan {
+            _kind = State(initialValue: .savings)
+        } else {
+            _kind = State(initialValue: .buy)
+        }
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                DatePicker(L("Datum", "Date"), selection: $date, displayedComponents: .date)
+                TextField(L("Stückzahl", "Quantity"), text: $quantity)
+                    .keyboardType(.decimalPad)
+                TextField(L("Betrag", "Amount"), text: $amount)
+                    .keyboardType(.decimalPad)
+                Picker(L("Art", "Type"), selection: $kind) {
+                    ForEach(LotKind.allCases) { Text($0.label).tag($0) }
+                }
+            }
+            .navigationTitle(L("Einzelposition", "Individual position"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(L("Abbrechen", "Cancel")) { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(L("Speichern", "Save")) { save() }
+                }
+            }
+        }
+    }
+
+    private func save() {
+        let count = Double(quantity.replacingOccurrences(of: ",", with: ".")) ?? 0
+        guard count > 0, let cents = Money.cents(from: amount), cents > 0 else { return }
+        var updated = lot
+        updated.date = date
+        updated.quantity = count
+        updated.unitPriceCents = Int((Double(cents) / count).rounded())
+        updated.amountCents = kind == .sale ? cents : -cents
+        updated.isSale = kind == .sale
+        updated.isSavingsPlan = kind == .savings
+        var lots = HoldingLotStore.lots(for: holding.id)
+        if let index = lots.firstIndex(where: { $0.id == lot.id }) {
+            lots[index] = updated
+            HoldingLotStore.replace(lots, holdingID: holding.id)
+        }
+        HoldingMaintenance.updateLedger(previous: lot, updated: updated, holding: holding, context: context)
+        let kept = HoldingMaintenance.sync(holding, context: context)
+        onFinish(kept)
+        dismiss()
+    }
+}
+
+private enum LotKind: String, CaseIterable, Identifiable {
+    case buy, savings, sale
+    var id: String { rawValue }
+    var label: String {
+        switch self {
+        case .buy: L("Kauf", "Purchase")
+        case .savings: L("Sparplan", "Savings plan")
+        case .sale: L("Verkauf", "Sale")
+        }
+    }
+}
+
 private struct HoldingDetailView: View {
     let holding: PortfolioHolding
+    @Environment(\.modelContext) private var context
+    @Environment(\.dismiss) private var dismiss
     @AppStorage("portfolioPerformanceBasis") private var basis = PortfolioBasis.today.rawValue
     @AppStorage("portfolioPerformanceUnit") private var unit = PortfolioUnit.percent.rawValue
     @State private var showingBuy = false
     @State private var showingSell = false
+    @State private var lots: [HoldingLot] = []
+    @State private var editedLot: HoldingLot?
 
     var body: some View {
         let performance = holdingPerformance(holding)
         let selected = performance.selected(basis: basis, unit: unit)
         NavigationStack {
             Form {
+                HStack(spacing: 12) {
+                    tradeIcon(L("Nachkauf", "Buy more"), systemImage: "plus.circle.fill") {
+                        showingBuy = true
+                    }
+                    tradeIcon(
+                        L("Verkaufen", "Sell"),
+                        systemImage: "minus.circle.fill",
+                        disabled: holding.quantity <= 0
+                    ) {
+                        showingSell = true
+                    }
+                }
+                .listRowBackground(Color.clear)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(Money.string(cents: performance.value))
                         .font(.title2.bold())
@@ -314,15 +800,93 @@ private struct HoldingDetailView: View {
                     L("Aktualisiert", "Updated"),
                     value: "\(AppDate.numeric(holding.updatedAt)) \(AppDate.time(holding.updatedAt))"
                 )
-                Button(L("Nachkaufen", "Buy more")) { showingBuy = true }
-                Button(L("Verkaufen", "Sell")) { showingSell = true }
-                    .disabled(holding.quantity <= 0)
+                if !lots.isEmpty {
+                    Section(L("Einzelpositionen", "Individual positions")) {
+                        ForEach(lots) { lot in
+                            VStack(alignment: .leading, spacing: 2) {
+                                HStack {
+                                    Text(lotTitle(lot))
+                                    Spacer()
+                                    Text(AppDate.numeric(lot.date))
+                                        .foregroundStyle(.secondary)
+                                }
+                                Text("\(lot.quantity.formatted()) × \(Money.string(cents: lot.unitPriceCents)) · \(Money.string(cents: abs(lot.amountCents)))")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                Button(role: .destructive) {
+                                    deleteLot(lot)
+                                } label: {
+                                    Label(L("Löschen", "Delete"), systemImage: "trash")
+                                }
+                            }
+                            .swipeActions(edge: .leading, allowsFullSwipe: false) {
+                                Button { editedLot = lot } label: {
+                                    Label(L("Bearbeiten", "Edit"), systemImage: "pencil")
+                                }
+                                .tint(.blue)
+                            }
+                        }
+                    }
+                }
             }
             .navigationTitle(holding.name)
             .navigationBarTitleDisplayMode(.inline)
-            .sheet(isPresented: $showingBuy) { HoldingTradeSheet(holding: holding, isSale: false) }
-            .sheet(isPresented: $showingSell) { HoldingTradeSheet(holding: holding, isSale: true) }
+            .onAppear(perform: reloadLots)
+            .sheet(isPresented: $showingBuy, onDismiss: reloadLots) { HoldingTradeSheet(holding: holding, isSale: false) }
+            .sheet(isPresented: $showingSell, onDismiss: reloadLots) { HoldingTradeSheet(holding: holding, isSale: true) }
+            .sheet(item: $editedLot) { lot in
+                LotEditor(holding: holding, lot: lot) { kept in
+                    if kept {
+                        reloadLots()
+                    } else {
+                        dismiss()
+                    }
+                }
+            }
         }
+    }
+
+    private func deleteLot(_ lot: HoldingLot) {
+        HoldingMaintenance.deleteLedger(lot, holding: holding, context: context)
+        HoldingLotStore.remove(lotID: lot.id, holdingID: holding.id)
+        if HoldingMaintenance.sync(holding, context: context) {
+            reloadLots()
+        } else {
+            dismiss()
+        }
+    }
+
+    private func reloadLots() {
+        lots = HoldingLotStore.lots(for: holding.id).sorted { $0.date < $1.date }
+    }
+
+    private func lotTitle(_ lot: HoldingLot) -> String {
+        if lot.isSale { return L("Verkauf", "Sale") }
+        if lot.isSavingsPlan { return L("Sparplan", "Savings plan") }
+        return L("Kauf", "Purchase")
+    }
+
+    private func tradeIcon(
+        _ title: String,
+        systemImage: String,
+        disabled: Bool = false,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            VStack(spacing: 6) {
+                Image(systemName: systemImage)
+                    .font(.system(size: 28, weight: .semibold))
+                Text(title)
+                    .font(.caption.weight(.semibold))
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 8)
+        }
+        .buttonStyle(.bordered)
+        .disabled(disabled)
+        .accessibilityLabel(title)
     }
 }
 
@@ -345,9 +909,9 @@ private struct HoldingForm: View {
     @State private var bookPurchase = false
     @State private var checkingAccountID: UUID?
 
-    init(holding: PortfolioHolding?) {
+    init(holding: PortfolioHolding?, preferredAccountID: UUID? = nil) {
         existing = holding
-        _accountID = State(initialValue: holding?.accountID)
+        _accountID = State(initialValue: holding?.accountID ?? preferredAccountID)
         _name = State(initialValue: holding?.name ?? "")
         _symbol = State(initialValue: holding?.symbol ?? "")
         _quantity = State(initialValue: holding.map { String($0.quantity) } ?? "")
@@ -451,7 +1015,14 @@ private struct HoldingForm: View {
             .navigationTitle(L("Depotposition", "Holding"))
             .onAppear {
                 if accountID == nil { accountID = portfolioAccounts.first?.id }
-                if checkingAccountID == nil { checkingAccountID = checkingAccounts.first?.id }
+                if checkingAccountID == nil {
+                    if let id = TradeAccountPreference.accountID(),
+                       checkingAccounts.contains(where: { $0.id == id }) {
+                        checkingAccountID = id
+                    } else {
+                        checkingAccountID = checkingAccounts.first?.id
+                    }
+                }
                 if depotName.isEmpty { depotName = L("Depot", "Portfolio") }
             }
             .toolbar {
@@ -496,6 +1067,17 @@ private struct HoldingForm: View {
                         if existing == nil {
                             context.insert(holding)
                             HoldingPurchaseDateStore.set(.now, for: holding.id)
+                            HoldingLotStore.add(
+                                HoldingLot(
+                                    date: .now,
+                                    quantity: count,
+                                    unitPriceCents: purchase,
+                                    amountCents: -Int((count * Double(abs(purchase))).rounded()),
+                                    isSale: false,
+                                    isSavingsPlan: false
+                                ),
+                                holdingID: holding.id
+                            )
                             if bookPurchase, let checkingAccountID {
                                 let cost = Int((count * Double(abs(purchase))).rounded())
                                 context.insert(LedgerEntry(
@@ -594,10 +1176,16 @@ private struct HoldingTradeSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
     @Query(sort: \Account.name) private var accounts: [Account]
+    @AppStorage(TradeFeePreference.storageKey) private var defaultFeeCents = TradeFeePreference.defaultCents
     let holding: PortfolioHolding
     let isSale: Bool
     @State private var quantity = ""
     @State private var price = ""
+    @State private var fee = ""
+    @State private var includeFee = false
+    @State private var sellByPercent = false
+    @State private var percentText = "100"
+    @State private var isTransfer = false
     @State private var date = Date.now
     @State private var checkingAccountID: UUID?
     @State private var depotName = ""
@@ -606,15 +1194,62 @@ private struct HoldingTradeSheet: View {
     var body: some View {
         NavigationStack {
             Form {
-                TextField(L("Stückzahl", "Quantity"), text: $quantity).keyboardType(.decimalPad)
-                TextField(L("Kurs", "Price"), text: $price).keyboardType(.decimalPad)
-                AppDateField(title: L("Datum", "Date"), selection: $date)
-                if checkingAccounts.isEmpty {
-                    Text(L("Lege zuerst ein Girokonto an.", "Create a checking account first."))
+                if !isSale {
+                    Picker(L("Art", "Type"), selection: $isTransfer) {
+                        Text(L("Kauf", "Purchase")).tag(false)
+                        Text(L("Übertrag", "Transfer")).tag(true)
+                    }
+                    .pickerStyle(.segmented)
+                    if isTransfer {
+                        Text(L("Ohne Abbuchung vom Girokonto.", "No debit from the checking account."))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                if isSale {
+                    Picker(L("Menge", "Amount"), selection: $sellByPercent) {
+                        Text(L("Stückzahl", "Quantity")).tag(false)
+                        Text(L("Prozent", "Percent")).tag(true)
+                    }
+                    .pickerStyle(.segmented)
+                }
+                if isSale && sellByPercent {
+                    TextField(L("Prozent", "Percent"), text: $percentText).keyboardType(.decimalPad)
+                    HStack {
+                        ForEach([25, 50, 75, 100], id: \.self) { value in
+                            Button("\(value) %") { percentText = "\(value)" }
+                                .buttonStyle(.bordered)
+                        }
+                    }
+                    Text(L("Das sind \(sharePreview) Stück.", "That is \(sharePreview) shares."))
+                        .font(.caption)
                         .foregroundStyle(.secondary)
                 } else {
-                    Picker(L("Girokonto", "Checking account"), selection: $checkingAccountID) {
-                        ForEach(checkingAccounts) { Text($0.name).tag(Optional($0.id)) }
+                    TextField(L("Stückzahl", "Quantity"), text: $quantity).keyboardType(.decimalPad)
+                }
+                TextField(L("Kurs", "Price"), text: $price, prompt: Text(isSale ? L("Kurs", "Price") : L("Kurs eingeben", "Enter price")))
+                    .keyboardType(.decimalPad)
+                if !isTransfer {
+                    Toggle(L("Gebühr", "Fee"), isOn: $includeFee)
+                    if includeFee {
+                        TextField(L("Gebühr", "Fee"), text: $fee).keyboardType(.decimalPad)
+                        Text(L(
+                            "Die Gebühr gilt einmal für diese Buchung, unabhängig von der Stückzahl.",
+                            "The fee applies once to this booking, regardless of quantity."
+                        ))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    }
+                }
+                AppDateField(title: L("Datum", "Date"), selection: $date)
+                if !isTransfer {
+                    if checkingAccounts.isEmpty {
+                        Text(L("Lege zuerst ein Girokonto an.", "Create a checking account first."))
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Picker(L("Girokonto", "Checking account"), selection: $checkingAccountID) {
+                            ForEach(checkingAccounts) { Text($0.name).tag(Optional($0.id)) }
+                        }
                     }
                 }
                 if portfolioAccount == nil {
@@ -633,11 +1268,15 @@ private struct HoldingTradeSheet: View {
             .navigationTitle(isSale ? L("Verkaufen", "Sell") : L("Nachkaufen", "Buy more"))
             .navigationBarTitleDisplayMode(.inline)
             .onAppear {
-                if price.isEmpty {
+                if isSale, price.isEmpty {
                     price = String(format: "%.2f", Double(holding.currentPriceCents) / 100)
                 }
-                if checkingAccountID == nil { checkingAccountID = checkingAccounts.first?.id }
+                if checkingAccountID == nil { checkingAccountID = preferredCheckingAccount?.id }
                 if depotName.isEmpty { depotName = L("Depot", "Portfolio") }
+            }
+            .onChange(of: includeFee) {
+                guard includeFee, fee.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+                fee = TradeFeePreference.editString(cents: defaultFeeCents)
             }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button(L("Abbrechen", "Cancel")) { dismiss() } }
@@ -650,6 +1289,19 @@ private struct HoldingTradeSheet: View {
         accounts.filter { $0.kind == .checking }
     }
 
+    private var preferredCheckingAccount: Account? {
+        if let id = TradeAccountPreference.accountID(),
+           let match = checkingAccounts.first(where: { $0.id == id }) {
+            return match
+        }
+        return checkingAccounts.first
+    }
+
+    private var sharePreview: String {
+        let percent = Double(percentText.replacingOccurrences(of: ",", with: ".")) ?? 0
+        return max(0, holding.quantity * percent / 100).formatted()
+    }
+
     private var portfolioAccount: Account? {
         if let id = holding.accountID, let match = accounts.first(where: { $0.id == id && $0.kind == .portfolio }) {
             return match
@@ -658,8 +1310,18 @@ private struct HoldingTradeSheet: View {
     }
 
     private func save() {
-        let normalized = quantity.replacingOccurrences(of: ",", with: ".")
-        guard let count = Double(normalized), count > 0, let priceCents = Money.cents(from: price), priceCents > 0 else {
+        let count: Double
+        if isSale && sellByPercent {
+            let percent = Double(percentText.replacingOccurrences(of: ",", with: ".")) ?? -1
+            guard percent > 0, percent <= 100 else {
+                validationMessage = L("Bitte einen Prozentwert zwischen 0 und 100 eingeben.", "Enter a percentage between 0 and 100.")
+                return
+            }
+            count = percent >= 99.995 ? holding.quantity : holding.quantity * percent / 100
+        } else {
+            count = Double(quantity.replacingOccurrences(of: ",", with: ".")) ?? 0
+        }
+        guard count > 0, let priceCents = Money.cents(from: price), priceCents > 0 else {
             validationMessage = L("Bitte Stückzahl und Kurs prüfen.", "Check the quantity and price.")
             return
         }
@@ -667,7 +1329,18 @@ private struct HoldingTradeSheet: View {
             validationMessage = L("Du kannst nicht mehr verkaufen, als im Depot liegt.", "You cannot sell more than the holding contains.")
             return
         }
-        guard let checkingAccountID else {
+        let feeCents = resolvedFeeCents
+        guard feeCents >= 0 else {
+            validationMessage = L("Bitte die Gebühr prüfen.", "Check the fee.")
+            return
+        }
+        let sharesValue = Int((count * Double(abs(priceCents))).rounded())
+        if !isTransfer, isSale, feeCents > sharesValue {
+            validationMessage = L("Die Gebühr ist höher als der Verkaufserlös.", "The fee is higher than the sale proceeds.")
+            return
+        }
+        let booksCash = !isTransfer
+        if booksCash, checkingAccountID == nil {
             validationMessage = L("Bitte ein Girokonto auswählen.", "Select a checking account.")
             return
         }
@@ -684,34 +1357,64 @@ private struct HoldingTradeSheet: View {
             context.insert(account)
             portfolio = account
         }
-        let amount = Int((count * Double(abs(priceCents))).rounded())
+        let appliedFee = booksCash ? feeCents : 0
+        HoldingLotStore.add(
+            HoldingLot(
+                date: date,
+                quantity: count,
+                unitPriceCents: priceCents,
+                amountCents: isSale ? sharesValue - appliedFee : -(sharesValue + appliedFee),
+                isSale: isSale,
+                isSavingsPlan: false
+            ),
+            holdingID: holding.id
+        )
         if isSale {
             holding.quantity -= count
-            context.insert(LedgerEntry(
-                date: date,
-                title: "\(L("Verkauf", "Sell")): \(holding.name)",
-                amountCents: amount,
-                kind: .transfer,
-                fromAccountID: portfolio.id,
-                toAccountID: checkingAccountID
-            ))
+            if let checkingAccountID {
+                context.insert(LedgerEntry(
+                    date: date,
+                    title: "\(L("Verkauf", "Sell")): \(holding.name)",
+                    notes: feeNote(appliedFee),
+                    amountCents: sharesValue - appliedFee,
+                    kind: .transfer,
+                    fromAccountID: portfolio.id,
+                    toAccountID: checkingAccountID
+                ))
+            }
         } else {
+            let addedCost = sharesValue + appliedFee
             let previousValue = holding.quantity * Double(holding.purchasePriceCents)
             let nextQuantity = holding.quantity + count
-            holding.purchasePriceCents = Int(((previousValue + Double(amount)) / nextQuantity).rounded())
+            holding.purchasePriceCents = Int(((previousValue + Double(addedCost)) / nextQuantity).rounded())
             holding.quantity = nextQuantity
-            context.insert(LedgerEntry(
-                date: date,
-                title: "\(L("Kauf", "Buy")): \(holding.name)",
-                amountCents: amount,
-                kind: .transfer,
-                fromAccountID: checkingAccountID,
-                toAccountID: portfolio.id
-            ))
+            if booksCash, let checkingAccountID {
+                context.insert(LedgerEntry(
+                    date: date,
+                    title: "\(L("Kauf", "Buy")): \(holding.name)",
+                    notes: feeNote(appliedFee),
+                    amountCents: addedCost,
+                    kind: .transfer,
+                    fromAccountID: checkingAccountID,
+                    toAccountID: portfolio.id
+                ))
+            }
         }
         holding.accountID = portfolio.id
         holding.updatedAt = .now
         try? context.save()
         dismiss()
+    }
+
+    private var resolvedFeeCents: Int {
+        if isTransfer || !includeFee { return 0 }
+        let trimmed = fee.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty { return 0 }
+        return Money.cents(from: trimmed) ?? -1
+    }
+
+    private func feeNote(_ cents: Int) -> String {
+        guard cents > 0 else { return "" }
+        return "\(L("Gebühr", "Fee")): \(Money.string(cents: cents))"
     }
 }

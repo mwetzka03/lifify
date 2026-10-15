@@ -3,6 +3,7 @@ import SwiftUI
 
 struct SettingsView: View {
     @Environment(\.modelContext) private var context
+    @Query(sort: \Account.name) private var accounts: [Account]
     @AppStorage("appLanguage") private var language = "de"
     @AppStorage("appTheme") private var theme = AppTheme.system.rawValue
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
@@ -10,8 +11,11 @@ struct SettingsView: View {
     @AppStorage("userName") private var userName = ""
     @AppStorage("dashboardPeriodMode") private var dashboardPeriod = DashboardPeriodMode.calendarMonth.rawValue
     @AppStorage("onboardingStep") private var onboardingStep = 0
-    @AppStorage(WorkoutAPIKey.storageKey) private var workoutAPIKey = ""
     @AppStorage(RestChime.storageKey) private var restChimeID = 1005
+    @AppStorage(TradeFeePreference.storageKey) private var defaultTradeFeeCents = TradeFeePreference.defaultCents
+    @AppStorage(TradeAccountPreference.storageKey) private var defaultCheckingAccountID = ""
+    @EnvironmentObject private var workouts: WorkoutStore
+    @State private var feeText = ""
     @State private var destructiveAction: DestructiveAction?
     @State private var resetError: String?
 
@@ -41,15 +45,40 @@ struct SettingsView: View {
                 } label: {
                     LabeledContent(L("Klingelton", "Chime"), value: RestChime.tones.first { $0.id == restChimeID }?.name ?? RestChime.selectedName)
                 }
-                SecureField(L("Workout-API-Schlüssel", "Workout API key"), text: $workoutAPIKey)
                 Text(L(
-                    "Der Klingelton beendet die Satzpause. Der Schlüssel lädt Übungen und Bilder und bleibt auf diesem Gerät.",
-                    "The chime ends a rest period. The key loads exercises and images and stays on this device."
+                    "Der Klingelton beendet die Satzpause. Übungen kommen aus der lokalen Datenbank.",
+                    "The chime ends a rest period. Exercises come from the local database."
                 ))
                 .font(.footnote)
                 .foregroundStyle(.secondary)
             } header: {
                 Text(L("Training", "Training"))
+            }
+            Section {
+                Picker(L("Standard-Girokonto", "Default checking account"), selection: $defaultCheckingAccountID) {
+                    Text(L("Erstes Girokonto", "First checking account")).tag("")
+                    ForEach(accounts.filter { $0.kind == .checking }) { account in
+                        Text(account.name).tag(account.id.uuidString)
+                    }
+                }
+                HStack {
+                    Text(L("Gebühr pro Buchung", "Fee per booking"))
+                    Spacer()
+                    TextField("1,00", text: $feeText)
+                        .keyboardType(.decimalPad)
+                        .multilineTextAlignment(.trailing)
+                        .frame(maxWidth: 90)
+                    Text("€")
+                        .foregroundStyle(.secondary)
+                }
+                Text(L(
+                    "Das Girokonto wird beim Kauf und Verkauf vorausgewählt. Die Gebühr ist abschaltbar und gilt einmal pro Buchung, nicht pro Stück.",
+                    "The checking account is preselected for buys and sales. The fee can be turned off and applies once per booking, not per share."
+                ))
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+            } header: {
+                Text(L("Depot", "Portfolio"))
             }
             Section(L("Daten", "Data")) {
                 NavigationLink {
@@ -103,6 +132,11 @@ struct SettingsView: View {
                         try BackupService.deleteUserData(from: context)
                     case .resetApp:
                         try BackupService.resetApp(from: context)
+                        workouts.reset()
+                        ExerciseImageStore.removeAll()
+                        defaultTradeFeeCents = TradeFeePreference.defaultCents
+                        feeText = TradeFeePreference.editString(cents: TradeFeePreference.defaultCents)
+                        defaultCheckingAccountID = ""
                         language = "de"
                         theme = AppTheme.system.rawValue
                         userName = ""
@@ -120,6 +154,15 @@ struct SettingsView: View {
             }
         } message: {
             Text(destructiveAction?.message ?? "")
+        }
+        .onAppear {
+            if feeText.isEmpty {
+                feeText = TradeFeePreference.editString(cents: defaultTradeFeeCents)
+            }
+        }
+        .onChange(of: feeText) {
+            guard let cents = Money.cents(from: feeText), cents >= 0 else { return }
+            defaultTradeFeeCents = cents
         }
         .alert(L("Zurücksetzen fehlgeschlagen", "Reset failed"), isPresented: Binding(
             get: { resetError != nil },
@@ -152,8 +195,8 @@ private enum DestructiveAction {
             )
         case .resetApp:
             L(
-                "Auch Konten und Einstellungen werden gelöscht. Danach beginnt die Ersteinrichtung erneut.",
-                "Accounts and settings will also be deleted. Initial setup starts again afterward."
+                "Auch Konten, Trainingsdaten und Einstellungen werden gelöscht. Danach beginnt die Ersteinrichtung erneut.",
+                "Accounts, workout data, and settings will also be deleted. Initial setup starts again afterward."
             )
         }
     }

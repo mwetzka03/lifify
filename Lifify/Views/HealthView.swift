@@ -31,7 +31,7 @@ struct HealthView: View {
                             Spacer(minLength: 8)
                             HStack(spacing: -10) {
                                 ForEach(plan.exercises.prefix(3)) { exercise in
-                                    ExerciseArtwork(code: exercise.code, side: 36)
+                                    ExerciseArtwork(code: exercise.code, name: exercise.name, side: 36, playsVideo: false)
                                 }
                             }
                         }
@@ -65,7 +65,7 @@ struct HealthView: View {
                 sectionTitle(L("Training", "Training"))
             }
             Section {
-                Text(L("Kommt bald", "Coming soon"))
+                Text(L("Noch nicht verfügbar", "Not available yet"))
                     .foregroundStyle(.secondary)
             } header: {
                 sectionTitle(L("Ernährung", "Nutrition"))
@@ -155,9 +155,9 @@ struct WorkoutPlanDetailView: View {
                         ForEach(plan.exercises) { exercise in
                             VStack(alignment: .leading, spacing: 8) {
                                 HStack(spacing: 12) {
-                                    ExerciseArtwork(code: exercise.code)
+                                    ExerciseArtwork(code: exercise.code, name: exercise.name)
                                     VStack(alignment: .leading, spacing: 2) {
-                                        Text(exercise.name)
+                                        Text(ExerciseName.formatted(exercise.name))
                                             .font(.title3.weight(.semibold))
                                         Text("\(L("Pause", "Rest")) \(WorkoutFormat.rest(exercise.restSeconds))")
                                             .font(.subheadline)
@@ -219,8 +219,8 @@ struct WorkoutHistoryView: View {
                         ForEach(performed) { exercise in
                             VStack(alignment: .leading, spacing: 8) {
                                 HStack(spacing: 12) {
-                                    ExerciseArtwork(code: exercise.code)
-                                    Text(exercise.name)
+                                    ExerciseArtwork(code: exercise.code, name: exercise.name)
+                                    Text(ExerciseName.formatted(exercise.name))
                                         .font(.title3.weight(.semibold))
                                     Spacer(minLength: 8)
                                     Text(WorkoutProgress.volumeText(WorkoutProgress.volume(of: exercise)))

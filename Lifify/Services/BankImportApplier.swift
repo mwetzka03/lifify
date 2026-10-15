@@ -9,6 +9,7 @@ struct BankImportResult {
     var createdSeparateChecking: Bool
     var entryIDs: [String: UUID]
     var selectableRows: [ImportedTransaction]
+    var skippedBeforeStart: Int = 0
 }
 
 enum PortfolioLinkStore {
@@ -89,12 +90,14 @@ enum BankImportApplier {
             replacePreviousStatement(
                 on: checking.account.id,
                 portfolioID: portfolio?.account.id,
-                rows: document.rows,
                 entries: &entries,
                 holdings: &holdings,
                 context: context
             )
         }
+        let period = document.tradeRepublic == nil
+            ? nil
+            : firstMainAccountPeriod(entries: entries, accounts: accounts, context: context)
 
         if document.tradeRepublic == nil, let openingBalanceCents,
            !entries.contains(where: { $0.kind == .adjustment && $0.accountID == checking.account.id }),
@@ -108,6 +111,24 @@ enum BankImportApplier {
             )
             context.insert(adjustment)
             insertedEntries.append(adjustment)
+        } else if let statement = document.tradeRepublic, let period {
+            let saldo = statementBalance(
+                before: period.start,
+                rows: document.rows,
+                opening: statement.openingBalanceCents
+            )
+            let adjustment = LedgerEntry(
+                date: Calendar.current.startOfDay(for: period.start),
+                title: L("Startsaldo", "Opening balance"),
+                notes: "Typ: Startsaldo",
+                amountCents: saldo,
+                kind: .adjustment,
+                accountID: checking.account.id,
+                importFingerprint: "tr-startsaldo"
+            )
+            context.insert(adjustment)
+            insertedEntries.append(adjustment)
+            entries.append(adjustment)
         } else if let statement = document.tradeRepublic, statement.openingBalanceCents != 0,
                   !entries.contains(where: { entryTouches($0, accountID: checking.account.id) }),
                   let firstDate = document.rows.map(\.date).min() {
@@ -126,8 +147,26 @@ enum BankImportApplier {
         var entryIDs: [String: UUID] = [:]
         var selectable: [ImportedTransaction] = []
         var imported = 0
+        var skippedBeforeStart = 0
         let directory = accounts + checking.created
+        let periodStart = period.map { Calendar.current.startOfDay(for: $0.start) }
         for row in document.rows {
+            if let periodStart, Calendar.current.startOfDay(for: row.date) < periodStart {
+                if let trade = row.trade, let portfolio {
+                    apply(
+                        trade,
+                        cashCents: row.amountCents,
+                        date: row.date,
+                        portfolio: portfolio.account,
+                        context: context,
+                        holdings: &holdings,
+                        insertedHoldings: &insertedHoldings,
+                        ledgerEntryID: nil
+                    )
+                }
+                skippedBeforeStart += 1
+                continue
+            }
             let fingerprints = [row.fingerprint, row.legacyFingerprint].compactMap { $0 }
             let other = counterpartyAccount(for: row, checking: checking.account, accounts: directory)
             if let existing = entries.first(where: { entry in
@@ -168,7 +207,16 @@ enum BankImportApplier {
             insertedEntries.append(entry)
             entries.append(entry)
             if let trade = row.trade, let portfolio {
-                apply(trade, cashCents: row.amountCents, portfolio: portfolio.account, context: context, holdings: &holdings, insertedHoldings: &insertedHoldings)
+                apply(
+                    trade,
+                    cashCents: row.amountCents,
+                    date: row.date,
+                    portfolio: portfolio.account,
+                    context: context,
+                    holdings: &holdings,
+                    insertedHoldings: &insertedHoldings,
+                    ledgerEntryID: entry.id
+                )
             }
             known.formUnion(fingerprints)
             if row.trade == nil {
@@ -179,6 +227,31 @@ enum BankImportApplier {
         }
         if checking.account.iban.isEmpty, let iban = document.tradeRepublic?.iban, !iban.isEmpty {
             checking.account.iban = iban
+        }
+        if let portfolio {
+            let closed = holdings.filter { $0.accountID == portfolio.account.id && $0.quantity < 0.0000005 }
+            for holding in closed {
+                HoldingLotStore.removeAll(for: holding.id)
+                HoldingPurchaseDateStore.remove(for: holding.id)
+                MarketSymbolStore.remove(for: holding.id)
+                PreviousCloseStore.remove(for: holding.id)
+                context.delete(holding)
+            }
+            let closedIDs = Set(closed.map(\.id))
+            holdings.removeAll { closedIDs.contains($0.id) }
+            insertedHoldings.removeAll { closedIDs.contains($0.id) }
+            for holding in holdings where holding.accountID == portfolio.account.id {
+                if let position = HoldingMaintenance.averagePurchaseCents(for: HoldingLotStore.lots(for: holding.id)) {
+                    holding.purchasePriceCents = position.priceCents
+                }
+            }
+            let plans = SavingsPlanBuilder.build(
+                rows: document.rows,
+                checkingID: checking.account.id,
+                portfolioID: portfolio.account.id,
+                holdings: holdings
+            )
+            SavingsPlanStore.replace(plans, portfolioID: portfolio.account.id)
         }
         let portfolioID = portfolio?.account.id
         let holdingCount = holdings.filter { holding in
@@ -199,8 +272,39 @@ enum BankImportApplier {
             checkingAccountID: checking.account.id,
             createdSeparateChecking: checking.createdSeparate,
             entryIDs: entryIDs,
-            selectableRows: selectable
+            selectableRows: selectable,
+            skippedBeforeStart: skippedBeforeStart
         )
+    }
+
+    static func firstMainAccountPeriod(
+        entries: [LedgerEntry],
+        accounts: [Account],
+        context: ModelContext
+    ) -> ForecastPeriod? {
+        guard let main = accounts.first(where: \.isMain) else { return nil }
+        let dates = entries.compactMap { entry -> Date? in
+            guard entry.kind != .adjustment, entryTouches(entry, accountID: main.id) else { return nil }
+            return entry.date
+        }
+        guard let earliest = dates.min() else { return nil }
+        let forecasts = (try? context.fetch(FetchDescriptor<IncomeForecast>())) ?? []
+        let mode = DashboardPeriodMode(rawValue: UserDefaults.standard.string(forKey: "dashboardPeriodMode") ?? "") ?? .calendarMonth
+        let primary = mode == .salaryPeriod ? FinancePeriods.primaryForecast(in: forecasts) : nil
+        return FinanceService.forecastPeriods(primary: primary, earliest: earliest, latest: earliest).first
+    }
+
+    private static func statementBalance(before day: Date, rows: [ImportedTransaction], opening: Int) -> Int {
+        let calendar = Calendar.current
+        let start = calendar.startOfDay(for: day)
+        var saldo = opening
+        for row in rows {
+            guard let printed = row.statementBalanceCents else { continue }
+            if calendar.startOfDay(for: row.date) < start {
+                saldo = printed
+            }
+        }
+        return saldo
     }
 
     private static func checkingAccount(
@@ -261,7 +365,6 @@ enum BankImportApplier {
     private static func replacePreviousStatement(
         on checkingID: UUID,
         portfolioID: UUID?,
-        rows: [ImportedTransaction],
         entries: inout [LedgerEntry],
         holdings: inout [PortfolioHolding],
         context: ModelContext
@@ -269,7 +372,8 @@ enum BankImportApplier {
         let doomed = entries.filter { entry in
             entry.importFingerprint != nil
                 && entryTouches(entry, accountID: checkingID)
-                && entry.notes.localizedCaseInsensitiveContains("Typ: ")
+                && (entry.notes.localizedCaseInsensitiveContains("Typ: ")
+                    || entry.notes.localizedCaseInsensitiveContains("Type: "))
         }
         guard !doomed.isEmpty else { return }
         let doomedIDs = Set(doomed.map(\.id))
@@ -280,14 +384,18 @@ enum BankImportApplier {
         }
         doomed.forEach(context.delete)
         entries.removeAll { doomedIDs.contains($0.id) }
-        let isins = Set(rows.compactMap { $0.trade?.isin.uppercased() })
-        guard let portfolioID, !isins.isEmpty else { return }
-        let reset = holdings.filter { holding in
-            holding.accountID == portfolioID && isins.contains(holding.symbol.uppercased())
+        guard let portfolioID else { return }
+        let reset = holdings.filter { $0.accountID == portfolioID }
+        for holding in reset {
+            HoldingLotStore.removeAll(for: holding.id)
+            HoldingPurchaseDateStore.remove(for: holding.id)
+            MarketSymbolStore.remove(for: holding.id)
+            PreviousCloseStore.remove(for: holding.id)
+            context.delete(holding)
         }
-        reset.forEach(context.delete)
         let resetIDs = Set(reset.map(\.id))
         holdings.removeAll { resetIDs.contains($0.id) }
+        SavingsPlanStore.removeAll(portfolioID: portfolioID)
     }
 
     private static func counterpartyAccount(
@@ -428,22 +536,29 @@ enum BankImportApplier {
     private static func apply(
         _ trade: ImportedSecurityTrade,
         cashCents: Int,
+        date: Date,
         portfolio: Account,
         context: ModelContext,
         holdings: inout [PortfolioHolding],
-        insertedHoldings: inout [PortfolioHolding]
+        insertedHoldings: inout [PortfolioHolding],
+        ledgerEntryID: UUID?
     ) {
         let price = Int((Double(abs(cashCents)) / trade.quantity).rounded())
+        let lot = HoldingLot(
+            date: date,
+            quantity: trade.quantity,
+            unitPriceCents: max(price, 0),
+            amountCents: cashCents,
+            isSale: trade.isSale,
+            isSavingsPlan: trade.isSavingsPlan,
+            ledgerEntryID: ledgerEntryID
+        )
         if trade.isSale {
             guard let holding = holdings.first(where: { $0.accountID == portfolio.id && $0.symbol.caseInsensitiveCompare(trade.isin) == .orderedSame }) else { return }
+            HoldingLotStore.add(lot, holdingID: holding.id)
             holding.quantity = max(0, holding.quantity - trade.quantity)
             holding.currentPriceCents = max(price, 0)
             holding.updatedAt = .now
-            if holding.quantity < 0.0000005 {
-                context.delete(holding)
-                holdings.removeAll { $0.id == holding.id }
-                insertedHoldings.removeAll { $0.id == holding.id }
-            }
             return
         }
         if let holding = holdings.first(where: { $0.accountID == portfolio.id && $0.symbol.caseInsensitiveCompare(trade.isin) == .orderedSame }) {
@@ -454,6 +569,8 @@ enum BankImportApplier {
             holding.currentPriceCents = max(price, 0)
             holding.name = trade.name
             holding.updatedAt = .now
+            HoldingLotStore.add(lot, holdingID: holding.id)
+            rememberPurchase(date, holdingID: holding.id)
             return
         }
         let holding = PortfolioHolding(
@@ -462,11 +579,19 @@ enum BankImportApplier {
             symbol: trade.isin,
             quantity: trade.quantity,
             purchasePriceCents: max(price, 0),
-            currentPriceCents: max(price, 0)
+            currentPriceCents: max(price, 0),
+            updatedAt: date
         )
         context.insert(holding)
         holdings.append(holding)
         insertedHoldings.append(holding)
+        HoldingLotStore.add(lot, holdingID: holding.id)
+        HoldingPurchaseDateStore.set(date, for: holding.id)
+    }
+
+    private static func rememberPurchase(_ date: Date, holdingID: UUID) {
+        if let existing = HoldingPurchaseDateStore.date(for: holdingID), existing <= date { return }
+        HoldingPurchaseDateStore.set(date, for: holdingID)
     }
 
     private static func entryTouches(_ entry: LedgerEntry, accountID: UUID) -> Bool {

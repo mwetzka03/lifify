@@ -78,6 +78,14 @@ final class WorkoutStore: ObservableObject {
         persist()
     }
 
+    func reset() {
+        plans = []
+        sessions = []
+        meals = []
+        try? FileManager.default.removeItem(at: fileURL)
+        persist()
+    }
+
     private func rememberFrequentWeights(from session: WorkoutSession) {
         guard var plan = plans.first(where: { $0.id == session.planID }) else { return }
         let history = sessions

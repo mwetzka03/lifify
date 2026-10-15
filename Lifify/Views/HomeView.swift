@@ -144,43 +144,26 @@ struct HomeView: View {
 
     private var weekView: some View {
         VStack(spacing: 7) {
-            ForEach(ChallengeService.days(for: .week, around: selectedDate), id: \.self) { day in
-                VStack(alignment: .leading, spacing: 8) {
-                    Button {
-                        withAnimation {
-                            if isExpanded(day) {
-                                expandedWeekday = nil
-                            } else {
-                                expandedWeekday = day
-                            }
-                        }
-                    } label: {
-                        HStack(spacing: 12) {
-                            VStack {
-                                Text(AppDate.weekdayShort(day))
-                                    .font(.caption)
-                                Text(AppDate.day(day))
-                                    .font(.title3.bold())
-                                    .foregroundStyle(Calendar.current.isDateInToday(day) ? .red : .primary)
-                            }
-                            .frame(width: 44)
-                            Divider()
-                            Label("\(events(on: day).count)", systemImage: "calendar")
-                            Label("\(dueChallenges(on: day).count)", systemImage: "target")
-                            Spacer()
-                            Image(systemName: isExpanded(day) ? "chevron.up" : "chevron.down")
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    .buttonStyle(.plain)
-                    if isExpanded(day) {
-                        dayDetails(day)
-                    }
+            ForEach(ChallengeService.days(for: .week, around: selectedDate), id: \.timeIntervalSinceReferenceDate) { day in
+                WeekDayCard(
+                    day: day,
+                    expanded: isExpanded(day),
+                    eventCount: events(on: day).count,
+                    challengeCount: dueChallenges(on: day).count,
+                    onToggle: { toggleWeekday(day) }
+                ) {
+                    dayDetails(day)
                 }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-                .background(AppSurface.card, in: RoundedRectangle(cornerRadius: 13))
             }
+        }
+    }
+
+    private func toggleWeekday(_ day: Date) {
+        let start = Calendar.current.startOfDay(for: day)
+        if let expandedWeekday, Calendar.current.isDate(expandedWeekday, inSameDayAs: start) {
+            self.expandedWeekday = nil
+        } else {
+            expandedWeekday = start
         }
     }
 
@@ -828,5 +811,62 @@ private extension Array where Element == String {
     var shiftedForMonday: [String] {
         guard count == 7 else { return self }
         return Array(self[1...]) + [self[0]]
+    }
+}
+
+private struct WeekDayCard<Details: View>: View {
+    let day: Date
+    let expanded: Bool
+    let eventCount: Int
+    let challengeCount: Int
+    let onToggle: () -> Void
+    @ViewBuilder var details: () -> Details
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: expanded ? 8 : 0) {
+            Button {
+                Task { @MainActor in
+                    onToggle()
+                }
+            } label: {
+                HStack(spacing: 12) {
+                    VStack {
+                        Text(AppDate.weekdayShort(day))
+                            .font(.caption)
+                        Text(AppDate.day(day))
+                            .font(.title3.bold())
+                            .foregroundStyle(Calendar.current.isDateInToday(day) ? .red : .primary)
+                    }
+                    .frame(width: 44)
+                    Divider()
+                    Label("\(eventCount)", systemImage: "calendar")
+                    Label("\(challengeCount)", systemImage: "target")
+                    Spacer(minLength: 0)
+                    Image(systemName: expanded ? "chevron.up" : "chevron.down")
+                        .foregroundStyle(.secondary)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(WeekToggleButtonStyle())
+            Group {
+                if expanded {
+                    details()
+                }
+            }
+            .animation(.easeInOut(duration: 0.22), value: expanded)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(AppSurface.card, in: RoundedRectangle(cornerRadius: 13))
+    }
+}
+
+private struct WeekToggleButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+            .opacity(configuration.isPressed ? 0.55 : 1)
     }
 }

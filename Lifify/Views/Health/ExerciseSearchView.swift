@@ -3,60 +3,64 @@ import SwiftUI
 struct ExerciseSearchView: View {
     @Environment(\.dismiss) private var dismiss
     var onPick: (WorkoutExerciseInfo) -> Void
-    @AppStorage(WorkoutAPIKey.storageKey) private var apiKey = ""
     @State private var query = ""
-    @State private var exercises: [WorkoutExerciseInfo] = []
-    @State private var isLoading = false
-    @State private var errorMessage: String?
+    @State private var manualName = ""
+
+    private var results: [CatalogExercise] {
+        ExerciseCatalog.search(query)
+    }
 
     var body: some View {
         NavigationStack {
-            Group {
-                if apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    ContentUnavailableView(
-                        L("API-Schlüssel fehlt", "API key missing"),
-                        systemImage: "key",
-                        description: Text(L(
-                            "Hinterlege den Schlüssel in den Einstellungen, damit Übungen und Bilder geladen werden.",
-                            "Add the key in Settings so exercises and images can load."
+            List {
+                Section {
+                    TextField(L("Name der Übung", "Exercise name"), text: $manualName)
+                    Button(L("Übung anlegen", "Create exercise")) {
+                        let name = manualName.trimmingCharacters(in: .whitespacesAndNewlines)
+                        guard !name.isEmpty else { return }
+                        onPick(WorkoutExerciseInfo(
+                            id: UUID().uuidString,
+                            code: "MANUAL-\(UUID().uuidString)",
+                            name: ExerciseName.formatted(name),
+                            detail: "",
+                            muscle: ""
                         ))
-                    )
-                } else {
-                    List(exercises) { exercise in
-                        Button {
-                            onPick(exercise)
-                            dismiss()
-                        } label: {
-                            HStack(spacing: 12) {
-                                ExerciseArtwork(code: exercise.code, side: 72)
+                        dismiss()
+                    }
+                    .disabled(manualName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                } header: {
+                    Text(L("Eigene Übung", "Custom exercise"))
+                }
+                Section {
+                    if results.isEmpty {
+                        Text(L("Keine Treffer", "No matches"))
+                            .foregroundStyle(.secondary)
+                    }
+                    ForEach(results) { exercise in
+                        HStack(spacing: 12) {
+                            ExerciseArtwork(code: exercise.exerciseId, name: exercise.name, side: 72)
+                            Button {
+                                onPick(ExerciseCatalog.info(for: exercise))
+                                dismiss()
+                            } label: {
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text(exercise.name)
                                         .font(.body.weight(.semibold))
                                         .foregroundStyle(.primary)
-                                    if !exercise.muscle.isEmpty {
-                                        Text(exercise.muscle)
+                                    if !exercise.muscleSummary.isEmpty {
+                                        Text(exercise.muscleSummary)
                                             .font(.subheadline)
                                             .foregroundStyle(.secondary)
                                     }
                                 }
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.vertical, 4)
                             }
-                            .padding(.vertical, 4)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                    .overlay {
-                        if isLoading && exercises.isEmpty {
-                            ProgressView()
-                        } else if let errorMessage, exercises.isEmpty {
-                            ContentUnavailableView(
-                                L("Übungen nicht geladen", "Exercises not loaded"),
-                                systemImage: "wifi.exclamationmark",
-                                description: Text(errorMessage)
-                            )
-                        } else if exercises.isEmpty {
-                            ContentUnavailableView(L("Keine Treffer", "No matches"), systemImage: "magnifyingglass")
+                            .buttonStyle(.plain)
                         }
                     }
+                } header: {
+                    Text(L("Datenbank", "Database"))
                 }
             }
             .navigationTitle(L("Übung suchen", "Search exercise"))
@@ -66,29 +70,6 @@ struct ExerciseSearchView: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(L("Schließen", "Close")) { dismiss() }
                 }
-            }
-            .task(id: query) { await reload() }
-        }
-    }
-
-    private func reload() async {
-        let trimmedKey = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedKey.isEmpty else { return }
-        let requested = query
-        if !requested.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            try? await Task.sleep(nanoseconds: 300_000_000)
-            guard !Task.isCancelled else { return }
-        }
-        isLoading = true
-        defer { isLoading = false }
-        do {
-            let loaded = try await WorkoutAPIClient.shared.exercises(matching: requested)
-            guard !Task.isCancelled, requested == query else { return }
-            exercises = loaded
-            errorMessage = nil
-        } catch {
-            if !Task.isCancelled {
-                errorMessage = error.localizedDescription
             }
         }
     }

@@ -51,6 +51,21 @@ enum IncomeAssignmentStore {
         UserDefaults.standard.set(mapping, forKey: "incomeEntryAssignments")
     }
 
+    static func ibans(for forecastID: UUID) -> [String] {
+        var values: [String] = []
+        if UserDefaults.standard.string(forKey: "primaryIncomeForecastID") == forecastID.uuidString,
+           let iban = UserDefaults.standard.string(forKey: "primaryIncomeIBAN") {
+            let normalized = normalize(iban)
+            if !normalized.isEmpty { values.append(normalized) }
+        }
+        let mapping = UserDefaults.standard.dictionary(forKey: "secondaryIncomeMappings") as? [String: String] ?? [:]
+        for (iban, identifier) in mapping where identifier == forecastID.uuidString {
+            let normalized = normalize(iban)
+            if !normalized.isEmpty, !values.contains(normalized) { values.append(normalized) }
+        }
+        return values
+    }
+
     static func forecastID(forEntryID entryID: UUID) -> UUID? {
         let mapping = UserDefaults.standard.dictionary(forKey: "incomeEntryAssignments") as? [String: String]
         return mapping?[entryID.uuidString].flatMap(UUID.init(uuidString:))

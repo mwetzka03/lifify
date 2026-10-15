@@ -1,5 +1,13 @@
 import Foundation
 
+struct WorkoutExerciseInfo: Identifiable, Hashable {
+    var id: String
+    var code: String
+    var name: String
+    var detail: String
+    var muscle: String
+}
+
 struct WorkoutPlan: Codable, Identifiable, Hashable {
     var id: UUID
     var name: String
