@@ -1,0 +1,40 @@
+import SwiftUI
+
+enum FinanceRoute: Hashable, Codable {
+    case income
+    case fixedCosts
+    case variableCosts
+    case shopping
+    case transactions
+    case budgetPools
+    case debts
+    case expenseGroups
+    case portfolio
+}
+
+struct FinanceRouteScreen: View {
+    let route: FinanceRoute
+
+    var body: some View {
+        switch route {
+        case .income:
+            IncomeOverviewView()
+        case .fixedCosts:
+            FixedCostsView()
+        case .variableCosts:
+            VariableBudgetsView()
+        case .shopping:
+            ShoppingListView()
+        case .transactions:
+            TransactionsView()
+        case .budgetPools:
+            BudgetPoolsView()
+        case .debts:
+            DebtsView()
+        case .expenseGroups:
+            ExpenseGroupsView()
+        case .portfolio:
+            PortfolioView()
+        }
+    }
+}
