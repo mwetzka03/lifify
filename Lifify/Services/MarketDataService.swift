@@ -332,8 +332,10 @@ enum MarketDataService {
         let latestPrice = series.marketPrice ?? series.points.last?.price
         guard let latestPrice, latestPrice > 0 else { throw MarketDataError.priceUnavailable }
         let todayKey = Date.now.dayKey
-        let latestCents = euroCents(price: latestPrice, currency: currency, dayKey: todayKey, rates: rates)
-            ?? (try? await euroCents(for: latestPrice, sourceCurrency: currency))
+        var latestCents = euroCents(price: latestPrice, currency: currency, dayKey: todayKey, rates: rates)
+        if latestCents == nil {
+            latestCents = try? await euroCents(for: latestPrice, sourceCurrency: currency)
+        }
         guard let latestCents else { throw MarketDataError.currencyConversionUnavailable }
         let previousPrice = series.previousClose ?? series.points.dropLast().last?.price
         let previousCents = previousPrice.flatMap { euroCents(price: $0, currency: currency, dayKey: todayKey, rates: rates) }
