@@ -126,17 +126,24 @@ struct SavingsPlanRecord: Codable, Identifiable, Hashable {
 
     var cadence: Cadence { Cadence(rawValue: cadenceRaw) ?? .monthly }
 
+    var monthlyCostCents: Int {
+        switch cadence {
+        case .weekly: return amountCents * 4
+        case .biweekly: return amountCents * 2
+        case .monthly: return amountCents
+        case .yearly: return Int((Double(amountCents) / 12).rounded())
+        }
+    }
+
     @MainActor
     func nextExecution(after date: Date = .now) -> Date? {
-        var cursor = lastExecution
+        guard active else { return nil }
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: date)
-        for _ in 0..<36 {
-            guard let next = SavingsPlanBuilder.date(after: cursor, cadence: cadence) else { return nil }
-            if calendar.startOfDay(for: next) >= today { return next }
-            cursor = next
-        }
-        return nil
+        let afterLast = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: lastExecution)) ?? today
+        let start = max(today, afterLast)
+        let month = cadence == .yearly ? calendar.component(.month, from: lastExecution) : nil
+        return CalendarService.nextSavingsPlanDate(cadence: cadence, onOrAfter: start, yearlyMonth: month)
     }
 }
 
@@ -419,12 +426,9 @@ enum SavingsPlanBuilder {
 
     static func date(after date: Date, cadence: Cadence) -> Date? {
         let calendar = Calendar.current
-        switch cadence {
-        case .weekly: return calendar.date(byAdding: .day, value: 7, to: date)
-        case .biweekly: return calendar.date(byAdding: .day, value: 14, to: date)
-        case .monthly: return calendar.date(byAdding: .month, value: 1, to: date)
-        case .yearly: return calendar.date(byAdding: .year, value: 1, to: date)
-        }
+        let nextDay = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: date)) ?? date
+        let month = cadence == .yearly ? calendar.component(.month, from: date) : nil
+        return CalendarService.nextSavingsPlanDate(cadence: cadence, onOrAfter: nextDay, yearlyMonth: month)
     }
 
     private static func cadence(for gaps: [Int]) -> Cadence {
@@ -460,7 +464,7 @@ enum SavingsPlanRunner {
         var changed = false
         for index in plans.indices where plans[index].active {
             var cursor = plans[index].lastExecution
-            for _ in 0..<8 {
+            for _ in 0..<24 {
                 guard let next = SavingsPlanBuilder.date(after: cursor, cadence: plans[index].cadence) else { break }
                 if calendar.startOfDay(for: next) > today { break }
                 let coveredByStatement = calendar.startOfDay(for: next) <= calendar.startOfDay(for: plans[index].historyThrough)
@@ -609,12 +613,10 @@ enum SavingsPlanFixedCosts {
         var plans = SavingsPlanStore.all()
         var costs = (try? context.fetch(FetchDescriptor<FixedCost>())) ?? []
         var kept: Set<UUID> = []
-        let calendar = Calendar.current
         for index in plans.indices {
             var plan = plans[index]
             let name = "\(namePrefix)\(plan.name)"
-            let anchor = chargeAnchor(for: plan)
-            let day = calendar.component(.day, from: anchor)
+            let anchor = plan.lastExecution
             let existing = costs.first { $0.id == plan.fixedCostID }
                 ?? costs.first { $0.accountID == plan.checkingAccountID && $0.name == name }
             let cost = existing ?? FixedCost(
@@ -623,7 +625,7 @@ enum SavingsPlanFixedCosts {
                 accountID: plan.checkingAccountID,
                 cadence: plan.cadence,
                 firstChargeDate: anchor,
-                dayOfMonth: day,
+                dayOfMonth: 2,
                 isActive: plan.active
             )
             if existing == nil {
@@ -635,7 +637,7 @@ enum SavingsPlanFixedCosts {
             cost.accountID = plan.checkingAccountID
             cost.cadence = plan.cadence
             cost.firstChargeDate = anchor
-            cost.dayOfMonth = day
+            cost.dayOfMonth = 2
             cost.dueRule = .calendarDay
             cost.isActive = plan.active
             cost.endChargeDate = plan.active ? nil : plan.lastExecution
@@ -656,8 +658,46 @@ enum SavingsPlanFixedCosts {
         return name
     }
 
-    private static func chargeAnchor(for plan: SavingsPlanRecord) -> Date {
-        guard plan.active, let next = plan.nextExecution() else { return plan.lastExecution }
-        return next
+    static func isSavingsCost(_ cost: FixedCost) -> Bool {
+        if isManagedName(cost.name) { return true }
+        return SavingsPlanStore.all().contains { $0.fixedCostID == cost.id }
+    }
+
+    /// Writes a fixed-cost edit back onto the depot savings plan that owns it.
+    static func adopt(_ cost: FixedCost) {
+        guard isManagedName(cost.name) else { return }
+        var plans = SavingsPlanStore.all()
+        let title = planName(inFixedCostName: cost.name)
+        guard let index = plans.firstIndex(where: { $0.fixedCostID == cost.id })
+            ?? plans.firstIndex(where: { $0.fixedCostID == nil && $0.name == title })
+        else { return }
+        plans[index].name = title
+        plans[index].amountCents = abs(cost.amountCents)
+        plans[index].cadenceRaw = cost.cadence.rawValue
+        if let accountID = cost.accountID {
+            plans[index].checkingAccountID = accountID
+        }
+        plans[index].active = cost.isActive
+        plans[index].fixedCostID = cost.id
+        SavingsPlanStore.save(plans)
+    }
+
+    static func removePlan(for cost: FixedCost) {
+        guard isManagedName(cost.name) else { return }
+        let title = planName(inFixedCostName: cost.name)
+        let plans = SavingsPlanStore.all().filter { plan in
+            if plan.fixedCostID == cost.id { return false }
+            if plan.fixedCostID == nil && plan.name == title { return false }
+            return true
+        }
+        SavingsPlanStore.save(plans)
+    }
+
+    static func monthlyCostCents(of plans: [SavingsPlanRecord]) -> Int {
+        plans.filter(\.active).reduce(0) { $0 + $1.monthlyCostCents }
+    }
+
+    static func weeklyCostCents(of plans: [SavingsPlanRecord]) -> Int {
+        Int((Double(monthlyCostCents(of: plans)) / 4).rounded())
     }
 }

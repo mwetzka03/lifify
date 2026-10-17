@@ -24,6 +24,8 @@ Finanzansicht, in den Buchungen und in den Listen für Einnahmen und Ausgaben.
 
 ## Zeitraum
 
+- Vor und zurück sowie Heute stehen über der Finanzliste, damit der Wechsel
+  immer ankommt.
 - Zeiträume folgen der Haupteinnahme, wenn der Gehaltszeitraum aktiv ist.
   Sonst sind es Kalendermonate.
 - Der erste Zeitraum beginnt mit den Buchungen des Hauptkontos. Sein Start ist
@@ -51,9 +53,11 @@ Ist **Alle Konten** gewählt, enthalten Startsaldo und Endsaldo den Depotwert.
 - Der Endsaldo enthält die Stücke, die am Ende des Zeitraums gehalten werden.
 - Der Wert ist Stückzahl mal aktueller Kurs. Historische Kurse werden nicht
   gespeichert.
-- Darunter steht der liquide Saldo ohne Depot.
-- Ist **Depot** gewählt, zeigt die Karte Gesamtvermögen den Depotwert und die
-  Veränderung. Einnahmen, Ausgaben, Startsaldo und Endsaldo entfallen dort.
+- Darunter steht der liquide Saldo ohne Depot, in derselben Zifferngröße wie
+  der Gesamtsaldo. Die Karte wird höher, statt die Zahl zu verkleinern.
+- Ist **Depot** gewählt, zeigt die Karte Gesamtvermögen nur den Depotwert und
+  die Veränderung, ohne leeren Bereich. Einnahmen, Ausgaben, Startsaldo und
+  Endsaldo entfallen dort. Weitere Bereiche entfallen ebenfalls.
 
 ## Einnahmen und Ausgaben
 
@@ -113,6 +117,8 @@ anderen Girokontos erscheinen nicht.
   werden kann.
 - Die Liste sortiert nach Wert, Kaufzeitpunkt oder Name. Die Veränderung steht
   wahlweise seit dem Vortag oder seit dem Kauf, in Euro oder in Prozent.
+- Kurse aktualisieren und eine neue Position sind große Liquid-Glass-Buttons.
+  Nachkauf und Verkauf in der Position ebenfalls.
 - Kurse werden über die ISIN abgerufen. Schlägt das fehl, bleibt der manuelle
   Fallbackkurs.
 
@@ -130,22 +136,37 @@ anderen Girokontos erscheinen nicht.
 - Im Depot ist **Sparpläne** ein Link in eine eigene Liste, kein aufklappbarer
   Block. Die Liste filtert nach Aktiv und Beendet. Wischen bearbeitet oder
   löscht einen Plan.
-- Jeder Plan ist eine Fixkosten auf dem verknüpften Girokonto, mit demselben
-  Betrag, Rhythmus und Status.
+- Oben stehen die Kosten aller aktiven Pläne pro Woche und pro Monat. Eine
+  Woche ist ein Viertel des Monats, weil ein Monat vier Abbuchungstermine hat.
+- Trade Republic bucht am 2., 9., 16. und 23. Wöchentlich sind alle vier Tage,
+  zweiwöchentlich der 2. und der 16., monatlich und jährlich nur der 2. Ist
+  das kein Bankarbeitstag, gilt der nächste Bankarbeitstag.
+- Die Sparpläne im Depot sind die Vorlage. Jeder Plan ist eine Fixkosten auf
+  dem verknüpften Girokonto, mit demselben Betrag, Rhythmus und Status.
+  Ändern oder Löschen auf einer Seite ändert die andere.
 - Eine bereits gebuchte Ausführung zählt nicht noch einmal als offene Fixkosten.
-- Bei allen Konten mindern diese Fixkosten den gemeinsamen Saldo nicht, weil
-  der Betrag im Depot bleibt. Auf dem verknüpften Girokonto zählen sie.
+- Bei allen Konten werden diese Fixkosten angezeigt. Den gemeinsamen Saldo
+  mindern sie nicht, weil das Geld im Depot bleibt. Auf einem anderen Konto
+  erscheinen sie nur, wenn es das verknüpfte Girokonto ist.
+- In der Fixkostenliste steht der nächste Abbuchungstag und wie viele Termine
+  im gewählten Zeitraum noch offen sind.
+- Dieselben offenen Termine stehen in den Ausgaben als Prognoseausgaben, je
+  an ihrem Tag.
 
 ## Buchungen in der Finanzansicht
 
 Unten stehen die Buchungen des gewählten Zeitraums und Kontos, nicht mehr eine
-eigene Ereignisliste. Jede Zeile zeigt Icon, Art, Datum und Betrag, öffnet die
-Buchung und lässt sich wischen: links löschen, rechts bearbeiten. Neue Buchungen
-lassen sich aus derselben Liste anlegen.
+eigene Ereignisliste. Darüber sucht ein Feld nach Titel oder Notiz. Rechts
+daneben legt das Plus eine Buchung an. Jede Zeile zeigt Icon, Art, Datum und
+Betrag, öffnet die Buchung und lässt sich wischen: links löschen, rechts
+bearbeiten.
 
 ## Home-Budget
 
 Das Budget auf der Home-Seite ist nicht dieselbe Summe wie die Finanzansicht.
+Ein Tipp öffnet die Aufschlüsselung, nicht die Finanzansicht. Dort stehen die
+Einnahmen, die Prognosen und die Buchungen, aus denen Gesamt und Verbraucht
+entstehen.
 
 - Einnahmen sind nur fremde Eingänge. Die eigene IBAN, Dividenden und Zinsen
   zählen nicht. Offene Gehaltsprognosen im Zeitraum zählen weiter.

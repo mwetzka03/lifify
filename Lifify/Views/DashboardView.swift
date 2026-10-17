@@ -17,6 +17,7 @@ struct DashboardView: View {
     @State private var selectedBooking: LedgerEntry?
     @State private var editingBooking: LedgerEntry?
     @State private var showingNewBooking = false
+    @State private var bookingQuery = ""
     @AppStorage("portfolioPerformanceBasis") private var portfolioBasis = "today"
     @AppStorage("portfolioPerformanceUnit") private var portfolioUnit = "percent"
 
@@ -28,7 +29,12 @@ struct DashboardView: View {
     var body: some View {
         Group {
             if let period = selectedPeriod {
-                List {
+                VStack(spacing: 0) {
+                    FinanceFilterControls(periods: periods, accounts: filterAccounts)
+                        .padding(.horizontal, 12)
+                        .padding(.top, 8)
+                        .padding(.bottom, 4)
+                    List {
                     Section {
                         financeSummary(period)
                     }
@@ -36,13 +42,11 @@ struct DashboardView: View {
                     .listRowSeparator(.hidden)
                     .listRowBackground(Color.clear)
                     Section {
-                        Button {
-                            showingNewBooking = true
-                        } label: {
-                            Label(L("Buchung hinzufügen", "Add transaction"), systemImage: "plus")
-                        }
+                        bookingSearchRow
                         if filteredBookings.isEmpty {
-                            Text(L("In diesem Zeitraum liegen keine Buchungen.", "There are no transactions in this period."))
+                            Text(bookingQuery.isEmpty
+                                ? L("In diesem Zeitraum liegen keine Buchungen.", "There are no transactions in this period.")
+                                : L("Keine Buchung gefunden.", "No transaction found."))
                                 .foregroundStyle(.secondary)
                         }
                         ForEach(filteredBookings) { entry in
@@ -74,9 +78,10 @@ struct DashboardView: View {
                             .foregroundStyle(.primary)
                             .textCase(nil)
                     }
+                    }
+                    .listStyle(.plain)
+                    .scrollContentBackground(.hidden)
                 }
-                .listStyle(.plain)
-                .scrollContentBackground(.hidden)
             } else {
                 VStack(alignment: .leading, spacing: 8) {
                     ContentUnavailableView(
@@ -87,7 +92,7 @@ struct DashboardView: View {
                             "Create an account and a primary income."
                         ))
                     )
-                    if isMainTab { FinanceMoreSection(path: path) }
+                    if isMainTab && !filters.showsDepot { FinanceMoreSection(path: path) }
                 }
                 .padding(12)
             }
@@ -116,12 +121,24 @@ struct DashboardView: View {
     private func financeSummary(_ period: ForecastPeriod) -> some View {
         let snapshot = presented(forecast(for: period))
         VStack(alignment: .leading, spacing: 8) {
-            FinanceFilterControls(periods: periods, accounts: filterAccounts)
             netWorthCard(snapshot, period: period)
             if filters.showsDepot {
                 PortfolioElementsView(accountID: nil, showsValueHeader: false, path: path)
             } else {
                 let liquid = selectedFilterAccount == nil ? liquidForecast(for: period) : nil
+                let openingBalance = balanceTile(
+                    L("Startsaldo", "Opening balance"),
+                    amount: snapshot.startBalance,
+                    liquid: liquid?.startBalance,
+                    shrinks: liquid == nil
+                )
+                let closingBalance = balanceTile(
+                    L("Endsaldo (Prognose)", "Closing balance (forecast)"),
+                    amount: snapshot.endBalance,
+                    delta: snapshot.balanceChange,
+                    liquid: liquid?.endBalance,
+                    shrinks: liquid == nil
+                )
                 HStack(alignment: .top, spacing: 8) {
                     linked(.income) {
                         flowTile(L("Einnahmen", "Income"), amount: snapshot.income, footnote: incomeFootnote(snapshot, period: period))
@@ -130,20 +147,17 @@ struct DashboardView: View {
                         flowTile(L("Ausgaben", "Expenses"), amount: -snapshot.bookedExpenses, footnote: expenseFootnote(snapshot, period: period))
                     }
                     flowTile(L("Differenz", "Difference"), amount: snapshot.realDifference)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                 }
-                HStack(alignment: .top, spacing: 8) {
-                    balanceTile(
-                        L("Startsaldo", "Opening balance"),
-                        amount: snapshot.startBalance,
-                        liquid: liquid?.startBalance
-                    )
-                    balanceTile(
-                        L("Endsaldo (Prognose)", "Closing balance (forecast)"),
-                        amount: snapshot.endBalance,
-                        delta: snapshot.balanceChange,
-                        liquid: liquid?.endBalance
-                    )
+                if liquid == nil {
+                    HStack(alignment: .top, spacing: 8) {
+                        openingBalance
+                        closingBalance
+                    }
+                } else {
+                    VStack(spacing: 8) {
+                        openingBalance
+                        closingBalance
+                    }
                 }
                 HStack(alignment: .top, spacing: 8) {
                     linked(.fixedCosts) {
@@ -163,15 +177,57 @@ struct DashboardView: View {
                 }
                 linked(.shopping) { biasCard(snapshot) }
             }
-            if isMainTab { FinanceMoreSection(path: path) }
+            if isMainTab && !filters.showsDepot { FinanceMoreSection(path: path) }
         }
+    }
+
+    private var bookingSearchRow: some View {
+        HStack(spacing: 10) {
+            HStack(spacing: 8) {
+                Image(systemName: "magnifyingglass")
+                    .foregroundStyle(.secondary)
+                TextField(L("Buchung suchen", "Search transactions"), text: $bookingQuery)
+                    .textFieldStyle(.plain)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                if !bookingQuery.isEmpty {
+                    Button {
+                        bookingQuery = ""
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.borderless)
+                }
+            }
+            .padding(.horizontal, 14)
+            .frame(minHeight: 48)
+            .background(AppSurface.card, in: Capsule())
+            Button {
+                showingNewBooking = true
+            } label: {
+                Image(systemName: "plus")
+                    .font(.title2.weight(.bold))
+                    .frame(width: 56, height: 48)
+                    .liquidGlassSurface(prominent: true)
+            }
+            .buttonStyle(.borderless)
+            .accessibilityLabel(L("Buchung hinzufügen", "Add transaction"))
+        }
+        .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 8, trailing: 0))
+        .listRowSeparator(.hidden)
+        .listRowBackground(Color.clear)
     }
 
     private var filteredBookings: [LedgerEntry] {
         guard let period = selectedPeriod else { return [] }
         let depotIDs = filters.showsDepot ? Set(accounts.filter { $0.kind == .portfolio }.map(\.id)) : []
+        let query = bookingQuery.trimmingCharacters(in: .whitespacesAndNewlines)
         return entries.filter {
-            FinancePeriods.includes($0, period: period, account: selectedFilterAccount, depotIDs: depotIDs)
+            guard FinancePeriods.includes($0, period: period, account: selectedFilterAccount, depotIDs: depotIDs) else { return false }
+            guard !query.isEmpty else { return true }
+            return $0.title.localizedCaseInsensitiveContains(query)
+                || $0.notes.localizedCaseInsensitiveContains(query)
         }
     }
 
@@ -195,7 +251,7 @@ struct DashboardView: View {
             }
         }
         .buttonStyle(.plain)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .frame(maxWidth: .infinity, alignment: .top)
     }
 
     private func netWorthCard(_ forecast: PeriodForecast, period: ForecastPeriod) -> some View {
@@ -205,7 +261,6 @@ struct DashboardView: View {
                 .foregroundStyle(.secondary)
             Text(Money.string(cents: forecast.netWorth))
                 .font(.largeTitle.bold())
-                .minimumScaleFactor(0.6)
                 .lineLimit(1)
             if filters.showsDepot {
                 let change = portfolioChange
@@ -267,7 +322,13 @@ struct DashboardView: View {
         .financeCard(padding: 12)
     }
 
-    private func balanceTile(_ title: String, amount: Int, delta: Int? = nil, liquid: Int? = nil) -> some View {
+    private func balanceTile(
+        _ title: String,
+        amount: Int,
+        delta: Int? = nil,
+        liquid: Int? = nil,
+        shrinks: Bool = false
+    ) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(title)
                 .font(.subheadline)
@@ -275,8 +336,8 @@ struct DashboardView: View {
                 .lineLimit(2)
             Text(Money.string(cents: amount))
                 .font(.title3.weight(.semibold))
-                .minimumScaleFactor(0.6)
                 .lineLimit(1)
+                .minimumScaleFactor(shrinks ? 0.7 : 1)
             Text(delta.map { Money.signed(cents: $0) } ?? " ")
                 .font(.footnote)
                 .foregroundStyle(delta.map { flowColor($0) } ?? .clear)
@@ -286,12 +347,13 @@ struct DashboardView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Text(Money.string(cents: liquid))
-                    .font(.subheadline.weight(.semibold))
-                    .minimumScaleFactor(0.6)
+                    .font(.title3.weight(.semibold))
                     .lineLimit(1)
+                    .minimumScaleFactor(shrinks ? 0.7 : 1)
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .fixedSize(horizontal: false, vertical: true)
+        .frame(maxWidth: .infinity, alignment: .topLeading)
         .financeCard(padding: 12)
     }
 
@@ -337,24 +399,13 @@ struct DashboardView: View {
         selectedFilterAccount == nil || selectedFilterAccount?.isMain == true
     }
 
-    private var savingsPlanCostIDs: Set<UUID> {
-        Set(SavingsPlanStore.all().compactMap(\.fixedCostID))
-    }
-
     private var forecastFixedCosts: [FixedCost] {
-        let savingsIDs = savingsPlanCostIDs
-        if filters.showsDepot { return [] }
-        if let account = selectedFilterAccount {
-            var costs = includePlans ? fixedCosts : []
-            guard account.kind == .checking else { return costs }
-            for cost in fixedCosts where savingsIDs.contains(cost.id) && cost.accountID == account.id {
-                if !costs.contains(where: { $0.id == cost.id }) {
-                    costs.append(cost)
-                }
-            }
-            return costs
-        }
-        return fixedCosts.filter { !savingsIDs.contains($0.id) }
+        FixedCostScope.applicable(
+            costs: fixedCosts,
+            account: selectedFilterAccount,
+            showsDepot: filters.showsDepot,
+            includeHousehold: includePlans
+        )
     }
 
     private func forecast(for period: ForecastPeriod) -> PeriodForecast {
@@ -371,7 +422,8 @@ struct DashboardView: View {
             forecasts: includePlans && !filters.showsDepot ? forecasts : [],
             shopping: includePlans && !filters.showsDepot ? shopping : [],
             incomePredicate: combined ? { ExternalIncome.countsInCombinedFinance($0, accounts: accounts) } : nil,
-            includePortfolioValue: combined
+            includePortfolioValue: combined,
+            countSavingsPlansInCash: !combined
         )
         guard !filters.showsDepot else { return snapshot }
         let tradedIncome = PortfolioCashFlow.countedCents(
@@ -520,7 +572,7 @@ private struct FinanceMoreSection: View {
 private extension View {
     func financeCard(padding: CGFloat = 12) -> some View {
         self
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .frame(maxWidth: .infinity, alignment: .topLeading)
             .padding(padding)
             .background(AppSurface.card, in: RoundedRectangle(cornerRadius: 14))
     }

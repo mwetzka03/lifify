@@ -23,8 +23,10 @@ struct FinanceFilterControls: View {
             } label: {
                 Image(systemName: "chevron.left")
                     .font(.title3.weight(.semibold))
-                    .frame(width: 40, height: 40)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
             }
+            .buttonStyle(.borderless)
             .disabled(index == 0)
             Spacer(minLength: 0)
             VStack(spacing: 2) {
@@ -37,6 +39,7 @@ struct FinanceFilterControls: View {
                     withAnimation { filters.jumpToToday(in: periods) }
                 }
                 .font(.subheadline.weight(.semibold))
+                .buttonStyle(.borderless)
                 .disabled(period.contains(.now))
             }
             Spacer(minLength: 0)
@@ -45,8 +48,10 @@ struct FinanceFilterControls: View {
             } label: {
                 Image(systemName: "chevron.right")
                     .font(.title3.weight(.semibold))
-                    .frame(width: 40, height: 40)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
             }
+            .buttonStyle(.borderless)
             .disabled(index == periods.count - 1)
         }
         .padding(.horizontal, 6)

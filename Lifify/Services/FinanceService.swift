@@ -154,7 +154,8 @@ enum FinanceService {
         shopping: [ShoppingItem],
         now: Date = .now,
         incomePredicate: ((LedgerEntry) -> Bool)? = nil,
-        includePortfolioValue: Bool = false
+        includePortfolioValue: Bool = false,
+        countSavingsPlansInCash: Bool = true
     ) -> PeriodForecast {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: now)
@@ -163,6 +164,9 @@ enum FinanceService {
         }
         let variablePlan = variableBudgets.reduce(0) { $0 + abs($1.monthlyAmountCents) }
         let activeFixed = fixedCosts.filter(\.isActive)
+        let cashFixed = countSavingsPlansInCash
+            ? activeFixed
+            : activeFixed.filter { !SavingsPlanFixedCosts.isSavingsCost($0) }
         let incomeDates = incomeOccurrences(forecasts: forecasts, from: period.start, through: period.end)
         let plannedIncome = incomeDates.reduce(0) { $0 + $1.amount }
         let incomeSource = incomePredicate.map { predicate in
@@ -205,7 +209,7 @@ enum FinanceService {
             periods: periods,
             accounts: accounts,
             entries: entries,
-            fixedCosts: activeFixed,
+            fixedCosts: cashFixed,
             forecasts: forecasts,
             shopping: shopping,
             variablePlan: variablePlan,
@@ -220,7 +224,7 @@ enum FinanceService {
             periods: periods,
             accounts: accounts,
             entries: entries,
-            fixedCosts: activeFixed,
+            fixedCosts: cashFixed,
             forecasts: forecasts,
             shopping: shopping,
             variablePlan: variablePlan,
@@ -446,6 +450,49 @@ enum FinanceService {
         return result
     }
 
+    static func scheduledCharges(
+        costs: [FixedCost],
+        entries: [LedgerEntry],
+        from: Date,
+        through: Date
+    ) -> [ScheduledCharge] {
+        let calendar = Calendar.current
+        return fixedOccurrences(costs: costs, from: from, through: through).map { item in
+            let day = calendar.startOfDay(for: item.date)
+            return ScheduledCharge(
+                id: "\(item.costID.uuidString)-\(day.dayKey)",
+                date: day,
+                amount: item.amount,
+                title: item.title,
+                costID: item.costID,
+                isPaid: matchingExpense(item, entries: entries) != nil
+            )
+        }
+        .sorted { $0.date < $1.date }
+    }
+
+    static func nextChargeDate(for cost: FixedCost, entries: [LedgerEntry]) -> Date? {
+        guard cost.isActive else { return nil }
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: .now)
+        guard let horizon = calendar.date(byAdding: .year, value: 2, to: today) else { return nil }
+        return scheduledCharges(costs: [cost], entries: entries, from: today, through: horizon)
+            .first { !$0.isPaid }?
+            .date
+    }
+
+    static func openChargeCount(
+        for cost: FixedCost,
+        entries: [LedgerEntry],
+        from: Date,
+        through: Date
+    ) -> Int {
+        guard cost.isActive else { return 0 }
+        return scheduledCharges(costs: [cost], entries: entries, from: from, through: through)
+            .filter { !$0.isPaid }
+            .count
+    }
+
     private static func fixedOccurrences(
         costs: [FixedCost],
         from: Date,
@@ -456,19 +503,12 @@ enum FinanceService {
         let end = calendar.startOfDay(for: through)
         var result: [(date: Date, amount: Int, title: String, costID: UUID)] = []
         for cost in costs {
-            let dates = CalendarService.nextOccurrences(
-                firstDate: cost.firstChargeDate,
-                cadence: cost.cadence,
-                rule: cost.dueRule,
-                day: cost.dayOfMonth,
-                endDate: cost.endChargeDate,
-                through: endOfDay(end)
-            )
+            let dates = occurrenceDates(for: cost, from: start, through: end)
             for date in dates {
                 let day = calendar.startOfDay(for: date)
                 guard day >= start, day <= end else { continue }
                 result.append((
-                    date: date,
+                    date: day,
                     amount: abs(cost.amountCents),
                     title: cost.name,
                     costID: cost.id
@@ -476,6 +516,30 @@ enum FinanceService {
             }
         }
         return result
+    }
+
+    private static func occurrenceDates(for cost: FixedCost, from: Date, through: Date) -> [Date] {
+        let calendar = Calendar.current
+        if SavingsPlanFixedCosts.isSavingsCost(cost) {
+            let lower = calendar.startOfDay(for: cost.firstChargeDate)
+            let start = max(calendar.startOfDay(for: from), lower)
+            let month = cost.cadence == .yearly ? calendar.component(.month, from: cost.firstChargeDate) : nil
+            return CalendarService.savingsPlanDates(
+                cadence: cost.cadence,
+                from: start,
+                through: through,
+                endDate: cost.endChargeDate,
+                yearlyMonth: month
+            )
+        }
+        return CalendarService.nextOccurrences(
+            firstDate: cost.firstChargeDate,
+            cadence: cost.cadence,
+            rule: cost.dueRule,
+            day: cost.dayOfMonth,
+            endDate: cost.endChargeDate,
+            through: endOfDay(through)
+        )
     }
 
     private static func matchingExpense(
@@ -685,4 +749,31 @@ struct ForecastLine: Identifiable {
     var date: Date
     var title: String
     var amountCents: Int
+}
+
+struct ScheduledCharge: Identifiable {
+    var id: String
+    var date: Date
+    var amount: Int
+    var title: String
+    var costID: UUID
+    var isPaid: Bool
+}
+
+@MainActor
+enum FixedCostScope {
+    static func applicable(
+        costs: [FixedCost],
+        account: Account?,
+        showsDepot: Bool,
+        includeHousehold: Bool
+    ) -> [FixedCost] {
+        if showsDepot { return [] }
+        guard let account else { return costs }
+        let savings = costs.filter { SavingsPlanFixedCosts.isSavingsCost($0) && $0.accountID == account.id }
+        guard includeHousehold else { return savings }
+        let household = costs.filter { !SavingsPlanFixedCosts.isSavingsCost($0) }
+        var seen = Set(household.map(\.id))
+        return household + savings.filter { seen.insert($0.id).inserted }
+    }
 }

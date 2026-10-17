@@ -8,10 +8,12 @@ struct FilteredLedgerView: View {
     @Query(sort: \Account.createdAt) private var accounts: [Account]
     @Query(sort: \LedgerEntry.date, order: .reverse) private var entries: [LedgerEntry]
     @Query(sort: \IncomeForecast.name) private var forecasts: [IncomeForecast]
+    @Query(sort: \FixedCost.name) private var fixedCosts: [FixedCost]
     @Query private var holdings: [PortfolioHolding]
     @State private var selected: LedgerEntry?
     @State private var showingNewForecast = false
     @State private var editedForecast: IncomeForecast?
+    @State private var editedCost: FixedCost?
 
     private var filterAccounts: [Account] {
         accounts.filter { $0.kind != .savingsGroup }
@@ -138,6 +140,33 @@ struct FilteredLedgerView: View {
                         }
                     }
                 }
+                if kind == .expense && !filters.showsDepot {
+                    Section {
+                        if upcomingCharges.isEmpty {
+                            Text(L("Keine offenen Prognosen.", "No open forecasts."))
+                                .foregroundStyle(.secondary)
+                        }
+                        ForEach(upcomingCharges) { item in
+                            HStack {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(item.title)
+                                    Text(AppDate.numeric(item.date))
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                Text(Money.string(cents: -item.amount))
+                                    .foregroundStyle(.red)
+                            }
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                editedCost = fixedCosts.first { $0.id == item.costID }
+                            }
+                        }
+                    } header: {
+                        Text(L("Prognoseausgaben", "Expense forecasts"))
+                    }
+                }
                 if flowRows.isEmpty {
                     Text(emptyText)
                         .foregroundStyle(.secondary)
@@ -180,6 +209,29 @@ struct FilteredLedgerView: View {
         .sheet(item: $selected) { TransactionDetailView(entry: $0) }
         .sheet(isPresented: $showingNewForecast) { IncomeForecastForm(forecast: nil) }
         .sheet(item: $editedForecast) { IncomeForecastForm(forecast: $0) }
+        .sheet(item: $editedCost) { FixedCostForm(cost: $0) }
+    }
+
+    private var applicableFixedCosts: [FixedCost] {
+        FixedCostScope.applicable(
+            costs: fixedCosts,
+            account: selectedAccount,
+            showsDepot: filters.showsDepot,
+            includeHousehold: selectedAccount == nil || selectedAccount?.isMain == true
+        )
+    }
+
+    private var upcomingCharges: [ScheduledCharge] {
+        guard kind == .expense, let period = selectedPeriod else { return [] }
+        let today = Calendar.current.startOfDay(for: .now)
+        guard period.end >= today else { return [] }
+        return FinanceService.scheduledCharges(
+            costs: applicableFixedCosts.filter(\.isActive),
+            entries: entries,
+            from: period.start,
+            through: period.end
+        )
+        .filter { !$0.isPaid }
     }
 
     private var upcomingForecasts: [ForecastOccurrence] {

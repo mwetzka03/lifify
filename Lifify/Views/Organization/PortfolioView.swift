@@ -228,7 +228,7 @@ struct PortfolioElementsView: View {
             .padding(12)
             .background(AppSurface.card, in: RoundedRectangle(cornerRadius: 14))
 
-            HStack {
+            HStack(spacing: 12) {
                 Button {
                     Task {
                         isRefreshing = true
@@ -236,21 +236,32 @@ struct PortfolioElementsView: View {
                         isRefreshing = false
                     }
                 } label: {
-                    if isRefreshing {
-                        ProgressView()
-                    } else {
-                        Label(L("Kurse", "Quotes"), systemImage: "arrow.clockwise")
+                    Group {
+                        if isRefreshing {
+                            ProgressView()
+                        } else {
+                            Label(L("Kurse", "Quotes"), systemImage: "arrow.clockwise")
+                        }
                     }
+                    .font(.title3.weight(.semibold))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
+                    .liquidGlassSurface()
                 }
+                .buttonStyle(.borderless)
                 .disabled(isRefreshing || visibleHoldings.isEmpty)
-                Spacer()
                 Button {
                     showingNew = true
                 } label: {
-                    Label(L("Position", "Holding"), systemImage: "plus")
+                    Image(systemName: "plus")
+                        .font(.title.weight(.bold))
+                        .frame(width: 72)
+                        .padding(.vertical, 16)
+                        .liquidGlassSurface(prominent: true)
                 }
+                .buttonStyle(.borderless)
+                .accessibilityLabel(L("Position", "Holding"))
             }
-            .font(.body.weight(.semibold))
 
             if sortedHoldings.isEmpty {
                 Text(L("Keine Depotpositionen", "No holdings"))
@@ -541,6 +552,34 @@ struct SavingsPlansView: View {
 
     var body: some View {
         List {
+            Section {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(L("Alle aktiven Sparpläne", "All active savings plans"))
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(L("Pro Woche", "Per week"))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            Text(Money.string(cents: SavingsPlanFixedCosts.weeklyCostCents(of: plans)))
+                                .font(.title3.weight(.semibold))
+                        }
+                        Spacer()
+                        VStack(alignment: .trailing, spacing: 2) {
+                            Text(L("Pro Monat", "Per month"))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            Text(Money.string(cents: SavingsPlanFixedCosts.monthlyCostCents(of: plans)))
+                                .font(.title3.weight(.semibold))
+                        }
+                    }
+                    Text(CalendarService.savingsPlanScheduleText(cadence: .weekly))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.vertical, 4)
+            }
             Picker(L("Status", "Status"), selection: $status) {
                 ForEach(SavingsPlanStatus.allCases) { Text($0.label).tag($0) }
             }
@@ -912,16 +951,17 @@ private struct HoldingDetailView: View {
         action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
-            VStack(spacing: 6) {
+            VStack(spacing: 8) {
                 Image(systemName: systemImage)
-                    .font(.system(size: 28, weight: .semibold))
+                    .font(.system(size: 32, weight: .semibold))
                 Text(title)
-                    .font(.caption.weight(.semibold))
+                    .font(.headline)
             }
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 8)
+            .padding(.vertical, 18)
+            .liquidGlassSurface()
         }
-        .buttonStyle(.bordered)
+        .buttonStyle(.borderless)
         .disabled(disabled)
         .accessibilityLabel(title)
     }

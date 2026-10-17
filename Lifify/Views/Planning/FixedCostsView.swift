@@ -3,12 +3,25 @@ import SwiftUI
 
 struct FixedCostsView: View {
     @Environment(\.modelContext) private var context
+    @EnvironmentObject private var filters: FinanceFilterStore
     @Query(sort: \FixedCost.name) private var costs: [FixedCost]
+    @Query(sort: \LedgerEntry.date, order: .reverse) private var entries: [LedgerEntry]
+    @Query private var forecasts: [IncomeForecast]
     @State private var edited: FixedCost?
     @State private var showingNew = false
 
+    private var periods: [ForecastPeriod] {
+        FinancePeriods.all(entries: entries, forecasts: forecasts)
+    }
+
     var body: some View {
         List {
+            if let period = filters.period(in: periods) {
+                Text("\(L("Offen im Zeitraum", "Open in")) \(AppDate.range(from: period.start, to: period.end))")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .listRowBackground(Color.clear)
+            }
             ForEach(costs) { cost in
                 Button {
                     edited = cost
@@ -16,9 +29,9 @@ struct FixedCostsView: View {
                     HStack {
                         Image(systemName: IconPreferenceStore.icon(for: cost.id, fallback: "repeat"))
                             .frame(width: 28)
-                        VStack(alignment: .leading) {
+                        VStack(alignment: .leading, spacing: 2) {
                             Text(cost.name).foregroundStyle(.primary)
-                            Text("\(cost.cadence.label) · \(cost.dueRule.label)")
+                            Text(detail(for: cost))
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
@@ -29,11 +42,7 @@ struct FixedCostsView: View {
                 }
             }
             .onDelete { offsets in
-                offsets.map { costs[$0] }.forEach {
-                    IconPreferenceStore.remove(for: $0.id)
-                    context.delete($0)
-                }
-                try? context.save()
+                offsets.map { costs[$0] }.forEach(delete)
             }
         }
         .overlay {
@@ -47,10 +56,43 @@ struct FixedCostsView: View {
         }
         .sheet(isPresented: $showingNew) { FixedCostForm(cost: nil) }
         .sheet(item: $edited) { FixedCostForm(cost: $0) }
+        .onAppear { SavingsPlanFixedCosts.sync(context: context) }
+    }
+
+    private func detail(for cost: FixedCost) -> String {
+        guard cost.isActive else {
+            return "\(cost.cadence.label) · \(L("Beendet", "Ended"))"
+        }
+        let next = FinanceService.nextChargeDate(for: cost, entries: entries)
+        let nextText = next.map { "\(L("Nächste", "Next")) \(AppDate.numeric($0))" }
+            ?? L("Keine weitere Abbuchung", "No further debit")
+        let open = openCount(for: cost)
+        let openText = open == 1 ? L("1 offen", "1 open") : "\(open) \(L("offen", "open"))"
+        if SavingsPlanFixedCosts.isSavingsCost(cost) {
+            return "\(cost.cadence.label) · \(nextText) · \(openText)"
+        }
+        return "\(cost.cadence.label) · \(cost.dueRule.label) · \(nextText) · \(openText)"
+    }
+
+    private func openCount(for cost: FixedCost) -> Int {
+        guard let period = filters.period(in: periods) else { return 0 }
+        return FinanceService.openChargeCount(
+            for: cost,
+            entries: entries,
+            from: period.start,
+            through: period.end
+        )
+    }
+
+    private func delete(_ cost: FixedCost) {
+        SavingsPlanFixedCosts.removePlan(for: cost)
+        IconPreferenceStore.remove(for: cost.id)
+        context.delete(cost)
+        try? context.save()
     }
 }
 
-private struct FixedCostForm: View {
+struct FixedCostForm: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
     @Query(sort: \Account.name) private var accounts: [Account]
@@ -64,6 +106,7 @@ private struct FixedCostForm: View {
     @State private var day: Int
     @State private var active: Bool
     @State private var icon: String
+    private let managed: Bool
 
     init(cost: FixedCost?) {
         existing = cost
@@ -76,6 +119,7 @@ private struct FixedCostForm: View {
         _day = State(initialValue: cost?.dayOfMonth ?? 1)
         _active = State(initialValue: cost?.isActive ?? true)
         _icon = State(initialValue: cost.map { IconPreferenceStore.icon(for: $0.id, fallback: "repeat") } ?? "repeat")
+        managed = cost.map { SavingsPlanFixedCosts.isManagedName($0.name) } ?? false
     }
 
     var body: some View {
@@ -93,12 +137,18 @@ private struct FixedCostForm: View {
                 Picker(L("Rhythmus", "Cadence"), selection: $cadence) {
                     ForEach(Cadence.allCases) { Text($0.label).tag($0) }
                 }
-                AppDateField(title: L("Erste Fälligkeit", "First due date"), selection: $firstDate)
-                Picker(L("Fälligkeitsregel", "Due rule"), selection: $dueRule) {
-                    ForEach(DueRule.allCases) { Text($0.label).tag($0) }
-                }
-                if dueRule == .calendarDay {
-                    Stepper("\(L("Tag", "Day")): \(day)", value: $day, in: 1...31)
+                if managed {
+                    Text(CalendarService.savingsPlanScheduleText(cadence: cadence))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else {
+                    AppDateField(title: L("Erste Fälligkeit", "First due date"), selection: $firstDate)
+                    Picker(L("Fälligkeitsregel", "Due rule"), selection: $dueRule) {
+                        ForEach(DueRule.allCases) { Text($0.label).tag($0) }
+                    }
+                    if dueRule == .calendarDay {
+                        Stepper("\(L("Tag", "Day")): \(day)", value: $day, in: 1...31)
+                    }
                 }
                 Toggle(L("Aktiv", "Active"), isOn: $active)
             }
@@ -114,12 +164,21 @@ private struct FixedCostForm: View {
                         cost.accountID = accountID
                         cost.cadence = cadence
                         cost.firstChargeDate = firstDate
-                        cost.dueRule = dueRule
-                        cost.dayOfMonth = day
+                        cost.dueRule = managed ? .calendarDay : dueRule
+                        cost.dayOfMonth = managed ? 2 : day
                         cost.isActive = active
+                        if managed && !SavingsPlanFixedCosts.isManagedName(cost.name) {
+                            cost.name = "\(SavingsPlanFixedCosts.namePrefix)\(name)"
+                        }
                         if existing == nil { context.insert(cost) }
                         IconPreferenceStore.set(icon, for: cost.id)
+                        if managed {
+                            SavingsPlanFixedCosts.adopt(cost)
+                        }
                         try? context.save()
+                        if managed {
+                            SavingsPlanFixedCosts.sync(context: context)
+                        }
                         dismiss()
                     }
                 }
