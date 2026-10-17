@@ -403,10 +403,10 @@ enum SavingsPlanBuilder {
             let since = calendar.dateComponents([.day], from: lastDay, to: calendar.startOfDay(for: statementEnd)).day ?? 0
             let interval = intervalDays(cadence)
             let active = since <= max(Int(Double(interval) * 1.5), interval + 3)
-            let holding = holdings.first {
+            guard active else { return nil }
+            guard let holding = holdings.first(where: {
                 $0.accountID == portfolioID && $0.symbol.uppercased() == isin && $0.quantity > 0.0000005
-            }
-            guard holding != nil else { return nil }
+            }) else { return nil }
             return SavingsPlanRecord(
                 id: UUID(),
                 isin: isin,
@@ -415,10 +415,10 @@ enum SavingsPlanBuilder {
                 cadenceRaw: cadence.rawValue,
                 checkingAccountID: checkingID,
                 portfolioAccountID: portfolioID,
-                holdingID: holding?.id,
+                holdingID: holding.id,
                 lastExecution: last.date,
                 historyThrough: statementEnd,
-                active: active
+                active: true
             )
         }
         .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
@@ -610,7 +610,7 @@ enum SavingsPlanFixedCosts {
     }
 
     static func sync(context: ModelContext) {
-        var plans = SavingsPlanStore.all()
+        var plans = SavingsPlanStore.all().filter(\.active)
         var costs = (try? context.fetch(FetchDescriptor<FixedCost>())) ?? []
         var kept: Set<UUID> = []
         for index in plans.indices {

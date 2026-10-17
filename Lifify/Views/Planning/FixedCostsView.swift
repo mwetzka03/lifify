@@ -5,6 +5,7 @@ struct FixedCostsView: View {
     @Environment(\.modelContext) private var context
     @EnvironmentObject private var filters: FinanceFilterStore
     @Query(sort: \FixedCost.name) private var costs: [FixedCost]
+    @Query(sort: \Account.name) private var accounts: [Account]
     @Query(sort: \LedgerEntry.date, order: .reverse) private var entries: [LedgerEntry]
     @Query private var forecasts: [IncomeForecast]
     @State private var edited: FixedCost?
@@ -12,6 +13,27 @@ struct FixedCostsView: View {
 
     private var periods: [ForecastPeriod] {
         FinancePeriods.all(entries: entries, forecasts: forecasts)
+    }
+
+    private var filterAccounts: [Account] {
+        accounts.filter { $0.kind != .savingsGroup }
+    }
+
+    private var selectedAccount: Account? {
+        filters.account(in: filterAccounts)
+    }
+
+    private var regularCosts: [FixedCost] {
+        costs.filter { !SavingsPlanFixedCosts.isSavingsCost($0) }
+    }
+
+    private var savingsCosts: [FixedCost] {
+        FixedCostScope.applicable(
+            costs: costs.filter { SavingsPlanFixedCosts.isSavingsCost($0) },
+            account: selectedAccount,
+            showsDepot: filters.showsDepot,
+            includeHousehold: false
+        )
     }
 
     var body: some View {
@@ -22,7 +44,12 @@ struct FixedCostsView: View {
                     .foregroundStyle(.secondary)
                     .listRowBackground(Color.clear)
             }
-            ForEach(costs) { cost in
+            if !savingsCosts.isEmpty {
+                NavigationLink(value: FinanceRoute.savingsPlans) {
+                    savingsSummaryRow
+                }
+            }
+            ForEach(regularCosts) { cost in
                 Button {
                     edited = cost
                 } label: {
@@ -42,11 +69,11 @@ struct FixedCostsView: View {
                 }
             }
             .onDelete { offsets in
-                offsets.map { costs[$0] }.forEach(delete)
+                offsets.map { regularCosts[$0] }.forEach(delete)
             }
         }
         .overlay {
-            if costs.isEmpty {
+            if regularCosts.isEmpty && savingsCosts.isEmpty {
                 ContentUnavailableView(L("Keine Fixkosten", "No fixed costs"), systemImage: "repeat")
             }
         }
@@ -82,6 +109,49 @@ struct FixedCostsView: View {
             from: period.start,
             through: period.end
         )
+    }
+
+    private var savingsSummaryRow: some View {
+        let summary = savingsSummary
+        return HStack(spacing: 12) {
+            Image(systemName: BookingCategory.savingsPlan.systemImage)
+                .frame(width: 28)
+                .foregroundStyle(.primary)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(L("Sparpläne", "Savings plans"))
+                    .foregroundStyle(.primary)
+                Text("\(L("Gebucht", "Booked")) \(Money.string(cents: summary.booked)) · \(L("Offen", "Open")) \(Money.string(cents: summary.open))")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            Text(Money.string(cents: -(summary.booked + summary.open)))
+                .foregroundStyle(.red)
+        }
+    }
+
+    private var savingsSummary: (booked: Int, open: Int) {
+        let ids = Set(savingsCosts.compactMap(\.accountID))
+        let accountIDs: Set<UUID>? = selectedAccount == nil ? nil : ids
+        guard let period = filters.period(in: periods) else {
+            let monthly = savingsCosts.filter(\.isActive).reduce(0) { $0 + abs($1.amountCents) }
+            return (0, monthly)
+        }
+        let booked = FinanceService.savingsPlanBookedCents(
+            entries: entries,
+            from: period.start,
+            through: period.end,
+            accountIDs: accountIDs
+        )
+        let open = FinanceService.scheduledCharges(
+            costs: savingsCosts.filter(\.isActive),
+            entries: entries,
+            from: period.start,
+            through: period.end
+        )
+        .filter { !$0.isPaid }
+        .reduce(0) { $0 + $1.amount }
+        return (booked, open)
     }
 
     private func delete(_ cost: FixedCost) {

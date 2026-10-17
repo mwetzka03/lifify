@@ -67,8 +67,12 @@ struct TransactionsView: View {
             ForEach(filtered) { entry in
                 Button {
                     selected = entry
-                } label: {
-                    TransactionRow(entry: entry)
+                }                 label: {
+                    TransactionRow(
+                        entry: entry,
+                        accounts: accounts,
+                        viewedAccountID: filters.showsDepot ? nil : filters.account(in: filterAccounts)?.id
+                    )
                 }
                 .buttonStyle(.plain)
                 .swipeActions(edge: .trailing, allowsFullSwipe: true) {
@@ -112,67 +116,35 @@ struct TransactionsView: View {
 
 struct TransactionRow: View {
     let entry: LedgerEntry
+    var accounts: [Account] = []
+    var viewedAccountID: UUID? = nil
 
     var body: some View {
         HStack(spacing: 12) {
-            Image(systemName: icon)
+            Image(systemName: category.systemImage)
                 .frame(width: 28)
-                .foregroundStyle(color)
+                .foregroundStyle(.primary)
             VStack(alignment: .leading, spacing: 3) {
                 Text(entry.title)
                     .foregroundStyle(.primary)
                     .lineLimit(2)
-                Text("\(entry.kind.label) · \(AppDate.numeric(entry.date))")
+                Text("\(category.label) · \(AppDate.numeric(entry.date))")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
             Spacer()
             Text(Money.string(cents: signedAmount))
-                .foregroundStyle(signedAmount < 0 ? .red : (entry.kind == .income || signedAmount > 0 && isPortfolioSale ? .green : .primary))
+                .foregroundStyle(BookingClassification.amountColor(category: category, signed: signedAmount))
                 .monospacedDigit()
         }
     }
 
+    private var category: BookingCategory {
+        BookingClassification.category(of: entry, accounts: accounts, viewedAccountID: viewedAccountID)
+    }
+
     private var signedAmount: Int {
-        switch entry.kind {
-        case .expense:
-            return -abs(entry.amountCents)
-        case .income:
-            return abs(entry.amountCents)
-        case .transfer:
-            if isPortfolioPurchase { return -abs(entry.amountCents) }
-            return abs(entry.amountCents)
-        case .adjustment:
-            return abs(entry.amountCents)
-        }
-    }
-
-    private var isPortfolioPurchase: Bool {
-        entry.title.hasPrefix("Kauf:") || entry.title.hasPrefix("Buy:")
-    }
-
-    private var isPortfolioSale: Bool {
-        entry.title.hasPrefix("Verkauf:") || entry.title.hasPrefix("Sell:")
-    }
-
-    private var icon: String {
-        if isPortfolioPurchase || isPortfolioSale { return "chart.line.uptrend.xyaxis" }
-        let fallback: String = switch entry.kind {
-        case .income: "arrow.down.left"
-        case .expense: "arrow.up.right"
-        case .transfer: "arrow.left.arrow.right"
-        case .adjustment: "equal.circle"
-        }
-        return IconPreferenceStore.icon(for: entry.id, fallback: fallback)
-    }
-
-    private var color: Color {
-        switch entry.kind {
-        case .income: .green
-        case .expense: .red
-        case .transfer: .blue
-        case .adjustment: .orange
-        }
+        BookingClassification.signedAmount(of: entry, category: category, viewedAccountID: viewedAccountID)
     }
 }
 
@@ -185,12 +157,23 @@ struct TransactionDetailView: View {
         NavigationStack {
             Form {
                 Section {
-                    LabeledContent(L("Art", "Type"), value: entry.kind.label)
-                    LabeledContent(L("Betrag", "Amount"), value: Money.string(cents: displayAmount))
+                    LabeledContent(L("Kategorie", "Category"), value: category.label)
+                    HStack {
+                        Text(L("Betrag", "Amount"))
+                        Spacer()
+                        Text(Money.string(cents: displayAmount))
+                            .foregroundStyle(BookingClassification.amountColor(category: category, signed: displayAmount))
+                    }
                     LabeledContent(
                         L("Datum", "Date"),
                         value: AppDate.weekdayAndNumeric(entry.date)
                     )
+                }
+                if let from = account(entry.fromAccountID), let to = account(entry.toAccountID) {
+                    Section(L("Beide Buchungen", "Both transactions")) {
+                        accountLine(from, signed: -abs(entry.amountCents))
+                        accountLine(to, signed: abs(entry.amountCents))
+                    }
                 }
                 Section(L("Konten", "Accounts")) {
                     if let account = account(entry.accountID) {
@@ -241,6 +224,23 @@ struct TransactionDetailView: View {
         accounts.first { $0.id == id }
     }
 
+    private func accountLine(_ account: Account, signed: Int) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: signed < 0 ? BookingCategory.expense.systemImage : BookingCategory.income.systemImage)
+                .frame(width: 28)
+                .foregroundStyle(.primary)
+            Text(account.name)
+            Spacer()
+            Text(Money.string(cents: signed))
+                .foregroundStyle(.primary)
+                .monospacedDigit()
+        }
+    }
+
+    private var category: BookingCategory {
+        BookingClassification.category(of: entry, accounts: accounts, viewedAccountID: nil)
+    }
+
     private var importIBANs: (sender: String, recipient: String) {
         BankImportService.ibans(from: entry.notes, amountCents: entry.amountCents)
     }
@@ -263,7 +263,7 @@ struct TransactionDetailView: View {
     }
 
     private var displayAmount: Int {
-        entry.kind == .expense ? -abs(entry.amountCents) : abs(entry.amountCents)
+        BookingClassification.signedAmount(of: entry, category: category, viewedAccountID: nil)
     }
 }
 
@@ -286,10 +286,9 @@ struct TransactionFormView: View {
         NavigationStack {
             Form {
                 Section {
-                    Picker(L("Art", "Type"), selection: $viewModel.kind) {
-                        ForEach(LedgerKind.allCases) { Text($0.label).tag($0) }
+                    Picker(L("Kategorie", "Category"), selection: $viewModel.category) {
+                        ForEach(BookingCategory.allCases) { Text($0.label).tag($0) }
                     }
-                    SymbolPicker(title: L("Symbol", "Icon"), selection: $viewModel.icon)
                     TextField(L("Titel", "Title"), text: $viewModel.title)
                     TextField(L("Betrag", "Amount"), text: $viewModel.amountText)
                         .keyboardType(.decimalPad)
@@ -298,7 +297,7 @@ struct TransactionFormView: View {
                 }
 
                 Section(L("Konten", "Accounts")) {
-                    if viewModel.kind == .transfer {
+                    if viewModel.category.usesTwoAccounts {
                         accountPicker(L("Von", "From"), selection: $viewModel.fromAccountID)
                         accountPicker(L("Nach", "To"), selection: $viewModel.toAccountID)
                     } else {
@@ -306,7 +305,7 @@ struct TransactionFormView: View {
                     }
                 }
 
-                if viewModel.kind == .expense {
+                if viewModel.category == .expense {
                     Section(L("Zuordnung", "Assignment")) {
                         optionalPicker(L("Fixkosten", "Fixed cost"), selection: $viewModel.fixedCostID, values: fixedCosts.map { ($0.id, $0.name) })
                         optionalPicker(L("Variable Kosten", "Variable cost"), selection: $viewModel.variableBudgetID, values: variableBudgets.map { ($0.id, $0.name) })
@@ -330,13 +329,17 @@ struct TransactionFormView: View {
             }
             .navigationTitle(viewModel.title.isEmpty ? L("Neue Buchung", "New transaction") : viewModel.title)
             .navigationBarTitleDisplayMode(.inline)
+            .onAppear { viewModel.refineIfNeeded(accounts: accounts) }
+            .onChange(of: viewModel.category) { _, category in
+                viewModel.fillAccounts(for: category, accounts: accounts)
+            }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(L("Abbrechen", "Cancel")) { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(L("Speichern", "Save")) {
-                        if viewModel.save(context: context, pools: pools, allSplits: allSplits) { dismiss() }
+                        if viewModel.save(context: context, pools: pools, allSplits: allSplits, accounts: accounts) { dismiss() }
                     }
                 }
             }

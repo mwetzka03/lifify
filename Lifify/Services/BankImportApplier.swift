@@ -10,6 +10,7 @@ struct BankImportResult {
     var entryIDs: [String: UUID]
     var selectableRows: [ImportedTransaction]
     var skippedBeforeStart: Int = 0
+    var review: ImportReview = ImportReview()
 }
 
 enum PortfolioLinkStore {
@@ -155,6 +156,7 @@ enum BankImportApplier {
         var selectable: [ImportedTransaction] = []
         var imported = 0
         var skippedBeforeStart = 0
+        var review = ImportReview()
         let directory = accounts + checking.created
         let periodStart = period.map { Calendar.current.startOfDay(for: $0.start) }
         for row in document.rows {
@@ -174,63 +176,49 @@ enum BankImportApplier {
                 skippedBeforeStart += 1
                 continue
             }
-            let fingerprints = [row.fingerprint, row.legacyFingerprint].compactMap { $0 }
-            let other = counterpartyAccount(for: row, checking: checking.account, accounts: directory)
-            if let existing = entries.first(where: { entry in
-                guard let fingerprint = entry.importFingerprint else { return false }
-                return fingerprints.contains(fingerprint)
-            }) {
-                if let other, existing.kind != .transfer, row.trade == nil {
-                    if transferExists(on: row.date, amount: row.amountCents, first: checking.account.id, second: other.id, entries: entries) {
-                        context.delete(existing)
-                        entries.removeAll { $0.id == existing.id }
-                    } else {
-                        bookTransfer(existing, row: row, checkingID: checking.account.id, otherID: other.id, entries: &entries)
-                    }
-                } else if row.trade == nil, other == nil {
-                    selectable.append(row)
-                    entryIDs[row.fingerprint] = existing.id
-                }
-                known.formUnion(fingerprints)
-                continue
-            }
-            guard known.isDisjoint(with: fingerprints) else { continue }
-            if let other {
-                if transferExists(on: row.date, amount: row.amountCents, first: checking.account.id, second: other.id, entries: entries) {
+            if row.trade != nil {
+                let fingerprints = [row.fingerprint, row.legacyFingerprint].compactMap { $0 }
+                if entries.contains(where: { entry in
+                    guard let fingerprint = entry.importFingerprint else { return false }
+                    return fingerprints.contains(fingerprint)
+                }) || !known.isDisjoint(with: fingerprints) {
                     known.formUnion(fingerprints)
                     continue
                 }
-                removeMirror(of: row, on: other.id, checking: checking.account, entries: &entries, context: context)
-                let entry = transferEntry(for: row, checkingID: checking.account.id, otherID: other.id)
+                let entry = ledgerEntry(for: row, checkingID: checking.account.id, portfolioID: portfolio?.account.id)
                 context.insert(entry)
                 insertedEntries.append(entry)
                 entries.append(entry)
+                if let trade = row.trade, let portfolio {
+                    apply(
+                        trade,
+                        cashCents: row.amountCents,
+                        date: row.date,
+                        portfolio: portfolio.account,
+                        context: context,
+                        holdings: &holdings,
+                        insertedHoldings: &insertedHoldings,
+                        ledgerEntryID: entry.id
+                    )
+                }
                 known.formUnion(fingerprints)
                 imported += 1
                 continue
             }
-            let entry = ledgerEntry(for: row, checkingID: checking.account.id, portfolioID: portfolio?.account.id)
-            context.insert(entry)
-            insertedEntries.append(entry)
-            entries.append(entry)
-            if let trade = row.trade, let portfolio {
-                apply(
-                    trade,
-                    cashCents: row.amountCents,
-                    date: row.date,
-                    portfolio: portfolio.account,
-                    context: context,
-                    holdings: &holdings,
-                    insertedHoldings: &insertedHoldings,
-                    ledgerEntryID: entry.id
-                )
-            }
-            known.formUnion(fingerprints)
-            if row.trade == nil {
+            if let entry = ingestCashRow(
+                row,
+                checking: checking.account,
+                accounts: directory,
+                entries: &entries,
+                known: &known,
+                review: &review,
+                context: context
+            ) {
+                insertedEntries.append(entry)
                 selectable.append(row)
                 entryIDs[row.fingerprint] = entry.id
+                imported += 1
             }
-            imported += 1
         }
         if checking.account.iban.isEmpty, let iban = document.tradeRepublic?.iban, !iban.isEmpty {
             checking.account.iban = iban
@@ -277,7 +265,8 @@ enum BankImportApplier {
             createdSeparateChecking: checking.createdSeparate,
             entryIDs: entryIDs,
             selectableRows: selectable,
-            skippedBeforeStart: skippedBeforeStart
+            skippedBeforeStart: skippedBeforeStart,
+            review: review
         )
     }
 
@@ -469,36 +458,22 @@ enum BankImportApplier {
         on accountID: UUID,
         checking: Account,
         entries: inout [LedgerEntry],
-        context: ModelContext
+        context: ModelContext,
+        windowDays: Int = 0
     ) {
         let counterparty = normalizedIBAN(row.amountCents >= 0 ? row.senderIBAN : row.recipientIBAN)
         let markers = [counterparty, normalizedIBAN(checking.iban)].filter { !$0.isEmpty }
         guard !markers.isEmpty else { return }
-        let day = Calendar.current.startOfDay(for: row.date)
         guard let mirror = entries.first(where: { entry in
             guard entry.accountID == accountID else { return false }
             guard entry.kind == .income || entry.kind == .expense else { return false }
             guard abs(entry.amountCents) == abs(row.amountCents) else { return false }
-            guard Calendar.current.startOfDay(for: entry.date) == day else { return false }
+            guard withinDays(entry.date, of: row.date, days: windowDays) else { return false }
             let haystack = normalizedIBAN(entry.notes + " " + entry.title)
             return markers.contains { haystack.contains($0) }
         }) else { return }
         context.delete(mirror)
         entries.removeAll { $0.id == mirror.id }
-    }
-
-    private static func transferEntry(for row: ImportedTransaction, checkingID: UUID, otherID: UUID) -> LedgerEntry {
-        let inbound = row.amountCents >= 0
-        return LedgerEntry(
-            date: row.date,
-            title: row.title,
-            notes: row.notes,
-            amountCents: abs(row.amountCents),
-            kind: .transfer,
-            fromAccountID: inbound ? otherID : checkingID,
-            toAccountID: inbound ? checkingID : otherID,
-            importFingerprint: row.fingerprint
-        )
     }
 
     private static func ledgerEntry(for row: ImportedTransaction, checkingID: UUID, portfolioID: UUID?) -> LedgerEntry {
@@ -601,5 +576,243 @@ enum BankImportApplier {
 
     private static func entryTouches(_ entry: LedgerEntry, accountID: UUID) -> Bool {
         entry.accountID == accountID || entry.fromAccountID == accountID || entry.toAccountID == accountID
+    }
+
+    @discardableResult
+    static func ingestCashRow(
+        _ row: ImportedTransaction,
+        checking: Account,
+        accounts: [Account],
+        entries: inout [LedgerEntry],
+        known: inout Set<String>,
+        review: inout ImportReview,
+        context: ModelContext
+    ) -> LedgerEntry? {
+        let fingerprints = [row.fingerprint, row.legacyFingerprint].compactMap { $0 }
+        if let existing = entries.first(where: { entry in
+            guard let fingerprint = entry.importFingerprint else { return false }
+            return fingerprints.contains(fingerprint)
+        }) {
+            review.similar.append(similarChoice(row: row, existing: existing, accountID: checking.id))
+            known.formUnion(fingerprints)
+            return nil
+        }
+        guard known.isDisjoint(with: fingerprints) else { return nil }
+
+        if let other = counterpartyAccount(for: row, checking: checking, accounts: accounts) {
+            if let existing = existingTransfer(
+                on: row.date,
+                amount: row.amountCents,
+                first: checking.id,
+                second: other.id,
+                entries: entries,
+                windowDays: 3
+            ) {
+                review.similar.append(similarChoice(row: row, existing: existing, accountID: checking.id))
+                known.formUnion(fingerprints)
+                return nil
+            }
+            if let match = transferMatch(row: row, other: other, entries: entries) {
+                let entry = ledgerEntry(for: row, checkingID: checking.id, portfolioID: nil)
+                context.insert(entry)
+                entries.append(entry)
+                known.formUnion(fingerprints)
+                review.transfers.append(transferChoice(entry: entry, row: row, checking: checking, other: other, match: match))
+                return entry
+            }
+        }
+
+        if let existing = similarMatch(row: row, entries: entries) {
+            review.similar.append(similarChoice(row: row, existing: existing, accountID: checking.id))
+            known.formUnion(fingerprints)
+            return nil
+        }
+
+        let entry = ledgerEntry(for: row, checkingID: checking.id, portfolioID: nil)
+        context.insert(entry)
+        entries.append(entry)
+        known.formUnion(fingerprints)
+        return entry
+    }
+
+    static func commitReview(_ review: ImportReview, context: ModelContext) throws {
+        var entries = try context.fetch(FetchDescriptor<LedgerEntry>())
+        let accounts = try context.fetch(FetchDescriptor<Account>())
+        for choice in review.transfers where choice.accept {
+            guard let entry = entries.first(where: { $0.id == choice.entryID }),
+                  let checking = accounts.first(where: { $0.id == choice.checkingAccountID })
+            else { continue }
+            let inbound = choice.signedAmountCents >= 0
+            let row = ImportedTransaction(
+                date: choice.date,
+                title: choice.title,
+                notes: choice.notes,
+                amountCents: choice.signedAmountCents,
+                iban: choice.iban,
+                senderIBAN: inbound ? choice.iban : "",
+                recipientIBAN: inbound ? "" : choice.iban,
+                fingerprint: entry.importFingerprint ?? choice.entryID.uuidString
+            )
+            if transferExists(
+                on: choice.date,
+                amount: choice.signedAmountCents,
+                first: choice.checkingAccountID,
+                second: choice.otherAccountID,
+                entries: entries
+            ) {
+                context.delete(entry)
+                entries.removeAll { $0.id == entry.id }
+                continue
+            }
+            bookTransfer(
+                entry,
+                row: row,
+                checkingID: choice.checkingAccountID,
+                otherID: choice.otherAccountID,
+                entries: &entries
+            )
+            if let mirror = entries.first(where: { $0.id == choice.matchedEntryID }),
+               mirror.id != entry.id,
+               mirror.kind == .income || mirror.kind == .expense {
+                context.delete(mirror)
+                entries.removeAll { $0.id == mirror.id }
+            }
+            removeMirror(
+                of: row,
+                on: choice.otherAccountID,
+                checking: checking,
+                entries: &entries,
+                context: context,
+                windowDays: 3
+            )
+        }
+        for choice in review.similar where choice.include {
+            context.insert(LedgerEntry(
+                date: choice.date,
+                title: choice.title,
+                notes: choice.notes,
+                amountCents: choice.signedAmountCents,
+                kind: choice.signedAmountCents < 0 ? .expense : .income,
+                accountID: choice.accountID,
+                importFingerprint: choice.fingerprint
+            ))
+        }
+        try context.save()
+    }
+
+    private static func transferChoice(
+        entry: LedgerEntry,
+        row: ImportedTransaction,
+        checking: Account,
+        other: Account,
+        match: LedgerEntry
+    ) -> ImportTransferChoice {
+        let iban = normalizedIBAN(row.amountCents >= 0 ? row.senderIBAN : row.recipientIBAN)
+        return ImportTransferChoice(
+            entryID: entry.id,
+            signedAmountCents: row.amountCents,
+            date: row.date,
+            title: row.title,
+            notes: row.notes,
+            checkingAccountID: checking.id,
+            otherAccountID: other.id,
+            otherAccountName: other.name,
+            iban: iban,
+            matchedEntryID: match.id,
+            matchedTitle: match.title,
+            matchedDate: match.date,
+            matchedAmountCents: match.amountCents
+        )
+    }
+
+    private static func similarChoice(
+        row: ImportedTransaction,
+        existing: LedgerEntry,
+        accountID: UUID
+    ) -> ImportSimilarChoice {
+        ImportSimilarChoice(
+            id: UUID(),
+            fingerprint: row.fingerprint,
+            date: row.date,
+            title: row.title,
+            notes: row.notes,
+            signedAmountCents: row.amountCents,
+            accountID: accountID,
+            existingTitle: existing.title,
+            existingDate: existing.date,
+            existingAmountCents: existing.amountCents
+        )
+    }
+
+    private static func transferMatch(
+        row: ImportedTransaction,
+        other: Account,
+        entries: [LedgerEntry]
+    ) -> LedgerEntry? {
+        let amount = abs(row.amountCents)
+        return entries.first { entry in
+            guard abs(entry.amountCents) == amount else { return false }
+            guard withinDays(entry.date, of: row.date, days: 3) else { return false }
+            if entry.accountID == other.id || entry.fromAccountID == other.id || entry.toAccountID == other.id {
+                return true
+            }
+            return sharesIBAN(row, entry: entry)
+        }
+    }
+
+    private static func similarMatch(row: ImportedTransaction, entries: [LedgerEntry]) -> LedgerEntry? {
+        let amount = abs(row.amountCents)
+        return entries.first { entry in
+            guard entry.kind != .adjustment else { return false }
+            guard abs(entry.amountCents) == amount else { return false }
+            guard withinDays(entry.date, of: row.date, days: 3) else { return false }
+            return titlesMatch(row.title, entry.title) || sharesIBAN(row, entry: entry)
+        }
+    }
+
+    private static func existingTransfer(
+        on date: Date,
+        amount: Int,
+        first: UUID,
+        second: UUID,
+        entries: [LedgerEntry],
+        windowDays: Int
+    ) -> LedgerEntry? {
+        let absAmount = abs(amount)
+        return entries.first { entry in
+            guard entry.kind == .transfer, abs(entry.amountCents) == absAmount else { return false }
+            guard withinDays(entry.date, of: date, days: windowDays) else { return false }
+            let ends = Set([entry.fromAccountID, entry.toAccountID].compactMap { $0 })
+            return ends == [first, second]
+        }
+    }
+
+    private static func withinDays(_ date: Date, of other: Date, days: Int) -> Bool {
+        let calendar = Calendar.current
+        let delta = abs(calendar.dateComponents(
+            [.day],
+            from: calendar.startOfDay(for: date),
+            to: calendar.startOfDay(for: other)
+        ).day ?? 0)
+        return delta <= days
+    }
+
+    private static func titlesMatch(_ lhs: String, _ rhs: String) -> Bool {
+        let left = lhs.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let right = rhs.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !left.isEmpty, !right.isEmpty else { return false }
+        return left == right
+    }
+
+    private static func sharesIBAN(_ row: ImportedTransaction, entry: LedgerEntry) -> Bool {
+        let candidates = [row.senderIBAN, row.recipientIBAN, row.iban]
+            .map(normalizedIBAN)
+            .filter { !$0.isEmpty }
+        guard !candidates.isEmpty else { return false }
+        let parsed = BankImportService.ibans(from: entry.notes, amountCents: entry.amountCents)
+        let known = [parsed.sender, parsed.recipient].map(normalizedIBAN).filter { !$0.isEmpty }
+        if candidates.contains(where: known.contains) { return true }
+        let haystack = normalizedIBAN(entry.notes + " " + entry.title)
+        return candidates.contains { haystack.contains($0) }
     }
 }

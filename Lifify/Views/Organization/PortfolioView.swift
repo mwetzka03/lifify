@@ -228,7 +228,7 @@ struct PortfolioElementsView: View {
             .padding(12)
             .background(AppSurface.card, in: RoundedRectangle(cornerRadius: 14))
 
-            HStack(spacing: 12) {
+            HStack(spacing: 16) {
                 Button {
                     Task {
                         isRefreshing = true
@@ -240,26 +240,31 @@ struct PortfolioElementsView: View {
                         if isRefreshing {
                             ProgressView()
                         } else {
-                            Label(L("Kurse", "Quotes"), systemImage: "arrow.clockwise")
+                            Label(L("Kurse aktualisieren", "Refresh quotes"), systemImage: "arrow.clockwise")
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.7)
                         }
                     }
-                    .font(.title3.weight(.semibold))
+                    .font(.headline.weight(.semibold))
+                    .foregroundStyle(.primary)
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
+                    .frame(height: 52)
                     .liquidGlassSurface()
                 }
                 .buttonStyle(.borderless)
+                .tint(.primary)
                 .disabled(isRefreshing || visibleHoldings.isEmpty)
                 Button {
                     showingNew = true
                 } label: {
                     Image(systemName: "plus")
-                        .font(.title.weight(.bold))
-                        .frame(width: 72)
-                        .padding(.vertical, 16)
-                        .liquidGlassSurface(prominent: true)
+                        .font(.title2.weight(.bold))
+                        .foregroundStyle(.primary)
+                        .frame(width: 52, height: 52)
+                        .boundedBubble(circle: true)
                 }
                 .buttonStyle(.borderless)
+                .tint(.primary)
                 .accessibilityLabel(L("Position", "Holding"))
             }
 
@@ -525,30 +530,11 @@ struct HoldingPerformance {
     }
 }
 
-private enum SavingsPlanStatus: String, CaseIterable, Identifiable {
-    case active
-    case ended
-
-    var id: String { rawValue }
-
-    var label: String {
-        switch self {
-        case .active: L("Aktiv", "Active")
-        case .ended: L("Beendet", "Ended")
-        }
-    }
-}
-
 struct SavingsPlansView: View {
     @Environment(\.modelContext) private var context
     @Query(sort: \Account.name) private var accounts: [Account]
     @State private var plans: [SavingsPlanRecord] = []
-    @State private var status = SavingsPlanStatus.active
     @State private var editedPlan: SavingsPlanRecord?
-
-    private var visible: [SavingsPlanRecord] {
-        plans.filter { status == .active ? $0.active : !$0.active }
-    }
 
     var body: some View {
         List {
@@ -580,18 +566,11 @@ struct SavingsPlansView: View {
                 }
                 .padding(.vertical, 4)
             }
-            Picker(L("Status", "Status"), selection: $status) {
-                ForEach(SavingsPlanStatus.allCases) { Text($0.label).tag($0) }
-            }
-            .pickerStyle(.segmented)
-            .listRowBackground(Color.clear)
-            if visible.isEmpty {
-                Text(status == .active
-                    ? L("Keine aktiven Sparpläne.", "No active savings plans.")
-                    : L("Keine beendeten Sparpläne.", "No ended savings plans."))
+            if plans.isEmpty {
+                Text(L("Keine Sparpläne.", "No savings plans."))
                     .foregroundStyle(.secondary)
             } else {
-                ForEach(visible) { plan in
+                ForEach(plans) { plan in
                     savingsPlanRow(plan, accounts: accounts, onEdit: { editedPlan = $0 }, onDelete: { delete($0) })
                 }
             }
@@ -610,6 +589,7 @@ struct SavingsPlansView: View {
 
     private func reload() {
         SavingsPlanRunner.bookDue(context: context)
+        SavingsPlanFixedCosts.sync(context: context)
         plans = SavingsPlanStore.all()
     }
 
@@ -640,10 +620,10 @@ private struct SavingsPlanLabel: View {
 
     private var subtitle: String {
         let account = checkingName.isEmpty ? L("Girokonto", "Checking account") : checkingName
-        if plan.active, let next = plan.nextExecution() {
-            return "\(plan.cadence.label) · \(L("Aktiv", "Active")) · \(L("Nächste", "Next")) \(AppDate.numeric(next)) · \(account)"
+        if let next = plan.nextExecution() {
+            return "\(plan.cadence.label) · \(L("Nächste", "Next")) \(AppDate.numeric(next)) · \(account)"
         }
-        return "\(plan.cadence.label) · \(L("Beendet", "Ended")) · \(L("Letzte", "Last")) \(AppDate.numeric(plan.lastExecution)) · \(account)"
+        return "\(plan.cadence.label) · \(L("Letzte", "Last")) \(AppDate.numeric(plan.lastExecution)) · \(account)"
     }
 }
 
@@ -677,10 +657,11 @@ private func savingsPlanRow(
 
 private struct SavingsPlanEditor: View {
     @Environment(\.dismiss) private var dismiss
+    @Query(sort: \Account.name) private var accounts: [Account]
     @State private var name: String
     @State private var amount: String
     @State private var cadence: Cadence
-    @State private var active: Bool
+    @State private var checkingAccountID: UUID
     @State private var lastExecution: Date
     private let plan: SavingsPlanRecord
     private let onSave: (SavingsPlanRecord) -> Void
@@ -691,8 +672,12 @@ private struct SavingsPlanEditor: View {
         _name = State(initialValue: plan.name)
         _amount = State(initialValue: String(format: "%.2f", Double(plan.amountCents) / 100))
         _cadence = State(initialValue: plan.cadence)
-        _active = State(initialValue: plan.active)
+        _checkingAccountID = State(initialValue: plan.checkingAccountID)
         _lastExecution = State(initialValue: plan.lastExecution)
+    }
+
+    private var debitAccounts: [Account] {
+        accounts.filter { $0.kind != .portfolio && $0.kind != .savingsGroup }
     }
 
     var body: some View {
@@ -704,11 +689,16 @@ private struct SavingsPlanEditor: View {
                 Picker(L("Rhythmus", "Cadence"), selection: $cadence) {
                     ForEach(Cadence.allCases) { Text($0.label).tag($0) }
                 }
-                Toggle(L("Aktiv", "Active"), isOn: $active)
+                Picker(L("Abbuchungskonto", "Debit account"), selection: $checkingAccountID) {
+                    ForEach(debitAccounts) { account in
+                        Text(account.name).tag(account.id)
+                    }
+                }
                 DatePicker(L("Letzte Ausführung", "Last execution"), selection: $lastExecution, displayedComponents: .date)
             }
             .navigationTitle(L("Sparplan", "Savings plan"))
             .navigationBarTitleDisplayMode(.inline)
+            .onAppear(perform: fillDefaultAccount)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(L("Abbrechen", "Cancel")) { dismiss() }
@@ -720,13 +710,27 @@ private struct SavingsPlanEditor: View {
         }
     }
 
+    private func fillDefaultAccount() {
+        if debitAccounts.contains(where: { $0.id == checkingAccountID }) { return }
+        if let preferred = TradeAccountPreference.accountID(),
+           debitAccounts.contains(where: { $0.id == preferred }) {
+            checkingAccountID = preferred
+            return
+        }
+        if let first = debitAccounts.first {
+            checkingAccountID = first
+        }
+    }
+
     private func save() {
         guard let cents = Money.cents(from: amount), cents > 0 else { return }
+        guard debitAccounts.contains(where: { $0.id == checkingAccountID }) else { return }
         var updated = plan
         updated.name = name.trimmingCharacters(in: .whitespacesAndNewlines)
         updated.amountCents = cents
         updated.cadenceRaw = cadence.rawValue
-        updated.active = active
+        updated.checkingAccountID = checkingAccountID
+        updated.active = true
         updated.lastExecution = lastExecution
         onSave(updated)
         dismiss()

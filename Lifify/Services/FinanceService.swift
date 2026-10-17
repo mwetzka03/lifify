@@ -103,6 +103,41 @@ enum FinanceService {
             .reduce(0) { $0 + balance(for: $1, entries: entries, holdings: [], through: date) }
     }
 
+    /// Cash at the end of the previous period. Adjustments dated on the period
+    /// start stay in, so a Startsaldo on that day is the opening figure. Other
+    /// bookings on the first day do not.
+    private static func cashBalanceBeforePeriod(
+        accounts: [Account],
+        entries: [LedgerEntry],
+        start: Date
+    ) -> Int {
+        let day = Calendar.current.startOfDay(for: start)
+        let kept = entries.filter { entry in
+            if entry.date < day { return true }
+            return entry.kind == .adjustment && Calendar.current.isDate(entry.date, inSameDayAs: day)
+        }
+        return cashBalance(accounts: accounts, entries: kept, through: endOfDay(day))
+    }
+
+    static func savingsPlanBookedCents(
+        entries: [LedgerEntry],
+        from: Date,
+        through: Date,
+        accountIDs: Set<UUID>?
+    ) -> Int {
+        let start = Calendar.current.startOfDay(for: from)
+        let end = endOfDay(through)
+        return entries.reduce(0) { total, entry in
+            guard BookingClassification.isSavingsPlan(entry) else { return total }
+            guard entry.date >= start, entry.date <= end else { return total }
+            if let accountIDs {
+                let touched = [entry.accountID, entry.fromAccountID, entry.toAccountID].compactMap { $0 }
+                guard touched.contains(where: accountIDs.contains) else { return total }
+            }
+            return total + abs(entry.amountCents)
+        }
+    }
+
     static func forecastPeriods(
         primary: IncomeForecast?,
         earliest: Date,
@@ -195,27 +230,35 @@ enum FinanceService {
         let remainingVariable = period.end < today ? 0 : max(variablePlan - bookedVariable, 0)
         let bias = biasAmounts(shopping: shopping, period: period)
         let outstandingBias = period.end < today ? 0 : bias.planned
+        let periodStart = calendar.startOfDay(for: period.start)
+        let dayBefore = calendar.date(byAdding: .day, value: -1, to: periodStart) ?? periodStart
         let openingHoldings = includePortfolioValue
-            ? HoldingMaintenance.marketValue(of: holdings, through: period.start)
+            ? HoldingMaintenance.marketValue(of: holdings, through: dayBefore)
             : 0
         let closingHoldings = includePortfolioValue
             ? HoldingMaintenance.marketValue(of: holdings, through: period.end)
             : 0
-        let startBalance = projectedCash(
-            on: period.start,
-            chargeVariableThroughEnd: false,
-            today: today,
-            now: now,
-            periods: periods,
-            accounts: accounts,
-            entries: entries,
-            fixedCosts: cashFixed,
-            forecasts: forecasts,
-            shopping: shopping,
-            variablePlan: variablePlan,
-            budgets: variableBudgets,
-            splits: splits
-        )
+        let startCash: Int
+        if periodStart <= today {
+            startCash = cashBalanceBeforePeriod(accounts: accounts, entries: entries, start: periodStart)
+        } else {
+            startCash = projectedCash(
+                on: dayBefore,
+                chargeVariableThroughEnd: true,
+                today: today,
+                now: now,
+                periods: periods,
+                accounts: accounts,
+                entries: entries,
+                fixedCosts: cashFixed,
+                forecasts: forecasts,
+                shopping: shopping,
+                variablePlan: variablePlan,
+                budgets: variableBudgets,
+                splits: splits
+            )
+        }
+        let startBalance = startCash + openingHoldings
         let endBalance = projectedCash(
             on: period.end,
             chargeVariableThroughEnd: true,
@@ -589,6 +632,10 @@ enum FinanceService {
             total += abs(match.amountCents)
         }
         for entry in entries where entry.kind == .expense && entry.fixedCostID != nil && entry.date >= start && entry.date <= end {
+            guard used.insert(entry.id).inserted else { continue }
+            total += abs(entry.amountCents)
+        }
+        for entry in entries where BookingClassification.isSavingsPlan(entry) && entry.date >= start && entry.date <= end {
             guard used.insert(entry.id).inserted else { continue }
             total += abs(entry.amountCents)
         }

@@ -37,19 +37,23 @@ Finanzansicht, in den Buchungen und in den Listen für Einnahmen und Ausgaben.
   vor dem Stichtag.
 - Gibt es auf dem Hauptkonto noch keine Buchung, gibt es noch keinen Zeitraum.
   Dann werden alle Auszugszeilen gebucht.
-- Der Startsaldo des ersten Zeitraums ist der rechte Saldo des Auszugs am
-  Starttag. Fehlt dieser Tag, gilt der Saldo des letzten vorherigen Tags.
+- Der Startsaldo des ersten Zeitraums ist der rechte Saldo des Auszugs vor dem
+  Starttag, also der letzte gedruckte Saldo der Zeilen davor. Fehlt so eine
+  Zeile, gilt der Eröffnungssaldo des Auszugs.
 - Der Saldo ist der Stand des Girokontos nach der Zeile. Er wird nie als
   Zahlungsbetrag gebucht.
+- Dieser Startsaldo wird als Saldo-Korrektur am Starttag gespeichert. In der
+  Anzeige zählt er zum Beginn des Zeitraums. Einnahmen und andere Buchungen
+  am ersten Tag gehören in den Zeitraum, nicht in den Startsaldo.
 
 ## Saldo bei allen Konten
 
 Ist **Alle Konten** gewählt, enthalten Startsaldo und Endsaldo den Depotwert.
 
-- Der Startsaldo enthält nur Aktien, die am Ende des ersten Tages des Zeitraums
-  schon gehalten werden. Das ist derselbe Zeitpunkt wie der Kassensaldo, also
-  nach den Buchungen dieses Tages. Käufe an späteren Tagen des Zeitraums fehlen
-  im Startsaldo.
+- Der Startsaldo ist der Endsaldo des vorherigen Zeitraums. Buchungen am ersten
+  Tag, auch Einnahmen, zählen nicht hinein.
+- Der Depotwert im Startsaldo sind die Stücke vom Ende des Tages davor. Käufe
+  am ersten Tag fehlen im Startsaldo und liegen im Zeitraum.
 - Der Endsaldo enthält die Stücke, die am Ende des Zeitraums gehalten werden.
 - Der Wert ist Stückzahl mal aktueller Kurs. Historische Kurse werden nicht
   gespeichert.
@@ -117,8 +121,9 @@ anderen Girokontos erscheinen nicht.
   werden kann.
 - Die Liste sortiert nach Wert, Kaufzeitpunkt oder Name. Die Veränderung steht
   wahlweise seit dem Vortag oder seit dem Kauf, in Euro oder in Prozent.
-- Kurse aktualisieren und eine neue Position sind große Liquid-Glass-Buttons.
-  Nachkauf und Verkauf in der Position ebenfalls.
+- Kurse aktualisieren steht links in einer eigenen Blase, das Plus für eine
+  neue Position rechts in einer eigenen Blase, mit Abstand dazwischen. Dieselben
+  begrenzten Blasen gelten für die Suche und das Plus bei den Buchungen.
 - Kurse werden über die ISIN abgerufen. Schlägt das fehl, bleibt der manuelle
   Fallbackkurs.
 
@@ -130,26 +135,31 @@ anderen Girokontos erscheinen nicht.
 - Der Rhythmus ergibt sich aus dem Abstand der Ausführungstage: bis 10 Tage
   wöchentlich, bis 18 zweiwöchentlich, bis 45 monatlich, sonst jährlich. Eine
   einzelne Ausführung gilt als monatlich.
-- Der Plan ist aktiv, wenn die letzte Ausführung nah am Auszugsende liegt.
-  Sonst ist er beendet. Für eine Position mit Bestand null wird kein Plan
-  fortgeführt.
+- Der Plan wird übernommen, wenn die letzte Ausführung nah am Auszugsende liegt
+  und die Position noch Bestand hat. Ein beendeter Plan wird gelöscht und nicht
+  angezeigt. Es gibt keinen Schalter zwischen Aktiv und Beendet.
 - Im Depot ist **Sparpläne** ein Link in eine eigene Liste, kein aufklappbarer
-  Block. Die Liste filtert nach Aktiv und Beendet. Wischen bearbeitet oder
-  löscht einen Plan.
+  Block. Wischen bearbeitet oder löscht einen Plan. Beim Bearbeiten lässt sich
+  das Konto wählen, von dem der Plan abgebucht oder prognostiziert wird. Ist
+  noch keins gespeichert, gilt das Girokonto aus den Einstellungen.
 - Oben stehen die Kosten aller aktiven Pläne pro Woche und pro Monat. Eine
   Woche ist ein Viertel des Monats, weil ein Monat vier Abbuchungstermine hat.
 - Trade Republic bucht am 2., 9., 16. und 23. Wöchentlich sind alle vier Tage,
   zweiwöchentlich der 2. und der 16., monatlich und jährlich nur der 2. Ist
   das kein Bankarbeitstag, gilt der nächste Bankarbeitstag.
-- Die Sparpläne im Depot sind die Vorlage. Jeder Plan ist eine Fixkosten auf
-  dem verknüpften Girokonto, mit demselben Betrag, Rhythmus und Status.
-  Ändern oder Löschen auf einer Seite ändert die andere.
+- Die Sparpläne im Depot sind die Vorlage. Jeder Plan bleibt intern eine
+  Fixkosten auf dem verknüpften Girokonto, damit die Prognose weiterläuft.
+  In der Fixkostenliste stehen die Pläne nicht einzeln. Eine Zeile zeigt den
+  Gesamtbetrag des Zeitraums, also schon abgebuchte Ausführungen plus noch
+  offene Termine, und öffnet die Sparplanliste.
 - Eine bereits gebuchte Ausführung zählt nicht noch einmal als offene Fixkosten.
+  Sie steht aber im gebuchten Fixkostenbetrag des Zeitraums, auch wenn sie vor
+  der letzten Ausführung lag.
 - Bei allen Konten werden diese Fixkosten angezeigt. Den gemeinsamen Saldo
   mindern sie nicht, weil das Geld im Depot bleibt. Auf einem anderen Konto
   erscheinen sie nur, wenn es das verknüpfte Girokonto ist.
-- In der Fixkostenliste steht der nächste Abbuchungstag und wie viele Termine
-  im gewählten Zeitraum noch offen sind.
+- In der Fixkostenliste steht bei normalen Fixkosten der nächste Abbuchungstag
+  und wie viele Termine im gewählten Zeitraum noch offen sind.
 - Dieselben offenen Termine stehen in den Ausgaben als Prognoseausgaben, je
   an ihrem Tag.
 
@@ -157,9 +167,38 @@ anderen Girokontos erscheinen nicht.
 
 Unten stehen die Buchungen des gewählten Zeitraums und Kontos, nicht mehr eine
 eigene Ereignisliste. Darüber sucht ein Feld nach Titel oder Notiz. Rechts
-daneben legt das Plus eine Buchung an. Jede Zeile zeigt Icon, Art, Datum und
-Betrag, öffnet die Buchung und lässt sich wischen: links löschen, rechts
-bearbeiten.
+daneben, mit Abstand, legt das Plus eine Buchung an. Beide liegen in eigenen
+Blasen. Jede Zeile zeigt Icon, Kategorie, Datum und Betrag, öffnet die Buchung
+und lässt sich wischen: links löschen, rechts bearbeiten.
+
+Die angezeigte Kategorie ist keine eigene Speicherart. Gespeichert bleibt
+Einnahme, Ausgabe, Umbuchung oder Saldo-Korrektur. Angezeigt wird:
+
+- Einnahme, Zinsen, Dividende, Ausgabe, Depotkauf, Depotverkauf, Sparplan,
+  Umbuchung
+- Eine Saldo-Korrektur bleibt eine Saldo-Korrektur.
+
+Jedes davon hat ein eigenes Symbol. Dieselben Symbole stehen in den Listen für
+Einnahmen und Ausgaben und bei den Buchungen auf der Home-Seite. Farbig ist
+nur der Betrag von Einnahme, Zinsen und Dividende (grün) und von Ausgabe (rot).
+Depotkauf, Depotverkauf, Sparplan und Umbuchung bleiben weiß.
+
+Ein Sparplan erkennt man am Titel „Sparplan:“. Ein Depotkauf geht auf ein Depot,
+ein Depotverkauf kommt von einem Depot. Zinsen und Dividenden stehen in der
+Notiz als Typ Zinsen oder Typ Ertrag.
+
+Eine Umbuchung zwischen eigenen Konten heißt bei allen Konten Umbuchung. Ist
+genau ein Konto gewählt, ist sie dort eine Ausgabe, wenn das Geld das Konto
+verlässt, und eine Einnahme, wenn es ankommt. Depotkauf, Depotverkauf und
+Sparplan behalten ihre Kategorie, auch auf einem einzelnen Konto. Die Zählregeln
+bleiben dieselben: bei allen Konten zählt ein Depotverkauf nur mit der positiven
+Kursdifferenz als Einnahme und mit der negativen als Ausgabe. Auf dem
+verknüpften Girokonto zählt der volle Betrag.
+
+Die Detailansicht einer Umbuchung zeigt beide Seiten, den Abgang auf dem einen
+Konto und den Zugang auf dem anderen. Beim Buchen wählt man die Kategorie. Ein
+Depotverkauf wird dabei als Umbuchung vom Depot auf das Konto gespeichert, damit
+die Kursdifferenz weiter gilt.
 
 ## Home-Budget
 
@@ -189,8 +228,18 @@ Zahlungsausgang und Saldo.
 - Kartentransaktion ist eine Ausgabe des Girokontos. Eine Erstattung, die den
   Saldo erhöht, bleibt positiv.
 - Ertrag und Zinsen sind Einnahmen des Girokontos, keine Depotbuchung.
-- Eine Überweisung auf ein eigenes Konto ist eine Umbuchung. Eine Überweisung
-  von einer fremden IBAN ist auf dem Empfängerkonto eine Einnahme.
+- Eine Überweisung auf ein eigenes Konto wird nicht mehr automatisch eine
+  Umbuchung. Nach dem Import von Trade-Republic-PDF oder Sparkasse-CAMT, auch
+  in der Einrichtung, erscheint ein Dialog.
+- Unter „Mögliche Umbuchung“ stehen Zeilen mit gleichem Betrag, bekannter IBAN
+  und Datum im Abstand von höchstens drei Tagen. Der Schalter ist aus. Nur wenn
+  er an ist, werden die beiden Seiten eine Umbuchung und die doppelte Buchung
+  auf dem anderen Konto entfällt.
+- Unter „Ähnliche Buchungen“ stehen bereits vorhandene Treffer. Der Bereich ist
+  eingeklappt. Fingerabdruck oder gleicher Betrag, ähnliches Datum und gleicher
+  Titel oder gleiche IBAN gelten als doppelt und werden ausgelassen. Aufklappen
+  und anhaken übernimmt eine Zeile trotzdem. Ausführungen im Wochenabstand
+  liegen außerhalb des Drei-Tage-Fensters und bleiben eigene Buchungen.
 - Ein erneuter Import ersetzt den vorherigen Auszug dieses Girokontos und baut
   das verknüpfte Depot neu auf.
 

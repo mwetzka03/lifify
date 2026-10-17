@@ -55,6 +55,7 @@ struct OnboardingView: View {
     @State private var importingTradeRepublic = false
     @State private var isFinishing = false
     @State private var message: String?
+    @State private var importReview: ImportReview?
 
     var body: some View {
         NavigationStack {
@@ -101,6 +102,15 @@ struct OnboardingView: View {
                 Button("OK") { message = nil }
             } message: {
                 Text(message ?? "")
+            }
+            .sheet(item: $importReview) { review in
+                ImportReviewSheet(review: review) { updated in
+                    do {
+                        try BankImportApplier.commitReview(updated, context: context)
+                    } catch {
+                        message = error.localizedDescription
+                    }
+                }
             }
             .onAppear { onboardingInProgress = true }
         }
@@ -556,6 +566,7 @@ struct OnboardingView: View {
             skippedBeforeStart = result.skippedBeforeStart
             tradeRepublicImported = true
             pendingDocument = nil
+            importReview = result.review.isEmpty ? nil : result.review
         } catch {
             message = error.localizedDescription
         }
@@ -563,18 +574,15 @@ struct OnboardingView: View {
 
     private func commitBankImport() {
         guard let accountID = mainAccountID ?? accounts.first(where: \.isMain)?.id,
+              let account = accounts.first(where: { $0.id == accountID }),
               let balance = Money.cents(from: openingBalance),
               let firstDate = pendingImportRows.first?.date
         else {
             return
         }
-        var existingByFingerprint: [String: LedgerEntry] = [:]
-        for entry in existingEntries {
-            if let fingerprint = entry.importFingerprint {
-                existingByFingerprint[fingerprint] = entry
-            }
-        }
-        var seenFingerprints: Set<String> = []
+        var ledger = existingEntries
+        var known = Set(existingEntries.compactMap(\.importFingerprint))
+        var review = ImportReview()
         var selectableRows: [ImportedTransaction] = []
         var entryIDs: [String: UUID] = [:]
         var inserted: [LedgerEntry] = []
@@ -590,38 +598,18 @@ struct OnboardingView: View {
             )
             context.insert(adjustment)
             inserted.append(adjustment)
+            ledger.append(adjustment)
         }
         for row in pendingImportRows {
-            let fingerprints = [row.fingerprint, row.legacyFingerprint].compactMap { $0 }
-            guard seenFingerprints.isDisjoint(with: fingerprints) else { continue }
-            seenFingerprints.formUnion(fingerprints)
-
-            if let existing = fingerprints.compactMap({ existingByFingerprint[$0] }).first {
-                selectableRows.append(ImportedTransaction(
-                    id: existing.id,
-                    date: row.date,
-                    title: row.title,
-                    notes: row.notes,
-                    amountCents: row.amountCents,
-                    iban: row.iban,
-                    senderIBAN: row.senderIBAN,
-                    recipientIBAN: row.recipientIBAN,
-                    fingerprint: row.fingerprint,
-                    legacyFingerprint: row.legacyFingerprint
-                ))
-                entryIDs[row.fingerprint] = existing.id
-                continue
-            }
-            let entry = LedgerEntry(
-                date: row.date,
-                title: row.title,
-                notes: row.notes,
-                amountCents: row.amountCents,
-                kind: row.amountCents < 0 ? .expense : .income,
-                accountID: accountID,
-                importFingerprint: row.fingerprint
-            )
-            context.insert(entry)
+            guard let entry = BankImportApplier.ingestCashRow(
+                row,
+                checking: account,
+                accounts: accounts,
+                entries: &ledger,
+                known: &known,
+                review: &review,
+                context: context
+            ) else { continue }
             inserted.append(entry)
             selectableRows.append(row)
             entryIDs[row.fingerprint] = entry.id
@@ -631,6 +619,7 @@ struct OnboardingView: View {
             importedEntryIDs.merge(entryIDs) { _, new in new }
             importedRows = selectableRows
             pendingImportRows = []
+            importReview = review.isEmpty ? nil : review
         } catch {
             inserted.forEach(context.delete)
             message = error.localizedDescription

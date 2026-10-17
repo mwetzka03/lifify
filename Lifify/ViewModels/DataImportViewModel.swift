@@ -6,6 +6,7 @@ import SwiftData
 final class DataImportViewModel: ObservableObject {
     @Published var destination: BankImportDestination?
     @Published var message: String?
+    @Published var review: ImportReview?
 
     func importBankFile(
         from url: URL,
@@ -38,6 +39,7 @@ final class DataImportViewModel: ObservableObject {
                 IncomeAssignmentStore.assign(entryID: entryID, to: forecastID)
             }
             message = importMessage(for: result)
+            review = result.review.isEmpty ? nil : result.review
         } catch {
             message = error.localizedDescription
         }
@@ -69,6 +71,7 @@ final class DataImportViewModel: ObservableObject {
                 IncomeAssignmentStore.assign(entryID: entryID, to: forecastID)
             }
             message = importMessage(for: result)
+            review = result.review.isEmpty ? nil : result.review
         } catch {
             message = error.localizedDescription
         }
@@ -101,6 +104,12 @@ final class DataImportViewModel: ObservableObject {
             parts.append(L(
                 "Buchungen vor dem Start des ersten Zeitraums wurden nicht angelegt. Spätere Buchungen sind dabei. Der Startsaldo kommt aus der Saldo-Spalte.",
                 "Transactions before the start of the first period were not booked. Later transactions are included. The opening balance comes from the balance column."
+            ))
+        }
+        if !result.review.isEmpty {
+            parts.append(L(
+                "Prüfe mögliche Umbuchungen und ähnliche Buchungen.",
+                "Review possible transfers and similar transactions."
             ))
         }
         return parts.joined(separator: " ")

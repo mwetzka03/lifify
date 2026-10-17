@@ -133,8 +133,17 @@ struct DataManagementView: View {
         ) { result in
             if case let .failure(error) = result { viewModel.message = error.localizedDescription }
         }
+        .sheet(item: $viewModel.review) { review in
+            ImportReviewSheet(review: review) { updated in
+                do {
+                    try BankImportApplier.commitReview(updated, context: context)
+                } catch {
+                    viewModel.message = error.localizedDescription
+                }
+            }
+        }
         .alert(L("Lifify", "Lifify"), isPresented: Binding(
-            get: { viewModel.message != nil },
+            get: { viewModel.message != nil && viewModel.review == nil },
             set: { if !$0 { viewModel.message = nil } }
         )) {
             Button("OK") { viewModel.message = nil }

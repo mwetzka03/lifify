@@ -52,8 +52,12 @@ struct DashboardView: View {
                         ForEach(filteredBookings) { entry in
                             Button {
                                 selectedBooking = entry
-                            } label: {
-                                TransactionRow(entry: entry)
+                            }                             label: {
+                                TransactionRow(
+                                    entry: entry,
+                                    accounts: accounts,
+                                    viewedAccountID: filters.showsDepot ? nil : selectedFilterAccount?.id
+                                )
                             }
                             .buttonStyle(.plain)
                             .swipeActions(edge: .trailing, allowsFullSwipe: true) {
@@ -182,7 +186,7 @@ struct DashboardView: View {
     }
 
     private var bookingSearchRow: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 16) {
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass")
                     .foregroundStyle(.secondary)
@@ -201,20 +205,24 @@ struct DashboardView: View {
                 }
             }
             .padding(.horizontal, 14)
-            .frame(minHeight: 48)
+            .frame(height: 52)
             .background(AppSurface.card, in: Capsule())
+            .overlay(Capsule().strokeBorder(Color.primary.opacity(0.08)))
+            .clipShape(Capsule())
             Button {
                 showingNewBooking = true
             } label: {
                 Image(systemName: "plus")
                     .font(.title2.weight(.bold))
-                    .frame(width: 56, height: 48)
-                    .liquidGlassSurface(prominent: true)
+                    .foregroundStyle(.primary)
+                    .frame(width: 52, height: 52)
+                    .boundedBubble(circle: true)
             }
             .buttonStyle(.borderless)
+            .tint(.primary)
             .accessibilityLabel(L("Buchung hinzufügen", "Add transaction"))
         }
-        .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 8, trailing: 0))
+        .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 10, trailing: 16))
         .listRowSeparator(.hidden)
         .listRowBackground(Color.clear)
     }

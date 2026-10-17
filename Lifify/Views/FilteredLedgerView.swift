@@ -106,7 +106,10 @@ struct FilteredLedgerView: View {
                                 .foregroundStyle(.secondary)
                         }
                         ForEach(upcomingForecasts) { item in
-                            HStack {
+                            HStack(spacing: 12) {
+                                Image(systemName: BookingCategory.income.systemImage)
+                                    .frame(width: 28)
+                                    .foregroundStyle(.primary)
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(item.forecast.name)
                                     Text(AppDate.numeric(item.date))
@@ -147,7 +150,10 @@ struct FilteredLedgerView: View {
                                 .foregroundStyle(.secondary)
                         }
                         ForEach(upcomingCharges) { item in
-                            HStack {
+                            HStack(spacing: 12) {
+                                Image(systemName: SavingsPlanFixedCosts.isManagedName(item.title) ? BookingCategory.savingsPlan.systemImage : BookingCategory.expense.systemImage)
+                                    .frame(width: 28)
+                                    .foregroundStyle(.primary)
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(item.title)
                                     Text(AppDate.numeric(item.date))
@@ -180,14 +186,19 @@ struct FilteredLedgerView: View {
                 }
                 ForEach(flowRows) { row in
                     Button { selected = row.entry } label: {
+                        let category = rowCategory(row)
                         VStack(alignment: .leading, spacing: 2) {
-                            HStack {
+                            HStack(spacing: 12) {
+                                Image(systemName: category.systemImage)
+                                    .frame(width: 28)
+                                    .foregroundStyle(.primary)
                                 Text(row.title).foregroundStyle(.primary)
                                 Spacer()
                                 Text(Money.signed(cents: row.signedCents))
-                                    .foregroundStyle(row.signedCents < 0 ? .red : .green)
+                                    .foregroundStyle(BookingClassification.amountColor(category: category, signed: row.signedCents))
                             }
                             HStack {
+                                Text(category.label)
                                 Text(AppDate.numeric(row.date))
                                 if let caption = row.caption {
                                     Text(caption)
@@ -197,6 +208,7 @@ struct FilteredLedgerView: View {
                             }
                             .font(.caption)
                             .foregroundStyle(.secondary)
+                            .padding(.leading, 40)
                         }
                     }
                     .buttonStyle(.plain)
@@ -210,6 +222,14 @@ struct FilteredLedgerView: View {
         .sheet(isPresented: $showingNewForecast) { IncomeForecastForm(forecast: nil) }
         .sheet(item: $editedForecast) { IncomeForecastForm(forecast: $0) }
         .sheet(item: $editedCost) { FixedCostForm(cost: $0) }
+    }
+
+    private func rowCategory(_ row: FlowRow) -> BookingCategory {
+        BookingClassification.category(
+            of: row.entry,
+            accounts: accounts,
+            viewedAccountID: filters.showsDepot ? nil : selectedAccount?.id
+        )
     }
 
     private var applicableFixedCosts: [FixedCost] {

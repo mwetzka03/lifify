@@ -453,11 +453,11 @@ struct HomeView: View {
                     .foregroundStyle(.secondary)
             } else {
                 ForEach(visible) { entry in
-                    HomeTransactionRow(entry: entry)
+                    HomeTransactionRow(entry: entry, accounts: accounts)
                 }
                 if periodEntries.count > 5 {
                     NavigationLink {
-                        PeriodTransactionsView(title: periodTitle, entries: periodEntries)
+                        PeriodTransactionsView(title: periodTitle, entries: periodEntries, accounts: accounts)
                     } label: {
                         HStack {
                             Text(L("Alle anzeigen", "Show all"))
@@ -644,20 +644,26 @@ private struct HomePopup: Identifiable {
 
 private struct HomeTransactionRow: View {
     let entry: LedgerEntry
+    var accounts: [Account] = []
 
     var body: some View {
+        let category = BookingClassification.category(of: entry, accounts: accounts, viewedAccountID: nil)
+        let signed = BookingClassification.signedAmount(of: entry, category: category, viewedAccountID: nil)
         HStack(spacing: 10) {
+            Image(systemName: category.systemImage)
+                .frame(width: 22)
+                .foregroundStyle(.primary)
             VStack(alignment: .leading, spacing: 2) {
                 Text(entry.title)
                     .foregroundStyle(.primary)
                     .lineLimit(1)
-                Text(AppDate.numeric(entry.date))
+                Text("\(category.label) · \(AppDate.numeric(entry.date))")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             }
             Spacer()
-            Text(Money.string(cents: entry.kind == .expense ? -abs(entry.amountCents) : abs(entry.amountCents)))
-                .foregroundStyle(entry.kind == .expense ? .red : (entry.kind == .income ? .green : .primary))
+            Text(Money.string(cents: signed))
+                .foregroundStyle(BookingClassification.amountColor(category: category, signed: signed))
                 .monospacedDigit()
         }
         .font(.subheadline)
@@ -667,10 +673,11 @@ private struct HomeTransactionRow: View {
 private struct PeriodTransactionsView: View {
     let title: String
     let entries: [LedgerEntry]
+    var accounts: [Account] = []
 
     var body: some View {
         List(entries) { entry in
-            HomeTransactionRow(entry: entry)
+            HomeTransactionRow(entry: entry, accounts: accounts)
         }
         .navigationTitle(title)
         .navigationBarTitleDisplayMode(.inline)

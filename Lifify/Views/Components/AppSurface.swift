@@ -12,16 +12,23 @@ extension View {
 
     @ViewBuilder
     func liquidGlassSurface(prominent: Bool = false) -> some View {
-        if #available(iOS 26.0, *) {
-            if prominent {
-                self.glassEffect(.regular.tint(Color.accentColor).interactive(), in: .capsule)
-            } else {
-                self.glassEffect(.regular.interactive(), in: .capsule)
-            }
-        } else {
+        self
+            .foregroundStyle(.primary)
+            .background(.ultraThinMaterial, in: Capsule())
+            .overlay(Capsule().strokeBorder(Color.primary.opacity(prominent ? 0.22 : 0.12)))
+            .clipShape(Capsule())
+    }
+
+    @ViewBuilder
+    func boundedBubble(circle: Bool = false) -> some View {
+        if circle {
             self
-                .background(.ultraThinMaterial, in: Capsule())
-                .overlay(Capsule().strokeBorder(Color.primary.opacity(0.12)))
+                .foregroundStyle(.primary)
+                .background(.ultraThinMaterial, in: Circle())
+                .overlay(Circle().strokeBorder(Color.primary.opacity(0.22)))
+                .clipShape(Circle())
+        } else {
+            self.liquidGlassSurface()
         }
     }
 }
