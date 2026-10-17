@@ -7,6 +7,7 @@ struct HomeView: View {
     @Query private var pools: [BudgetPool]
     @Query private var entries: [LedgerEntry]
     @Query private var accounts: [Account]
+    @Query private var holdings: [PortfolioHolding]
     @Query private var splits: [TransactionSplit]
     @Query private var forecasts: [IncomeForecast]
     @Query private var calendarEvents: [ChallengeCalendarEvent]
@@ -453,11 +454,11 @@ struct HomeView: View {
                     .foregroundStyle(.secondary)
             } else {
                 ForEach(visible) { entry in
-                    HomeTransactionRow(entry: entry, accounts: accounts)
+                    HomeTransactionRow(entry: entry, accounts: accounts, holdings: holdings)
                 }
                 if periodEntries.count > 5 {
                     NavigationLink {
-                        PeriodTransactionsView(title: periodTitle, entries: periodEntries, accounts: accounts)
+                        PeriodTransactionsView(title: periodTitle, entries: periodEntries, accounts: accounts, holdings: holdings)
                     } label: {
                         HStack {
                             Text(L("Alle anzeigen", "Show all"))
@@ -645,14 +646,24 @@ private struct HomePopup: Identifiable {
 private struct HomeTransactionRow: View {
     let entry: LedgerEntry
     var accounts: [Account] = []
+    var holdings: [PortfolioHolding] = []
 
     var body: some View {
         let category = BookingClassification.category(of: entry, accounts: accounts, viewedAccountID: nil)
         let signed = BookingClassification.signedAmount(of: entry, category: category, viewedAccountID: nil)
+        let difference = category == .portfolioSale
+            ? HoldingMaintenance.saleEconomics(for: entry, holdings: holdings)?.differenceCents
+            : nil
+        let paint = BookingClassification.paint(
+            category: category,
+            signed: signed,
+            scope: .combined,
+            differenceCents: difference
+        )
         HStack(spacing: 10) {
             Image(systemName: category.systemImage)
                 .frame(width: 22)
-                .foregroundStyle(.primary)
+                .foregroundStyle(paint.iconColor)
             VStack(alignment: .leading, spacing: 2) {
                 Text(entry.title)
                     .foregroundStyle(.primary)
@@ -662,9 +673,13 @@ private struct HomeTransactionRow: View {
                     .foregroundStyle(.secondary)
             }
             Spacer()
-            Text(Money.string(cents: signed))
-                .foregroundStyle(BookingClassification.amountColor(category: category, signed: signed))
-                .monospacedDigit()
+            BookingAmountStack(
+                amount: signed,
+                amountColor: paint.amountColor,
+                difference: paint.differenceCents,
+                amountFont: .subheadline,
+                differenceFont: .caption2
+            )
         }
         .font(.subheadline)
     }
@@ -674,10 +689,11 @@ private struct PeriodTransactionsView: View {
     let title: String
     let entries: [LedgerEntry]
     var accounts: [Account] = []
+    var holdings: [PortfolioHolding] = []
 
     var body: some View {
         List(entries) { entry in
-            HomeTransactionRow(entry: entry, accounts: accounts)
+            HomeTransactionRow(entry: entry, accounts: accounts, holdings: holdings)
         }
         .navigationTitle(title)
         .navigationBarTitleDisplayMode(.inline)

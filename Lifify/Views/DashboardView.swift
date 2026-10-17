@@ -56,7 +56,9 @@ struct DashboardView: View {
                                 TransactionRow(
                                     entry: entry,
                                     accounts: accounts,
-                                    viewedAccountID: filters.showsDepot ? nil : selectedFilterAccount?.id
+                                    holdings: holdings,
+                                    viewedAccountID: filters.showsDepot ? nil : selectedFilterAccount?.id,
+                                    scope: bookingScope
                                 )
                             }
                             .buttonStyle(.plain)
@@ -123,7 +125,8 @@ struct DashboardView: View {
 
     @ViewBuilder
     private func financeSummary(_ period: ForecastPeriod) -> some View {
-        let snapshot = presented(forecast(for: period))
+        let snapshot = presented(forecast(for: period), period: period)
+        let prognose = snapshot.bookedIncome + snapshot.openIncome - snapshot.bookedExpenses - snapshot.openExpenses
         VStack(alignment: .leading, spacing: 8) {
             netWorthCard(snapshot, period: period)
             if filters.showsDepot {
@@ -133,15 +136,13 @@ struct DashboardView: View {
                 let openingBalance = balanceTile(
                     L("Startsaldo", "Opening balance"),
                     amount: snapshot.startBalance,
-                    liquid: liquid?.startBalance,
-                    shrinks: liquid == nil
+                    liquid: liquid?.startBalance
                 )
                 let closingBalance = balanceTile(
                     L("Endsaldo (Prognose)", "Closing balance (forecast)"),
-                    amount: snapshot.endBalance,
-                    delta: snapshot.balanceChange,
-                    liquid: liquid?.endBalance,
-                    shrinks: liquid == nil
+                    amount: snapshot.startBalance + prognose,
+                    delta: prognose,
+                    liquid: liquid?.endBalance
                 )
                 HStack(alignment: .top, spacing: 8) {
                     linked(.income) {
@@ -150,18 +151,15 @@ struct DashboardView: View {
                     linked(.expenses) {
                         flowTile(L("Ausgaben", "Expenses"), amount: -snapshot.bookedExpenses, footnote: expenseFootnote(snapshot, period: period))
                     }
-                    flowTile(L("Differenz", "Difference"), amount: snapshot.realDifference)
+                    flowTile(
+                        L("Differenz", "Difference"),
+                        amount: snapshot.realDifference,
+                        footnote: forecastFootnote(prognose, period: period)
+                    )
                 }
-                if liquid == nil {
-                    HStack(alignment: .top, spacing: 8) {
-                        openingBalance
-                        closingBalance
-                    }
-                } else {
-                    VStack(spacing: 8) {
-                        openingBalance
-                        closingBalance
-                    }
+                HStack(alignment: .top, spacing: 8) {
+                    openingBalance
+                    closingBalance
                 }
                 HStack(alignment: .top, spacing: 8) {
                     linked(.fixedCosts) {
@@ -334,8 +332,7 @@ struct DashboardView: View {
         _ title: String,
         amount: Int,
         delta: Int? = nil,
-        liquid: Int? = nil,
-        shrinks: Bool = false
+        liquid: Int? = nil
     ) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(title)
@@ -345,7 +342,7 @@ struct DashboardView: View {
             Text(Money.string(cents: amount))
                 .font(.title3.weight(.semibold))
                 .lineLimit(1)
-                .minimumScaleFactor(shrinks ? 0.7 : 1)
+                .minimumScaleFactor(0.55)
             Text(delta.map { Money.signed(cents: $0) } ?? " ")
                 .font(.footnote)
                 .foregroundStyle(delta.map { flowColor($0) } ?? .clear)
@@ -357,7 +354,7 @@ struct DashboardView: View {
                 Text(Money.string(cents: liquid))
                     .font(.title3.weight(.semibold))
                     .lineLimit(1)
-                    .minimumScaleFactor(shrinks ? 0.7 : 1)
+                    .minimumScaleFactor(0.55)
             }
         }
         .fixedSize(horizontal: false, vertical: true)
@@ -416,6 +413,16 @@ struct DashboardView: View {
         )
     }
 
+    private var bookingScope: BookingScope {
+        if filters.showsDepot { return .depot }
+        if selectedFilterAccount != nil { return .account }
+        return .combined
+    }
+
+    private var cashAccountIDs: [UUID] {
+        accounts.filter { $0.kind != .portfolio && $0.kind != .savingsGroup }.map(\.id)
+    }
+
     private func forecast(for period: ForecastPeriod) -> PeriodForecast {
         let combined = selectedFilterAccount == nil && !filters.showsDepot
         var snapshot = FinanceService.periodForecast(
@@ -425,13 +432,15 @@ struct DashboardView: View {
             entries: scopedEntries,
             holdings: filters.showsDepot ? holdings : scopedHoldings,
             fixedCosts: forecastFixedCosts,
-            variableBudgets: includePlans && !filters.showsDepot ? variableBudgets : [],
+            variableBudgets: filters.showsDepot ? [] : variableBudgets,
             splits: splits,
             forecasts: includePlans && !filters.showsDepot ? forecasts : [],
             shopping: includePlans && !filters.showsDepot ? shopping : [],
             incomePredicate: combined ? { ExternalIncome.countsInCombinedFinance($0, accounts: accounts) } : nil,
             includePortfolioValue: combined,
-            countSavingsPlansInCash: !combined
+            countSavingsPlansInCash: true,
+            scopedCashAccountIDs: selectedFilterAccount.map { [$0.id] },
+            householdCashAccountIDs: cashAccountIDs
         )
         guard !filters.showsDepot else { return snapshot }
         let tradedIncome = PortfolioCashFlow.countedCents(
@@ -454,11 +463,51 @@ struct DashboardView: View {
         snapshot.bookedExpenses += tradedExpenses
         snapshot.income += tradedIncome
         snapshot.expenses += tradedExpenses
+        if combined {
+            snapshot.startBalance = combinedOpening(for: period)
+        }
         return snapshot
+    }
+
+    /// All-accounts opening is each account's own opening plus the depot on the day before.
+    private func combinedOpening(for period: ForecastPeriod) -> Int {
+        let cashAccounts = accounts.filter { $0.kind != .portfolio && $0.kind != .savingsGroup }
+        let cash = cashAccounts.reduce(0) { partial, account in
+            let touched = entries.filter {
+                $0.accountID == account.id || $0.fromAccountID == account.id || $0.toAccountID == account.id
+            }
+            let household = account.isMain
+            let opening = FinanceService.periodForecast(
+                period: period,
+                periods: periods,
+                accounts: [account],
+                entries: touched,
+                holdings: [],
+                fixedCosts: FixedCostScope.applicable(
+                    costs: fixedCosts,
+                    account: account,
+                    showsDepot: false,
+                    includeHousehold: household
+                ),
+                variableBudgets: variableBudgets,
+                splits: splits,
+                forecasts: household ? forecasts : [],
+                shopping: household ? shopping : [],
+                includePortfolioValue: false,
+                countSavingsPlansInCash: true,
+                scopedCashAccountIDs: [account.id],
+                householdCashAccountIDs: cashAccountIDs
+            ).startBalance
+            return partial + opening
+        }
+        let start = Calendar.current.startOfDay(for: period.start)
+        let dayBefore = Calendar.current.date(byAdding: .day, value: -1, to: start) ?? start
+        return cash + HoldingMaintenance.marketValue(of: holdings, through: dayBefore)
     }
 
     private func liquidForecast(for period: ForecastPeriod) -> PeriodForecast {
         let liquid = accounts.filter { $0.isLiquid && $0.kind != .portfolio && $0.kind != .savingsGroup }
+        let liquidIDs = Set(liquid.map(\.id))
         return FinanceService.periodForecast(
             period: period,
             periods: periods,
@@ -469,17 +518,16 @@ struct DashboardView: View {
             variableBudgets: variableBudgets,
             splits: splits,
             forecasts: forecasts,
-            shopping: shopping
+            shopping: shopping,
+            scopedCashAccountIDs: liquidIDs,
+            householdCashAccountIDs: cashAccountIDs
         )
     }
 
-    private func presented(_ snapshot: PeriodForecast) -> PeriodForecast {
+    private func presented(_ snapshot: PeriodForecast, period: ForecastPeriod) -> PeriodForecast {
         guard filters.showsDepot else { return snapshot }
-        let value = holdings.reduce(0) {
-            $0 + Int((Double($1.currentPriceCents) * $1.quantity).rounded())
-        }
         var copy = snapshot
-        copy.netWorth = value
+        copy.netWorth = HoldingMaintenance.marketValue(of: holdings, through: period.end)
         return copy
     }
 
@@ -490,6 +538,11 @@ struct DashboardView: View {
 
     private func expenseFootnote(_ forecast: PeriodForecast, period: ForecastPeriod) -> String? {
         openFootnote(forecast.openExpenses, period: period)
+    }
+
+    private func forecastFootnote(_ cents: Int, period: ForecastPeriod) -> String? {
+        guard period.end >= Calendar.current.startOfDay(for: .now) else { return nil }
+        return "\(L("Prognose", "Forecast")) \(Money.signed(cents: cents))"
     }
 
     private func openFootnote(_ cents: Int, period: ForecastPeriod) -> String? {

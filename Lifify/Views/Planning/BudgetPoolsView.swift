@@ -64,7 +64,7 @@ private struct BudgetPoolForm: View {
                 TextField(L("Budget", "Budget"), text: $amount).keyboardType(.decimalPad)
                 Picker(L("Konto", "Account"), selection: $accountID) {
                     Text(L("Keins", "None")).tag(Optional<UUID>.none)
-                    ForEach(accounts) { Text($0.name).tag(Optional($0.id)) }
+                    ForEach(accounts.filter { $0.kind != .portfolio && $0.kind != .savingsGroup }) { Text($0.name).tag(Optional($0.id)) }
                 }
                 Picker(L("Zeitraum", "Period"), selection: $mode) {
                     ForEach(BudgetPeriodMode.allCases) { Text($0.label).tag($0) }

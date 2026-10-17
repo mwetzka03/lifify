@@ -1,6 +1,13 @@
 import Foundation
 import SwiftData
 
+struct SaleEconomics: Equatable {
+    var quantity: Double
+    var costCents: Int
+    var proceedsCents: Int
+    var differenceCents: Int
+}
+
 struct HoldingLot: Codable, Identifiable, Hashable {
     var id: UUID
     var date: Date
@@ -290,32 +297,40 @@ enum HoldingMaintenance {
         HoldingLotStore.removeAll(for: holding.id)
         MarketSymbolStore.remove(for: holding.id)
         PreviousCloseStore.remove(for: holding.id)
+        HistoricalPriceStore.remove(for: holding.id)
         HoldingPurchaseDateStore.remove(for: holding.id)
         context.delete(holding)
     }
 
-    /// Market value of the shares already held at the end of `day`. Later buys are excluded.
+    /// Market value of the shares already held at the end of `day`, plus savings
+    /// plans that have not been booked yet when `day` is still in the future.
     static func marketValue(of holdings: [PortfolioHolding], through day: Date) -> Int {
         let cutoff = Calendar.current.date(
             byAdding: .day,
             value: 1,
             to: Calendar.current.startOfDay(for: day)
         ) ?? day
-        return holdings.reduce(0) { total, holding in
-            total + marketValue(of: holding, before: cutoff)
+        let held = holdings.reduce(0) { total, holding in
+            total + marketValue(of: holding, before: cutoff, pricedOn: day)
         }
+        return held + futureSavingsCents(through: day)
+    }
+
+    /// Cost, proceeds and difference of one sale. Fees stay inside the cash amounts.
+    static func saleEconomics(for entry: LedgerEntry, holdings: [PortfolioHolding]) -> SaleEconomics? {
+        let groups = holdings.map { HoldingLotStore.lots(for: $0.id) } + ClosedPositionStore.all().map(\.lots)
+        if let matched = groups.compactMap({ economics(in: $0, entry: entry, requireLedgerID: true) }).first {
+            return matched
+        }
+        return groups.compactMap { economics(in: $0, entry: entry, requireLedgerID: false) }.first
     }
 
     /// Sale proceeds minus the average cost of the shares sold, after fees.
     static func realizedGainCents(for entry: LedgerEntry, holdings: [PortfolioHolding]) -> Int? {
-        let groups = holdings.map { HoldingLotStore.lots(for: $0.id) } + ClosedPositionStore.all().map(\.lots)
-        if let matched = groups.compactMap({ gainCents(in: $0, entry: entry, requireLedgerID: true) }).first {
-            return matched
-        }
-        return groups.compactMap { gainCents(in: $0, entry: entry, requireLedgerID: false) }.first
+        saleEconomics(for: entry, holdings: holdings)?.differenceCents
     }
 
-    private static func marketValue(of holding: PortfolioHolding, before cutoff: Date) -> Int {
+    private static func marketValue(of holding: PortfolioHolding, before cutoff: Date, pricedOn day: Date) -> Int {
         let stored = HoldingLotStore.lots(for: holding.id)
         let lots = stored.filter { $0.date < cutoff }.sorted { $0.date < $1.date }
         let quantity: Double
@@ -334,10 +349,52 @@ enum HoldingMaintenance {
             quantity = max(0, held)
         }
         guard quantity > 0.0000005 else { return 0 }
-        return Int((quantity * Double(holding.currentPriceCents)).rounded())
+        return Int((quantity * Double(priceCents(for: holding, on: day))).rounded())
     }
 
-    private static func gainCents(in lots: [HoldingLot], entry: LedgerEntry, requireLedgerID: Bool) -> Int? {
+    /// Historical close for that day when one is stored. Otherwise the current price.
+    /// Future days always use the current price; upcoming savings are added in euros.
+    private static func priceCents(for holding: PortfolioHolding, on day: Date) -> Int {
+        let calendar = Calendar.current
+        let dayStart = calendar.startOfDay(for: day)
+        let today = calendar.startOfDay(for: .now)
+        if dayStart > today {
+            return max(holding.currentPriceCents, 0)
+        }
+        let key = dayStart.dayKey
+        if let exact = HistoricalPriceStore.cents(for: holding.id, dayKey: key) {
+            return exact
+        }
+        if let prior = HistoricalPriceStore.nearestCents(for: holding.id, onOrBefore: key) {
+            return prior
+        }
+        return max(holding.currentPriceCents, 0)
+    }
+
+    /// Nominal euro amount of active savings plans from tomorrow through `day`.
+    /// Executions already stored as lots stay in the share count and are not added again.
+    private static func futureSavingsCents(through day: Date) -> Int {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: .now)
+        let target = calendar.startOfDay(for: day)
+        guard target > today else { return 0 }
+        let tomorrow = calendar.date(byAdding: .day, value: 1, to: today) ?? today
+        return SavingsPlanStore.all().filter(\.active).reduce(0) { total, plan in
+            let afterLast = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: plan.lastExecution)) ?? tomorrow
+            let from = max(tomorrow, afterLast)
+            guard from <= target else { return total }
+            let month = plan.cadence == .yearly ? calendar.component(.month, from: plan.lastExecution) : nil
+            let dates = CalendarService.savingsPlanDates(
+                cadence: plan.cadence,
+                from: from,
+                through: target,
+                yearlyMonth: month
+            )
+            return total + dates.count * abs(plan.amountCents)
+        }
+    }
+
+    private static func economics(in lots: [HoldingLot], entry: LedgerEntry, requireLedgerID: Bool) -> SaleEconomics? {
         let ordered = lots.sorted { $0.date < $1.date }
         guard let index = ordered.firstIndex(where: { lot in
             guard lot.isSale else { return false }
@@ -364,7 +421,12 @@ enum HoldingMaintenance {
         let sold = min(sale.quantity, quantity)
         let removedCost = cost * sold / quantity
         let proceeds = Double(abs(sale.amountCents)) * (sold / sale.quantity)
-        return Int((proceeds - removedCost).rounded())
+        return SaleEconomics(
+            quantity: sold,
+            costCents: Int(removedCost.rounded()),
+            proceedsCents: Int(proceeds.rounded()),
+            differenceCents: Int((proceeds - removedCost).rounded())
+        )
     }
 
     static func deleteLedger(_ lot: HoldingLot, holding: PortfolioHolding, context: ModelContext) {

@@ -29,22 +29,15 @@ enum BookingCategory: String, CaseIterable, Identifiable {
 
     var systemImage: String {
         switch self {
-        case .income: "arrow.down.circle"
+        case .income: "banknote"
         case .interest: "percent"
         case .dividend: "chart.pie"
-        case .expense: "arrow.up.circle"
-        case .portfolioBuy: "cart"
+        case .expense: "cart"
+        case .portfolioBuy: "chart.line.uptrend.xyaxis"
         case .portfolioSale: "chart.line.downtrend.xyaxis"
         case .savingsPlan: "repeat.circle"
         case .transfer: "arrow.left.arrow.right"
         case .adjustment: "equal.circle"
-        }
-    }
-
-    var colorsAmount: Bool {
-        switch self {
-        case .income, .interest, .dividend, .expense: true
-        case .portfolioBuy, .portfolioSale, .savingsPlan, .transfer, .adjustment: false
         }
     }
 
@@ -63,6 +56,18 @@ enum BookingCategory: String, CaseIterable, Identifiable {
         case .portfolioBuy, .portfolioSale, .savingsPlan, .transfer: .transfer
         }
     }
+}
+
+enum BookingScope {
+    case combined
+    case account
+    case depot
+}
+
+struct BookingPaint {
+    var iconColor: Color
+    var amountColor: Color
+    var differenceCents: Int?
 }
 
 enum BookingClassification {
@@ -127,9 +132,60 @@ enum BookingClassification {
     }
 
     static func amountColor(category: BookingCategory, signed: Int) -> Color {
-        guard category.colorsAmount else { return .primary }
-        if signed < 0 { return .red }
-        if signed > 0 { return .green }
+        paint(category: category, signed: signed, scope: .combined).amountColor
+    }
+
+    static func paint(
+        category: BookingCategory,
+        signed: Int,
+        scope: BookingScope,
+        differenceCents: Int? = nil
+    ) -> BookingPaint {
+        switch category {
+        case .portfolioBuy, .savingsPlan:
+            let color: Color
+            switch scope {
+            case .account: color = .red
+            case .depot: color = .green
+            case .combined: color = .primary
+            }
+            return BookingPaint(iconColor: color, amountColor: color, differenceCents: nil)
+        case .portfolioSale:
+            let color: Color
+            switch scope {
+            case .account: color = .green
+            case .depot: color = .red
+            case .combined: color = .primary
+            }
+            return BookingPaint(iconColor: color, amountColor: color, differenceCents: differenceCents)
+        case .income, .interest, .dividend:
+            return BookingPaint(iconColor: .primary, amountColor: signedColor(signed), differenceCents: nil)
+        case .expense:
+            return BookingPaint(iconColor: .primary, amountColor: signed < 0 ? .red : .primary, differenceCents: nil)
+        case .transfer, .adjustment:
+            return BookingPaint(iconColor: .primary, amountColor: .primary, differenceCents: nil)
+        }
+    }
+
+    static func displayedAmount(_ signed: Int, category: BookingCategory, scope: BookingScope) -> Int {
+        guard scope == .depot else { return signed }
+        switch category {
+        case .portfolioBuy, .savingsPlan:
+            return abs(signed)
+        case .portfolioSale:
+            return -abs(signed)
+        case .income, .interest, .dividend, .expense, .transfer, .adjustment:
+            return signed
+        }
+    }
+
+    static func differenceColor(_ cents: Int) -> Color {
+        signedColor(cents)
+    }
+
+    private static func signedColor(_ cents: Int) -> Color {
+        if cents > 0 { return .green }
+        if cents < 0 { return .red }
         return .primary
     }
 

@@ -6,6 +6,7 @@ struct TransactionsView: View {
     @EnvironmentObject private var filters: FinanceFilterStore
     @Query(sort: \Account.createdAt) private var accounts: [Account]
     @Query(sort: \LedgerEntry.date, order: .reverse) private var entries: [LedgerEntry]
+    @Query private var holdings: [PortfolioHolding]
     @Query private var forecasts: [IncomeForecast]
     @Query private var splits: [TransactionSplit]
     @State private var search = ""
@@ -71,7 +72,9 @@ struct TransactionsView: View {
                     TransactionRow(
                         entry: entry,
                         accounts: accounts,
-                        viewedAccountID: filters.showsDepot ? nil : filters.account(in: filterAccounts)?.id
+                        holdings: holdings,
+                        viewedAccountID: filters.showsDepot ? nil : filters.account(in: filterAccounts)?.id,
+                        scope: filters.showsDepot ? .depot : (filters.account(in: filterAccounts) == nil ? .combined : .account)
                     )
                 }
                 .buttonStyle(.plain)
@@ -117,13 +120,15 @@ struct TransactionsView: View {
 struct TransactionRow: View {
     let entry: LedgerEntry
     var accounts: [Account] = []
+    var holdings: [PortfolioHolding] = []
     var viewedAccountID: UUID? = nil
+    var scope: BookingScope = .combined
 
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: category.systemImage)
                 .frame(width: 28)
-                .foregroundStyle(.primary)
+                .foregroundStyle(paint.iconColor)
             VStack(alignment: .leading, spacing: 3) {
                 Text(entry.title)
                     .foregroundStyle(.primary)
@@ -133,9 +138,7 @@ struct TransactionRow: View {
                     .foregroundStyle(.secondary)
             }
             Spacer()
-            Text(Money.string(cents: signedAmount))
-                .foregroundStyle(BookingClassification.amountColor(category: category, signed: signedAmount))
-                .monospacedDigit()
+            BookingAmountStack(amount: displayAmount, amountColor: paint.amountColor, difference: paint.differenceCents)
         }
     }
 
@@ -146,11 +149,53 @@ struct TransactionRow: View {
     private var signedAmount: Int {
         BookingClassification.signedAmount(of: entry, category: category, viewedAccountID: viewedAccountID)
     }
+
+    private var displayAmount: Int {
+        BookingClassification.displayedAmount(signedAmount, category: category, scope: scope)
+    }
+
+    private var paint: BookingPaint {
+        BookingClassification.paint(
+            category: category,
+            signed: displayAmount,
+            scope: scope,
+            differenceCents: category == .portfolioSale ? saleDifference : nil
+        )
+    }
+
+    private var saleDifference: Int? {
+        HoldingMaintenance.saleEconomics(for: entry, holdings: holdings)?.differenceCents
+    }
+}
+
+struct BookingAmountStack: View {
+    let amount: Int
+    let amountColor: Color
+    let difference: Int?
+    var amountFont: Font = .body
+    var differenceFont: Font = .caption
+    var showsExplicitSign: Bool = false
+
+    var body: some View {
+        VStack(alignment: .trailing, spacing: 0) {
+            Text(showsExplicitSign ? Money.signed(cents: amount) : Money.string(cents: amount))
+                .font(amountFont)
+                .foregroundStyle(amountColor)
+                .monospacedDigit()
+            if let difference {
+                Text(Money.signed(cents: difference))
+                    .font(differenceFont)
+                    .foregroundStyle(BookingClassification.differenceColor(difference))
+                    .monospacedDigit()
+            }
+        }
+    }
 }
 
 struct TransactionDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @Query private var accounts: [Account]
+    @Query private var holdings: [PortfolioHolding]
     let entry: LedgerEntry
 
     var body: some View {
@@ -168,6 +213,18 @@ struct TransactionDetailView: View {
                         L("Datum", "Date"),
                         value: AppDate.weekdayAndNumeric(entry.date)
                     )
+                }
+                if category == .portfolioSale {
+                    Section(L("Verkauf", "Sale")) {
+                        LabeledContent(L("Einkaufspreis", "Purchase price"), value: saleCostText)
+                        LabeledContent(L("Verkaufspreis", "Sale price"), value: saleProceedsText)
+                        HStack {
+                            Text(L("Differenz", "Difference"))
+                            Spacer()
+                            Text(saleDifferenceText)
+                                .foregroundStyle(saleDifferenceColor)
+                        }
+                    }
                 }
                 if let from = account(entry.fromAccountID), let to = account(entry.toAccountID) {
                     Section(L("Beide Buchungen", "Both transactions")) {
@@ -226,7 +283,7 @@ struct TransactionDetailView: View {
 
     private func accountLine(_ account: Account, signed: Int) -> some View {
         HStack(spacing: 12) {
-            Image(systemName: signed < 0 ? BookingCategory.expense.systemImage : BookingCategory.income.systemImage)
+            Image(systemName: signed < 0 ? "arrow.up.circle" : "arrow.down.circle")
                 .frame(width: 28)
                 .foregroundStyle(.primary)
             Text(account.name)
@@ -265,6 +322,28 @@ struct TransactionDetailView: View {
     private var displayAmount: Int {
         BookingClassification.signedAmount(of: entry, category: category, viewedAccountID: nil)
     }
+
+    private var saleEconomics: SaleEconomics? {
+        HoldingMaintenance.saleEconomics(for: entry, holdings: holdings)
+    }
+
+    private var saleCostText: String {
+        saleEconomics.map { Money.string(cents: $0.costCents) } ?? "—"
+    }
+
+    private var saleProceedsText: String {
+        if let saleEconomics { return Money.string(cents: saleEconomics.proceedsCents) }
+        return Money.string(cents: abs(entry.amountCents))
+    }
+
+    private var saleDifferenceText: String {
+        saleEconomics.map { Money.signed(cents: $0.differenceCents) } ?? "—"
+    }
+
+    private var saleDifferenceColor: Color {
+        guard let difference = saleEconomics?.differenceCents else { return .secondary }
+        return BookingClassification.differenceColor(difference)
+    }
 }
 
 struct TransactionFormView: View {
@@ -298,10 +377,10 @@ struct TransactionFormView: View {
 
                 Section(L("Konten", "Accounts")) {
                     if viewModel.category.usesTwoAccounts {
-                        accountPicker(L("Von", "From"), selection: $viewModel.fromAccountID)
-                        accountPicker(L("Nach", "To"), selection: $viewModel.toAccountID)
+                        accountPicker(L("Von", "From"), selection: $viewModel.fromAccountID, portfolio: viewModel.category == .portfolioSale)
+                        accountPicker(L("Nach", "To"), selection: $viewModel.toAccountID, portfolio: viewModel.category == .portfolioBuy || viewModel.category == .savingsPlan)
                     } else {
-                        accountPicker(L("Konto", "Account"), selection: $viewModel.accountID)
+                        accountPicker(L("Konto", "Account"), selection: $viewModel.accountID, portfolio: false)
                     }
                 }
 
@@ -346,10 +425,14 @@ struct TransactionFormView: View {
         }
     }
 
-    private func accountPicker(_ title: String, selection: Binding<UUID?>) -> some View {
-        Picker(title, selection: selection) {
+    private func accountPicker(_ title: String, selection: Binding<UUID?>, portfolio: Bool) -> some View {
+        let choices = accounts.filter { account in
+            guard account.kind != .savingsGroup else { return false }
+            return portfolio ? account.kind == .portfolio : account.kind != .portfolio
+        }
+        return Picker(title, selection: selection) {
             Text(L("Auswählen", "Select")).tag(Optional<UUID>.none)
-            ForEach(accounts.filter { $0.kind != .savingsGroup }) { account in
+            ForEach(choices) { account in
                 Text(account.kind == .checking ? account.name : "\(account.name) · \(account.kind.label)")
                     .tag(Optional(account.id))
             }

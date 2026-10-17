@@ -150,10 +150,16 @@ struct FilteredLedgerView: View {
                                 .foregroundStyle(.secondary)
                         }
                         ForEach(upcomingCharges) { item in
+                            let savings = SavingsPlanFixedCosts.isManagedName(item.title)
+                            let paint = BookingClassification.paint(
+                                category: savings ? .savingsPlan : .expense,
+                                signed: -item.amount,
+                                scope: bookingScope
+                            )
                             HStack(spacing: 12) {
-                                Image(systemName: SavingsPlanFixedCosts.isManagedName(item.title) ? BookingCategory.savingsPlan.systemImage : BookingCategory.expense.systemImage)
+                                Image(systemName: savings ? BookingCategory.savingsPlan.systemImage : BookingCategory.expense.systemImage)
                                     .frame(width: 28)
-                                    .foregroundStyle(.primary)
+                                    .foregroundStyle(savings ? paint.iconColor : .primary)
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(item.title)
                                     Text(AppDate.numeric(item.date))
@@ -162,7 +168,7 @@ struct FilteredLedgerView: View {
                                 }
                                 Spacer()
                                 Text(Money.string(cents: -item.amount))
-                                    .foregroundStyle(.red)
+                                    .foregroundStyle(savings ? paint.amountColor : .red)
                             }
                             .contentShape(Rectangle())
                             .onTapGesture {
@@ -187,15 +193,32 @@ struct FilteredLedgerView: View {
                 ForEach(flowRows) { row in
                     Button { selected = row.entry } label: {
                         let category = rowCategory(row)
+                        let economics = category == .portfolioSale
+                            ? HoldingMaintenance.saleEconomics(for: row.entry, holdings: holdings)
+                            : nil
+                        let paint = BookingClassification.paint(
+                            category: category,
+                            signed: row.signedCents,
+                            scope: bookingScope,
+                            differenceCents: row.caption == nil ? economics?.differenceCents : nil
+                        )
+                        let amountColor = row.caption == nil
+                            ? paint.amountColor
+                            : BookingClassification.differenceColor(row.signedCents)
+                        let iconColor = row.caption == nil ? paint.iconColor : amountColor
                         VStack(alignment: .leading, spacing: 2) {
                             HStack(spacing: 12) {
                                 Image(systemName: category.systemImage)
                                     .frame(width: 28)
-                                    .foregroundStyle(.primary)
+                                    .foregroundStyle(iconColor)
                                 Text(row.title).foregroundStyle(.primary)
                                 Spacer()
-                                Text(Money.signed(cents: row.signedCents))
-                                    .foregroundStyle(BookingClassification.amountColor(category: category, signed: row.signedCents))
+                                BookingAmountStack(
+                                    amount: row.signedCents,
+                                    amountColor: amountColor,
+                                    difference: paint.differenceCents,
+                                    showsExplicitSign: true
+                                )
                             }
                             HStack {
                                 Text(category.label)
@@ -222,6 +245,12 @@ struct FilteredLedgerView: View {
         .sheet(isPresented: $showingNewForecast) { IncomeForecastForm(forecast: nil) }
         .sheet(item: $editedForecast) { IncomeForecastForm(forecast: $0) }
         .sheet(item: $editedCost) { FixedCostForm(cost: $0) }
+    }
+
+    private var bookingScope: BookingScope {
+        if filters.showsDepot { return .depot }
+        if selectedAccount != nil { return .account }
+        return .combined
     }
 
     private func rowCategory(_ row: FlowRow) -> BookingCategory {

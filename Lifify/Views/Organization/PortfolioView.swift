@@ -532,7 +532,10 @@ struct HoldingPerformance {
 
 struct SavingsPlansView: View {
     @Environment(\.modelContext) private var context
+    @EnvironmentObject private var filters: FinanceFilterStore
     @Query(sort: \Account.name) private var accounts: [Account]
+    @Query(sort: \LedgerEntry.date, order: .reverse) private var entries: [LedgerEntry]
+    @Query private var forecasts: [IncomeForecast]
     @State private var plans: [SavingsPlanRecord] = []
     @State private var editedPlan: SavingsPlanRecord?
 
@@ -574,6 +577,26 @@ struct SavingsPlansView: View {
                     savingsPlanRow(plan, accounts: accounts, onEdit: { editedPlan = $0 }, onDelete: { delete($0) })
                 }
             }
+            Section {
+                if bookedExecutions.isEmpty {
+                    Text(L("In diesem Zeitraum liegt keine Ausführung.", "There is no execution in this period."))
+                        .foregroundStyle(.secondary)
+                }
+                ForEach(bookedExecutions) { entry in
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(entry.title)
+                            Text(AppDate.numeric(entry.date))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Text(Money.string(cents: abs(entry.amountCents)))
+                    }
+                }
+            } header: {
+                Text(L("Gebuchte Sparpläne", "Booked savings plans"))
+            }
         }
         .navigationTitle(L("Sparpläne", "Savings plans"))
         .navigationBarTitleDisplayMode(.inline)
@@ -585,6 +608,14 @@ struct SavingsPlansView: View {
                 reload()
             }
         }
+    }
+
+    private var bookedExecutions: [LedgerEntry] {
+        let periods = FinancePeriods.all(entries: entries, forecasts: forecasts)
+        guard let period = filters.period(in: periods) else { return [] }
+        return entries
+            .filter { BookingClassification.isSavingsPlan($0) && period.contains($0.date) }
+            .sorted { $0.date > $1.date }
     }
 
     private func reload() {

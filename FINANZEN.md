@@ -48,20 +48,29 @@ Finanzansicht, in den Buchungen und in den Listen für Einnahmen und Ausgaben.
 
 ## Saldo bei allen Konten
 
-Ist **Alle Konten** gewählt, enthalten Startsaldo und Endsaldo den Depotwert.
+Ist **Alle Konten** gewählt, ist der Startsaldo die Summe der Startsalden der
+einzelnen Konten plus den Depotwert am Tag davor.
 
-- Der Startsaldo ist der Endsaldo des vorherigen Zeitraums. Buchungen am ersten
-  Tag, auch Einnahmen, zählen nicht hinein.
-- Der Depotwert im Startsaldo sind die Stücke vom Ende des Tages davor. Käufe
-  am ersten Tag fehlen im Startsaldo und liegen im Zeitraum.
-- Der Endsaldo enthält die Stücke, die am Ende des Zeitraums gehalten werden.
-- Der Wert ist Stückzahl mal aktueller Kurs. Historische Kurse werden nicht
-  gespeichert.
-- Darunter steht der liquide Saldo ohne Depot, in derselben Zifferngröße wie
-  der Gesamtsaldo. Die Karte wird höher, statt die Zahl zu verkleinern.
-- Ist **Depot** gewählt, zeigt die Karte Gesamtvermögen nur den Depotwert und
-  die Veränderung, ohne leeren Bereich. Einnahmen, Ausgaben, Startsaldo und
-  Endsaldo entfallen dort. Weitere Bereiche entfallen ebenfalls.
+- Buchungen am ersten Tag, auch Einnahmen, zählen nicht in den Startsaldo.
+  Eine Saldo-Korrektur an diesem Tag bleibt der Eröffnungswert.
+- Der Depotwert sind die Stücke, die am Ende des Tages davor gehalten wurden.
+  Käufe am ersten Tag fehlen im Startsaldo und liegen im Zeitraum.
+- Der Kurs ist der Schlusskurs dieses Tages, sobald er gespeichert ist. Fehlt
+  er, gilt der aktuelle Kurs, die Stückzahl bleibt die historische.
+- Liegt der Stichtag in der Zukunft, kommt der aktuelle Kurs zum Einsatz. Noch
+  nicht gebuchte Sparpläne bis zu diesem Tag werden mit ihrem Eurobetrag
+  addiert, ohne prozentuale Steigerung. Auf dem verknüpften Girokonto mindern
+  dieselben Termine den Startsaldo, sodass die Summe unverändert bleibt.
+- Startsaldo und Endsaldo stehen in derselben Reihe. Darunter steht der liquide
+  Saldo ohne Depot, in derselben Zifferngröße. Die Zahl darf leicht schrumpfen,
+  damit beide Kacheln nebeneinander passen.
+- Das Endsaldo ist der Startsaldo plus die Prognose-Differenz. Die
+  Prognose-Differenz steht unter der Differenz und heißt **Prognose**. Sie ist
+  gebuchte plus offene Einnahmen abzüglich gebuchter plus offener Ausgaben.
+- Ist **Depot** gewählt, zeigt die Karte Gesamtvermögen den Depotwert am Ende
+  des gewählten Zeitraums, inklusive noch nicht gebuchter Sparpläne, und die
+  Veränderung. Einnahmen, Ausgaben, Startsaldo und Endsaldo entfallen dort.
+  Weitere Bereiche entfallen ebenfalls.
 
 ## Einnahmen und Ausgaben
 
@@ -124,8 +133,13 @@ anderen Girokontos erscheinen nicht.
 - Kurse aktualisieren steht links in einer eigenen Blase, das Plus für eine
   neue Position rechts in einer eigenen Blase, mit Abstand dazwischen. Dieselben
   begrenzten Blasen gelten für die Suche und das Plus bei den Buchungen.
-- Kurse werden über die ISIN abgerufen. Schlägt das fehl, bleibt der manuelle
-  Fallbackkurs.
+- Kurse kommen von Yahoo Finance. Eine deutsche Notierung, etwa Xetra,
+  Frankfurt, gettex oder Tradegate, wird bevorzugt. Lang & Schwarz hat keine
+  öffentliche Kurs-API. Gibt es mehrere Treffer, wird nicht abgebrochen.
+- Beim Aktualisieren werden tägliche Euro-Schlusskurse gespeichert. Fehlt ein
+  Tag, gilt der letzte gespeicherte Kurs davor, sonst der aktuelle Kurs.
+- Schlägt der Abruf fehl, bleibt der manuelle Fallbackkurs. Die Stückzahl zum
+  Stichtag wird trotzdem verwendet.
 
 ## Sparpläne
 
@@ -144,6 +158,8 @@ anderen Girokontos erscheinen nicht.
   noch keins gespeichert, gilt das Girokonto aus den Einstellungen.
 - Oben stehen die Kosten aller aktiven Pläne pro Woche und pro Monat. Eine
   Woche ist ein Viertel des Monats, weil ein Monat vier Abbuchungstermine hat.
+- Unten stehen die im gewählten Finanzzeitraum gebuchten Ausführungen, mit
+  Name, Datum und Betrag. Der Zeitraum ist derselbe wie in der Finanzansicht.
 - Trade Republic bucht am 2., 9., 16. und 23. Wöchentlich sind alle vier Tage,
   zweiwöchentlich der 2. und der 16., monatlich und jährlich nur der 2. Ist
   das kein Bankarbeitstag, gilt der nächste Bankarbeitstag.
@@ -155,9 +171,11 @@ anderen Girokontos erscheinen nicht.
 - Eine bereits gebuchte Ausführung zählt nicht noch einmal als offene Fixkosten.
   Sie steht aber im gebuchten Fixkostenbetrag des Zeitraums, auch wenn sie vor
   der letzten Ausführung lag.
-- Bei allen Konten werden diese Fixkosten angezeigt. Den gemeinsamen Saldo
-  mindern sie nicht, weil das Geld im Depot bleibt. Auf einem anderen Konto
-  erscheinen sie nur, wenn es das verknüpfte Girokonto ist.
+- Bei allen Konten werden diese Fixkosten angezeigt. In der Prognose-Differenz
+  zählen offene Sparpläne als offene Ausgaben. Im Depotwert desselben
+  Zeitpunkts stehen sie als Zugang, auf dem Girokonto als Abgang.
+- Auf einem anderen Konto erscheinen sie nur, wenn es das verknüpfte Girokonto
+  ist.
 - In der Fixkostenliste steht bei normalen Fixkosten der nächste Abbuchungstag
   und wie viele Termine im gewählten Zeitraum noch offen sind.
 - Dieselben offenen Termine stehen in den Ausgaben als Prognoseausgaben, je
@@ -179,9 +197,25 @@ Einnahme, Ausgabe, Umbuchung oder Saldo-Korrektur. Angezeigt wird:
 - Eine Saldo-Korrektur bleibt eine Saldo-Korrektur.
 
 Jedes davon hat ein eigenes Symbol. Dieselben Symbole stehen in den Listen für
-Einnahmen und Ausgaben und bei den Buchungen auf der Home-Seite. Farbig ist
-nur der Betrag von Einnahme, Zinsen und Dividende (grün) und von Ausgabe (rot).
-Depotkauf, Depotverkauf, Sparplan und Umbuchung bleiben weiß.
+Einnahmen und Ausgaben und bei den Buchungen auf der Home-Seite.
+
+- Einnahme ist ein Geldschein, Ausgabe ein Einkaufswagen.
+- Depotkauf ist ein steigender Chart, Depotverkauf ein fallender Chart.
+- Sparplan und Umbuchung behalten ihre bisherigen Symbole.
+
+Die Farbe von Depotkauf, Sparplan und Depotverkauf hängt vom Filter ab:
+
+- Girokonto: Depotkauf und Sparplan sind rot, Icon und Betrag. Ein Verkauf ist
+  grün. Unter dem Betrag steht die Differenz kleiner, grün wenn positiv und rot
+  wenn negativ.
+- Alle Konten: Depotkauf, Sparplan und der Verkaufsbetrag bleiben in der
+  Textfarbe, auch das Icon. Nur die Differenz unter dem Verkauf ist rot oder
+  grün.
+- Depot: Depotkauf und Sparplan sind grün, Icon und Betrag. Ein Verkauf ist rot.
+
+Einnahme, Zinsen und Dividende bleiben grün, eine Ausgabe rot. In der
+Einnahmen- oder Ausgabenliste ist die Kursdifferenz selbst der Betrag und trägt
+deren Farbe. Dort steht keine zweite Differenz darunter.
 
 Ein Sparplan erkennt man am Titel „Sparplan:“. Ein Depotkauf geht auf ein Depot,
 ein Depotverkauf kommt von einem Depot. Zinsen und Dividenden stehen in der
@@ -196,9 +230,28 @@ Kursdifferenz als Einnahme und mit der negativen als Ausgabe. Auf dem
 verknüpften Girokonto zählt der volle Betrag.
 
 Die Detailansicht einer Umbuchung zeigt beide Seiten, den Abgang auf dem einen
-Konto und den Zugang auf dem anderen. Beim Buchen wählt man die Kategorie. Ein
-Depotverkauf wird dabei als Umbuchung vom Depot auf das Konto gespeichert, damit
-die Kursdifferenz weiter gilt.
+Konto und den Zugang auf dem anderen. Ein Depotverkauf zeigt zusätzlich immer
+Einkaufspreis, Verkaufspreis und Differenz. Beim Buchen wählt man die Kategorie.
+Ein Depotverkauf wird dabei als Umbuchung vom Depot auf das Konto gespeichert,
+damit die Kursdifferenz weiter gilt.
+
+Das Depot steht bei gewöhnlichen Buchungen, Fixkosten, Einnahmeprognosen,
+variablen Kosten und Budgetpools nicht zur Auswahl. Nur Depotkauf, Depotverkauf
+und Sparplan nutzen es, und dort nur auf der Depotseite.
+
+## Variable Kosten
+
+- Rechtswischen bearbeitet eine variable Kosten, Linkswischen löscht sie.
+- Ein Tipp öffnet die Buchungen, die ihr im gewählten Zeitraum zugeordnet sind.
+  Ist ein Konto gewählt, nur die Buchungen dieses Kontos. Der Zeitraum ist
+  derselbe wie in der Finanzansicht.
+- Beim Anlegen lassen sich mehrere Konten wählen. Der Monatsbetrag wird
+  gleichmäßig aufgeteilt, Restcents auf die ersten Konten. Ohne Auswahl gilt
+  der Betrag für alle Konten außer Depot.
+- Alle Konten zeigen den vollen Betrag. Ein einzelnes Konto zeigt nur seinen
+  Anteil, und die Zeile nur, wenn das Konto beteiligt ist.
+- Die gewählten Konten liegen nicht im Datenmodell, sondern in den lokalen
+  Einstellungen. So bleibt eine bestehende Datendatei lesbar.
 
 ## Home-Budget
 

@@ -68,8 +68,12 @@ final class TransactionFormViewModel: ObservableObject {
     func fillAccounts(for category: BookingCategory, accounts: [Account]) {
         let portfolios = accounts.filter { $0.kind == .portfolio }
         let checking = accounts.filter { $0.kind != .portfolio && $0.kind != .savingsGroup }
+        let portfolioIDs = Set(portfolios.map(\.id))
+        let checkingIDs = Set(checking.map(\.id))
         switch category {
         case .portfolioBuy, .savingsPlan:
+            if let fromAccountID, !checkingIDs.contains(fromAccountID) { self.fromAccountID = nil }
+            if let toAccountID, !portfolioIDs.contains(toAccountID) { self.toAccountID = nil }
             if fromAccountID == nil {
                 fromAccountID = TradeAccountPreference.accountID() ?? checking.first?.id
             }
@@ -77,14 +81,19 @@ final class TransactionFormViewModel: ObservableObject {
                 toAccountID = portfolios.first?.id
             }
         case .portfolioSale:
+            if let fromAccountID, !portfolioIDs.contains(fromAccountID) { self.fromAccountID = nil }
+            if let toAccountID, !checkingIDs.contains(toAccountID) { self.toAccountID = nil }
             if fromAccountID == nil {
                 fromAccountID = portfolios.first?.id
             }
             if toAccountID == nil {
                 toAccountID = TradeAccountPreference.accountID() ?? checking.first?.id
             }
-        case .income, .interest, .dividend, .expense, .transfer, .adjustment:
-            break
+        case .transfer:
+            if let fromAccountID, !checkingIDs.contains(fromAccountID) { self.fromAccountID = nil }
+            if let toAccountID, !checkingIDs.contains(toAccountID) { self.toAccountID = nil }
+        case .income, .interest, .dividend, .expense, .adjustment:
+            if let accountID, !checkingIDs.contains(accountID) { self.accountID = nil }
         }
     }
 
@@ -119,11 +128,19 @@ final class TransactionFormViewModel: ObservableObject {
                     errorMessage = L("Wähle ein Depot und ein Konto.", "Choose a portfolio and an account.")
                     return false
                 }
-            case .transfer, .income, .interest, .dividend, .expense, .adjustment:
+            case .transfer:
+                guard !portfolios.contains(fromAccountID), !portfolios.contains(toAccountID) else {
+                    errorMessage = L("Eine Umbuchung läuft nicht über das Depot.", "A transfer does not use the portfolio.")
+                    return false
+                }
+            case .income, .interest, .dividend, .expense, .adjustment:
                 break
             }
         } else if accountID == nil {
             errorMessage = L("Bitte ein Konto auswählen.", "Please select an account.")
+            return false
+        } else if let accountID, portfolios.contains(accountID) {
+            errorMessage = L("Für diese Buchung steht das Depot nicht zur Auswahl.", "The portfolio is not available for this transaction.")
             return false
         }
         let variableValues: [(targetID: UUID, amount: Int)]?

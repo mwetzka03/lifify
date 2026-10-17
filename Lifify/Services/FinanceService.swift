@@ -48,6 +48,40 @@ enum FinanceService {
 
     static func variableSpent(
         budgetID: UUID,
+        from: Date,
+        through: Date,
+        entries: [LedgerEntry],
+        splits: [TransactionSplit],
+        accountID: UUID? = nil
+    ) -> Int {
+        let start = Calendar.current.startOfDay(for: from)
+        let end = endOfDay(through)
+        guard end >= start else { return 0 }
+        let splitIDs = Set(
+            splits
+                .filter { $0.kind == .variableBudget && $0.targetID == budgetID }
+                .map(\.transactionID)
+        )
+        let direct = entries
+            .filter { entry in
+                guard entry.variableBudgetID == budgetID, !splitIDs.contains(entry.id) else { return false }
+                guard entry.date >= start, entry.date <= end else { return false }
+                return entryTouches(entry, accountID: accountID)
+            }
+            .reduce(0) { $0 + abs($1.amountCents) }
+        let split = splits
+            .filter { item in
+                guard item.kind == .variableBudget, item.targetID == budgetID else { return false }
+                guard let entry = entries.first(where: { $0.id == item.transactionID }) else { return false }
+                guard entry.date >= start, entry.date <= end else { return false }
+                return entryTouches(entry, accountID: accountID)
+            }
+            .reduce(0) { $0 + abs($1.amountCents) }
+        return direct + split
+    }
+
+    static func variableSpent(
+        budgetID: UUID,
         monthKey: String,
         entries: [LedgerEntry],
         splits: [TransactionSplit]
@@ -190,14 +224,23 @@ enum FinanceService {
         now: Date = .now,
         incomePredicate: ((LedgerEntry) -> Bool)? = nil,
         includePortfolioValue: Bool = false,
-        countSavingsPlansInCash: Bool = true
+        countSavingsPlansInCash: Bool = true,
+        scopedCashAccountIDs: Set<UUID>? = nil,
+        householdCashAccountIDs: [UUID] = []
     ) -> PeriodForecast {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: now)
         let holdingsValue = holdings.reduce(0) {
             $0 + Int(($1.quantity * Double($1.currentPriceCents)).rounded())
         }
-        let variablePlan = variableBudgets.reduce(0) { $0 + abs($1.monthlyAmountCents) }
+        let cashIDs = householdCashAccountIDs.isEmpty
+            ? accounts.filter { $0.kind != .portfolio && $0.kind != .savingsGroup }.map(\.id)
+            : householdCashAccountIDs
+        let variablePlan = VariableBudgetAccounts.planCents(
+            budgets: variableBudgets,
+            scopedAccountIDs: scopedCashAccountIDs,
+            cashAccountIDs: cashIDs
+        )
         let activeFixed = fixedCosts.filter(\.isActive)
         let cashFixed = countSavingsPlansInCash
             ? activeFixed
@@ -298,7 +341,7 @@ enum FinanceService {
             netWorth: netWorth,
             income: income,
             expenses: bookedExpenses,
-            startBalance: startBalance + openingHoldings,
+            startBalance: startBalance,
             endBalance: endBalance,
             remainingFixed: remainingFixed,
             remainingVariable: remainingVariable,
@@ -754,6 +797,11 @@ enum FinanceService {
         return (applied, planned)
     }
 
+    private static func entryTouches(_ entry: LedgerEntry, accountID: UUID?) -> Bool {
+        guard let accountID else { return true }
+        return entry.accountID == accountID || entry.fromAccountID == accountID || entry.toAccountID == accountID
+    }
+
     private static func endOfDay(_ date: Date) -> Date {
         Calendar.current.date(byAdding: .day, value: 1, to: Calendar.current.startOfDay(for: date))?.addingTimeInterval(-1) ?? date
     }
@@ -822,5 +870,85 @@ enum FixedCostScope {
         let household = costs.filter { !SavingsPlanFixedCosts.isSavingsCost($0) }
         var seen = Set(household.map(\.id))
         return household + savings.filter { seen.insert($0.id).inserted }
+    }
+}
+
+@MainActor
+enum VariableBudgetAccounts {
+    private static let key = "lifify.variableBudgetAccounts"
+
+    static func storedIDs(for budgetID: UUID) -> [UUID]? {
+        let map = all()
+        guard map.keys.contains(budgetID.uuidString) else { return nil }
+        return map[budgetID.uuidString]
+    }
+
+    static func set(_ ids: [UUID], for budgetID: UUID) {
+        var map = all()
+        if ids.isEmpty {
+            map.removeValue(forKey: budgetID.uuidString)
+        } else {
+            map[budgetID.uuidString] = ids
+        }
+        save(map)
+    }
+
+    static func remove(for budgetID: UUID) {
+        var map = all()
+        map.removeValue(forKey: budgetID.uuidString)
+        save(map)
+    }
+
+    /// Chosen cash accounts. An empty result means every cash account.
+    static func targets(for budget: VariableBudget, cashAccountIDs: [UUID]) -> [UUID] {
+        if let stored = storedIDs(for: budget.id) {
+            let kept = stored.filter { cashAccountIDs.contains($0) }
+            if !kept.isEmpty { return cashAccountIDs.filter { kept.contains($0) } }
+        }
+        if storedIDs(for: budget.id) == nil, let id = budget.accountID, cashAccountIDs.contains(id) {
+            return [id]
+        }
+        return cashAccountIDs
+    }
+
+    static func planCents(
+        budgets: [VariableBudget],
+        scopedAccountIDs: Set<UUID>?,
+        cashAccountIDs: [UUID]
+    ) -> Int {
+        budgets.reduce(0) { partial, budget in
+            partial + planCents(budget: budget, scopedAccountIDs: scopedAccountIDs, cashAccountIDs: cashAccountIDs)
+        }
+    }
+
+    static func planCents(
+        budget: VariableBudget,
+        scopedAccountIDs: Set<UUID>?,
+        cashAccountIDs: [UUID]
+    ) -> Int {
+        let total = abs(budget.monthlyAmountCents)
+        guard let scopedAccountIDs else { return total }
+        let chosen = targets(for: budget, cashAccountIDs: cashAccountIDs)
+        return scopedAccountIDs.reduce(0) { partial, id in
+            partial + share(total: total, accountID: id, targets: chosen)
+        }
+    }
+
+    static func share(total: Int, accountID: UUID, targets: [UUID]) -> Int {
+        guard let index = targets.firstIndex(of: accountID), !targets.isEmpty else { return 0 }
+        let base = total / targets.count
+        let remainder = total % targets.count
+        return base + (index < remainder ? 1 : 0)
+    }
+
+    private static func all() -> [String: [UUID]] {
+        guard let data = UserDefaults.standard.data(forKey: key),
+              let decoded = try? JSONDecoder().decode([String: [UUID]].self, from: data) else { return [:] }
+        return decoded
+    }
+
+    private static func save(_ map: [String: [UUID]]) {
+        guard let data = try? JSONEncoder().encode(map) else { return }
+        UserDefaults.standard.set(data, forKey: key)
     }
 }
