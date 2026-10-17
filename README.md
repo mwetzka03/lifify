@@ -11,7 +11,8 @@ Einrichtung erneut; das separate Löschen der Inhaltsdaten behält Konten und
 Einstellungen.
 
 Der fachliche Umfang und die gegenüber FinanzBuddy v0.3.6 getroffenen Annahmen
-stehen in [FEATURES.md](FEATURES.md).
+stehen in [FEATURES.md](FEATURES.md). Die aktuellen Finanzregeln stehen in
+[FINANZEN.md](FINANZEN.md).
 
 ## Voraussetzungen
 

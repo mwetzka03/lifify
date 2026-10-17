@@ -267,7 +267,7 @@ struct TransactionDetailView: View {
     }
 }
 
-private struct TransactionFormView: View {
+struct TransactionFormView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
     @Query(sort: \Account.name) private var accounts: [Account]

@@ -12,7 +12,6 @@ struct DashboardView: View {
     @Query private var variableBudgets: [VariableBudget]
     @Query private var splits: [TransactionSplit]
     @Query(sort: \ShoppingItem.createdAt, order: .reverse) private var shopping: [ShoppingItem]
-    @Query private var splits: [TransactionSplit]
     @Environment(\.modelContext) private var context
     @EnvironmentObject private var filters: FinanceFilterStore
     @State private var selectedBooking: LedgerEntry?
