@@ -718,7 +718,7 @@ private struct SavingsPlanEditor: View {
             return
         }
         if let first = debitAccounts.first {
-            checkingAccountID = first
+            checkingAccountID = first.id
         }
     }
 
