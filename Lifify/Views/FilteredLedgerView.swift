@@ -8,6 +8,7 @@ struct FilteredLedgerView: View {
     @Query(sort: \Account.createdAt) private var accounts: [Account]
     @Query(sort: \LedgerEntry.date, order: .reverse) private var entries: [LedgerEntry]
     @Query(sort: \IncomeForecast.name) private var forecasts: [IncomeForecast]
+    @Query private var holdings: [PortfolioHolding]
     @State private var selected: LedgerEntry?
     @State private var showingNewForecast = false
     @State private var editedForecast: IncomeForecast?
@@ -30,18 +31,33 @@ struct FilteredLedgerView: View {
 
     private var visibleEntries: [LedgerEntry] {
         entries.filter { entry in
-            entry.kind == kind && FinancePeriods.includes(entry, period: selectedPeriod, account: selectedAccount)
+            guard entry.kind == kind else { return false }
+            guard FinancePeriods.includes(entry, period: selectedPeriod, account: selectedAccount, depotIDs: depotIDs) else { return false }
+            guard selectedAccount == nil, !filters.showsDepot, kind == .income else { return true }
+            return ExternalIncome.countsInCombinedFinance(entry, accounts: accounts)
         }
     }
 
+    private var depotIDs: Set<UUID> {
+        guard filters.showsDepot else { return [] }
+        return Set(accounts.filter { $0.kind == .portfolio }.map(\.id))
+    }
+
     private var portfolioLines: [PortfolioCashFlow.Line] {
-        PortfolioCashFlow.lines(
+        let lines = PortfolioCashFlow.lines(
             kind: kind,
             entries: entries,
             accounts: accounts,
+            holdings: holdings,
             period: selectedPeriod,
-            account: selectedAccount
+            account: filters.showsDepot ? nil : selectedAccount
         )
+        guard filters.showsDepot else { return lines }
+        return lines.filter { line in
+            if let from = line.entry.fromAccountID, depotIDs.contains(from) { return true }
+            if let to = line.entry.toAccountID, depotIDs.contains(to) { return true }
+            return false
+        }
     }
 
     private var flowRows: [FlowRow] {
@@ -60,11 +76,12 @@ struct FilteredLedgerView: View {
             FlowRow(
                 id: "trade-\(line.id)",
                 entry: line.entry,
-                title: line.entry.title,
+                title: line.title,
                 date: line.entry.date,
                 signedCents: line.signedCents,
                 counts: line.counts,
-                isTransfer: true
+                isTransfer: line.caption == nil,
+                caption: line.caption
             )
         }
         return (booked + trades).sorted { $0.date > $1.date }
@@ -143,7 +160,9 @@ struct FilteredLedgerView: View {
                             }
                             HStack {
                                 Text(AppDate.numeric(row.date))
-                                if row.isTransfer && !row.counts {
+                                if let caption = row.caption {
+                                    Text(caption)
+                                } else if row.isTransfer && !row.counts {
                                     Text(L("Umbuchung, nicht in der Summe", "Transfer, not included in the total"))
                                 }
                             }
@@ -224,6 +243,7 @@ private struct FlowRow: Identifiable {
     var signedCents: Int
     var counts: Bool
     var isTransfer: Bool
+    var caption: String? = nil
 }
 
 private struct ForecastOccurrence: Identifiable {

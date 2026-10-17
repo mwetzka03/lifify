@@ -12,7 +12,12 @@ struct DashboardView: View {
     @Query private var variableBudgets: [VariableBudget]
     @Query private var splits: [TransactionSplit]
     @Query(sort: \ShoppingItem.createdAt, order: .reverse) private var shopping: [ShoppingItem]
+    @Query private var splits: [TransactionSplit]
+    @Environment(\.modelContext) private var context
     @EnvironmentObject private var filters: FinanceFilterStore
+    @State private var selectedBooking: LedgerEntry?
+    @State private var editingBooking: LedgerEntry?
+    @State private var showingNewBooking = false
     @AppStorage("portfolioPerformanceBasis") private var portfolioBasis = "today"
     @AppStorage("portfolioPerformanceUnit") private var portfolioUnit = "percent"
 
@@ -22,60 +27,59 @@ struct DashboardView: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 8) {
-                if let period = selectedPeriod {
-                    FinanceFilterControls(periods: periods, accounts: filterAccounts)
-                    let snapshot = presented(forecast(for: period))
-                    netWorthCard(snapshot, period: period)
-                    if selectedFilterAccount?.kind == .portfolio {
-                        PortfolioElementsView(accountID: selectedFilterAccount?.id, showsValueHeader: false)
-                    } else {
-                        let liquid = selectedFilterAccount == nil ? liquidForecast(for: period) : nil
-                        HStack(alignment: .top, spacing: 8) {
-                            linked(.income) {
-                                flowTile(L("Einnahmen", "Income"), amount: snapshot.income, footnote: incomeFootnote(snapshot, period: period))
-                            }
-                            linked(.expenses) {
-                                flowTile(L("Ausgaben", "Expenses"), amount: -snapshot.bookedExpenses, footnote: expenseFootnote(snapshot, period: period))
-                            }
-                            flowTile(L("Differenz", "Difference"), amount: snapshot.realDifference)
-                                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                        }
-                        HStack(alignment: .top, spacing: 8) {
-                            balanceTile(
-                                L("Startsaldo", "Opening balance"),
-                                amount: snapshot.startBalance,
-                                liquid: liquid?.startBalance
-                            )
-                            balanceTile(
-                                L("Endsaldo (Prognose)", "Closing balance (forecast)"),
-                                amount: snapshot.endBalance,
-                                delta: snapshot.balanceChange,
-                                liquid: liquid?.endBalance
-                            )
-                        }
-                        HStack(alignment: .top, spacing: 8) {
-                            linked(.fixedCosts) {
-                                flowTile(
-                                    L("Fixkosten", "Fixed costs"),
-                                    amount: -snapshot.bookedFixed,
-                                    footnote: openFootnote(snapshot.remainingFixed, period: period)
-                                )
-                            }
-                            linked(.variableCosts) {
-                                flowTile(
-                                    L("Variable Kosten", "Variable costs"),
-                                    amount: -snapshot.bookedVariable,
-                                    footnote: openFootnote(snapshot.remainingVariable, period: period)
-                                )
-                            }
-                        }
-                        linked(.shopping) { biasCard(snapshot) }
+        Group {
+            if let period = selectedPeriod {
+                List {
+                    Section {
+                        financeSummary(period)
                     }
-                    if isMainTab { FinanceMoreSection(path: path) }
-                    eventsSection(snapshot)
-                } else {
+                    .listRowInsets(EdgeInsets(top: 8, leading: 12, bottom: 4, trailing: 12))
+                    .listRowSeparator(.hidden)
+                    .listRowBackground(Color.clear)
+                    Section {
+                        Button {
+                            showingNewBooking = true
+                        } label: {
+                            Label(L("Buchung hinzufügen", "Add transaction"), systemImage: "plus")
+                        }
+                        if filteredBookings.isEmpty {
+                            Text(L("In diesem Zeitraum liegen keine Buchungen.", "There are no transactions in this period."))
+                                .foregroundStyle(.secondary)
+                        }
+                        ForEach(filteredBookings) { entry in
+                            Button {
+                                selectedBooking = entry
+                            } label: {
+                                TransactionRow(entry: entry)
+                            }
+                            .buttonStyle(.plain)
+                            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                Button(role: .destructive) {
+                                    deleteBooking(entry)
+                                } label: {
+                                    Label(L("Löschen", "Delete"), systemImage: "trash")
+                                }
+                            }
+                            .swipeActions(edge: .leading, allowsFullSwipe: false) {
+                                Button {
+                                    editingBooking = entry
+                                } label: {
+                                    Label(L("Bearbeiten", "Edit"), systemImage: "pencil")
+                                }
+                                .tint(.blue)
+                            }
+                        }
+                    } header: {
+                        Text(L("Buchungen", "Transactions"))
+                            .font(.title3.weight(.semibold))
+                            .foregroundStyle(.primary)
+                            .textCase(nil)
+                    }
+                }
+                .listStyle(.plain)
+                .scrollContentBackground(.hidden)
+            } else {
+                VStack(alignment: .leading, spacing: 8) {
                     ContentUnavailableView(
                         L("Noch kein Zeitraum", "No period yet"),
                         systemImage: "calendar",
@@ -86,14 +90,97 @@ struct DashboardView: View {
                     )
                     if isMainTab { FinanceMoreSection(path: path) }
                 }
+                .padding(12)
             }
-            .padding(12)
         }
         .appCanvas()
         .toolbar(isMainTab ? .hidden : .automatic, for: .navigationBar)
         .navigationTitle(isMainTab ? "" : L("Finanzen", "Finance"))
         .navigationBarTitleDisplayMode(.inline)
         .modifier(FinanceDestinationRegistration(isEnabled: path == nil))
+        .onAppear {
+            SavingsPlanRunner.bookDue(context: context)
+            SavingsPlanFixedCosts.sync(context: context)
+        }
+        .sheet(item: $editingBooking) { entry in
+            TransactionFormView(entry: entry, splits: splits)
+        }
+        .sheet(isPresented: $showingNewBooking) {
+            TransactionFormView(entry: nil, splits: splits)
+        }
+        .sheet(item: $selectedBooking) { entry in
+            TransactionDetailView(entry: entry)
+        }
+    }
+
+    @ViewBuilder
+    private func financeSummary(_ period: ForecastPeriod) -> some View {
+        let snapshot = presented(forecast(for: period))
+        VStack(alignment: .leading, spacing: 8) {
+            FinanceFilterControls(periods: periods, accounts: filterAccounts)
+            netWorthCard(snapshot, period: period)
+            if filters.showsDepot {
+                PortfolioElementsView(accountID: nil, showsValueHeader: false, path: path)
+            } else {
+                let liquid = selectedFilterAccount == nil ? liquidForecast(for: period) : nil
+                HStack(alignment: .top, spacing: 8) {
+                    linked(.income) {
+                        flowTile(L("Einnahmen", "Income"), amount: snapshot.income, footnote: incomeFootnote(snapshot, period: period))
+                    }
+                    linked(.expenses) {
+                        flowTile(L("Ausgaben", "Expenses"), amount: -snapshot.bookedExpenses, footnote: expenseFootnote(snapshot, period: period))
+                    }
+                    flowTile(L("Differenz", "Difference"), amount: snapshot.realDifference)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                }
+                HStack(alignment: .top, spacing: 8) {
+                    balanceTile(
+                        L("Startsaldo", "Opening balance"),
+                        amount: snapshot.startBalance,
+                        liquid: liquid?.startBalance
+                    )
+                    balanceTile(
+                        L("Endsaldo (Prognose)", "Closing balance (forecast)"),
+                        amount: snapshot.endBalance,
+                        delta: snapshot.balanceChange,
+                        liquid: liquid?.endBalance
+                    )
+                }
+                HStack(alignment: .top, spacing: 8) {
+                    linked(.fixedCosts) {
+                        flowTile(
+                            L("Fixkosten", "Fixed costs"),
+                            amount: -snapshot.bookedFixed,
+                            footnote: openFootnote(snapshot.remainingFixed, period: period)
+                        )
+                    }
+                    linked(.variableCosts) {
+                        flowTile(
+                            L("Variable Kosten", "Variable costs"),
+                            amount: -snapshot.bookedVariable,
+                            footnote: openFootnote(snapshot.remainingVariable, period: period)
+                        )
+                    }
+                }
+                linked(.shopping) { biasCard(snapshot) }
+            }
+            if isMainTab { FinanceMoreSection(path: path) }
+        }
+    }
+
+    private var filteredBookings: [LedgerEntry] {
+        guard let period = selectedPeriod else { return [] }
+        let depotIDs = filters.showsDepot ? Set(accounts.filter { $0.kind == .portfolio }.map(\.id)) : []
+        return entries.filter {
+            FinancePeriods.includes($0, period: period, account: selectedFilterAccount, depotIDs: depotIDs)
+        }
+    }
+
+    private func deleteBooking(_ entry: LedgerEntry) {
+        splits.filter { $0.transactionID == entry.id }.forEach { context.delete($0) }
+        IconPreferenceStore.remove(for: entry.id)
+        context.delete(entry)
+        try? context.save()
     }
 
     private func linked<Label: View>(_ route: FinanceRoute, @ViewBuilder label: () -> Label) -> some View {
@@ -121,7 +208,7 @@ struct DashboardView: View {
                 .font(.largeTitle.bold())
                 .minimumScaleFactor(0.6)
                 .lineLimit(1)
-            if selectedFilterAccount?.kind == .portfolio {
+            if filters.showsDepot {
                 let change = portfolioChange
                 Text(change.text)
                     .font(.subheadline.bold())
@@ -156,56 +243,6 @@ struct DashboardView: View {
                     Text(Money.signed(cents: forecast.biasPlanned))
                         .font(.title3.weight(.semibold))
                         .foregroundStyle(forecast.biasPlanned > 0 ? .orange : .primary)
-                }
-            }
-        }
-        .financeCard(padding: 12)
-    }
-
-    private func eventsSection(_ forecast: PeriodForecast) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text(L("Ereignisse", "Events"))
-                    .font(.title3.weight(.semibold))
-                Spacer()
-                Group {
-                    if let path {
-                        Button(L("Alle", "All")) { path.wrappedValue.append(FinanceRoute.transactions) }
-                            .buttonStyle(.plain)
-                    } else {
-                        NavigationLink(value: FinanceRoute.transactions) {
-                            Text(L("Alle", "All"))
-                        }
-                    }
-                }
-                .font(.body.weight(.semibold))
-                .foregroundStyle(Color.accentColor)
-            }
-            if forecast.events.isEmpty {
-                Text(L("In diesem Zeitraum liegen keine Ereignisse.", "There are no events in this period."))
-                    .font(.body)
-                    .foregroundStyle(.secondary)
-            } else {
-                let rows = Array(runningTotals(forecast.events).reversed())
-                ForEach(rows, id: \.line.id) { row in
-                    HStack(alignment: .firstTextBaseline, spacing: 8) {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(row.line.title)
-                                .lineLimit(1)
-                            Text(AppDate.numeric(row.line.date))
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                        }
-                        Spacer(minLength: 8)
-                        VStack(alignment: .trailing, spacing: 2) {
-                            Text(Money.signed(cents: row.line.amountCents))
-                                .foregroundStyle(flowColor(row.line.amountCents))
-                            Text(Money.signed(cents: row.subtotal))
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    .font(.body)
                 }
             }
         }
@@ -301,23 +338,48 @@ struct DashboardView: View {
         selectedFilterAccount == nil || selectedFilterAccount?.isMain == true
     }
 
+    private var savingsPlanCostIDs: Set<UUID> {
+        Set(SavingsPlanStore.all().compactMap(\.fixedCostID))
+    }
+
+    private var forecastFixedCosts: [FixedCost] {
+        let savingsIDs = savingsPlanCostIDs
+        if filters.showsDepot { return [] }
+        if let account = selectedFilterAccount {
+            var costs = includePlans ? fixedCosts : []
+            guard account.kind == .checking else { return costs }
+            for cost in fixedCosts where savingsIDs.contains(cost.id) && cost.accountID == account.id {
+                if !costs.contains(where: { $0.id == cost.id }) {
+                    costs.append(cost)
+                }
+            }
+            return costs
+        }
+        return fixedCosts.filter { !savingsIDs.contains($0.id) }
+    }
+
     private func forecast(for period: ForecastPeriod) -> PeriodForecast {
+        let combined = selectedFilterAccount == nil && !filters.showsDepot
         var snapshot = FinanceService.periodForecast(
             period: period,
             periods: periods,
             accounts: scopedAccounts,
             entries: scopedEntries,
-            holdings: scopedHoldings,
-            fixedCosts: includePlans ? fixedCosts : [],
-            variableBudgets: includePlans ? variableBudgets : [],
+            holdings: filters.showsDepot ? holdings : scopedHoldings,
+            fixedCosts: forecastFixedCosts,
+            variableBudgets: includePlans && !filters.showsDepot ? variableBudgets : [],
             splits: splits,
-            forecasts: includePlans ? forecasts : [],
-            shopping: includePlans ? shopping : []
+            forecasts: includePlans && !filters.showsDepot ? forecasts : [],
+            shopping: includePlans && !filters.showsDepot ? shopping : [],
+            incomePredicate: combined ? { ExternalIncome.countsInCombinedFinance($0, accounts: accounts) } : nil,
+            includePortfolioValue: combined
         )
+        guard !filters.showsDepot else { return snapshot }
         let tradedIncome = PortfolioCashFlow.countedCents(
             kind: .income,
             entries: scopedEntries,
             accounts: accounts,
+            holdings: holdings,
             period: period,
             account: selectedFilterAccount
         )
@@ -325,12 +387,14 @@ struct DashboardView: View {
             kind: .expense,
             entries: scopedEntries,
             accounts: accounts,
+            holdings: holdings,
             period: period,
             account: selectedFilterAccount
         )
         snapshot.bookedIncome += tradedIncome
         snapshot.bookedExpenses += tradedExpenses
         snapshot.income += tradedIncome
+        snapshot.expenses += tradedExpenses
         return snapshot
     }
 
@@ -351,12 +415,12 @@ struct DashboardView: View {
     }
 
     private func presented(_ snapshot: PeriodForecast) -> PeriodForecast {
-        guard let account = selectedFilterAccount, account.kind == .portfolio else { return snapshot }
-        let value = FinanceService.balance(for: account, entries: entries, holdings: holdings)
+        guard filters.showsDepot else { return snapshot }
+        let value = holdings.reduce(0) {
+            $0 + Int((Double($1.currentPriceCents) * $1.quantity).rounded())
+        }
         var copy = snapshot
         copy.netWorth = value
-        copy.startBalance = value
-        copy.endBalance = value
         return copy
     }
 
@@ -379,14 +443,6 @@ struct DashboardView: View {
         if period.contains(today) { return L("Heute", "Today") }
         if period.end < today { return L("Zum Periodenende", "At period end") }
         return L("Prognose zum Periodenende", "Forecast at period end")
-    }
-
-    private func runningTotals(_ lines: [ForecastLine]) -> [(line: ForecastLine, subtotal: Int)] {
-        var sum = 0
-        return lines.sorted { $0.date == $1.date ? $0.title < $1.title : $0.date < $1.date }.map { line in
-            sum += line.amountCents
-            return (line, sum)
-        }
     }
 
     private func flowColor(_ cents: Int) -> Color {
@@ -419,8 +475,6 @@ private struct FinanceMoreSection: View {
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 4)
             VStack(alignment: .leading, spacing: 0) {
-                sectionLink(L("Depot", "Portfolio"), systemImage: "chart.line.uptrend.xyaxis", route: .portfolio)
-                Divider().padding(.leading, 54)
                 sectionLink(L("Budgetpools", "Budget pools"), systemImage: "tray.full", route: .budgetPools)
                 Divider().padding(.leading, 54)
                 sectionLink(L("Ausgabengruppen", "Expense groups"), systemImage: "square.stack.3d.up", route: .expenseGroups)

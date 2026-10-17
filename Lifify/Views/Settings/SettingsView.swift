@@ -22,7 +22,7 @@ struct SettingsView: View {
     var body: some View {
         Form {
             Section(L("Über Lifify", "About Lifify")) {
-                LabeledContent(L("Version", "Version"), value: "0.1.0")
+                LabeledContent(L("Version", "Version"), value: "0.2.0")
                 Text(L(
                     "Alle Daten bleiben lokal auf diesem Gerät. Lifify verwendet kein Backend und benötigt kein Konto.",
                     "All data stays locally on this device. Lifify has no backend and needs no account."

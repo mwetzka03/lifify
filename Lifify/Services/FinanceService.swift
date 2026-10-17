@@ -152,7 +152,9 @@ enum FinanceService {
         splits: [TransactionSplit],
         forecasts: [IncomeForecast],
         shopping: [ShoppingItem],
-        now: Date = .now
+        now: Date = .now,
+        incomePredicate: ((LedgerEntry) -> Bool)? = nil,
+        includePortfolioValue: Bool = false
     ) -> PeriodForecast {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: now)
@@ -163,7 +165,10 @@ enum FinanceService {
         let activeFixed = fixedCosts.filter(\.isActive)
         let incomeDates = incomeOccurrences(forecasts: forecasts, from: period.start, through: period.end)
         let plannedIncome = incomeDates.reduce(0) { $0 + $1.amount }
-        let bookedIncome = signedSum(entries: entries, kind: .income, from: period.start, through: period.end)
+        let incomeSource = incomePredicate.map { predicate in
+            entries.filter { $0.kind != .income || predicate($0) }
+        } ?? entries
+        let bookedIncome = signedSum(entries: incomeSource, kind: .income, from: period.start, through: period.end)
         let income = max(plannedIncome, bookedIncome)
         let openIncome = max(0, plannedIncome - bookedIncome)
         let bookedExpenses = signedSum(entries: entries, kind: .expense, from: period.start, through: period.end)
@@ -186,6 +191,12 @@ enum FinanceService {
         let remainingVariable = period.end < today ? 0 : max(variablePlan - bookedVariable, 0)
         let bias = biasAmounts(shopping: shopping, period: period)
         let outstandingBias = period.end < today ? 0 : bias.planned
+        let openingHoldings = includePortfolioValue
+            ? HoldingMaintenance.marketValue(of: holdings, through: period.start)
+            : 0
+        let closingHoldings = includePortfolioValue
+            ? HoldingMaintenance.marketValue(of: holdings, through: period.end)
+            : 0
         let startBalance = projectedCash(
             on: period.start,
             chargeVariableThroughEnd: false,
@@ -215,14 +226,17 @@ enum FinanceService {
             variablePlan: variablePlan,
             budgets: variableBudgets,
             splits: splits
-        )
+        ) + closingHoldings
+        let portfolioNow = includePortfolioValue
+            ? HoldingMaintenance.marketValue(of: holdings, through: now)
+            : holdingsValue
         let netWorth: Int
         if period.contains(today) {
-            netWorth = cashBalance(accounts: accounts, entries: entries, through: endOfDay(now)) + holdingsValue
+            netWorth = cashBalance(accounts: accounts, entries: entries, through: endOfDay(now)) + portfolioNow
         } else if period.end < today {
-            netWorth = cashBalance(accounts: accounts, entries: entries, through: endOfDay(period.end)) + holdingsValue
+            netWorth = cashBalance(accounts: accounts, entries: entries, through: endOfDay(period.end)) + closingHoldings
         } else {
-            netWorth = endBalance + holdingsValue
+            netWorth = endBalance + (includePortfolioValue ? 0 : holdingsValue)
         }
         let openExpenses = period.end < today ? 0 : remainingFixed + remainingVariable + outstandingBias
         let events = eventLines(
@@ -237,7 +251,7 @@ enum FinanceService {
             netWorth: netWorth,
             income: income,
             expenses: bookedExpenses,
-            startBalance: startBalance,
+            startBalance: startBalance + openingHoldings,
             endBalance: endBalance,
             remainingFixed: remainingFixed,
             remainingVariable: remainingVariable,
@@ -469,10 +483,15 @@ enum FinanceService {
         entries: [LedgerEntry]
     ) -> LedgerEntry? {
         entries.first { entry in
-            guard entry.kind == .expense else { return false }
+            guard entry.kind == .expense || entry.kind == .transfer else { return false }
             guard Calendar.current.isDate(entry.date, inSameDayAs: occurrence.date) else { return false }
             if entry.fixedCostID == occurrence.costID { return true }
             let sameAmount = abs(entry.amountCents) == occurrence.amount
+            if entry.kind == .transfer {
+                guard sameAmount, SavingsPlanFixedCosts.isManagedName(occurrence.title) else { return false }
+                let planName = SavingsPlanFixedCosts.planName(inFixedCostName: occurrence.title)
+                return !planName.isEmpty && entry.title.localizedCaseInsensitiveContains(planName)
+            }
             let title = occurrence.title
             let sameTitle = !title.isEmpty && (
                 entry.title.localizedCaseInsensitiveContains(title) ||

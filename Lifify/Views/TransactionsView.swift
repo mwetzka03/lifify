@@ -24,8 +24,9 @@ struct TransactionsView: View {
     private var filtered: [LedgerEntry] {
         let period = filters.period(in: periods)
         let account = filters.account(in: filterAccounts)
+        let depotIDs = filters.showsDepot ? Set(accounts.filter { $0.kind == .portfolio }.map(\.id)) : []
         return entries.filter { entry in
-            guard FinancePeriods.includes(entry, period: period, account: account) else { return false }
+            guard FinancePeriods.includes(entry, period: period, account: account, depotIDs: depotIDs) else { return false }
             guard !search.isEmpty else { return true }
             return entry.title.localizedCaseInsensitiveContains(search)
                 || entry.notes.localizedCaseInsensitiveContains(search)

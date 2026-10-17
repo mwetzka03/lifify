@@ -122,6 +122,7 @@ struct SavingsPlanRecord: Codable, Identifiable, Hashable {
     var lastExecution: Date
     var historyThrough: Date
     var active: Bool
+    var fixedCostID: UUID? = nil
 
     var cadence: Cadence { Cadence(rawValue: cadenceRaw) ?? .monthly }
 
@@ -206,11 +207,7 @@ enum HoldingMaintenance {
     static func sync(_ holding: PortfolioHolding, context: ModelContext) -> Bool {
         let lots = HoldingLotStore.lots(for: holding.id)
         guard let position = averagePurchaseCents(for: lots) else {
-            HoldingLotStore.removeAll(for: holding.id)
-            MarketSymbolStore.remove(for: holding.id)
-            PreviousCloseStore.remove(for: holding.id)
-            HoldingPurchaseDateStore.remove(for: holding.id)
-            context.delete(holding)
+            retire(holding, context: context)
             try? context.save()
             return false
         }
@@ -275,6 +272,92 @@ enum HoldingMaintenance {
             lots[index] = stored
             HoldingLotStore.replace(lots, holdingID: holding.id)
         }
+    }
+
+    /// Removes a closed position from the depot and keeps its lots for the sale result.
+    static func retire(_ holding: PortfolioHolding, context: ModelContext) {
+        let lots = HoldingLotStore.lots(for: holding.id)
+        if !lots.isEmpty {
+            ClosedPositionStore.archive(isin: holding.symbol, name: holding.name, lots: lots)
+        }
+        HoldingLotStore.removeAll(for: holding.id)
+        MarketSymbolStore.remove(for: holding.id)
+        PreviousCloseStore.remove(for: holding.id)
+        HoldingPurchaseDateStore.remove(for: holding.id)
+        context.delete(holding)
+    }
+
+    /// Market value of the shares already held at the end of `day`. Later buys are excluded.
+    static func marketValue(of holdings: [PortfolioHolding], through day: Date) -> Int {
+        let cutoff = Calendar.current.date(
+            byAdding: .day,
+            value: 1,
+            to: Calendar.current.startOfDay(for: day)
+        ) ?? day
+        return holdings.reduce(0) { total, holding in
+            total + marketValue(of: holding, before: cutoff)
+        }
+    }
+
+    /// Sale proceeds minus the average cost of the shares sold, after fees.
+    static func realizedGainCents(for entry: LedgerEntry, holdings: [PortfolioHolding]) -> Int? {
+        let groups = holdings.map { HoldingLotStore.lots(for: $0.id) } + ClosedPositionStore.all().map(\.lots)
+        if let matched = groups.compactMap({ gainCents(in: $0, entry: entry, requireLedgerID: true) }).first {
+            return matched
+        }
+        return groups.compactMap { gainCents(in: $0, entry: entry, requireLedgerID: false) }.first
+    }
+
+    private static func marketValue(of holding: PortfolioHolding, before cutoff: Date) -> Int {
+        let stored = HoldingLotStore.lots(for: holding.id)
+        let lots = stored.filter { $0.date < cutoff }.sorted { $0.date < $1.date }
+        let quantity: Double
+        if stored.isEmpty {
+            let purchased = HoldingPurchaseDateStore.date(for: holding.id) ?? .distantPast
+            quantity = purchased < cutoff ? max(holding.quantity, 0) : 0
+        } else {
+            var held = 0.0
+            for lot in lots {
+                if lot.isSale {
+                    held -= lot.quantity
+                } else {
+                    held += lot.quantity
+                }
+            }
+            quantity = max(0, held)
+        }
+        guard quantity > 0.0000005 else { return 0 }
+        return Int((quantity * Double(holding.currentPriceCents)).rounded())
+    }
+
+    private static func gainCents(in lots: [HoldingLot], entry: LedgerEntry, requireLedgerID: Bool) -> Int? {
+        let ordered = lots.sorted { $0.date < $1.date }
+        guard let index = ordered.firstIndex(where: { lot in
+            guard lot.isSale else { return false }
+            if lot.ledgerEntryID == entry.id { return true }
+            if requireLedgerID { return false }
+            return Calendar.current.isDate(lot.date, inSameDayAs: entry.date)
+                && abs(lot.amountCents) == abs(entry.amountCents)
+        }) else { return nil }
+        var quantity = 0.0
+        var cost = 0.0
+        for lot in ordered[..<index] {
+            if lot.isSale {
+                guard quantity > 0.0000005 else { continue }
+                let sold = min(lot.quantity, quantity)
+                cost *= (quantity - sold) / quantity
+                quantity -= sold
+            } else {
+                quantity += lot.quantity
+                cost += Double(abs(lot.amountCents))
+            }
+        }
+        let sale = ordered[index]
+        guard quantity > 0.0000005, sale.quantity > 0.0000005 else { return nil }
+        let sold = min(sale.quantity, quantity)
+        let removedCost = cost * sold / quantity
+        let proceeds = Double(abs(sale.amountCents)) * (sold / sale.quantity)
+        return Int((proceeds - removedCost).rounded())
     }
 
     static func deleteLedger(_ lot: HoldingLot, holding: PortfolioHolding, context: ModelContext) {
@@ -476,5 +559,105 @@ enum SavingsPlanRunner {
         while text.contains("."), text.last == "0" { text.removeLast() }
         if text.last == "." { text.removeLast() }
         return text
+    }
+}
+
+struct ClosedPositionRecord: Codable, Hashable {
+    var isin: String
+    var name: String
+    var lots: [HoldingLot]
+}
+
+@MainActor
+enum ClosedPositionStore {
+    private static let key = "lifify.closedPositions"
+
+    static func all() -> [ClosedPositionRecord] {
+        guard let data = UserDefaults.standard.data(forKey: key),
+              let decoded = try? JSONDecoder().decode([ClosedPositionRecord].self, from: data) else { return [] }
+        return decoded
+    }
+
+    static func archive(isin: String, name: String, lots: [HoldingLot]) {
+        let symbol = isin.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        guard !symbol.isEmpty, !lots.isEmpty else { return }
+        var rows = all().filter { $0.isin.uppercased() != symbol }
+        rows.append(ClosedPositionRecord(isin: symbol, name: name, lots: lots))
+        save(rows)
+    }
+
+    static func remove(isin: String) {
+        let symbol = isin.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        save(all().filter { $0.isin.uppercased() != symbol })
+    }
+
+    private static func save(_ rows: [ClosedPositionRecord]) {
+        guard let data = try? JSONEncoder().encode(rows) else { return }
+        UserDefaults.standard.set(data, forKey: key)
+    }
+}
+
+@MainActor
+enum SavingsPlanFixedCosts {
+    static var namePrefix: String { "\(L("Sparplan", "Savings plan")): " }
+
+    static func isManagedName(_ name: String) -> Bool {
+        name.hasPrefix("Sparplan: ") || name.hasPrefix("Savings plan: ")
+    }
+
+    static func sync(context: ModelContext) {
+        var plans = SavingsPlanStore.all()
+        var costs = (try? context.fetch(FetchDescriptor<FixedCost>())) ?? []
+        var kept: Set<UUID> = []
+        let calendar = Calendar.current
+        for index in plans.indices {
+            var plan = plans[index]
+            let name = "\(namePrefix)\(plan.name)"
+            let anchor = chargeAnchor(for: plan)
+            let day = calendar.component(.day, from: anchor)
+            let existing = costs.first { $0.id == plan.fixedCostID }
+                ?? costs.first { $0.accountID == plan.checkingAccountID && $0.name == name }
+            let cost = existing ?? FixedCost(
+                name: name,
+                amountCents: plan.amountCents,
+                accountID: plan.checkingAccountID,
+                cadence: plan.cadence,
+                firstChargeDate: anchor,
+                dayOfMonth: day,
+                isActive: plan.active
+            )
+            if existing == nil {
+                context.insert(cost)
+                costs.append(cost)
+            }
+            cost.name = name
+            cost.amountCents = plan.amountCents
+            cost.accountID = plan.checkingAccountID
+            cost.cadence = plan.cadence
+            cost.firstChargeDate = anchor
+            cost.dayOfMonth = day
+            cost.dueRule = .calendarDay
+            cost.isActive = plan.active
+            cost.endChargeDate = plan.active ? nil : plan.lastExecution
+            plan.fixedCostID = cost.id
+            plans[index] = plan
+            kept.insert(cost.id)
+        }
+        for cost in costs where isManagedName(cost.name) && !kept.contains(cost.id) {
+            context.delete(cost)
+        }
+        SavingsPlanStore.save(plans)
+        try? context.save()
+    }
+
+    static func planName(inFixedCostName name: String) -> String {
+        if name.hasPrefix("Sparplan: ") { return String(name.dropFirst("Sparplan: ".count)) }
+        if name.hasPrefix("Savings plan: ") { return String(name.dropFirst("Savings plan: ".count)) }
+        return name
+    }
+
+    private static func chargeAnchor(for plan: SavingsPlanRecord) -> Date {
+        guard plan.active, let next = plan.nextExecution() else { return plan.lastExecution }
+        return next
     }
 }

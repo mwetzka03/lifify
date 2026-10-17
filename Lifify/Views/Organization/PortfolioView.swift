@@ -12,9 +12,6 @@ struct PortfolioView: View {
     @State private var selected: PortfolioHolding?
     @State private var isRefreshing = false
     @State private var savingsPlans: [SavingsPlanRecord] = []
-    @State private var plansExpanded = true
-    @State private var editedPlan: SavingsPlanRecord?
-    @Query(sort: \Account.name) private var planAccounts: [Account]
 
     var body: some View {
         List {
@@ -52,11 +49,8 @@ struct PortfolioView: View {
             }
             if !savingsPlans.isEmpty {
                 Section {
-                    savingsPlanHeader
-                    if plansExpanded {
-                        ForEach(savingsPlans) { plan in
-                            savingsPlanRow(plan, accounts: planAccounts, onEdit: { editedPlan = $0 }, onDelete: { deletePlan($0) })
-                        }
+                    NavigationLink(value: FinanceRoute.savingsPlans) {
+                        Text(L("Sparpläne", "Savings plans"))
                     }
                 }
             }
@@ -98,7 +92,9 @@ struct PortfolioView: View {
             }
         }
         .overlay {
-            if holdings.isEmpty { ContentUnavailableView(L("Keine Depotpositionen", "No holdings"), systemImage: "chart.line.uptrend.xyaxis") }
+            if sortedHoldings.isEmpty && savingsPlans.isEmpty {
+                ContentUnavailableView(L("Keine Depotpositionen", "No holdings"), systemImage: "chart.line.uptrend.xyaxis")
+            }
         }
         .navigationTitle(L("Depot", "Portfolio"))
         .toolbar {
@@ -121,36 +117,12 @@ struct PortfolioView: View {
                 HoldingPurchaseDateStore.set(holding.updatedAt, for: holding.id)
             }
             SavingsPlanRunner.bookDue(context: context)
+            SavingsPlanFixedCosts.sync(context: context)
             savingsPlans = SavingsPlanStore.all()
         }
         .sheet(isPresented: $showingNew) { HoldingForm(holding: nil) }
         .sheet(item: $edited) { HoldingForm(holding: $0) }
         .sheet(item: $selected) { HoldingDetailView(holding: $0) }
-        .sheet(item: $editedPlan) { plan in
-            SavingsPlanEditor(plan: plan) { saved in
-                SavingsPlanStore.upsert(saved)
-                savingsPlans = SavingsPlanStore.all()
-            }
-        }
-    }
-
-    private func deletePlan(_ plan: SavingsPlanRecord) {
-        SavingsPlanStore.remove(id: plan.id)
-        savingsPlans = SavingsPlanStore.all()
-    }
-
-    private var savingsPlanHeader: some View {
-        Button {
-            plansExpanded.toggle()
-        } label: {
-            HStack {
-                Text(L("Sparpläne", "Savings plans"))
-                Spacer()
-                Image(systemName: plansExpanded ? "chevron.down" : "chevron.right")
-                    .font(.caption.weight(.semibold))
-            }
-        }
-        .buttonStyle(.plain)
     }
 
     fileprivate func deleteHolding(_ holding: PortfolioHolding) {
@@ -162,26 +134,30 @@ struct PortfolioView: View {
         try? context.save()
     }
 
+    private var openHoldings: [PortfolioHolding] {
+        holdings.filter { $0.quantity > 0.0000005 }
+    }
+
     private var sortedHoldings: [PortfolioHolding] {
         switch PortfolioSort(rawValue: sort) ?? .value {
         case .value:
-            return holdings.sorted { holdingPerformance($0).value > holdingPerformance($1).value }
+            return openHoldings.sorted { holdingPerformance($0).value > holdingPerformance($1).value }
         case .purchase:
-            return holdings.sorted { lhs, rhs in
+            return openHoldings.sorted { lhs, rhs in
                 let left = HoldingPurchaseDateStore.date(for: lhs.id) ?? .distantPast
                 let right = HoldingPurchaseDateStore.date(for: rhs.id) ?? .distantPast
                 if left != right { return left > right }
                 return lhs.name.localizedCaseInsensitiveCompare(rhs.name) == .orderedAscending
             }
         case .name:
-            return holdings.sorted {
+            return openHoldings.sorted {
                 $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
             }
         }
     }
 
     private var portfolioPerformance: HoldingPerformance {
-        holdings.reduce(HoldingPerformance()) { total, holding in
+        openHoldings.reduce(HoldingPerformance()) { total, holding in
             total.adding(holdingPerformance(holding))
         }
     }
@@ -197,6 +173,7 @@ struct PortfolioView: View {
 struct PortfolioElementsView: View {
     var accountID: UUID?
     var showsValueHeader = true
+    var path: Binding<NavigationPath>? = nil
     @Environment(\.modelContext) private var context
     @Query(sort: \PortfolioHolding.name) private var holdings: [PortfolioHolding]
     @AppStorage("portfolioPerformanceBasis") private var basis = PortfolioBasis.today.rawValue
@@ -207,13 +184,11 @@ struct PortfolioElementsView: View {
     @State private var selected: PortfolioHolding?
     @State private var isRefreshing = false
     @State private var savingsPlans: [SavingsPlanRecord] = []
-    @State private var plansExpanded = true
-    @State private var editedPlan: SavingsPlanRecord?
-    @Query(sort: \Account.name) private var accounts: [Account]
 
     private var visibleHoldings: [PortfolioHolding] {
-        guard let accountID else { return holdings }
-        return holdings.filter { $0.accountID == accountID }
+        holdings.filter { holding in
+            holding.quantity > 0.0000005 && (accountID == nil || holding.accountID == accountID)
+        }
     }
 
     var body: some View {
@@ -294,22 +269,12 @@ struct PortfolioElementsView: View {
                 HoldingPurchaseDateStore.set(holding.updatedAt, for: holding.id)
             }
             SavingsPlanRunner.bookDue(context: context)
+            SavingsPlanFixedCosts.sync(context: context)
             savingsPlans = SavingsPlanStore.all()
         }
         .sheet(isPresented: $showingNew) { HoldingForm(holding: nil, preferredAccountID: accountID) }
         .sheet(item: $edited) { HoldingForm(holding: $0, preferredAccountID: accountID) }
         .sheet(item: $selected) { HoldingDetailView(holding: $0) }
-        .sheet(item: $editedPlan) { plan in
-            SavingsPlanEditor(plan: plan) { saved in
-                SavingsPlanStore.upsert(saved)
-                savingsPlans = SavingsPlanStore.all()
-            }
-        }
-    }
-
-    private func deletePlan(_ plan: SavingsPlanRecord) {
-        SavingsPlanStore.remove(id: plan.id)
-        savingsPlans = SavingsPlanStore.all()
     }
 
     private var visiblePlans: [SavingsPlanRecord] {
@@ -319,36 +284,41 @@ struct PortfolioElementsView: View {
     @ViewBuilder
     private var savingsPlanCard: some View {
         if !visiblePlans.isEmpty {
-            VStack(alignment: .leading, spacing: 8) {
-                Button {
-                    plansExpanded.toggle()
-                } label: {
-                    HStack {
-                        Text(L("Sparpläne", "Savings plans"))
-                            .font(.headline)
-                        Spacer()
-                        Image(systemName: plansExpanded ? "chevron.down" : "chevron.right")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.secondary)
-                    }
-                }
+            savingsPlanLink
                 .buttonStyle(.plain)
-                if plansExpanded {
-                    List {
-                        ForEach(visiblePlans) { plan in
-                            savingsPlanRow(plan, accounts: accounts, onEdit: { editedPlan = $0 }, onDelete: { deletePlan($0) })
-                        }
-                    }
-                    .listStyle(.plain)
-                    .scrollContentBackground(.hidden)
-                    .scrollDisabled(true)
-                    .frame(height: CGFloat(visiblePlans.count) * 76)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(AppSurface.card, in: RoundedRectangle(cornerRadius: 14))
+        }
+    }
+
+    private var savingsPlanLink: some View {
+        Group {
+            if let path {
+                Button {
+                    path.wrappedValue.append(FinanceRoute.savingsPlans)
+                } label: {
+                    savingsPlanLinkLabel
+                }
+            } else {
+                NavigationLink(value: FinanceRoute.savingsPlans) {
+                    savingsPlanLinkLabel
                 }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(12)
-            .background(AppSurface.card, in: RoundedRectangle(cornerRadius: 14))
         }
+    }
+
+    private var savingsPlanLinkLabel: some View {
+        HStack {
+            Text(L("Sparpläne", "Savings plans"))
+                .font(.headline)
+                .foregroundStyle(.primary)
+            Spacer()
+            Image(systemName: "chevron.right")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+        }
+        .padding(12)
+        .contentShape(Rectangle())
     }
 
     private var portfolioTotals: HoldingPerformance {
@@ -541,6 +511,73 @@ struct HoldingPerformance {
         formatter.minimumFractionDigits = 2
         formatter.positivePrefix = formatter.plusSign
         return formatter.string(from: NSNumber(value: ratio)) ?? "0 %"
+    }
+}
+
+private enum SavingsPlanStatus: String, CaseIterable, Identifiable {
+    case active
+    case ended
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .active: L("Aktiv", "Active")
+        case .ended: L("Beendet", "Ended")
+        }
+    }
+}
+
+struct SavingsPlansView: View {
+    @Environment(\.modelContext) private var context
+    @Query(sort: \Account.name) private var accounts: [Account]
+    @State private var plans: [SavingsPlanRecord] = []
+    @State private var status = SavingsPlanStatus.active
+    @State private var editedPlan: SavingsPlanRecord?
+
+    private var visible: [SavingsPlanRecord] {
+        plans.filter { status == .active ? $0.active : !$0.active }
+    }
+
+    var body: some View {
+        List {
+            Picker(L("Status", "Status"), selection: $status) {
+                ForEach(SavingsPlanStatus.allCases) { Text($0.label).tag($0) }
+            }
+            .pickerStyle(.segmented)
+            .listRowBackground(Color.clear)
+            if visible.isEmpty {
+                Text(status == .active
+                    ? L("Keine aktiven Sparpläne.", "No active savings plans.")
+                    : L("Keine beendeten Sparpläne.", "No ended savings plans."))
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach(visible) { plan in
+                    savingsPlanRow(plan, accounts: accounts, onEdit: { editedPlan = $0 }, onDelete: { delete($0) })
+                }
+            }
+        }
+        .navigationTitle(L("Sparpläne", "Savings plans"))
+        .navigationBarTitleDisplayMode(.inline)
+        .onAppear(perform: reload)
+        .sheet(item: $editedPlan) { plan in
+            SavingsPlanEditor(plan: plan) { saved in
+                SavingsPlanStore.upsert(saved)
+                SavingsPlanFixedCosts.sync(context: context)
+                reload()
+            }
+        }
+    }
+
+    private func reload() {
+        SavingsPlanRunner.bookDue(context: context)
+        plans = SavingsPlanStore.all()
+    }
+
+    private func delete(_ plan: SavingsPlanRecord) {
+        SavingsPlanStore.remove(id: plan.id)
+        SavingsPlanFixedCosts.sync(context: context)
+        plans = SavingsPlanStore.all()
     }
 }
 
@@ -931,20 +968,24 @@ private struct HoldingForm: View {
             Form {
                 if portfolioAccounts.isEmpty {
                     Text(L(
-                        "Für eine Aktie brauchst du ein Depotkonto. Es wird als nicht liquide angelegt.",
-                        "A stock needs a portfolio account. It is created as non-liquid."
+                        "Für eine Aktie brauchst du ein Depotkonto. Es wird als nicht liquide angelegt und mit einem Girokonto verknüpft.",
+                        "A stock needs a portfolio account. It is created as non-liquid and linked to a checking account."
                     ))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     TextField(L("Depotname", "Portfolio name"), text: $depotName)
+                    checkingLinkPicker
                 } else {
                     Picker(L("Depotkonto", "Portfolio account"), selection: $accountID) {
                         ForEach(portfolioAccounts) { Text($0.name).tag(Optional($0.id)) }
                     }
+                    if selectedPortfolioNeedsLink {
+                        checkingLinkPicker
+                    }
                 }
                 if existing == nil {
                     Toggle(L("Kauf vom Girokonto abbuchen", "Debit the purchase from a checking account"), isOn: $bookPurchase)
-                    if bookPurchase {
+                    if bookPurchase && !portfolioAccounts.isEmpty && !selectedPortfolioNeedsLink {
                         if checkingAccounts.isEmpty {
                             Text(L("Lege zuerst ein Girokonto an.", "Create a checking account first."))
                                 .font(.caption)
@@ -1016,7 +1057,9 @@ private struct HoldingForm: View {
             .onAppear {
                 if accountID == nil { accountID = portfolioAccounts.first?.id }
                 if checkingAccountID == nil {
-                    if let id = TradeAccountPreference.accountID(),
+                    if let accountID, let linked = PortfolioLinkStore.checkingID(for: accountID) {
+                        checkingAccountID = linked
+                    } else if let id = TradeAccountPreference.accountID(),
                        checkingAccounts.contains(where: { $0.id == id }) {
                         checkingAccountID = id
                     } else {
@@ -1051,11 +1094,17 @@ private struct HoldingForm: View {
                             validationMessage = L("Bitte zuerst eine Aktie aus den Vorschlägen auswählen.", "Select a stock from the suggestions first.")
                             return
                         }
-                        if bookPurchase && existing == nil && checkingAccountID == nil {
-                            validationMessage = L("Bitte ein Girokonto auswählen.", "Select a checking account.")
+                        if (portfolioAccounts.isEmpty || selectedPortfolioNeedsLink || bookPurchase), checkingAccountID == nil {
+                            validationMessage = L(
+                                "Ein Depot muss mit einem Girokonto verknüpft sein.",
+                                "A portfolio must be linked to a checking account."
+                            )
                             return
                         }
                         let portfolioAccount = resolvedPortfolioAccount()
+                        if let checkingAccountID, PortfolioLinkStore.checkingID(for: portfolioAccount.id) == nil {
+                            PortfolioLinkStore.link(portfolio: portfolioAccount.id, to: checkingAccountID)
+                        }
                         let holding = existing ?? PortfolioHolding(name: selectedSuggestion.name, quantity: count, purchasePriceCents: purchase, currentPriceCents: current)
                         holding.accountID = portfolioAccount.id
                         holding.name = selectedSuggestion.name
@@ -1125,6 +1174,24 @@ private struct HoldingForm: View {
 
     private var checkingAccounts: [Account] {
         accounts.filter { $0.kind == .checking }
+    }
+
+    private var selectedPortfolioNeedsLink: Bool {
+        guard let accountID else { return portfolioAccounts.isEmpty }
+        return PortfolioLinkStore.checkingID(for: accountID) == nil
+    }
+
+    @ViewBuilder
+    private var checkingLinkPicker: some View {
+        if checkingAccounts.isEmpty {
+            Text(L("Lege zuerst ein Girokonto an.", "Create a checking account first."))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        } else {
+            Picker(L("Verknüpftes Girokonto", "Linked checking account"), selection: $checkingAccountID) {
+                ForEach(checkingAccounts) { Text($0.name).tag(Optional($0.id)) }
+            }
+        }
     }
 
     private func resolvedPortfolioAccount() -> Account {
@@ -1242,7 +1309,7 @@ private struct HoldingTradeSheet: View {
                     }
                 }
                 AppDateField(title: L("Datum", "Date"), selection: $date)
-                if !isTransfer {
+                if !isTransfer || portfolioAccount == nil || portfolioNeedsLink {
                     if checkingAccounts.isEmpty {
                         Text(L("Lege zuerst ein Girokonto an.", "Create a checking account first."))
                             .foregroundStyle(.secondary)
@@ -1290,11 +1357,21 @@ private struct HoldingTradeSheet: View {
     }
 
     private var preferredCheckingAccount: Account? {
+        if let portfolio = portfolioAccount,
+           let linked = PortfolioLinkStore.checkingID(for: portfolio.id),
+           let match = checkingAccounts.first(where: { $0.id == linked }) {
+            return match
+        }
         if let id = TradeAccountPreference.accountID(),
            let match = checkingAccounts.first(where: { $0.id == id }) {
             return match
         }
         return checkingAccounts.first
+    }
+
+    private var portfolioNeedsLink: Bool {
+        guard let portfolio = portfolioAccount else { return true }
+        return PortfolioLinkStore.checkingID(for: portfolio.id) == nil
     }
 
     private var sharePreview: String {
@@ -1345,8 +1422,10 @@ private struct HoldingTradeSheet: View {
             return
         }
         let portfolio: Account
+        let createdPortfolio: Account?
         if let existing = portfolioAccount {
             portfolio = existing
+            createdPortfolio = nil
         } else {
             let trimmed = depotName.trimmingCharacters(in: .whitespacesAndNewlines)
             let account = Account(
@@ -1356,23 +1435,32 @@ private struct HoldingTradeSheet: View {
             )
             context.insert(account)
             portfolio = account
+            createdPortfolio = account
+        }
+        if PortfolioLinkStore.checkingID(for: portfolio.id) == nil {
+            guard let checkingAccountID else {
+                if let createdPortfolio { context.delete(createdPortfolio) }
+                validationMessage = L(
+                    "Ein Depot muss mit einem Girokonto verknüpft sein.",
+                    "A portfolio must be linked to a checking account."
+                )
+                return
+            }
+            PortfolioLinkStore.link(portfolio: portfolio.id, to: checkingAccountID)
         }
         let appliedFee = booksCash ? feeCents : 0
-        HoldingLotStore.add(
-            HoldingLot(
-                date: date,
-                quantity: count,
-                unitPriceCents: priceCents,
-                amountCents: isSale ? sharesValue - appliedFee : -(sharesValue + appliedFee),
-                isSale: isSale,
-                isSavingsPlan: false
-            ),
-            holdingID: holding.id
+        var lot = HoldingLot(
+            date: date,
+            quantity: count,
+            unitPriceCents: priceCents,
+            amountCents: isSale ? sharesValue - appliedFee : -(sharesValue + appliedFee),
+            isSale: isSale,
+            isSavingsPlan: false
         )
         if isSale {
             holding.quantity -= count
             if let checkingAccountID {
-                context.insert(LedgerEntry(
+                let entry = LedgerEntry(
                     date: date,
                     title: "\(L("Verkauf", "Sell")): \(holding.name)",
                     notes: feeNote(appliedFee),
@@ -1380,7 +1468,9 @@ private struct HoldingTradeSheet: View {
                     kind: .transfer,
                     fromAccountID: portfolio.id,
                     toAccountID: checkingAccountID
-                ))
+                )
+                context.insert(entry)
+                lot.ledgerEntryID = entry.id
             }
         } else {
             let addedCost = sharesValue + appliedFee
@@ -1400,6 +1490,7 @@ private struct HoldingTradeSheet: View {
                 ))
             }
         }
+        HoldingLotStore.add(lot, holdingID: holding.id)
         holding.accountID = portfolio.id
         holding.updatedAt = .now
         try? context.save()

@@ -48,6 +48,8 @@ struct RootView: View {
         .environmentObject(financeFilters)
         .preferredColorScheme(colorScheme)
         .task {
+            SavingsPlanRunner.bookDue(context: context)
+            SavingsPlanFixedCosts.sync(context: context)
             await MarketDataService.refresh(holdings: holdings, context: context)
         }
         .task(id: scenePhase) {

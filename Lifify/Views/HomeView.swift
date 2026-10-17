@@ -6,6 +6,7 @@ struct HomeView: View {
     @Query private var variableBudgets: [VariableBudget]
     @Query private var pools: [BudgetPool]
     @Query private var entries: [LedgerEntry]
+    @Query private var accounts: [Account]
     @Query private var splits: [TransactionSplit]
     @Query private var forecasts: [IncomeForecast]
     @Query private var calendarEvents: [ChallengeCalendarEvent]
@@ -419,7 +420,10 @@ struct HomeView: View {
         let today = calendar.startOfDay(for: .now)
         let start = calendar.startOfDay(for: budgetPeriodStart)
         let periodIncome = entries.filter {
-            $0.kind == .income && $0.date >= start && $0.date <= budgetPeriodEnd
+            $0.kind == .income
+                && $0.date >= start
+                && $0.date <= budgetPeriodEnd
+                && ExternalIncome.countsInHomeBudget($0, accounts: accounts)
         }
         let booked = periodIncome.reduce(0) { $0 + abs($1.amountCents) }
         let bookedFromToday = periodIncome.filter { $0.date >= today }.reduce(0) { $0 + abs($1.amountCents) }
@@ -448,10 +452,12 @@ struct HomeView: View {
     }
 
     private var spentBudget: Int {
+        let purchases = securityPurchaseSpend
         if forecasts.contains(where: \.isActive) {
-            return entries
+            let expenses = entries
                 .filter { $0.kind == .expense && $0.date >= budgetPeriodStart && $0.date <= .now }
                 .reduce(0) { $0 + abs($1.amountCents) }
+            return expenses + purchases
         }
         let variable = variableBudgets.reduce(0) {
             $0 + FinanceService.variableSpent(budgetID: $1.id, monthKey: Date.now.monthKey, entries: entries, splits: splits)
@@ -460,7 +466,17 @@ struct HomeView: View {
             let key = CalendarService.periodKey(for: .now, pool: $1)
             return $0 + FinanceService.poolSpent(pool: $1, periodKey: key, splits: splits)
         }
-        return variable + pool
+        return variable + pool + purchases
+    }
+
+    private var securityPurchaseSpend: Int {
+        let portfolios = Set(accounts.filter { $0.kind == .portfolio }.map(\.id))
+        return entries
+            .filter { entry in
+                guard entry.date >= budgetPeriodStart, entry.date <= .now else { return false }
+                return PortfolioCashFlow.isSecurityPurchase(entry, portfolioIDs: portfolios)
+            }
+            .reduce(0) { $0 + abs($1.amountCents) }
     }
 
     private var primaryForecast: IncomeForecast? {

@@ -22,7 +22,31 @@ enum PortfolioLinkStore {
     }
 
     static func link(portfolio portfolioID: UUID, to checkingID: UUID) {
+        unlink(portfolio: portfolioID)
         UserDefaults.standard.set(portfolioID.uuidString, forKey: key(for: checkingID))
+    }
+
+    static func checkingID(for portfolioID: UUID) -> UUID? {
+        let prefix = "lifify.portfolioLink."
+        let target = portfolioID.uuidString
+        for (key, value) in UserDefaults.standard.dictionaryRepresentation() {
+            guard key.hasPrefix(prefix), (value as? String) == target else { continue }
+            return UUID(uuidString: String(key.dropFirst(prefix.count)))
+        }
+        return nil
+    }
+
+    static func unlink(checkingID: UUID) {
+        UserDefaults.standard.removeObject(forKey: key(for: checkingID))
+    }
+
+    static func unlink(portfolio portfolioID: UUID) {
+        let prefix = "lifify.portfolioLink."
+        let target = portfolioID.uuidString
+        for (key, value) in UserDefaults.standard.dictionaryRepresentation() {
+            guard key.hasPrefix(prefix), (value as? String) == target else { continue }
+            UserDefaults.standard.removeObject(forKey: key)
+        }
     }
 }
 
@@ -31,34 +55,17 @@ enum PortfolioConsolidation {
     static func consolidate(context: ModelContext) {
         let accounts = (try? context.fetch(FetchDescriptor<Account>())) ?? []
         let portfolios = accounts.filter { $0.kind == .portfolio }
-        guard !portfolios.isEmpty, let primary = primaryPortfolio(in: portfolios) else { return }
+        guard !portfolios.isEmpty else { return }
         var changed = false
         for portfolio in portfolios where portfolio.isLiquid {
             portfolio.isLiquid = false
             changed = true
         }
-        let generatedOnly = portfolios.allSatisfy { $0.id == primary.id || isGeneratedName($0.name) }
-        if generatedOnly, isGeneratedName(primary.name) {
-            primary.name = L("Depot", "Portfolio")
-            changed = true
-        }
-        let extras = portfolios.filter { $0.id != primary.id && isGeneratedName($0.name) }
-        if !extras.isEmpty {
-            let extraIDs = Set(extras.map(\.id))
-            let holdings = (try? context.fetch(FetchDescriptor<PortfolioHolding>())) ?? []
-            for holding in holdings where holding.accountID.map({ extraIDs.contains($0) }) == true {
-                context.delete(holding)
-            }
-            extras.forEach(context.delete)
+        if portfolios.count == 1, let only = portfolios.first, isGeneratedName(only.name) {
+            only.name = L("Depot", "Portfolio")
             changed = true
         }
         if changed { try? context.save() }
-    }
-
-    static func primaryPortfolio(in portfolios: [Account]) -> Account? {
-        let named = portfolios.filter { !isGeneratedName($0.name) }.sorted { $0.createdAt < $1.createdAt }
-        if let first = named.first { return first }
-        return portfolios.min { $0.createdAt < $1.createdAt }
     }
 
     static func isGeneratedName(_ name: String) -> Bool {
@@ -231,11 +238,7 @@ enum BankImportApplier {
         if let portfolio {
             let closed = holdings.filter { $0.accountID == portfolio.account.id && $0.quantity < 0.0000005 }
             for holding in closed {
-                HoldingLotStore.removeAll(for: holding.id)
-                HoldingPurchaseDateStore.remove(for: holding.id)
-                MarketSymbolStore.remove(for: holding.id)
-                PreviousCloseStore.remove(for: holding.id)
-                context.delete(holding)
+                HoldingMaintenance.retire(holding, context: context)
             }
             let closedIDs = Set(closed.map(\.id))
             holdings.removeAll { closedIDs.contains($0.id) }
@@ -252,6 +255,7 @@ enum BankImportApplier {
                 holdings: holdings
             )
             SavingsPlanStore.replace(plans, portfolioID: portfolio.account.id)
+            SavingsPlanFixedCosts.sync(context: context)
         }
         let portfolioID = portfolio?.account.id
         let holdingCount = holdings.filter { holding in
@@ -351,10 +355,10 @@ enum BankImportApplier {
             existing.isLiquid = false
             return (existing, [])
         }
-        if let primary = PortfolioConsolidation.primaryPortfolio(in: portfolios) {
-            primary.isLiquid = false
-            PortfolioLinkStore.link(portfolio: primary.id, to: checking.id)
-            return (primary, [])
+        if portfolios.count == 1, let only = portfolios.first {
+            only.isLiquid = false
+            PortfolioLinkStore.link(portfolio: only.id, to: checking.id)
+            return (only, [])
         }
         let account = Account(name: L("Depot", "Portfolio"), kind: .portfolio, isLiquid: false)
         context.insert(account)
@@ -387,6 +391,7 @@ enum BankImportApplier {
         guard let portfolioID else { return }
         let reset = holdings.filter { $0.accountID == portfolioID }
         for holding in reset {
+            ClosedPositionStore.remove(isin: holding.symbol)
             HoldingLotStore.removeAll(for: holding.id)
             HoldingPurchaseDateStore.remove(for: holding.id)
             MarketSymbolStore.remove(for: holding.id)

@@ -3,8 +3,32 @@ import Foundation
 
 @MainActor
 final class FinanceFilterStore: ObservableObject {
-    @Published var accountID: UUID?
+    @Published var accountID: UUID? {
+        didSet {
+            if accountID != nil { showsDepot = false }
+        }
+    }
     @Published var periodID: String?
+    @Published var showsDepot = false {
+        didSet {
+            if showsDepot, accountID != nil { accountID = nil }
+        }
+    }
+
+    func selectAllAccounts() {
+        showsDepot = false
+        accountID = nil
+    }
+
+    func selectDepot() {
+        accountID = nil
+        showsDepot = true
+    }
+
+    func select(account id: UUID) {
+        showsDepot = false
+        accountID = id
+    }
 
     func period(in periods: [ForecastPeriod]) -> ForecastPeriod? {
         if let periodID, let match = periods.first(where: { $0.id == periodID }) {
@@ -50,8 +74,17 @@ enum FinancePeriods {
         return forecasts.first { $0.id == id }
     }
 
-    static func includes(_ entry: LedgerEntry, period: ForecastPeriod?, account: Account?) -> Bool {
+    static func includes(
+        _ entry: LedgerEntry,
+        period: ForecastPeriod?,
+        account: Account?,
+        depotIDs: Set<UUID> = []
+    ) -> Bool {
         if let period, !period.contains(entry.date) { return false }
+        if account == nil, !depotIDs.isEmpty {
+            return entry.fromAccountID.map { depotIDs.contains($0) } == true
+                || entry.toAccountID.map { depotIDs.contains($0) } == true
+        }
         guard let account else { return true }
         return entry.accountID == account.id
             || entry.fromAccountID == account.id

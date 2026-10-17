@@ -56,14 +56,17 @@ struct FinanceFilterControls: View {
 
     private var accountFilterBar: some View {
         Menu {
-            Button(L("Alle Konten", "All accounts")) { filters.accountID = nil }
-            ForEach(accounts) { account in
-                Button(account.name) { filters.accountID = account.id }
+            Button(L("Alle Konten", "All accounts")) { filters.selectAllAccounts() }
+            ForEach(accounts.filter { $0.kind != .portfolio }) { account in
+                Button(account.name) { filters.select(account: account.id) }
+            }
+            if accounts.contains(where: { $0.kind == .portfolio }) {
+                Button(L("Depot", "Portfolio")) { filters.selectDepot() }
             }
         } label: {
             HStack(spacing: 8) {
                 Image(systemName: "line.3.horizontal.decrease.circle")
-                Text(filters.account(in: accounts)?.name ?? L("Alle Konten", "All accounts"))
+                Text(selectedTitle)
                     .font(.headline)
                     .lineLimit(1)
                 Spacer(minLength: 8)
@@ -76,5 +79,10 @@ struct FinanceFilterControls: View {
             .background(AppSurface.card, in: RoundedRectangle(cornerRadius: 14))
         }
         .buttonStyle(.plain)
+    }
+
+    private var selectedTitle: String {
+        if filters.showsDepot { return L("Depot", "Portfolio") }
+        return filters.account(in: accounts)?.name ?? L("Alle Konten", "All accounts")
     }
 }
