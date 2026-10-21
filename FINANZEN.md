@@ -92,8 +92,9 @@ einzelnen Konten plus den Depotwert am Tag davor.
   Finanzansicht bleiben die Buchungen darunter sichtbar.
 - Ist **Depot** gewählt, zeigt die Karte Gesamtvermögen den Depotwert am Ende
   des gewählten Zeitraums, inklusive noch nicht gebuchter Sparpläne, und die
-  Veränderung. Einnahmen, Ausgaben, Startsaldo und Endsaldo entfallen dort.
-  Weitere Bereiche entfallen ebenfalls.
+  Veränderung. Die Positionen stehen direkt darunter. Beides erscheint, ohne
+  auf die übrigen Kacheln zu warten. Einnahmen, Ausgaben, Startsaldo und
+  Endsaldo entfallen dort. Weitere Bereiche entfallen ebenfalls.
 
 ## Einnahmen und Ausgaben
 
@@ -140,6 +141,11 @@ in der Einnahmenkachel eines einzelnen Kontos erscheinen nur dessen Prognosen.
 Eine Prognose ohne Konto erscheint nur bei allen Konten, nicht auf einem
 einzelnen Konto. Dasselbe gilt für den Startsaldo: jedes Konto rechnet nur mit
 seinen eigenen Prognosen.
+
+In der Einnahmenansicht steht jeder noch offene Termin des Zeitraums, nicht nur
+der nächste. Ist genau ein Konto gewählt, stehen dort zusätzlich die
+Umbuchungsprognosen, bei denen das Geld auf diesem Konto ankommt. Bei allen
+Konten und im Depot stehen dort keine Umbuchungen.
 
 ## Depot und Einzelpositionen
 
@@ -210,7 +216,11 @@ seinen eigenen Prognosen.
 - In der Fixkostenliste steht bei normalen Fixkosten der nächste Abbuchungstag
   und wie viele Termine im gewählten Zeitraum noch offen sind.
 - Dieselben offenen Termine stehen in den Ausgaben als Prognoseausgaben, je
-  an ihrem Tag.
+  an ihrem Tag. Eine Fixkosten mit Konto erscheint nur, wenn dieses Konto
+  gewählt ist. Eine Fixkosten ohne Konto erscheint nur bei allen Konten. Ist
+  genau ein Konto gewählt, stehen in derselben Liste auch die
+  Umbuchungsprognosen, die von diesem Konto abgehen. Bei allen Konten und im
+  Depot stehen dort keine Umbuchungen.
 
 ## Buchungen in der Finanzansicht
 
@@ -219,6 +229,13 @@ eigene Ereignisliste. Darüber sucht ein Feld nach Titel oder Notiz. Rechts
 daneben, mit Abstand, legt das Plus eine Buchung an. Beide liegen in eigenen
 Blasen. Jede Zeile zeigt Icon, Kategorie, Datum und Betrag, öffnet die Buchung
 und lässt sich wischen: links löschen, rechts bearbeiten.
+
+Über den Buchungen steht ein eigener Bereich **Prognosen**. Darin liegen die
+offenen Einnahmen und Ausgaben des Zeitraums, gefiltert wie in der
+Einnahmen- und Ausgabenansicht. Ist genau ein Konto gewählt, liegen dort auch
+die offenen Umbuchungen, Abgang negativ und Zugang positiv. Die Suche filtert
+auch diese Zeilen. Ein Tipp öffnet die Prognose. Im Depot entfällt der Bereich.
+Die Zeilen stehen nicht zwischen den Buchungen.
 
 Die angezeigte Kategorie ist keine eigene Speicherart. Gespeichert bleibt
 Einnahme, Ausgabe, Umbuchung oder Saldo-Korrektur. Angezeigt wird:
@@ -307,8 +324,11 @@ Neben Einnahme- und Ausgabenprognosen gibt es Umbuchungsprognosen. Anlegen und
 Bearbeiten läuft über Weitere Bereiche. Jede Prognose hat zwei Konten, beide
 ohne Depot, einen Betrag und einen Rhythmus.
 
-- Offene Termine des gewählten Zeitraums stehen bei den Buchungen. Ein Tipp
-  öffnet die Prognose.
+- Offene Termine des gewählten Zeitraums stehen im Bereich Prognosen über den
+  Buchungen. In der Einnahmenansicht nur die Zugänge, in der Ausgabenansicht
+  nur die Abgänge. Das gilt nur, wenn genau ein Konto gewählt ist. Bei allen
+  Konten und im Depot fehlt die Umbuchung in diesen Listen. Ein Tipp öffnet
+  die Prognose.
 - Weist man die Prognose einer echten Umbuchung zu, ersetzt diese Buchung die
   Prognose für den ganzen Zeitraum. Die offenen Termine verschwinden, die
   Buchung bleibt.

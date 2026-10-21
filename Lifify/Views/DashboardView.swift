@@ -19,6 +19,8 @@ struct DashboardView: View {
     @State private var showingNewBooking = false
     @State private var bookingQuery = ""
     @State private var editedTransfer: TransferForecastRecord?
+    @State private var editedIncomeForecast: IncomeForecast?
+    @State private var editedFixedCost: FixedCost?
     @State private var summary: PreparedSummary?
     @State private var summaryToken: Int?
     @AppStorage("portfolioPerformanceBasis") private var portfolioBasis = "today"
@@ -39,7 +41,9 @@ struct DashboardView: View {
                         .padding(.bottom, 4)
                     List {
                     Section {
-                        if let summary, summaryToken == forecastToken {
+                        if filters.showsDepot {
+                            depotContent(period)
+                        } else if let summary, summaryToken == forecastToken {
                             financeSummary(
                                 summary.forecast,
                                 period: period,
@@ -53,21 +57,30 @@ struct DashboardView: View {
                     .listRowInsets(EdgeInsets(top: 8, leading: 12, bottom: 4, trailing: 12))
                     .listRowSeparator(.hidden)
                     .listRowBackground(Color.clear)
+                    if !filters.showsDepot, !forecastItems(period).isEmpty {
+                        Section {
+                            ForEach(forecastItems(period)) { item in
+                                Button {
+                                    openForecast(item)
+                                } label: {
+                                    forecastRow(item)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        } header: {
+                            Text(L("Prognosen", "Forecasts"))
+                                .font(.title3.weight(.semibold))
+                                .foregroundStyle(.primary)
+                                .textCase(nil)
+                        }
+                    }
                     Section {
                         bookingSearchRow
-                        if filteredBookings.isEmpty && openTransferForecasts.isEmpty {
+                        if filteredBookings.isEmpty {
                             Text(bookingQuery.isEmpty
                                 ? L("In diesem Zeitraum liegen keine Buchungen.", "There are no transactions in this period.")
                                 : L("Keine Buchung gefunden.", "No transaction found."))
                                 .foregroundStyle(.secondary)
-                        }
-                        ForEach(openTransferForecasts) { item in
-                            Button {
-                                editedTransfer = item.forecast
-                            } label: {
-                                openTransferRow(item)
-                            }
-                            .buttonStyle(.plain)
                         }
                         ForEach(filteredBookings) { entry in
                             Button {
@@ -109,7 +122,12 @@ struct DashboardView: View {
                     .listStyle(.plain)
                     .scrollContentBackground(.hidden)
                 }
-                .task(id: forecastToken) {
+                .task(id: filters.showsDepot ? 0 : forecastToken) {
+                    if filters.showsDepot {
+                        summary = nil
+                        summaryToken = nil
+                        return
+                    }
                     await refreshSummary()
                 }
             } else {
@@ -147,6 +165,12 @@ struct DashboardView: View {
         }
         .sheet(item: $editedTransfer) { forecast in
             TransferForecastForm(forecast: forecast)
+        }
+        .sheet(item: $editedIncomeForecast) { forecast in
+            IncomeForecastForm(forecast: forecast)
+        }
+        .sheet(item: $editedFixedCost) { cost in
+            FixedCostForm(cost: cost)
         }
     }
 
@@ -227,6 +251,93 @@ struct DashboardView: View {
         }
     }
 
+    private func depotContent(_ period: ForecastPeriod) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(L("Gesamtvermögen", "Net worth"))
+                    .font(.headline)
+                    .foregroundStyle(.secondary)
+                Text(Money.string(cents: HoldingMaintenance.marketValue(of: holdings, through: period.end)))
+                    .font(.largeTitle.bold())
+                    .lineLimit(1)
+                let change = portfolioChange
+                Text(change.text)
+                    .font(.subheadline.bold())
+                    .foregroundStyle(change.cents < 0 ? .red : (change.cents > 0 ? .green : .secondary))
+            }
+            .financeCard()
+            PortfolioElementsView(accountID: nil, showsValueHeader: false, path: path)
+        }
+    }
+
+    private func forecastItems(_ period: ForecastPeriod) -> [ForecastListItem] {
+        let query = bookingQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+        return ForecastSchedule.financeView(
+            forecasts: forecasts,
+            costs: fixedCosts,
+            entries: entries,
+            period: period,
+            account: selectedFilterAccount,
+            showsDepot: filters.showsDepot
+        )
+        .filter { item in
+            guard !query.isEmpty else { return true }
+            return item.title.localizedCaseInsensitiveContains(query)
+        }
+    }
+
+    private func openForecast(_ item: ForecastListItem) {
+        switch item.kind {
+        case .income(let forecast):
+            editedIncomeForecast = forecast
+        case .expense(let id):
+            editedFixedCost = fixedCosts.first { $0.id == id }
+        case .transfer(let forecast):
+            editedTransfer = forecast
+        }
+    }
+
+    private func forecastRow(_ item: ForecastListItem) -> some View {
+        let savings = item.fixedCostID != nil && SavingsPlanFixedCosts.isManagedName(item.title)
+        let category: BookingCategory = switch item.kind {
+        case .income: .income
+        case .expense: savings ? .savingsPlan : .expense
+        case .transfer: .transfer
+        }
+        let paint = BookingClassification.paint(category: category, signed: item.signedCents, scope: bookingScope)
+        let caption: String = switch item.kind {
+        case .income: L("Einnahme", "Income")
+        case .expense: savings ? L("Sparplan", "Savings plan") : L("Ausgabe", "Expense")
+        case .transfer: L("Umbuchung", "Transfer")
+        }
+        return HStack(spacing: 12) {
+            Image(systemName: category.systemImage)
+                .frame(width: 28)
+                .foregroundStyle(category == .income || category == .expense ? Color.primary : paint.iconColor)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(item.title)
+                    .foregroundStyle(.primary)
+                    .lineLimit(2)
+                Text("\(caption) · \(AppDate.numeric(item.date)) · \(L("Prognose", "Forecast"))")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            Text(Money.signed(cents: item.signedCents))
+                .foregroundStyle(forecastAmountColor(category: category, signed: item.signedCents, paint: paint))
+                .monospacedDigit()
+        }
+    }
+
+    private func forecastAmountColor(category: BookingCategory, signed: Int, paint: BookingPaint) -> Color {
+        switch category {
+        case .income: return .green
+        case .expense: return .red
+        case .savingsPlan, .transfer: return paint.amountColor
+        case .interest, .dividend, .refund, .portfolioBuy, .portfolioSale, .adjustment: return paint.amountColor
+        }
+    }
+
     private var summaryLoading: some View {
         VStack(spacing: 10) {
             ProgressView()
@@ -303,71 +414,11 @@ struct DashboardView: View {
         try? context.save()
     }
 
-    private var openTransferForecasts: [OpenTransferForecast] {
-        guard let period = selectedPeriod, !filters.showsDepot else { return [] }
-        let calendar = Calendar.current
-        let today = calendar.startOfDay(for: .now)
-        guard period.end >= today else { return [] }
-        return TransferForecastStore.all().filter(\.active).flatMap { forecast -> [OpenTransferForecast] in
-            if transferForecastIsBooked(forecast, period: period) { return [] }
-            if let account = selectedFilterAccount {
-                guard forecast.fromAccountID == account.id || forecast.toAccountID == account.id else { return [] }
-            }
-            return CalendarService.nextOccurrences(
-                firstDate: forecast.firstDate,
-                cadence: forecast.cadence,
-                rule: forecast.dueRule,
-                day: forecast.dayOfMonth,
-                endDate: forecast.endDate,
-                through: period.end
-            )
-            .map { calendar.startOfDay(for: $0) }
-            .filter { period.contains($0) && $0 >= today }
-            .map { day in
-                OpenTransferForecast(
-                    id: "\(forecast.id.uuidString)-\(day.dayKey)",
-                    forecast: forecast,
-                    date: day
-                )
-            }
-        }
-        .sorted { $0.date < $1.date }
-    }
-
     private func transferForecastIsBooked(_ forecast: TransferForecastRecord, period: ForecastPeriod) -> Bool {
         entries.contains { entry in
             guard period.contains(entry.date) else { return false }
             return TransferForecastAssignmentStore.forecastID(for: entry.id) == forecast.id
         }
-    }
-
-    private func openTransferRow(_ item: OpenTransferForecast) -> some View {
-        let signed = transferForecastSigned(item.forecast)
-        return HStack(spacing: 12) {
-            Image(systemName: BookingCategory.transfer.systemImage)
-                .frame(width: 28)
-                .foregroundStyle(.primary)
-            VStack(alignment: .leading, spacing: 3) {
-                Text(item.forecast.name)
-                    .foregroundStyle(.primary)
-                    .lineLimit(2)
-                Text("\(L("Umbuchung", "Transfer")) · \(AppDate.numeric(item.date)) · \(L("Prognose", "Forecast"))")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            Spacer()
-            Text(Money.string(cents: signed))
-                .foregroundStyle(selectedFilterAccount == nil ? Color.primary : BookingClassification.differenceColor(signed))
-                .monospacedDigit()
-        }
-    }
-
-    private func transferForecastSigned(_ forecast: TransferForecastRecord) -> Int {
-        let amount = abs(forecast.amountCents)
-        guard let account = selectedFilterAccount else { return amount }
-        if forecast.fromAccountID == account.id { return -amount }
-        if forecast.toAccountID == account.id { return amount }
-        return amount
     }
 
     private func linked<Label: View>(_ route: FinanceRoute, @ViewBuilder label: () -> Label) -> some View {
@@ -971,12 +1022,6 @@ private struct PreparedSummary {
     var forecast: PeriodForecast
     var liquidStart: Int?
     var liquidEnd: Int?
-}
-
-private struct OpenTransferForecast: Identifiable {
-    var id: String
-    var forecast: TransferForecastRecord
-    var date: Date
 }
 
 private struct FinanceCardModifier: ViewModifier {

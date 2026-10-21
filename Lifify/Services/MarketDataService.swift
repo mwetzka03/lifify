@@ -32,6 +32,7 @@ struct MarketQuote {
 enum HistoricalPriceStore {
     private static let key = "lifify.historicalPrices"
     private static var cached: [String: [String: Int]]?
+    private static var orderedPrices: [String: [(key: String, cents: Int)]] = [:]
     private(set) static var cacheRevision = 0
 
     static func cents(for holdingID: UUID, dayKey: String) -> Int? {
@@ -39,8 +40,21 @@ enum HistoricalPriceStore {
     }
 
     static func nearestCents(for holdingID: UUID, onOrBefore dayKey: String) -> Int? {
-        guard let prices = snapshot()[holdingID.uuidString] else { return nil }
-        return prices.filter { $0.key <= dayKey }.max { $0.key < $1.key }?.value
+        let rows = orderedRows(for: holdingID)
+        guard !rows.isEmpty else { return nil }
+        var low = 0
+        var high = rows.count - 1
+        var found: Int?
+        while low <= high {
+            let mid = (low + high) / 2
+            if rows[mid].key <= dayKey {
+                found = rows[mid].cents
+                low = mid + 1
+            } else {
+                high = mid - 1
+            }
+        }
+        return found
     }
 
     static func replace(_ prices: [String: Int], holdingID: UUID) {
@@ -72,10 +86,19 @@ enum HistoricalPriceStore {
         return decoded
     }
 
+    private static func orderedRows(for holdingID: UUID) -> [(key: String, cents: Int)] {
+        let id = holdingID.uuidString
+        if let rows = orderedPrices[id] { return rows }
+        let rows = (snapshot()[id] ?? [:]).map { (key: $0.key, cents: $0.value) }.sorted { $0.key < $1.key }
+        orderedPrices[id] = rows
+        return rows
+    }
+
     private static func save(_ map: [String: [String: Int]]) {
         guard let data = try? JSONEncoder().encode(map) else { return }
         UserDefaults.standard.set(data, forKey: key)
         cached = map
+        orderedPrices = [:]
         cacheRevision += 1
     }
 }

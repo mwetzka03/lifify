@@ -14,6 +14,7 @@ struct FilteredLedgerView: View {
     @State private var showingNewForecast = false
     @State private var editedForecast: IncomeForecast?
     @State private var editedCost: FixedCost?
+    @State private var editedTransfer: TransferForecastRecord?
     @State private var preparedRows: [FlowRow] = []
     @State private var rowsToken: Int?
 
@@ -114,32 +115,24 @@ struct FilteredLedgerView: View {
             List {
                 if kind == .income {
                     Section {
-                        if upcomingForecasts.isEmpty {
+                        if incomeForecastItems.isEmpty {
                             Text(L("Keine offenen Prognosen.", "No open forecasts."))
                                 .foregroundStyle(.secondary)
                         }
-                        ForEach(upcomingForecasts) { item in
-                            HStack(spacing: 12) {
-                                Image(systemName: BookingCategory.income.systemImage)
-                                    .frame(width: 28)
-                                    .foregroundStyle(.primary)
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(item.forecast.name)
-                                    Text(AppDate.numeric(item.date))
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
-                                Spacer()
-                                Text(Money.string(cents: item.amount))
-                                    .foregroundStyle(.green)
+                        ForEach(incomeForecastItems) { item in
+                            Button {
+                                openPlan(item)
+                            } label: {
+                                forecastPlanRow(item)
                             }
-                            .contentShape(Rectangle())
-                            .onTapGesture { editedForecast = item.forecast }
+                            .buttonStyle(.plain)
                             .contextMenu {
-                                Button(L("Bearbeiten", "Edit")) { editedForecast = item.forecast }
-                                Button(L("Löschen", "Delete"), role: .destructive) {
-                                    context.delete(item.forecast)
-                                    try? context.save()
+                                if case .income(let forecast) = item.kind {
+                                    Button(L("Bearbeiten", "Edit")) { editedForecast = forecast }
+                                    Button(L("Löschen", "Delete"), role: .destructive) {
+                                        context.delete(forecast)
+                                        try? context.save()
+                                    }
                                 }
                             }
                         }
@@ -158,35 +151,17 @@ struct FilteredLedgerView: View {
                 }
                 if kind == .expense && !filters.showsDepot {
                     Section {
-                        if upcomingCharges.isEmpty {
+                        if expenseForecastItems.isEmpty {
                             Text(L("Keine offenen Prognosen.", "No open forecasts."))
                                 .foregroundStyle(.secondary)
                         }
-                        ForEach(upcomingCharges) { item in
-                            let savings = SavingsPlanFixedCosts.isManagedName(item.title)
-                            let paint = BookingClassification.paint(
-                                category: savings ? .savingsPlan : .expense,
-                                signed: -item.amount,
-                                scope: bookingScope
-                            )
-                            HStack(spacing: 12) {
-                                Image(systemName: savings ? BookingCategory.savingsPlan.systemImage : BookingCategory.expense.systemImage)
-                                    .frame(width: 28)
-                                    .foregroundStyle(savings ? paint.iconColor : .primary)
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(item.title)
-                                    Text(AppDate.numeric(item.date))
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
-                                Spacer()
-                                Text(Money.string(cents: -item.amount))
-                                    .foregroundStyle(savings ? paint.amountColor : .red)
+                        ForEach(expenseForecastItems) { item in
+                            Button {
+                                openPlan(item)
+                            } label: {
+                                forecastPlanRow(item)
                             }
-                            .contentShape(Rectangle())
-                            .onTapGesture {
-                                editedCost = fixedCosts.first { $0.id == item.costID }
-                            }
+                            .buttonStyle(.plain)
                         }
                     } header: {
                         Text(L("Prognoseausgaben", "Expense forecasts"))
@@ -276,6 +251,82 @@ struct FilteredLedgerView: View {
         .sheet(isPresented: $showingNewForecast) { IncomeForecastForm(forecast: nil) }
         .sheet(item: $editedForecast) { IncomeForecastForm(forecast: $0) }
         .sheet(item: $editedCost) { FixedCostForm(cost: $0) }
+        .sheet(item: $editedTransfer) { TransferForecastForm(forecast: $0) }
+    }
+
+    private var incomeForecastItems: [ForecastListItem] {
+        guard kind == .income, let period = selectedPeriod else { return [] }
+        return ForecastSchedule.incomeView(
+            forecasts: forecasts,
+            entries: entries,
+            period: period,
+            account: selectedAccount,
+            showsDepot: filters.showsDepot
+        )
+    }
+
+    private var expenseForecastItems: [ForecastListItem] {
+        guard kind == .expense, let period = selectedPeriod else { return [] }
+        return ForecastSchedule.expenseView(
+            costs: fixedCosts,
+            entries: entries,
+            period: period,
+            account: selectedAccount,
+            showsDepot: filters.showsDepot
+        )
+    }
+
+    private func openPlan(_ item: ForecastListItem) {
+        switch item.kind {
+        case .income(let forecast):
+            editedForecast = forecast
+        case .expense(let id):
+            editedCost = fixedCosts.first { $0.id == id }
+        case .transfer(let forecast):
+            editedTransfer = forecast
+        }
+    }
+
+    private func forecastPlanRow(_ item: ForecastListItem) -> some View {
+        let savings = item.fixedCostID != nil && SavingsPlanFixedCosts.isManagedName(item.title)
+        let category: BookingCategory
+        let caption: String
+        switch item.kind {
+        case .income:
+            category = .income
+            caption = L("Einnahme", "Income")
+        case .expense:
+            category = savings ? .savingsPlan : .expense
+            caption = savings ? L("Sparplan", "Savings plan") : L("Ausgabe", "Expense")
+        case .transfer:
+            category = .transfer
+            caption = L("Umbuchung", "Transfer")
+        }
+        let paint = BookingClassification.paint(category: category, signed: item.signedCents, scope: bookingScope)
+        return HStack(spacing: 12) {
+            Image(systemName: category.systemImage)
+                .frame(width: 28)
+                .foregroundStyle(category == .income || category == .expense ? Color.primary : paint.iconColor)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(item.title)
+                Text("\(caption) · \(AppDate.numeric(item.date)) · \(L("Prognose", "Forecast"))")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            Text(Money.signed(cents: item.signedCents))
+                .foregroundStyle(forecastAmountColor(category: category, paint: paint))
+        }
+    }
+
+    private func forecastAmountColor(category: BookingCategory, paint: BookingPaint) -> Color {
+        switch category {
+        case .income: return .green
+        case .expense: return .red
+        case .savingsPlan, .transfer: return paint.amountColor
+        case .interest, .dividend, .refund, .portfolioBuy, .portfolioSale, .adjustment:
+            return paint.amountColor
+        }
     }
 
     private var bookingScope: BookingScope {
@@ -290,64 +341,6 @@ struct FilteredLedgerView: View {
             accounts: accounts,
             viewedAccountID: filters.showsDepot ? nil : selectedAccount?.id
         )
-    }
-
-    private var applicableFixedCosts: [FixedCost] {
-        FixedCostScope.applicable(
-            costs: fixedCosts,
-            account: selectedAccount,
-            showsDepot: filters.showsDepot,
-            includeHousehold: selectedAccount == nil || selectedAccount?.isMain == true
-        )
-    }
-
-    private var upcomingCharges: [ScheduledCharge] {
-        guard kind == .expense, let period = selectedPeriod else { return [] }
-        let today = Calendar.current.startOfDay(for: .now)
-        guard period.end >= today else { return [] }
-        return FinanceService.scheduledCharges(
-            costs: applicableFixedCosts.filter(\.isActive),
-            entries: entries,
-            from: period.start,
-            through: period.end
-        )
-        .filter { !$0.isPaid }
-    }
-
-    private var upcomingForecasts: [ForecastOccurrence] {
-        guard let period = selectedPeriod else { return [] }
-        let calendar = Calendar.current
-        let today = calendar.startOfDay(for: .now)
-        guard period.end >= today else { return [] }
-        var items: [ForecastOccurrence] = []
-        for forecast in forecasts where forecast.isActive && forecastBelongsToSelection(forecast) {
-            let dates = CalendarService.nextOccurrences(
-                firstDate: forecast.firstPaymentDate,
-                cadence: forecast.cadence,
-                rule: forecast.dueRule,
-                day: forecast.dayOfMonth,
-                endDate: forecast.endPaymentDate,
-                through: period.end
-            )
-            guard let date = dates.first(where: { candidate in
-                let day = calendar.startOfDay(for: candidate)
-                return day >= today && period.contains(day) && !forecastIsBooked(forecast, period: period, day: day)
-            }) else { continue }
-            let day = calendar.startOfDay(for: date)
-            items.append(ForecastOccurrence(
-                id: "\(forecast.id.uuidString)-\(day.dayKey)",
-                forecast: forecast,
-                date: day,
-                amount: abs(forecast.amountCents)
-            ))
-        }
-        return items.sorted { $0.date < $1.date }
-    }
-
-    private func forecastBelongsToSelection(_ forecast: IncomeForecast) -> Bool {
-        guard !filters.showsDepot else { return false }
-        guard let account = selectedAccount else { return true }
-        return forecast.accountID == account.id
     }
 
     private var ledgerToken: Int {
@@ -402,22 +395,6 @@ struct FilteredLedgerView: View {
         rowsToken = token
     }
 
-    private func forecastIsBooked(_ forecast: IncomeForecast, period: ForecastPeriod?, day: Date) -> Bool {
-        let ibans = IncomeAssignmentStore.ibans(for: forecast.id)
-        return entries.contains { entry in
-            guard entry.kind == .income else { return false }
-            if let period {
-                guard period.contains(entry.date) else { return false }
-            } else {
-                guard Calendar.current.isDate(entry.date, inSameDayAs: day) else { return false }
-            }
-            if IncomeAssignmentStore.forecastID(forEntryID: entry.id) == forecast.id { return true }
-            guard !ibans.isEmpty else { return false }
-            let notes = entry.notes.replacingOccurrences(of: " ", with: "").uppercased()
-            return ibans.contains { notes.contains($0) }
-        }
-    }
-
     private var emptyText: String {
         kind == .income
             ? L("Keine Einnahmen in diesem Zeitraum.", "No income in this period.")
@@ -436,11 +413,4 @@ private struct FlowRow: Identifiable {
     var caption: String? = nil
     var realCents: Int? = nil
     var countedCents: Int? = nil
-}
-
-private struct ForecastOccurrence: Identifiable {
-    var id: String
-    var forecast: IncomeForecast
-    var date: Date
-    var amount: Int
 }

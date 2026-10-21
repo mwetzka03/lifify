@@ -426,16 +426,21 @@ enum FinanceService {
             entries: entries,
             splits: splits
         )
-        let otherFutureExpenses = entries
-            .filter { entry in
-                guard entry.kind == .expense, entry.variableBudgetID == nil, entry.date > now else { return false }
-                guard entry.date <= endOfDay(target) else { return false }
-                if entry.fixedCostID != nil || entry.shoppingItemID != nil { return false }
-                return !fixedOccurrences(costs: fixedCosts, from: today, through: target).contains { occurrence in
-                    matchingExpense(occurrence, entries: [entry]) != nil
-                }
+        let occurrences = fixedOccurrences(costs: fixedCosts, from: today, through: target)
+        var coveredExpenses = Set<UUID>()
+        for occurrence in occurrences {
+            if let match = matchingExpense(occurrence, entries: entries) {
+                coveredExpenses.insert(match.id)
             }
-            .reduce(0) { $0 + abs($1.amountCents) }
+        }
+        let limit = endOfDay(target)
+        let otherFutureExpenses = entries.reduce(0) { partial, entry in
+            guard entry.kind == .expense, entry.variableBudgetID == nil, entry.date > now else { return partial }
+            guard entry.date <= limit else { return partial }
+            if entry.fixedCostID != nil || entry.shoppingItemID != nil { return partial }
+            guard !coveredExpenses.contains(entry.id) else { return partial }
+            return partial + abs(entry.amountCents)
+        }
         let futureRefunds = entries
             .filter { BookingClassification.isRefund($0) && $0.date > now && $0.date <= endOfDay(target) }
             .reduce(0) { $0 + abs($1.amountCents) }
@@ -987,6 +992,226 @@ struct ScheduledCharge: Identifiable {
     var title: String
     var costID: UUID
     var isPaid: Bool
+}
+
+struct ForecastListItem: Identifiable {
+    enum Kind {
+        case income(IncomeForecast)
+        case expense(UUID)
+        case transfer(TransferForecastRecord)
+    }
+
+    var id: String
+    var title: String
+    var date: Date
+    var signedCents: Int
+    var kind: Kind
+
+    var fixedCostID: UUID? {
+        if case .expense(let id) = kind { return id }
+        return nil
+    }
+}
+
+/// Open income, expense, and transfer forecasts for the selected account and period.
+@MainActor
+enum ForecastSchedule {
+    static func incomeView(
+        forecasts: [IncomeForecast],
+        entries: [LedgerEntry],
+        period: ForecastPeriod,
+        account: Account?,
+        showsDepot: Bool
+    ) -> [ForecastListItem] {
+        (
+            incomeItems(forecasts: forecasts, entries: entries, period: period, account: account, showsDepot: showsDepot)
+                + transferItems(entries: entries, period: period, account: account, showsDepot: showsDepot, direction: .incoming)
+        )
+        .sorted { $0.date < $1.date }
+    }
+
+    static func expenseView(
+        costs: [FixedCost],
+        entries: [LedgerEntry],
+        period: ForecastPeriod,
+        account: Account?,
+        showsDepot: Bool
+    ) -> [ForecastListItem] {
+        (
+            expenseItems(costs: costs, entries: entries, period: period, account: account, showsDepot: showsDepot)
+                + transferItems(entries: entries, period: period, account: account, showsDepot: showsDepot, direction: .outgoing)
+        )
+        .sorted { $0.date < $1.date }
+    }
+
+    static func financeView(
+        forecasts: [IncomeForecast],
+        costs: [FixedCost],
+        entries: [LedgerEntry],
+        period: ForecastPeriod,
+        account: Account?,
+        showsDepot: Bool
+    ) -> [ForecastListItem] {
+        (
+            incomeItems(forecasts: forecasts, entries: entries, period: period, account: account, showsDepot: showsDepot)
+                + expenseItems(costs: costs, entries: entries, period: period, account: account, showsDepot: showsDepot)
+                + transferItems(entries: entries, period: period, account: account, showsDepot: showsDepot, direction: .both)
+        )
+        .sorted { $0.date < $1.date }
+    }
+
+    private enum TransferDirection {
+        case incoming
+        case outgoing
+        case both
+    }
+
+    private static func incomeItems(
+        forecasts: [IncomeForecast],
+        entries: [LedgerEntry],
+        period: ForecastPeriod,
+        account: Account?,
+        showsDepot: Bool
+    ) -> [ForecastListItem] {
+        guard !showsDepot else { return [] }
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: .now)
+        guard period.end >= today else { return [] }
+        let chosen = forecasts.filter { forecast in
+            guard forecast.isActive else { return false }
+            guard let account else { return true }
+            return forecast.accountID == account.id
+        }
+        var items: [ForecastListItem] = []
+        for forecast in chosen {
+            if incomeIsBooked(forecast, entries: entries, period: period) { continue }
+            let dates = CalendarService.nextOccurrences(
+                firstDate: forecast.firstPaymentDate,
+                cadence: forecast.cadence,
+                rule: forecast.dueRule,
+                day: forecast.dayOfMonth,
+                endDate: forecast.endPaymentDate,
+                through: period.end
+            )
+            for date in dates {
+                let day = calendar.startOfDay(for: date)
+                guard day >= today, period.contains(day) else { continue }
+                items.append(ForecastListItem(
+                    id: "income-\(forecast.id.uuidString)-\(day.dayKey)",
+                    title: forecast.name,
+                    date: day,
+                    signedCents: abs(forecast.amountCents),
+                    kind: .income(forecast)
+                ))
+            }
+        }
+        return items.sorted { $0.date < $1.date }
+    }
+
+    private static func expenseItems(
+        costs: [FixedCost],
+        entries: [LedgerEntry],
+        period: ForecastPeriod,
+        account: Account?,
+        showsDepot: Bool
+    ) -> [ForecastListItem] {
+        guard !showsDepot else { return [] }
+        let today = Calendar.current.startOfDay(for: .now)
+        guard period.end >= today else { return [] }
+        let chosen = costs.filter { cost in
+            guard cost.isActive else { return false }
+            guard let account else { return true }
+            return cost.accountID == account.id
+        }
+        return FinanceService.scheduledCharges(
+            costs: chosen,
+            entries: entries,
+            from: period.start,
+            through: period.end
+        )
+        .filter { !$0.isPaid }
+        .map { charge in
+            ForecastListItem(
+                id: charge.id,
+                title: charge.title,
+                date: charge.date,
+                signedCents: -charge.amount,
+                kind: .expense(charge.costID)
+            )
+        }
+    }
+
+    private static func transferItems(
+        entries: [LedgerEntry],
+        period: ForecastPeriod,
+        account: Account?,
+        showsDepot: Bool,
+        direction: TransferDirection
+    ) -> [ForecastListItem] {
+        guard !showsDepot, let account else { return [] }
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: .now)
+        guard period.end >= today else { return [] }
+        var items: [ForecastListItem] = []
+        for forecast in TransferForecastStore.all() where forecast.active {
+            if transferIsBooked(forecast.id, entries: entries, period: period) { continue }
+            let amount = abs(forecast.amountCents)
+            let signed: Int
+            switch direction {
+            case .incoming:
+                guard forecast.toAccountID == account.id else { continue }
+                signed = amount
+            case .outgoing:
+                guard forecast.fromAccountID == account.id else { continue }
+                signed = -amount
+            case .both:
+                if forecast.fromAccountID == account.id {
+                    signed = -amount
+                } else if forecast.toAccountID == account.id {
+                    signed = amount
+                } else {
+                    continue
+                }
+            }
+            let dates = CalendarService.nextOccurrences(
+                firstDate: forecast.firstDate,
+                cadence: forecast.cadence,
+                rule: forecast.dueRule,
+                day: forecast.dayOfMonth,
+                endDate: forecast.endDate,
+                through: period.end
+            )
+            for date in dates {
+                let day = calendar.startOfDay(for: date)
+                guard day >= today, period.contains(day) else { continue }
+                items.append(ForecastListItem(
+                    id: "transfer-\(forecast.id.uuidString)-\(day.dayKey)",
+                    title: forecast.name,
+                    date: day,
+                    signedCents: signed,
+                    kind: .transfer(forecast)
+                ))
+            }
+        }
+        return items.sorted { $0.date < $1.date }
+    }
+
+    private static func incomeIsBooked(_ forecast: IncomeForecast, entries: [LedgerEntry], period: ForecastPeriod) -> Bool {
+        let ibans = IncomeAssignmentStore.ibans(for: forecast.id)
+        return entries.contains { entry in
+            guard entry.kind == .income, period.contains(entry.date) else { return false }
+            if IncomeAssignmentStore.forecastID(forEntryID: entry.id) == forecast.id { return true }
+            guard !ibans.isEmpty else { return false }
+            let notes = entry.notes.replacingOccurrences(of: " ", with: "").uppercased()
+            return ibans.contains { notes.contains($0) }
+        }
+    }
+
+    private static func transferIsBooked(_ forecastID: UUID, entries: [LedgerEntry], period: ForecastPeriod) -> Bool {
+        entries.contains { entry in
+            period.contains(entry.date) && TransferForecastAssignmentStore.forecastID(for: entry.id) == forecastID
+        }
+    }
 }
 
 @MainActor
