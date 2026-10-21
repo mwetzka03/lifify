@@ -10,11 +10,19 @@ struct FilteredLedgerView: View {
     @Query(sort: \IncomeForecast.name) private var forecasts: [IncomeForecast]
     @Query(sort: \FixedCost.name) private var fixedCosts: [FixedCost]
     @Query private var holdings: [PortfolioHolding]
+    @Query private var variableBudgets: [VariableBudget]
+    @Query private var splits: [TransactionSplit]
+    @Query(sort: \ShoppingItem.createdAt, order: .reverse) private var shopping: [ShoppingItem]
     @State private var selected: LedgerEntry?
     @State private var showingNewForecast = false
     @State private var editedForecast: IncomeForecast?
     @State private var editedCost: FixedCost?
     @State private var editedTransfer: TransferForecastRecord?
+    @State private var editedBudget: VariableBudget?
+    @State private var editedShopping: ShoppingItem?
+    @State private var selectedForecast: ForecastListItem?
+    @AppStorage(ForecastSkipStore.revisionKey) private var forecastSkipRevision = 0
+    @AppStorage(ForecastPeriodLinkStore.revisionKey) private var forecastLinkRevision = 0
     @State private var preparedRows: [FlowRow] = []
     @State private var rowsToken: Int?
 
@@ -120,21 +128,7 @@ struct FilteredLedgerView: View {
                                 .foregroundStyle(.secondary)
                         }
                         ForEach(incomeForecastItems) { item in
-                            Button {
-                                openPlan(item)
-                            } label: {
-                                forecastPlanRow(item)
-                            }
-                            .buttonStyle(.plain)
-                            .contextMenu {
-                                if case .income(let forecast) = item.kind {
-                                    Button(L("Bearbeiten", "Edit")) { editedForecast = forecast }
-                                    Button(L("Löschen", "Delete"), role: .destructive) {
-                                        context.delete(forecast)
-                                        try? context.save()
-                                    }
-                                }
-                            }
+                            forecastPlanButton(item)
                         }
                     } header: {
                         HStack {
@@ -156,12 +150,7 @@ struct FilteredLedgerView: View {
                                 .foregroundStyle(.secondary)
                         }
                         ForEach(expenseForecastItems) { item in
-                            Button {
-                                openPlan(item)
-                            } label: {
-                                forecastPlanRow(item)
-                            }
-                            .buttonStyle(.plain)
+                            forecastPlanButton(item)
                         }
                     } header: {
                         Text(L("Prognoseausgaben", "Expense forecasts"))
@@ -252,9 +241,42 @@ struct FilteredLedgerView: View {
         .sheet(item: $editedForecast) { IncomeForecastForm(forecast: $0) }
         .sheet(item: $editedCost) { FixedCostForm(cost: $0) }
         .sheet(item: $editedTransfer) { TransferForecastForm(forecast: $0) }
+        .sheet(item: $editedBudget) { VariableBudgetForm(budget: $0) }
+        .sheet(item: $editedShopping) { ShoppingItemForm(item: $0) }
+        .sheet(item: $selectedForecast) { item in
+            if let period = selectedPeriod {
+                ForecastDetailView(item: item, period: period)
+            }
+        }
+    }
+
+    private func forecastPlanButton(_ item: ForecastListItem) -> some View {
+        Button {
+            selectedForecast = item
+        } label: {
+            forecastPlanRow(item)
+        }
+        .buttonStyle(.plain)
+        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+            Button(role: .destructive) {
+                ForecastSkipStore.skip(item.refKind, id: item.sourceID, on: item.date)
+            } label: {
+                Label(L("Löschen", "Delete"), systemImage: "trash")
+            }
+        }
+        .swipeActions(edge: .leading, allowsFullSwipe: false) {
+            Button {
+                editPlan(item)
+            } label: {
+                Label(L("Bearbeiten", "Edit"), systemImage: "pencil")
+            }
+            .tint(.blue)
+        }
     }
 
     private var incomeForecastItems: [ForecastListItem] {
+        _ = forecastSkipRevision
+        _ = forecastLinkRevision
         guard kind == .income, let period = selectedPeriod else { return [] }
         return ForecastSchedule.incomeView(
             forecasts: forecasts,
@@ -266,17 +288,27 @@ struct FilteredLedgerView: View {
     }
 
     private var expenseForecastItems: [ForecastListItem] {
+        _ = forecastSkipRevision
+        _ = forecastLinkRevision
         guard kind == .expense, let period = selectedPeriod else { return [] }
         return ForecastSchedule.expenseView(
             costs: fixedCosts,
             entries: entries,
             period: period,
             account: selectedAccount,
-            showsDepot: filters.showsDepot
+            showsDepot: filters.showsDepot,
+            budgets: variableBudgets,
+            splits: splits,
+            shopping: shopping,
+            cashAccountIDs: cashAccountIDs
         )
     }
 
-    private func openPlan(_ item: ForecastListItem) {
+    private var cashAccountIDs: [UUID] {
+        accounts.filter { $0.kind != .portfolio && $0.kind != .savingsGroup }.map(\.id)
+    }
+
+    private func editPlan(_ item: ForecastListItem) {
         switch item.kind {
         case .income(let forecast):
             editedForecast = forecast
@@ -284,6 +316,10 @@ struct FilteredLedgerView: View {
             editedCost = fixedCosts.first { $0.id == id }
         case .transfer(let forecast):
             editedTransfer = forecast
+        case .variable(let id):
+            editedBudget = variableBudgets.first { $0.id == id }
+        case .shopping(let id):
+            editedShopping = shopping.first { $0.id == id }
         }
     }
 
@@ -297,14 +333,25 @@ struct FilteredLedgerView: View {
             caption = L("Einnahme", "Income")
         case .expense:
             category = savings ? .savingsPlan : .expense
-            caption = savings ? L("Sparplan", "Savings plan") : L("Ausgabe", "Expense")
+            caption = savings ? L("Sparplan", "Savings plan") : L("Fixkosten", "Fixed cost")
         case .transfer:
             category = .transfer
             caption = L("Umbuchung", "Transfer")
+        case .variable:
+            category = .expense
+            caption = L("Variable Kosten", "Variable cost")
+        case .shopping:
+            category = .expense
+            caption = L("Einkaufszettel", "Shopping list")
+        }
+        let symbol = switch item.kind {
+        case .variable: "gauge.with.dots.needle.67percent"
+        case .shopping: "cart"
+        default: category.systemImage
         }
         let paint = BookingClassification.paint(category: category, signed: item.signedCents, scope: bookingScope)
         return HStack(spacing: 12) {
-            Image(systemName: category.systemImage)
+            Image(systemName: symbol)
                 .frame(width: 28)
                 .foregroundStyle(category == .income || category == .expense ? Color.primary : paint.iconColor)
             VStack(alignment: .leading, spacing: 2) {

@@ -65,7 +65,7 @@ struct ShoppingListView: View {
     }
 }
 
-private struct ShoppingItemForm: View {
+struct ShoppingItemForm: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
     private let existing: ShoppingItem?

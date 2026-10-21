@@ -51,6 +51,12 @@ enum IncomeAssignmentStore {
         UserDefaults.standard.set(mapping, forKey: "incomeEntryAssignments")
     }
 
+    static func clear(entryID: UUID) {
+        var mapping = UserDefaults.standard.dictionary(forKey: "incomeEntryAssignments") as? [String: String] ?? [:]
+        guard mapping.removeValue(forKey: entryID.uuidString) != nil else { return }
+        UserDefaults.standard.set(mapping, forKey: "incomeEntryAssignments")
+    }
+
     static func ibans(for forecastID: UUID) -> [String] {
         var values: [String] = []
         if UserDefaults.standard.string(forKey: "primaryIncomeForecastID") == forecastID.uuidString,
@@ -316,6 +322,121 @@ enum TransferForecastAssignmentStore {
 
     private static func save(_ map: [String: String]) {
         UserDefaults.standard.set(map, forKey: key)
+    }
+}
+
+enum ForecastRefKind: String, Codable {
+    case income
+    case fixed
+    case transfer
+    case variable
+    case shopping
+}
+
+/// Hides one forecast date without deleting the series.
+enum ForecastSkipStore {
+    private static let key = "lifify.forecastSkips"
+    static let revisionKey = "lifify.forecastSkipRevision"
+
+    static func skip(_ kind: ForecastRefKind, id: UUID, on day: Date) {
+        var values = all()
+        values.insert(token(kind, id, day))
+        save(values)
+    }
+
+    static func isSkipped(_ kind: ForecastRefKind, id: UUID, on day: Date) -> Bool {
+        all().contains(token(kind, id, day))
+    }
+
+    static func reset() {
+        UserDefaults.standard.removeObject(forKey: key)
+        UserDefaults.standard.set(revision() + 1, forKey: revisionKey)
+    }
+
+    static func fingerprint() -> Int {
+        var hasher = Hasher()
+        hasher.combine(revision())
+        for value in all().sorted() {
+            hasher.combine(value)
+        }
+        return hasher.finalize()
+    }
+
+    private static func token(_ kind: ForecastRefKind, _ id: UUID, _ day: Date) -> String {
+        "\(kind.rawValue)|\(id.uuidString)|\(day.dayKey)"
+    }
+
+    private static func all() -> Set<String> {
+        Set(UserDefaults.standard.stringArray(forKey: key) ?? [])
+    }
+
+    private static func save(_ values: Set<String>) {
+        UserDefaults.standard.set(Array(values), forKey: key)
+        UserDefaults.standard.set(revision() + 1, forKey: revisionKey)
+    }
+
+    private static func revision() -> Int {
+        UserDefaults.standard.integer(forKey: revisionKey)
+    }
+}
+
+/// A real booking replaces every occurrence of one forecast inside its period.
+enum ForecastPeriodLinkStore {
+    private static let key = "lifify.forecastPeriodLinks"
+    static let revisionKey = "lifify.forecastLinkRevision"
+
+    static func assign(entryID: UUID, kind: ForecastRefKind, forecastID: UUID) {
+        var map = mapping()
+        map[entryID.uuidString] = "\(kind.rawValue)|\(forecastID.uuidString)"
+        save(map)
+    }
+
+    static func link(for entryID: UUID) -> (kind: ForecastRefKind, id: UUID)? {
+        guard let raw = mapping()[entryID.uuidString] else { return nil }
+        let parts = raw.split(separator: "|", maxSplits: 1).map(String.init)
+        guard parts.count == 2, let kind = ForecastRefKind(rawValue: parts[0]), let id = UUID(uuidString: parts[1]) else { return nil }
+        return (kind, id)
+    }
+
+    static func covers(_ kind: ForecastRefKind, id: UUID, entries: [LedgerEntry], period: ForecastPeriod) -> Bool {
+        entries.contains { entry in
+            guard period.contains(entry.date), let link = link(for: entry.id) else { return false }
+            return link.kind == kind && link.id == id
+        }
+    }
+
+    static func clear(entryID: UUID) {
+        var map = mapping()
+        guard map.removeValue(forKey: entryID.uuidString) != nil else { return }
+        save(map)
+    }
+
+    static func reset() {
+        UserDefaults.standard.removeObject(forKey: key)
+        UserDefaults.standard.set(revision() + 1, forKey: revisionKey)
+    }
+
+    static func fingerprint() -> Int {
+        var hasher = Hasher()
+        hasher.combine(revision())
+        for pair in mapping().sorted(by: { $0.key < $1.key }) {
+            hasher.combine(pair.key)
+            hasher.combine(pair.value)
+        }
+        return hasher.finalize()
+    }
+
+    private static func mapping() -> [String: String] {
+        UserDefaults.standard.dictionary(forKey: key) as? [String: String] ?? [:]
+    }
+
+    private static func save(_ map: [String: String]) {
+        UserDefaults.standard.set(map, forKey: key)
+        UserDefaults.standard.set(revision() + 1, forKey: revisionKey)
+    }
+
+    private static func revision() -> Int {
+        UserDefaults.standard.integer(forKey: revisionKey)
     }
 }
 

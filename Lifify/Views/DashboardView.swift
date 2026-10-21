@@ -21,8 +21,13 @@ struct DashboardView: View {
     @State private var editedTransfer: TransferForecastRecord?
     @State private var editedIncomeForecast: IncomeForecast?
     @State private var editedFixedCost: FixedCost?
+    @State private var editedBudget: VariableBudget?
+    @State private var editedShopping: ShoppingItem?
+    @State private var selectedForecast: ForecastListItem?
     @State private var summary: PreparedSummary?
-    @State private var summaryToken: Int?
+    @State private var summarySelection: Int?
+    @AppStorage(ForecastSkipStore.revisionKey) private var forecastSkipRevision = 0
+    @AppStorage(ForecastPeriodLinkStore.revisionKey) private var forecastLinkRevision = 0
     @AppStorage("portfolioPerformanceBasis") private var portfolioBasis = "today"
     @AppStorage("portfolioPerformanceUnit") private var portfolioUnit = "percent"
 
@@ -43,7 +48,7 @@ struct DashboardView: View {
                     Section {
                         if filters.showsDepot {
                             depotContent(period)
-                        } else if let summary, summaryToken == forecastToken {
+                        } else if let summary, summarySelection == selectionToken {
                             financeSummary(
                                 summary.forecast,
                                 period: period,
@@ -61,11 +66,26 @@ struct DashboardView: View {
                         Section {
                             ForEach(forecastItems(period)) { item in
                                 Button {
-                                    openForecast(item)
+                                    selectedForecast = item
                                 } label: {
                                     forecastRow(item)
                                 }
                                 .buttonStyle(.plain)
+                                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                    Button(role: .destructive) {
+                                        ForecastSkipStore.skip(item.refKind, id: item.sourceID, on: item.date)
+                                    } label: {
+                                        Label(L("Löschen", "Delete"), systemImage: "trash")
+                                    }
+                                }
+                                .swipeActions(edge: .leading, allowsFullSwipe: false) {
+                                    Button {
+                                        editForecast(item)
+                                    } label: {
+                                        Label(L("Bearbeiten", "Edit"), systemImage: "pencil")
+                                    }
+                                    .tint(.blue)
+                                }
                             }
                         } header: {
                             Text(L("Prognosen", "Forecasts"))
@@ -125,9 +145,11 @@ struct DashboardView: View {
                 .task(id: filters.showsDepot ? 0 : forecastToken) {
                     if filters.showsDepot {
                         summary = nil
-                        summaryToken = nil
+                        summarySelection = nil
                         return
                     }
+                    try? await Task.sleep(for: .milliseconds(400))
+                    guard !Task.isCancelled else { return }
                     await refreshSummary()
                 }
             } else {
@@ -171,6 +193,17 @@ struct DashboardView: View {
         }
         .sheet(item: $editedFixedCost) { cost in
             FixedCostForm(cost: cost)
+        }
+        .sheet(item: $editedBudget) { budget in
+            VariableBudgetForm(budget: budget)
+        }
+        .sheet(item: $editedShopping) { item in
+            ShoppingItemForm(item: item)
+        }
+        .sheet(item: $selectedForecast) { item in
+            if let period = selectedPeriod {
+                ForecastDetailView(item: item, period: period)
+            }
         }
     }
 
@@ -278,7 +311,11 @@ struct DashboardView: View {
             entries: entries,
             period: period,
             account: selectedFilterAccount,
-            showsDepot: filters.showsDepot
+            showsDepot: filters.showsDepot,
+            budgets: variableBudgets,
+            splits: splits,
+            shopping: shopping,
+            cashAccountIDs: cashAccountIDs
         )
         .filter { item in
             guard !query.isEmpty else { return true }
@@ -286,7 +323,7 @@ struct DashboardView: View {
         }
     }
 
-    private func openForecast(_ item: ForecastListItem) {
+    private func editForecast(_ item: ForecastListItem) {
         switch item.kind {
         case .income(let forecast):
             editedIncomeForecast = forecast
@@ -294,6 +331,10 @@ struct DashboardView: View {
             editedFixedCost = fixedCosts.first { $0.id == id }
         case .transfer(let forecast):
             editedTransfer = forecast
+        case .variable(let id):
+            editedBudget = variableBudgets.first { $0.id == id }
+        case .shopping(let id):
+            editedShopping = shopping.first { $0.id == id }
         }
     }
 
@@ -303,15 +344,23 @@ struct DashboardView: View {
         case .income: .income
         case .expense: savings ? .savingsPlan : .expense
         case .transfer: .transfer
+        case .variable, .shopping: .expense
         }
         let paint = BookingClassification.paint(category: category, signed: item.signedCents, scope: bookingScope)
         let caption: String = switch item.kind {
         case .income: L("Einnahme", "Income")
-        case .expense: savings ? L("Sparplan", "Savings plan") : L("Ausgabe", "Expense")
+        case .expense: savings ? L("Sparplan", "Savings plan") : L("Fixkosten", "Fixed cost")
         case .transfer: L("Umbuchung", "Transfer")
+        case .variable: L("Variable Kosten", "Variable cost")
+        case .shopping: L("Einkaufszettel", "Shopping list")
+        }
+        let symbol: String = switch item.kind {
+        case .variable: "gauge.with.dots.needle.67percent"
+        case .shopping: "cart"
+        default: category.systemImage
         }
         return HStack(spacing: 12) {
-            Image(systemName: category.systemImage)
+            Image(systemName: symbol)
                 .frame(width: 28)
                 .foregroundStyle(category == .income || category == .expense ? Color.primary : paint.iconColor)
             VStack(alignment: .leading, spacing: 3) {
@@ -410,12 +459,15 @@ struct DashboardView: View {
         IconPreferenceStore.remove(for: entry.id)
         RefundLinkStore.removeAll(touching: entry.id)
         TransferForecastAssignmentStore.clear(entryID: entry.id)
+        ForecastPeriodLinkStore.clear(entryID: entry.id)
+        IncomeAssignmentStore.clear(entryID: entry.id)
         context.delete(entry)
         try? context.save()
     }
 
     private func transferForecastIsBooked(_ forecast: TransferForecastRecord, period: ForecastPeriod) -> Bool {
-        entries.contains { entry in
+        if ForecastPeriodLinkStore.covers(.transfer, forecast.id, entries: entries, period: period) { return true }
+        return entries.contains { entry in
             guard period.contains(entry.date) else { return false }
             return TransferForecastAssignmentStore.forecastID(for: entry.id) == forecast.id
         }
@@ -761,7 +813,7 @@ struct DashboardView: View {
                 through: period.end
             )
             .map { calendar.startOfDay(for: $0) }
-            .filter { period.contains($0) && $0 >= today }
+            .filter { period.contains($0) && $0 >= today && !ForecastSkipStore.isSkipped(.transfer, forecast.id, on: $0) }
             .count
             let amount = abs(forecast.amountCents) * count
             if incoming { income += amount }
@@ -775,7 +827,11 @@ struct DashboardView: View {
         hasher.combine(filters.showsDepot)
         hasher.combine(selectedFilterAccount?.id)
         hasher.combine(selectedPeriod?.id)
+        hasher.combine(forecastSkipRevision)
+        hasher.combine(forecastLinkRevision)
         hasher.combine(IncomeAssignmentStore.fingerprint())
+        hasher.combine(ForecastSkipStore.fingerprint())
+        hasher.combine(ForecastPeriodLinkStore.fingerprint())
         hasher.combine(RefundLinkStore.fingerprint())
         hasher.combine(TransferForecastAssignmentStore.fingerprint())
         hasher.combine(VariableBudgetAccounts.fingerprint())
@@ -862,7 +918,7 @@ struct DashboardView: View {
     }
 
     private func refreshSummary() async {
-        let token = forecastToken
+        let selection = selectionToken
         await Task.yield()
         guard !Task.isCancelled else { return }
         warmFinanceStores()
@@ -870,7 +926,7 @@ struct DashboardView: View {
         guard !Task.isCancelled else { return }
         guard let period = selectedPeriod else {
             summary = nil
-            summaryToken = token
+            summarySelection = nil
             return
         }
         let raw = await forecast(for: period)
@@ -882,13 +938,21 @@ struct DashboardView: View {
         await Task.yield()
         guard !Task.isCancelled else { return }
         let liquid = selectedFilterAccount == nil && !filters.showsDepot ? liquidForecast(for: period) : nil
-        guard !Task.isCancelled else { return }
+        guard !Task.isCancelled, selection == selectionToken else { return }
         summary = PreparedSummary(
             forecast: snapshot,
             liquidStart: liquid?.startBalance,
             liquidEnd: liquid?.endBalance
         )
-        summaryToken = token
+        summarySelection = selection
+    }
+
+    private var selectionToken: Int {
+        var hasher = Hasher()
+        hasher.combine(filters.showsDepot)
+        hasher.combine(selectedFilterAccount?.id)
+        hasher.combine(selectedPeriod?.id)
+        return hasher.finalize()
     }
 
     private func warmFinanceStores() {

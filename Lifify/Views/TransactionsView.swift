@@ -115,6 +115,8 @@ struct TransactionsView: View {
         IconPreferenceStore.remove(for: entry.id)
         RefundLinkStore.removeAll(touching: entry.id)
         TransferForecastAssignmentStore.clear(entryID: entry.id)
+        ForecastPeriodLinkStore.clear(entryID: entry.id)
+        IncomeAssignmentStore.clear(entryID: entry.id)
         context.delete(entry)
         try? context.save()
     }

@@ -279,6 +279,8 @@ enum BackupService {
         IncomeAssignmentStore.reset()
         RefundLinkStore.reset()
         TransferForecastStore.reset()
+        ForecastSkipStore.reset()
+        ForecastPeriodLinkStore.reset()
         for record in backup.records where sideTypes.contains(record.type) {
             insert(record, into: context)
         }
@@ -292,6 +294,8 @@ enum BackupService {
         IncomeAssignmentStore.reset()
         RefundLinkStore.reset()
         TransferForecastStore.reset()
+        ForecastSkipStore.reset()
+        ForecastPeriodLinkStore.reset()
     }
 
     static func resetApp(from context: ModelContext) throws {
@@ -302,6 +306,8 @@ enum BackupService {
         IncomeAssignmentStore.reset()
         RefundLinkStore.reset()
         TransferForecastStore.reset()
+        ForecastSkipStore.reset()
+        ForecastPeriodLinkStore.reset()
     }
 
     @MainActor
