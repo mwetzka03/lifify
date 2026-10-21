@@ -68,7 +68,7 @@ enum FinanceService {
                 guard entry.date >= start, entry.date <= end else { return false }
                 return entryTouches(entry, accountID: accountID)
             }
-            .reduce(0) { $0 + abs($1.amountCents) }
+            .reduce(0) { $0 + countedSlice($1, entries: entries, amount: $1.amountCents) }
         let split = splits
             .filter { item in
                 guard item.kind == .variableBudget, item.targetID == budgetID else { return false }
@@ -76,7 +76,10 @@ enum FinanceService {
                 guard entry.date >= start, entry.date <= end else { return false }
                 return entryTouches(entry, accountID: accountID)
             }
-            .reduce(0) { $0 + abs($1.amountCents) }
+            .reduce(0) { total, item in
+                guard let entry = entries.first(where: { $0.id == item.transactionID }) else { return total }
+                return total + countedSlice(entry, entries: entries, amount: item.amountCents)
+            }
         return direct + split
     }
 
@@ -88,11 +91,14 @@ enum FinanceService {
     ) -> Int {
         let split = splits
             .filter { $0.kind == .variableBudget && $0.targetID == budgetID && $0.periodKey == monthKey }
-            .reduce(0) { $0 + $1.amountCents }
+            .reduce(0) { total, item in
+                guard let entry = entries.first(where: { $0.id == item.transactionID }) else { return total + abs(item.amountCents) }
+                return total + countedSlice(entry, entries: entries, amount: item.amountCents)
+            }
         let splitTransactionIDs = Set(splits.filter { $0.kind == .variableBudget }.map(\.transactionID))
         let directWithoutSplit = entries
             .filter { $0.variableBudgetID == budgetID && $0.date.monthKey == monthKey && !splitTransactionIDs.contains($0.id) }
-            .reduce(0) { $0 + abs($1.amountCents) }
+            .reduce(0) { $0 + countedSlice($1, entries: entries, amount: $1.amountCents) }
         return directWithoutSplit + split
     }
 
@@ -430,7 +436,18 @@ enum FinanceService {
                 }
             }
             .reduce(0) { $0 + abs($1.amountCents) }
-        return actual + income - fixed - shoppingCost - variable - otherFutureExpenses
+        let futureRefunds = entries
+            .filter { BookingClassification.isRefund($0) && $0.date > now && $0.date <= endOfDay(target) }
+            .reduce(0) { $0 + abs($1.amountCents) }
+        let transfers = transferForecastNet(
+            accounts: accounts,
+            entries: entries,
+            from: today,
+            through: target,
+            now: now,
+            periods: periods
+        )
+        return actual + income - fixed - shoppingCost - variable - otherFutureExpenses + futureRefunds + transfers
     }
 
     private static func incomeStillToReceive(
@@ -444,7 +461,12 @@ enum FinanceService {
             .reduce(0) { $0 + $1.amount }
         let bookedThroughTarget = signedSum(entries: entries, kind: .income, from: from, through: through)
         let bookedInCash = entries
-            .filter { $0.kind == .income && $0.date >= Calendar.current.startOfDay(for: from) && $0.date <= now }
+            .filter {
+                $0.kind == .income
+                    && !BookingClassification.isRefund($0)
+                    && $0.date >= Calendar.current.startOfDay(for: from)
+                    && $0.date <= now
+            }
             .reduce(0) { $0 + abs($1.amountCents) }
         return max(0, max(forecast, bookedThroughTarget) - bookedInCash)
     }
@@ -656,7 +678,108 @@ enum FinanceService {
         let end = endOfDay(through)
         return entries
             .filter { $0.kind == kind && $0.date >= start && $0.date <= end }
-            .reduce(0) { $0 + abs($1.amountCents) }
+            .reduce(0) { total, entry in
+                if kind == .income, BookingClassification.isRefund(entry) { return total }
+                if kind == .expense {
+                    return total + RefundLinkStore.countedExpenseCents(of: entry, entries: entries)
+                }
+                return total + abs(entry.amountCents)
+            }
+    }
+
+    /// A partial refund still counts its share of a variable assignment.
+    private static func countedSlice(_ entry: LedgerEntry, entries: [LedgerEntry], amount: Int) -> Int {
+        let full = abs(entry.amountCents)
+        guard full > 0 else { return 0 }
+        let counted = RefundLinkStore.countedExpenseCents(of: entry, entries: entries)
+        if counted >= full { return abs(amount) }
+        return Int((Double(abs(amount)) * Double(counted) / Double(full)).rounded())
+    }
+
+    /// Unreplaced transfer forecasts move cash between today and the target day.
+    /// A real transfer assigned in the same period replaces those occurrences and is applied once if it is still in the future.
+    private static func transferForecastNet(
+        accounts: [Account],
+        entries: [LedgerEntry],
+        from today: Date,
+        through target: Date,
+        now: Date,
+        periods: [ForecastPeriod]
+    ) -> Int {
+        let scope = Set(accounts.filter { $0.kind != .portfolio && $0.kind != .savingsGroup }.map(\.id))
+        guard !scope.isEmpty else { return 0 }
+        let calendar = Calendar.current
+        let start = calendar.startOfDay(for: today)
+        let limit = calendar.startOfDay(for: target)
+        guard limit >= start else { return 0 }
+        var net = 0
+        for forecast in TransferForecastStore.all() where forecast.active {
+            let dates = CalendarService.nextOccurrences(
+                firstDate: forecast.firstDate,
+                cadence: forecast.cadence,
+                rule: forecast.dueRule,
+                day: forecast.dayOfMonth,
+                endDate: forecast.endDate,
+                through: endOfDay(target)
+            )
+            .map { calendar.startOfDay(for: $0) }
+            .filter { $0 >= start && $0 <= limit }
+            let amount = abs(forecast.amountCents)
+            for day in dates where !transferForecastIsReplaced(forecast.id, on: day, periods: periods, entries: entries) {
+                net += scopedTransferCents(amount: amount, from: forecast.fromAccountID, to: forecast.toAccountID, scope: scope)
+            }
+        }
+        for entry in entries {
+            guard entry.kind == .transfer, entry.date > now, entry.date <= endOfDay(target) else { continue }
+            guard TransferForecastAssignmentStore.forecastID(for: entry.id) != nil else { continue }
+            guard !isPortfolioMovement(entry) else { continue }
+            net += scopedTransferCents(
+                amount: abs(entry.amountCents),
+                from: entry.fromAccountID,
+                to: entry.toAccountID,
+                scope: scope
+            )
+        }
+        return net
+    }
+
+    private static func transferForecastIsReplaced(
+        _ forecastID: UUID,
+        on day: Date,
+        periods: [ForecastPeriod],
+        entries: [LedgerEntry]
+    ) -> Bool {
+        let calendar = Calendar.current
+        let window: ForecastPeriod
+        if let period = periods.first(where: { $0.contains(day) }) {
+            window = period
+        } else {
+            let parts = calendar.dateComponents([.year, .month], from: day)
+            let start = calendar.date(from: parts) ?? day
+            let end = calendar.date(byAdding: DateComponents(month: 1, day: -1), to: start) ?? day
+            window = ForecastPeriod(start: start, end: end)
+        }
+        return entries.contains { entry in
+            guard TransferForecastAssignmentStore.forecastID(for: entry.id) == forecastID else { return false }
+            return window.contains(entry.date)
+        }
+    }
+
+    private static func scopedTransferCents(amount: Int, from: UUID?, to: UUID?, scope: Set<UUID>) -> Int {
+        var net = 0
+        if let from, scope.contains(from) { net -= amount }
+        if let to, scope.contains(to) { net += amount }
+        return net
+    }
+
+    private static func isPortfolioMovement(_ entry: LedgerEntry) -> Bool {
+        if BookingClassification.isSavingsPlan(entry) { return true }
+        let prefixes = [
+            "Kauf:", "Purchase:", "Buy:",
+            "Verkauf:", "Sale:", "Sell:",
+            "Sparplan:", "Savings plan:"
+        ]
+        return prefixes.contains { entry.title.hasPrefix($0) }
     }
 
     private static func bookedFixedAmount(
@@ -697,11 +820,22 @@ enum FinanceService {
         let start = calendar.startOfDay(for: period.start)
         let end = endOfDay(period.end)
         let periodEntries = entries.filter {
-            $0.date >= start && $0.date <= end && ($0.kind == .income || $0.kind == .expense)
+            guard $0.date >= start, $0.date <= end else { return false }
+            if $0.kind == .expense { return true }
+            if $0.kind == .income { return !BookingClassification.isRefund($0) }
+            return false
         }
-        var lines: [ForecastLine] = periodEntries.map { entry in
-            let amount = entry.kind == .expense ? -abs(entry.amountCents) : abs(entry.amountCents)
-            return ForecastLine(id: entry.id.uuidString, date: entry.date, title: entry.title, amountCents: amount)
+        var lines: [ForecastLine] = []
+        for entry in periodEntries {
+            let amount: Int
+            if entry.kind == .expense {
+                let counted = RefundLinkStore.countedExpenseCents(of: entry, entries: entries)
+                guard counted > 0 else { continue }
+                amount = -counted
+            } else {
+                amount = abs(entry.amountCents)
+            }
+            lines.append(ForecastLine(id: entry.id.uuidString, date: entry.date, title: entry.title, amountCents: amount))
         }
         let bookedIncomeDays = Set(periodEntries.filter { $0.kind == .income }.map { calendar.startOfDay(for: $0.date) })
         for item in incomeOccurrences(forecasts: forecasts, from: period.start, through: period.end) {

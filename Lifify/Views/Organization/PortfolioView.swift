@@ -3,7 +3,10 @@ import SwiftUI
 
 struct PortfolioView: View {
     @Environment(\.modelContext) private var context
+    @EnvironmentObject private var filters: FinanceFilterStore
     @Query(sort: \PortfolioHolding.name) private var holdings: [PortfolioHolding]
+    @Query private var entries: [LedgerEntry]
+    @Query private var forecasts: [IncomeForecast]
     @AppStorage("portfolioPerformanceBasis") private var basis = PortfolioBasis.today.rawValue
     @AppStorage("portfolioPerformanceUnit") private var unit = PortfolioUnit.percent.rawValue
     @AppStorage("portfolioSort") private var sort = PortfolioSort.value.rawValue
@@ -21,7 +24,7 @@ struct PortfolioView: View {
                     Text(L("Depotwert", "Portfolio value"))
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
-                    Text(Money.string(cents: totals.value))
+                    Text(Money.string(cents: HoldingMaintenance.marketValue(of: holdings, through: projectionDay)))
                         .font(.title2.bold())
                     selectedPerformanceLabel(totals)
                 }
@@ -56,19 +59,21 @@ struct PortfolioView: View {
             }
             ForEach(sortedHoldings) { holding in
                 let performance = holdingPerformance(holding)
+                let quantity = projectedQuantity(holding)
+                let value = projectedValue(holding)
                 Button {
                     selected = holding
                 } label: {
                     HStack(alignment: .top) {
                         VStack(alignment: .leading, spacing: 3) {
                             Text(holding.name).foregroundStyle(.primary)
-                            Text("\(holding.quantity.formatted()) × \(Money.string(cents: holding.currentPriceCents))")
+                            Text("\(quantity.formatted()) × \(Money.string(cents: shownPrice(quantity: quantity, value: value, holding: holding)))")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
                         Spacer(minLength: 12)
                         VStack(alignment: .trailing, spacing: 2) {
-                            Text(Money.string(cents: performance.value))
+                            Text(Money.string(cents: value))
                                 .foregroundStyle(.primary)
                             selectedPerformanceLabel(performance)
                         }
@@ -134,14 +139,32 @@ struct PortfolioView: View {
         try? context.save()
     }
 
+    private var projectionDay: Date {
+        let periods = FinancePeriods.all(entries: entries, forecasts: forecasts)
+        return filters.period(in: periods)?.end ?? .now
+    }
+
+    private func projectedQuantity(_ holding: PortfolioHolding) -> Double {
+        HoldingMaintenance.quantity(of: holding, through: projectionDay, holdings: holdings)
+    }
+
+    private func projectedValue(_ holding: PortfolioHolding) -> Int {
+        HoldingMaintenance.marketValue(of: holding, through: projectionDay, holdings: holdings)
+    }
+
+    private func shownPrice(quantity: Double, value: Int, holding: PortfolioHolding) -> Int {
+        guard quantity > 0.0000005 else { return holding.currentPriceCents }
+        return Int((Double(value) / quantity).rounded())
+    }
+
     private var openHoldings: [PortfolioHolding] {
-        holdings.filter { $0.quantity > 0.0000005 }
+        holdings.filter { projectedQuantity($0) > 0.0000005 }
     }
 
     private var sortedHoldings: [PortfolioHolding] {
         switch PortfolioSort(rawValue: sort) ?? .value {
         case .value:
-            return openHoldings.sorted { holdingPerformance($0).value > holdingPerformance($1).value }
+            return openHoldings.sorted { projectedValue($0) > projectedValue($1) }
         case .purchase:
             return openHoldings.sorted { lhs, rhs in
                 let left = HoldingPurchaseDateStore.date(for: lhs.id) ?? .distantPast
@@ -175,7 +198,10 @@ struct PortfolioElementsView: View {
     var showsValueHeader = true
     var path: Binding<NavigationPath>? = nil
     @Environment(\.modelContext) private var context
+    @EnvironmentObject private var filters: FinanceFilterStore
     @Query(sort: \PortfolioHolding.name) private var holdings: [PortfolioHolding]
+    @Query private var entries: [LedgerEntry]
+    @Query private var forecasts: [IncomeForecast]
     @AppStorage("portfolioPerformanceBasis") private var basis = PortfolioBasis.today.rawValue
     @AppStorage("portfolioPerformanceUnit") private var unit = PortfolioUnit.percent.rawValue
     @AppStorage("portfolioSort") private var sort = PortfolioSort.value.rawValue
@@ -185,10 +211,32 @@ struct PortfolioElementsView: View {
     @State private var isRefreshing = false
     @State private var savingsPlans: [SavingsPlanRecord] = []
 
+    private var projectionDay: Date {
+        let periods = FinancePeriods.all(entries: entries, forecasts: forecasts)
+        return filters.period(in: periods)?.end ?? .now
+    }
+
+    private var scopedHoldings: [PortfolioHolding] {
+        holdings.filter { accountID == nil || $0.accountID == accountID }
+    }
+
     private var visibleHoldings: [PortfolioHolding] {
-        holdings.filter { holding in
-            holding.quantity > 0.0000005 && (accountID == nil || holding.accountID == accountID)
+        scopedHoldings.filter {
+            HoldingMaintenance.quantity(of: $0, through: projectionDay, holdings: scopedHoldings) > 0.0000005
         }
+    }
+
+    private func projectedQuantity(_ holding: PortfolioHolding) -> Double {
+        HoldingMaintenance.quantity(of: holding, through: projectionDay, holdings: scopedHoldings)
+    }
+
+    private func projectedValue(_ holding: PortfolioHolding) -> Int {
+        HoldingMaintenance.marketValue(of: holding, through: projectionDay, holdings: scopedHoldings)
+    }
+
+    private func shownPrice(quantity: Double, value: Int, holding: PortfolioHolding) -> Int {
+        guard quantity > 0.0000005 else { return holding.currentPriceCents }
+        return Int((Double(value) / quantity).rounded())
     }
 
     var body: some View {
@@ -198,7 +246,7 @@ struct PortfolioElementsView: View {
                     Text(L("Depotwert", "Portfolio value"))
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
-                    Text(Money.string(cents: portfolioTotals.value))
+                    Text(Money.string(cents: HoldingMaintenance.marketValue(of: scopedHoldings, through: projectionDay)))
                         .font(.title2.bold())
                     performanceLabel(portfolioTotals)
                 }
@@ -343,19 +391,21 @@ struct PortfolioElementsView: View {
 
     private func holdingRow(_ holding: PortfolioHolding) -> some View {
         let performance = holdingPerformance(holding)
+        let quantity = projectedQuantity(holding)
+        let value = projectedValue(holding)
         return Button {
             selected = holding
         } label: {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(holding.name).foregroundStyle(.primary)
-                    Text("\(holding.quantity.formatted()) × \(Money.string(cents: holding.currentPriceCents))")
+                    Text("\(quantity.formatted()) × \(Money.string(cents: shownPrice(quantity: quantity, value: value, holding: holding)))")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
                 Spacer(minLength: 12)
                 VStack(alignment: .trailing, spacing: 2) {
-                    Text(Money.string(cents: performance.value))
+                    Text(Money.string(cents: value))
                         .foregroundStyle(.primary)
                     performanceLabel(performance)
                 }
@@ -385,7 +435,7 @@ struct PortfolioElementsView: View {
     private var sortedHoldings: [PortfolioHolding] {
         switch PortfolioSort(rawValue: sort) ?? .value {
         case .value:
-            return visibleHoldings.sorted { holdingPerformance($0).value > holdingPerformance($1).value }
+            return visibleHoldings.sorted { projectedValue($0) > projectedValue($1) }
         case .purchase:
             return visibleHoldings.sorted { lhs, rhs in
                 let left = HoldingPurchaseDateStore.date(for: lhs.id) ?? .distantPast

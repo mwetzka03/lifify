@@ -454,11 +454,11 @@ struct HomeView: View {
                     .foregroundStyle(.secondary)
             } else {
                 ForEach(visible) { entry in
-                    HomeTransactionRow(entry: entry, accounts: accounts, holdings: holdings)
+                    HomeTransactionRow(entry: entry, accounts: accounts, holdings: holdings, ledgerEntries: entries)
                 }
                 if periodEntries.count > 5 {
                     NavigationLink {
-                        PeriodTransactionsView(title: periodTitle, entries: periodEntries, accounts: accounts, holdings: holdings)
+                        PeriodTransactionsView(title: periodTitle, entries: periodEntries, accounts: accounts, holdings: holdings, ledgerEntries: entries)
                     } label: {
                         HStack {
                             Text(L("Alle anzeigen", "Show all"))
@@ -647,13 +647,14 @@ private struct HomeTransactionRow: View {
     let entry: LedgerEntry
     var accounts: [Account] = []
     var holdings: [PortfolioHolding] = []
+    var ledgerEntries: [LedgerEntry] = []
 
     var body: some View {
         let category = BookingClassification.category(of: entry, accounts: accounts, viewedAccountID: nil)
         let signed = BookingClassification.signedAmount(of: entry, category: category, viewedAccountID: nil)
         let difference = category == .portfolioSale
             ? HoldingMaintenance.saleEconomics(for: entry, holdings: holdings)?.differenceCents
-            : nil
+            : (category == .expense ? RefundLinkStore.realExpenseCents(of: entry, entries: ledgerEntries) : nil)
         let paint = BookingClassification.paint(
             category: category,
             signed: signed,
@@ -690,10 +691,11 @@ private struct PeriodTransactionsView: View {
     let entries: [LedgerEntry]
     var accounts: [Account] = []
     var holdings: [PortfolioHolding] = []
+    var ledgerEntries: [LedgerEntry] = []
 
     var body: some View {
         List(entries) { entry in
-            HomeTransactionRow(entry: entry, accounts: accounts, holdings: holdings)
+            HomeTransactionRow(entry: entry, accounts: accounts, holdings: holdings, ledgerEntries: ledgerEntries)
         }
         .navigationTitle(title)
         .navigationBarTitleDisplayMode(.inline)

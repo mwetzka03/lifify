@@ -58,15 +58,24 @@ einzelnen Konten plus den Depotwert am Tag davor.
 - Der Kurs ist der Schlusskurs dieses Tages, sobald er gespeichert ist. Fehlt
   er, gilt der aktuelle Kurs, die Stückzahl bleibt die historische.
 - Liegt der Stichtag in der Zukunft, kommt der aktuelle Kurs zum Einsatz. Noch
-  nicht gebuchte Sparpläne bis zu diesem Tag werden mit ihrem Eurobetrag
-  addiert, ohne prozentuale Steigerung. Auf dem verknüpften Girokonto mindern
+  nicht gebuchte Sparpläne erhöhen bis zu diesem Tag die Stückzahl. Pro
+  Ausführung kommen so viele Stücke dazu, wie der Planbetrag beim aktuellen
+  Kurs kauft. Kostet der ETF 100 € und der Plan 50 €, ist das eine halbe
+  Stückzahl, auch über ein Jahr hinweg. Der Wert dieser Stücke ist der
+  Eurobetrag, ohne prozentuale Steigerung. Ein Plan ohne passende Position
+  zählt weiter nur als Eurobetrag. Auf dem verknüpften Girokonto mindern
   dieselben Termine den Startsaldo, sodass die Summe unverändert bleibt.
+- In der Depotliste steht für den gewählten Zeitraum diese Stückzahl und der
+  dazu passende Wert. Die Veränderung daneben bleibt die der schon gehaltenen
+  Stücke.
 - Startsaldo und Endsaldo stehen in derselben Reihe. Darunter steht der liquide
   Saldo ohne Depot, in derselben Zifferngröße. Die Zahl darf leicht schrumpfen,
-  damit beide Kacheln nebeneinander passen.
-- Das Endsaldo ist der Startsaldo plus die Prognose-Differenz. Die
-  Prognose-Differenz steht unter der Differenz und heißt **Prognose**. Sie ist
-  gebuchte plus offene Einnahmen abzüglich gebuchter plus offener Ausgaben.
+  damit beide Kacheln nebeneinander passen. Kacheln in einer Reihe sind gleich
+  hoch, auch wenn eine Zahl oder der Hinweis darunter umbricht.
+- Das Endsaldo ist der Startsaldo plus die Prognose-Differenz. Unter dem
+  Endsaldo steht keine weitere Differenzzahl. Die Prognose-Differenz steht
+  unter der Differenz und heißt **Prognose**. Sie ist gebuchte plus offene
+  Einnahmen abzüglich gebuchter plus offener Ausgaben.
 - Ist **Depot** gewählt, zeigt die Karte Gesamtvermögen den Depotwert am Ende
   des gewählten Zeitraums, inklusive noch nicht gebuchter Sparpläne, und die
   Veränderung. Einnahmen, Ausgaben, Startsaldo und Endsaldo entfallen dort.
@@ -83,8 +92,8 @@ Einnahmen sind:
 - Zinsen
 - die positive Kursdifferenz eines Aktienverkaufs
 
-Nicht als Einnahme zählen Eingänge von der eigenen IBAN und der volle
-Verkaufserlös.
+Nicht als Einnahme zählen Eingänge von der eigenen IBAN, der volle
+Verkaufserlös und eine Rückerstattung.
 
 Ein Verkauf wird mit Einstand und Gebühren verglichen. Der Erlös ist der
 Zahlungsbetrag nach Gebühr, der Einstand ist der durchschnittliche Kaufpreis
@@ -192,14 +201,15 @@ und lässt sich wischen: links löschen, rechts bearbeiten.
 Die angezeigte Kategorie ist keine eigene Speicherart. Gespeichert bleibt
 Einnahme, Ausgabe, Umbuchung oder Saldo-Korrektur. Angezeigt wird:
 
-- Einnahme, Zinsen, Dividende, Ausgabe, Depotkauf, Depotverkauf, Sparplan,
-  Umbuchung
+- Einnahme, Zinsen, Dividende, Ausgabe, Rückerstattung, Depotkauf,
+  Depotverkauf, Sparplan, Umbuchung
 - Eine Saldo-Korrektur bleibt eine Saldo-Korrektur.
 
 Jedes davon hat ein eigenes Symbol. Dieselben Symbole stehen in den Listen für
 Einnahmen und Ausgaben und bei den Buchungen auf der Home-Seite.
 
-- Einnahme ist ein Geldschein, Ausgabe ein Einkaufswagen.
+- Einnahme ist ein Geldschein, Ausgabe ein Einkaufswagen, Rückerstattung ein
+  Pfeil zurück.
 - Depotkauf ist ein steigender Chart, Depotverkauf ein fallender Chart.
 - Sparplan und Umbuchung behalten ihre bisherigen Symbole.
 
@@ -213,7 +223,9 @@ Die Farbe von Depotkauf, Sparplan und Depotverkauf hängt vom Filter ab:
   grün.
 - Depot: Depotkauf und Sparplan sind grün, Icon und Betrag. Ein Verkauf ist rot.
 
-Einnahme, Zinsen und Dividende bleiben grün, eine Ausgabe rot. In der
+Einnahme, Zinsen und Dividende bleiben grün, eine Ausgabe rot. Eine
+Rückerstattung bleibt in der Textfarbe, Icon und Betrag, und zeigt die ganze
+Summe. In der
 Einnahmen- oder Ausgabenliste ist die Kursdifferenz selbst der Betrag und trägt
 deren Farbe. Dort steht keine zweite Differenz darunter.
 
@@ -236,8 +248,44 @@ Ein Depotverkauf wird dabei als Umbuchung vom Depot auf das Konto gespeichert,
 damit die Kursdifferenz weiter gilt.
 
 Das Depot steht bei gewöhnlichen Buchungen, Fixkosten, Einnahmeprognosen,
-variablen Kosten und Budgetpools nicht zur Auswahl. Nur Depotkauf, Depotverkauf
-und Sparplan nutzen es, und dort nur auf der Depotseite.
+Umbuchungsprognosen, variablen Kosten und Budgetpools nicht zur Auswahl. Nur
+Depotkauf, Depotverkauf und Sparplan nutzen es, und dort nur auf der Depotseite.
+
+## Rückerstattung
+
+Eine Rückerstattung ist eine eigene Kategorie. Sie braucht immer eine
+ursprüngliche Ausgabe. Die Verknüpfung liegt in den lokalen Einstellungen, nicht
+in der Buchung selbst.
+
+- In der Buchungsliste steht die Rückerstattung mit ihrer ganzen Summe. Sie
+  zählt nicht in den Einnahmentopf und erscheint nicht in der Einnahmenliste.
+- Die ursprüngliche Ausgabe bleibt eine Ausgabe. Unter ihrem Betrag steht der
+  Rest, der noch zählt, kleiner und wie die Kursdifferenz bei einem Verkauf.
+  Eine Ausgabe von 100 € mit einer Rückerstattung von 30 € zählt als 70 €.
+  Mehrere Rückerstattungen werden addiert. Übersteigt die Summe die Ausgabe,
+  zählt die Ausgabe als null.
+- Der Kontostand behält beide Bewegungen: die Ausgabe geht ab, die
+  Rückerstattung kommt an.
+- In der Detailansicht der Ausgabe stehen die verknüpften Rückerstattungen.
+  In der Detailansicht der Rückerstattung steht die ursprüngliche Buchung.
+
+## Umbuchungsprognosen
+
+Neben Einnahme- und Ausgabenprognosen gibt es Umbuchungsprognosen. Anlegen und
+Bearbeiten läuft über Weitere Bereiche. Jede Prognose hat zwei Konten, beide
+ohne Depot, einen Betrag und einen Rhythmus.
+
+- Offene Termine des gewählten Zeitraums stehen bei den Buchungen. Ein Tipp
+  öffnet die Prognose.
+- Weist man die Prognose einer echten Umbuchung zu, ersetzt diese Buchung die
+  Prognose für den ganzen Zeitraum. Die offenen Termine verschwinden, die
+  Buchung bleibt.
+- In der Prognose des Kontostands bewegt ein offener Termin Geld vom einen
+  Konto auf das andere. Liegen beide Konten in der Ansicht, bleibt die Summe
+  null. Eine schon ersetzte, aber noch zukünftige Umbuchung zählt einmal mit
+  ihrem echten Betrag. Sparpläne und Depotkäufe sind davon ausgenommen.
+- Das Endsaldo bleibt Startsaldo plus Prognose-Differenz. Eine Umbuchung ist
+  keine Einnahme und keine Ausgabe.
 
 ## Variable Kosten
 
@@ -252,6 +300,15 @@ und Sparplan nutzen es, und dort nur auf der Depotseite.
   Anteil, und die Zeile nur, wenn das Konto beteiligt ist.
 - Die gewählten Konten liegen nicht im Datenmodell, sondern in den lokalen
   Einstellungen. So bleibt eine bestehende Datendatei lesbar.
+- Ist eine zugeordnete Ausgabe teilweise erstattet, zählt bei den variablen
+  Kosten nur derselbe Anteil.
+
+## Einkaufszettel
+
+- In der Finanzansicht steht **Geplant** ohne Plus und in der Textfarbe.
+  **Angewendet** ist rot.
+- In der Liste bearbeitet Rechtswischen einen Eintrag, Linkswischen löscht ihn.
+  Ein Tipp öffnet ihn ebenfalls.
 
 ## Home-Budget
 
@@ -260,10 +317,12 @@ Ein Tipp öffnet die Aufschlüsselung, nicht die Finanzansicht. Dort stehen die
 Einnahmen, die Prognosen und die Buchungen, aus denen Gesamt und Verbraucht
 entstehen.
 
-- Einnahmen sind nur fremde Eingänge. Die eigene IBAN, Dividenden und Zinsen
-  zählen nicht. Offene Gehaltsprognosen im Zeitraum zählen weiter.
+- Einnahmen sind nur fremde Eingänge. Die eigene IBAN, Dividenden, Zinsen und
+  Rückerstattungen zählen nicht. Offene Gehaltsprognosen im Zeitraum zählen
+  weiter.
 - Verbrauch sind normale Ausgaben plus Aktienkäufe und Sparplan-Ausführungen.
-  Andere Umbuchungen zählen nicht.
+  Eine erstattete Ausgabe zählt nur mit dem Rest. Andere Umbuchungen zählen
+  nicht.
 - Das Tagesbudget ist das verbleibende Budget geteilt durch die Tage bis zum
   nächsten Gehalt.
 

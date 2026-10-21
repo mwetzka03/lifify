@@ -302,18 +302,26 @@ enum HoldingMaintenance {
         context.delete(holding)
     }
 
-    /// Market value of the shares already held at the end of `day`, plus savings
-    /// plans that have not been booked yet when `day` is still in the future.
+    /// Market value of the shares held at the end of `day`. Future savings plans
+    /// increase the share count at the current price. Plans without a priced holding
+    /// still add their nominal euro amount.
     static func marketValue(of holdings: [PortfolioHolding], through day: Date) -> Int {
-        let cutoff = Calendar.current.date(
-            byAdding: .day,
-            value: 1,
-            to: Calendar.current.startOfDay(for: day)
-        ) ?? day
+        let shares = futureShares(through: day, holdings: holdings)
+        let cutoff = dayCutoff(day)
         let held = holdings.reduce(0) { total, holding in
-            total + marketValue(of: holding, before: cutoff, pricedOn: day)
+            let quantity = heldQuantity(of: holding, before: cutoff) + (shares.quantity[holding.id] ?? 0)
+            return total + valued(quantity, of: holding, pricedOn: day)
         }
-        return held + futureSavingsCents(through: day)
+        return held + shares.unmatchedCents
+    }
+
+    static func quantity(of holding: PortfolioHolding, through day: Date, holdings: [PortfolioHolding]) -> Double {
+        heldQuantity(of: holding, before: dayCutoff(day))
+            + (futureShares(through: day, holdings: holdings).quantity[holding.id] ?? 0)
+    }
+
+    static func marketValue(of holding: PortfolioHolding, through day: Date, holdings: [PortfolioHolding]) -> Int {
+        valued(quantity(of: holding, through: day, holdings: holdings), of: holding, pricedOn: day)
     }
 
     /// Cost, proceeds and difference of one sale. Fees stay inside the cash amounts.
@@ -330,30 +338,35 @@ enum HoldingMaintenance {
         saleEconomics(for: entry, holdings: holdings)?.differenceCents
     }
 
-    private static func marketValue(of holding: PortfolioHolding, before cutoff: Date, pricedOn day: Date) -> Int {
+    private static func dayCutoff(_ day: Date) -> Date {
+        Calendar.current.date(byAdding: .day, value: 1, to: Calendar.current.startOfDay(for: day)) ?? day
+    }
+
+    private static func heldQuantity(of holding: PortfolioHolding, before cutoff: Date) -> Double {
         let stored = HoldingLotStore.lots(for: holding.id)
         let lots = stored.filter { $0.date < cutoff }.sorted { $0.date < $1.date }
-        let quantity: Double
         if stored.isEmpty {
             let purchased = HoldingPurchaseDateStore.date(for: holding.id) ?? .distantPast
-            quantity = purchased < cutoff ? max(holding.quantity, 0) : 0
-        } else {
-            var held = 0.0
-            for lot in lots {
-                if lot.isSale {
-                    held -= lot.quantity
-                } else {
-                    held += lot.quantity
-                }
-            }
-            quantity = max(0, held)
+            return purchased < cutoff ? max(holding.quantity, 0) : 0
         }
+        var held = 0.0
+        for lot in lots {
+            if lot.isSale {
+                held -= lot.quantity
+            } else {
+                held += lot.quantity
+            }
+        }
+        return max(0, held)
+    }
+
+    private static func valued(_ quantity: Double, of holding: PortfolioHolding, pricedOn day: Date) -> Int {
         guard quantity > 0.0000005 else { return 0 }
         return Int((quantity * Double(priceCents(for: holding, on: day))).rounded())
     }
 
     /// Historical close for that day when one is stored. Otherwise the current price.
-    /// Future days always use the current price; upcoming savings are added in euros.
+    /// Future days always use the current price. Upcoming savings change the share count.
     private static func priceCents(for holding: PortfolioHolding, on day: Date) -> Int {
         let calendar = Calendar.current
         let dayStart = calendar.startOfDay(for: day)
@@ -371,27 +384,56 @@ enum HoldingMaintenance {
         return max(holding.currentPriceCents, 0)
     }
 
-    /// Nominal euro amount of active savings plans from tomorrow through `day`.
-    /// Executions already stored as lots stay in the share count and are not added again.
-    private static func futureSavingsCents(through day: Date) -> Int {
+    private struct FutureShares {
+        var quantity: [UUID: Double] = [:]
+        var unmatchedCents = 0
+    }
+
+    /// Each future execution buys `amount / current price` shares. The euro value of those
+    /// shares is the nominal plan amount, so it is not added a second time.
+    private static func futureShares(through day: Date, holdings: [PortfolioHolding]) -> FutureShares {
+        var result = FutureShares()
+        let ordered = holdings.sorted {
+            $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
+        }
+        var claimed = Set<UUID>()
+        for plan in SavingsPlanStore.all() where plan.active {
+            let executions = futureExecutionCount(plan, through: day)
+            guard executions > 0 else { continue }
+            guard let target = ordered.first(where: { matches($0, plan: plan) && $0.currentPriceCents > 0 }) else {
+                result.unmatchedCents += executions * abs(plan.amountCents)
+                continue
+            }
+            guard claimed.insert(plan.id).inserted else { continue }
+            let shares = Double(executions) * Double(abs(plan.amountCents)) / Double(target.currentPriceCents)
+            result.quantity[target.id, default: 0] += shares
+        }
+        return result
+    }
+
+    private static func matches(_ holding: PortfolioHolding, plan: SavingsPlanRecord) -> Bool {
+        if let holdingID = plan.holdingID { return holding.id == holdingID }
+        return holding.accountID == plan.portfolioAccountID
+            && holding.symbol.caseInsensitiveCompare(plan.isin) == .orderedSame
+    }
+
+    /// Executions after today and after the last booked execution, through `day`.
+    private static func futureExecutionCount(_ plan: SavingsPlanRecord, through day: Date) -> Int {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: .now)
         let target = calendar.startOfDay(for: day)
         guard target > today else { return 0 }
         let tomorrow = calendar.date(byAdding: .day, value: 1, to: today) ?? today
-        return SavingsPlanStore.all().filter(\.active).reduce(0) { total, plan in
-            let afterLast = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: plan.lastExecution)) ?? tomorrow
-            let from = max(tomorrow, afterLast)
-            guard from <= target else { return total }
-            let month = plan.cadence == .yearly ? calendar.component(.month, from: plan.lastExecution) : nil
-            let dates = CalendarService.savingsPlanDates(
-                cadence: plan.cadence,
-                from: from,
-                through: target,
-                yearlyMonth: month
-            )
-            return total + dates.count * abs(plan.amountCents)
-        }
+        let afterLast = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: plan.lastExecution)) ?? tomorrow
+        let from = max(tomorrow, afterLast)
+        guard from <= target else { return 0 }
+        let month = plan.cadence == .yearly ? calendar.component(.month, from: plan.lastExecution) : nil
+        return CalendarService.savingsPlanDates(
+            cadence: plan.cadence,
+            from: from,
+            through: target,
+            yearlyMonth: month
+        ).count
     }
 
     private static func economics(in lots: [HoldingLot], entry: LedgerEntry, requireLedgerID: Bool) -> SaleEconomics? {

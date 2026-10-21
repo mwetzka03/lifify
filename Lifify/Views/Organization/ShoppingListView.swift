@@ -17,6 +17,7 @@ struct ShoppingListView: View {
                     } label: {
                         Image(systemName: item.isPurchased ? "checkmark.circle.fill" : "circle")
                     }
+                    .buttonStyle(.borderless)
                     Button {
                         edited = item
                     } label: {
@@ -38,10 +39,20 @@ struct ShoppingListView: View {
                     }
                     .buttonStyle(.plain)
                 }
-            }
-            .onDelete { offsets in
-                offsets.map { items[$0] }.forEach(context.delete)
-                try? context.save()
+                .swipeActions(edge: .leading, allowsFullSwipe: false) {
+                    Button { edited = item } label: {
+                        Label(L("Bearbeiten", "Edit"), systemImage: "pencil")
+                    }
+                    .tint(.blue)
+                }
+                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                    Button(role: .destructive) {
+                        context.delete(item)
+                        try? context.save()
+                    } label: {
+                        Label(L("Löschen", "Delete"), systemImage: "trash")
+                    }
+                }
             }
         }
         .overlay {

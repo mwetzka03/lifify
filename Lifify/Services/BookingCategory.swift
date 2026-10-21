@@ -5,6 +5,7 @@ enum BookingCategory: String, CaseIterable, Identifiable {
     case interest
     case dividend
     case expense
+    case refund
     case portfolioBuy
     case portfolioSale
     case savingsPlan
@@ -19,6 +20,7 @@ enum BookingCategory: String, CaseIterable, Identifiable {
         case .interest: L("Zinsen", "Interest")
         case .dividend: L("Dividende", "Dividend")
         case .expense: L("Ausgabe", "Expense")
+        case .refund: L("Rückerstattung", "Refund")
         case .portfolioBuy: L("Depotkauf", "Portfolio buy")
         case .portfolioSale: L("Depotverkauf", "Portfolio sale")
         case .savingsPlan: L("Sparplan", "Savings plan")
@@ -33,6 +35,7 @@ enum BookingCategory: String, CaseIterable, Identifiable {
         case .interest: "percent"
         case .dividend: "chart.pie"
         case .expense: "cart"
+        case .refund: "arrow.uturn.backward.circle"
         case .portfolioBuy: "chart.line.uptrend.xyaxis"
         case .portfolioSale: "chart.line.downtrend.xyaxis"
         case .savingsPlan: "repeat.circle"
@@ -44,13 +47,13 @@ enum BookingCategory: String, CaseIterable, Identifiable {
     var usesTwoAccounts: Bool {
         switch self {
         case .portfolioBuy, .portfolioSale, .savingsPlan, .transfer: true
-        case .income, .interest, .dividend, .expense, .adjustment: false
+        case .income, .interest, .dividend, .expense, .refund, .adjustment: false
         }
     }
 
     var storedKind: LedgerKind {
         switch self {
-        case .income, .interest, .dividend: .income
+        case .income, .interest, .dividend, .refund: .income
         case .expense: .expense
         case .adjustment: .adjustment
         case .portfolioBuy, .portfolioSale, .savingsPlan, .transfer: .transfer
@@ -78,6 +81,7 @@ enum BookingClassification {
     ) -> BookingCategory {
         if entry.kind == .adjustment { return .adjustment }
         if isSavingsPlan(entry) { return .savingsPlan }
+        if isRefund(entry) { return .refund }
         let portfolios = Set(accounts.filter { $0.kind == .portfolio }.map(\.id))
         if isPortfolioSale(entry, portfolios: portfolios) { return .portfolioSale }
         if isPortfolioBuy(entry, portfolios: portfolios) { return .portfolioBuy }
@@ -107,7 +111,7 @@ enum BookingClassification {
         switch category {
         case .expense:
             return -amount
-        case .income, .interest, .dividend:
+        case .income, .interest, .dividend, .refund:
             return amount
         case .adjustment:
             return entry.amountCents
@@ -161,8 +165,8 @@ enum BookingClassification {
         case .income, .interest, .dividend:
             return BookingPaint(iconColor: .primary, amountColor: signedColor(signed), differenceCents: nil)
         case .expense:
-            return BookingPaint(iconColor: .primary, amountColor: signed < 0 ? .red : .primary, differenceCents: nil)
-        case .transfer, .adjustment:
+            return BookingPaint(iconColor: .primary, amountColor: signed < 0 ? .red : .primary, differenceCents: differenceCents)
+        case .refund, .transfer, .adjustment:
             return BookingPaint(iconColor: .primary, amountColor: .primary, differenceCents: nil)
         }
     }
@@ -174,7 +178,7 @@ enum BookingClassification {
             return abs(signed)
         case .portfolioSale:
             return -abs(signed)
-        case .income, .interest, .dividend, .expense, .transfer, .adjustment:
+        case .income, .interest, .dividend, .expense, .refund, .transfer, .adjustment:
             return signed
         }
     }
@@ -187,6 +191,16 @@ enum BookingClassification {
         if cents > 0 { return .green }
         if cents < 0 { return .red }
         return .primary
+    }
+
+    static func isRefund(_ entry: LedgerEntry) -> Bool {
+        if RefundLinkStore.isRefund(entry.id) { return true }
+        let notes = folded(entry.notes)
+        return notes.contains("typ: ruckerstattung")
+            || notes.contains("type: ruckerstattung")
+            || notes.contains("typ: rueckerstattung")
+            || notes.contains("type: refund")
+            || notes.contains("typ: refund")
     }
 
     static func isSavingsPlan(_ entry: LedgerEntry) -> Bool {
@@ -205,7 +219,7 @@ enum BookingClassification {
             return "Kauf: \(stripped)"
         case .portfolioSale:
             return "Verkauf: \(stripped)"
-        case .income, .interest, .dividend, .expense, .transfer, .adjustment:
+        case .income, .interest, .dividend, .expense, .refund, .transfer, .adjustment:
             return stripped
         }
     }
@@ -218,8 +232,13 @@ enum BookingClassification {
             return replacingType(notes, with: "Ertrag")
         case .savingsPlan:
             return replacingType(notes, with: "Sparplan")
+        case .refund:
+            return replacingType(notes, with: "Rückerstattung")
         case .income, .expense, .transfer, .portfolioBuy, .portfolioSale, .adjustment:
-            return removingTypeValues(notes, values: ["zinsen", "ertrag", "sparplan", "interest", "dividend"])
+            return removingTypeValues(notes, values: [
+                "zinsen", "ertrag", "sparplan", "interest", "dividend",
+                "rückerstattung", "ruckerstattung", "refund"
+            ])
         }
     }
 

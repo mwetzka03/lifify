@@ -73,6 +73,7 @@ struct TransactionsView: View {
                         entry: entry,
                         accounts: accounts,
                         holdings: holdings,
+                        ledgerEntries: entries,
                         viewedAccountID: filters.showsDepot ? nil : filters.account(in: filterAccounts)?.id,
                         scope: filters.showsDepot ? .depot : (filters.account(in: filterAccounts) == nil ? .combined : .account)
                     )
@@ -112,6 +113,8 @@ struct TransactionsView: View {
     private func delete(_ entry: LedgerEntry) {
         splits.filter { $0.transactionID == entry.id }.forEach { context.delete($0) }
         IconPreferenceStore.remove(for: entry.id)
+        RefundLinkStore.removeAll(touching: entry.id)
+        TransferForecastAssignmentStore.clear(entryID: entry.id)
         context.delete(entry)
         try? context.save()
     }
@@ -121,6 +124,7 @@ struct TransactionRow: View {
     let entry: LedgerEntry
     var accounts: [Account] = []
     var holdings: [PortfolioHolding] = []
+    var ledgerEntries: [LedgerEntry] = []
     var viewedAccountID: UUID? = nil
     var scope: BookingScope = .combined
 
@@ -159,8 +163,13 @@ struct TransactionRow: View {
             category: category,
             signed: displayAmount,
             scope: scope,
-            differenceCents: category == .portfolioSale ? saleDifference : nil
+            differenceCents: category == .portfolioSale ? saleDifference : expenseRemainder
         )
+    }
+
+    private var expenseRemainder: Int? {
+        guard category == .expense else { return nil }
+        return RefundLinkStore.realExpenseCents(of: entry, entries: ledgerEntries)
     }
 
     private var saleDifference: Int? {
@@ -196,11 +205,22 @@ struct TransactionDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @Query private var accounts: [Account]
     @Query private var holdings: [PortfolioHolding]
+    @Query private var entries: [LedgerEntry]
     let entry: LedgerEntry
+    var embedsNavigation = true
 
     var body: some View {
-        NavigationStack {
-            Form {
+        Group {
+            if embedsNavigation {
+                NavigationStack { formContent }
+            } else {
+                formContent
+            }
+        }
+    }
+
+    private var formContent: some View {
+        Form {
                 Section {
                     LabeledContent(L("Kategorie", "Category"), value: category.label)
                     HStack {
@@ -209,10 +229,43 @@ struct TransactionDetailView: View {
                         Text(Money.string(cents: displayAmount))
                             .foregroundStyle(BookingClassification.amountColor(category: category, signed: displayAmount))
                     }
+                    if let remainder = expenseRemainder {
+                        HStack {
+                            Text(L("Zählt als", "Counts as"))
+                            Spacer()
+                            Text(Money.string(cents: remainder))
+                                .foregroundStyle(BookingClassification.differenceColor(remainder))
+                        }
+                    }
                     LabeledContent(
                         L("Datum", "Date"),
                         value: AppDate.weekdayAndNumeric(entry.date)
                     )
+                }
+                if category == .refund {
+                    Section(L("Ursprüngliche Buchung", "Original transaction")) {
+                        if let original = originalBooking {
+                            NavigationLink {
+                                TransactionDetailView(entry: original, embedsNavigation: false)
+                            } label: {
+                                linkedBookingLine(original)
+                            }
+                        } else {
+                            Text(L("Die ursprüngliche Buchung fehlt.", "The original transaction is missing."))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+                if !linkedRefunds.isEmpty {
+                    Section(L("Rückerstattungen", "Refunds")) {
+                        ForEach(linkedRefunds) { refund in
+                            NavigationLink {
+                                TransactionDetailView(entry: refund, embedsNavigation: false)
+                            } label: {
+                                linkedBookingLine(refund)
+                            }
+                        }
+                    }
                 }
                 if category == .portfolioSale {
                     Section(L("Verkauf", "Sale")) {
@@ -274,6 +327,34 @@ struct TransactionDetailView: View {
                     Button(L("Fertig", "Done")) { dismiss() }
                 }
             }
+    }
+
+    private var expenseRemainder: Int? {
+        guard category == .expense else { return nil }
+        return RefundLinkStore.realExpenseCents(of: entry, entries: entries)
+    }
+
+    private var originalBooking: LedgerEntry? {
+        guard let id = RefundLinkStore.originalID(for: entry.id) else { return nil }
+        return entries.first { $0.id == id }
+    }
+
+    private var linkedRefunds: [LedgerEntry] {
+        let ids = Set(RefundLinkStore.refundIDs(for: entry.id))
+        return entries.filter { ids.contains($0.id) }.sorted { $0.date > $1.date }
+    }
+
+    private func linkedBookingLine(_ linked: LedgerEntry) -> some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(linked.title)
+                Text(AppDate.numeric(linked.date))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            Text(Money.string(cents: abs(linked.amountCents)))
+                .foregroundStyle(.primary)
         }
     }
 
@@ -355,6 +436,8 @@ struct TransactionFormView: View {
     @Query(sort: \BudgetPool.name) private var pools: [BudgetPool]
     @Query(sort: \ShoppingItem.name) private var shopping: [ShoppingItem]
     @Query private var allSplits: [TransactionSplit]
+    @Query(sort: \LedgerEntry.date, order: .reverse) private var entries: [LedgerEntry]
+    @State private var transferForecasts: [TransferForecastRecord] = []
     @StateObject private var viewModel: TransactionFormViewModel
 
     init(entry: LedgerEntry?, splits: [TransactionSplit]) {
@@ -384,6 +467,34 @@ struct TransactionFormView: View {
                     }
                 }
 
+                if viewModel.category == .refund {
+                    Section(L("Ursprüngliche Buchung", "Original transaction")) {
+                        if expenseChoices.isEmpty {
+                            Text(L("Es gibt noch keine Ausgabe, die erstattet werden kann.", "There is no expense to refund yet."))
+                                .foregroundStyle(.secondary)
+                        } else {
+                            Picker(L("Ausgabe", "Expense"), selection: $viewModel.refundOriginalID) {
+                                Text(L("Auswählen", "Select")).tag(Optional<UUID>.none)
+                                ForEach(expenseChoices) { entry in
+                                    Text(expenseChoiceLabel(entry))
+                                        .tag(Optional(entry.id))
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if viewModel.category == .transfer {
+                    Section(L("Prognose", "Forecast")) {
+                        Picker(L("Umbuchungsprognose", "Transfer forecast"), selection: $viewModel.transferForecastID) {
+                            Text(L("Keine", "None")).tag(Optional<UUID>.none)
+                            ForEach(transferForecasts) { forecast in
+                                Text(forecast.name).tag(Optional(forecast.id))
+                            }
+                        }
+                    }
+                }
+
                 if viewModel.category == .expense {
                     Section(L("Zuordnung", "Assignment")) {
                         optionalPicker(L("Fixkosten", "Fixed cost"), selection: $viewModel.fixedCostID, values: fixedCosts.map { ($0.id, $0.name) })
@@ -408,7 +519,10 @@ struct TransactionFormView: View {
             }
             .navigationTitle(viewModel.title.isEmpty ? L("Neue Buchung", "New transaction") : viewModel.title)
             .navigationBarTitleDisplayMode(.inline)
-            .onAppear { viewModel.refineIfNeeded(accounts: accounts) }
+            .onAppear {
+                viewModel.refineIfNeeded(accounts: accounts)
+                transferForecasts = TransferForecastStore.all().filter(\.active)
+            }
             .onChange(of: viewModel.category) { _, category in
                 viewModel.fillAccounts(for: category, accounts: accounts)
             }
@@ -418,11 +532,19 @@ struct TransactionFormView: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(L("Speichern", "Save")) {
-                        if viewModel.save(context: context, pools: pools, allSplits: allSplits, accounts: accounts) { dismiss() }
+                        if viewModel.save(context: context, pools: pools, allSplits: allSplits, accounts: accounts, entries: entries) { dismiss() }
                     }
                 }
             }
         }
+    }
+
+    private var expenseChoices: [LedgerEntry] {
+        entries.filter { $0.kind == .expense && $0.id != viewModel.id }
+    }
+
+    private func expenseChoiceLabel(_ entry: LedgerEntry) -> String {
+        "\(entry.title) · \(AppDate.numeric(entry.date)) · \(Money.string(cents: abs(entry.amountCents)))"
     }
 
     private func accountPicker(_ title: String, selection: Binding<UUID?>, portfolio: Bool) -> some View {

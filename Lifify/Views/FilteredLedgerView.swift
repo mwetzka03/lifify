@@ -34,6 +34,7 @@ struct FilteredLedgerView: View {
     private var visibleEntries: [LedgerEntry] {
         entries.filter { entry in
             guard entry.kind == kind else { return false }
+            if kind == .income, BookingClassification.isRefund(entry) { return false }
             guard FinancePeriods.includes(entry, period: selectedPeriod, account: selectedAccount, depotIDs: depotIDs) else { return false }
             guard selectedAccount == nil, !filters.showsDepot, kind == .income else { return true }
             return ExternalIncome.countsInCombinedFinance(entry, accounts: accounts)
@@ -64,14 +65,20 @@ struct FilteredLedgerView: View {
 
     private var flowRows: [FlowRow] {
         let booked = visibleEntries.map { entry in
-            FlowRow(
+            let remainder = kind == .expense ? RefundLinkStore.realExpenseCents(of: entry, entries: entries) : nil
+            let counted = kind == .expense
+                ? RefundLinkStore.countedExpenseCents(of: entry, entries: entries)
+                : abs(entry.amountCents)
+            return FlowRow(
                 id: entry.id.uuidString,
                 entry: entry,
                 title: entry.title,
                 date: entry.date,
                 signedCents: kind == .expense ? -abs(entry.amountCents) : abs(entry.amountCents),
-                counts: true,
-                isTransfer: false
+                counts: counted > 0,
+                isTransfer: false,
+                realCents: remainder,
+                countedCents: counted
             )
         }
         let trades = portfolioLines.map { line in
@@ -90,7 +97,11 @@ struct FilteredLedgerView: View {
     }
 
     private var countedTotal: Int {
-        flowRows.filter(\.counts).reduce(0) { $0 + abs($1.signedCents) }
+        flowRows.reduce(0) { total, row in
+            guard row.counts else { return total }
+            if let counted = row.countedCents { return total + counted }
+            return total + abs(row.signedCents)
+        }
     }
 
     var body: some View {
@@ -200,7 +211,7 @@ struct FilteredLedgerView: View {
                             category: category,
                             signed: row.signedCents,
                             scope: bookingScope,
-                            differenceCents: row.caption == nil ? economics?.differenceCents : nil
+                            differenceCents: row.caption == nil ? (row.realCents ?? economics?.differenceCents) : nil
                         )
                         let amountColor = row.caption == nil
                             ? paint.amountColor
@@ -345,6 +356,8 @@ private struct FlowRow: Identifiable {
     var counts: Bool
     var isTransfer: Bool
     var caption: String? = nil
+    var realCents: Int? = nil
+    var countedCents: Int? = nil
 }
 
 private struct ForecastOccurrence: Identifiable {

@@ -30,6 +30,8 @@ final class TransactionFormViewModel: ObservableObject {
     @Published var fixedCostID: UUID?
     @Published var variableBudgetID: UUID?
     @Published var shoppingItemID: UUID?
+    @Published var refundOriginalID: UUID?
+    @Published var transferForecastID: UUID?
     @Published var variableSplits: [SplitDraft]
     @Published var poolSplits: [SplitDraft]
     @Published var errorMessage: String?
@@ -51,6 +53,8 @@ final class TransactionFormViewModel: ObservableObject {
         fixedCostID = entry?.fixedCostID
         variableBudgetID = entry?.variableBudgetID
         shoppingItemID = entry?.shoppingItemID
+        refundOriginalID = entry.flatMap { RefundLinkStore.originalID(for: $0.id) }
+        transferForecastID = entry.flatMap { TransferForecastAssignmentStore.forecastID(for: $0.id) }
         variableSplits = splits
             .filter { $0.transactionID == entry?.id && $0.kind == .variableBudget }
             .map { SplitDraft(targetID: $0.targetID, amountText: String(format: "%.2f", Double($0.amountCents) / 100)) }
@@ -92,7 +96,7 @@ final class TransactionFormViewModel: ObservableObject {
         case .transfer:
             if let fromAccountID, !checkingIDs.contains(fromAccountID) { self.fromAccountID = nil }
             if let toAccountID, !checkingIDs.contains(toAccountID) { self.toAccountID = nil }
-        case .income, .interest, .dividend, .expense, .adjustment:
+        case .income, .interest, .dividend, .expense, .refund, .adjustment:
             if let accountID, !checkingIDs.contains(accountID) { self.accountID = nil }
         }
     }
@@ -101,7 +105,8 @@ final class TransactionFormViewModel: ObservableObject {
         context: ModelContext,
         pools: [BudgetPool],
         allSplits: [TransactionSplit],
-        accounts: [Account]
+        accounts: [Account],
+        entries: [LedgerEntry]
     ) -> Bool {
         guard !title.trimmingCharacters(in: .whitespaces).isEmpty else {
             errorMessage = L("Bitte einen Titel eingeben.", "Please enter a title.")
@@ -133,7 +138,7 @@ final class TransactionFormViewModel: ObservableObject {
                     errorMessage = L("Eine Umbuchung läuft nicht über das Depot.", "A transfer does not use the portfolio.")
                     return false
                 }
-            case .income, .interest, .dividend, .expense, .adjustment:
+            case .income, .interest, .dividend, .expense, .refund, .adjustment:
                 break
             }
         } else if accountID == nil {
@@ -142,6 +147,15 @@ final class TransactionFormViewModel: ObservableObject {
         } else if let accountID, portfolios.contains(accountID) {
             errorMessage = L("Für diese Buchung steht das Depot nicht zur Auswahl.", "The portfolio is not available for this transaction.")
             return false
+        }
+        if category == .refund {
+            guard let refundOriginalID,
+                  refundOriginalID != id,
+                  entries.contains(where: { $0.id == refundOriginalID && $0.kind == .expense })
+            else {
+                errorMessage = L("Bitte die ursprüngliche Ausgabe wählen.", "Please choose the original expense.")
+                return false
+            }
         }
         let variableValues: [(targetID: UUID, amount: Int)]?
         let poolValues: [(targetID: UUID, amount: Int)]?
@@ -201,6 +215,16 @@ final class TransactionFormViewModel: ObservableObject {
         }
         do {
             try context.save()
+            if category == .refund, let refundOriginalID {
+                RefundLinkStore.link(refundID: id, to: refundOriginalID)
+            } else {
+                RefundLinkStore.unlink(refundID: id)
+            }
+            if category == .transfer, let transferForecastID {
+                TransferForecastAssignmentStore.assign(entryID: id, forecastID: transferForecastID)
+            } else {
+                TransferForecastAssignmentStore.clear(entryID: id)
+            }
             return true
         } catch {
             errorMessage = error.localizedDescription

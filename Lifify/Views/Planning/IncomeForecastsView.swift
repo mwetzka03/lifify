@@ -10,7 +10,7 @@ struct IncomeOverviewView: View {
     @State private var selected: LedgerEntry?
 
     private var incomeEntries: [LedgerEntry] {
-        entries.filter { $0.kind == .income }
+        entries.filter { $0.kind == .income && !BookingClassification.isRefund($0) }
     }
 
     var body: some View {
@@ -51,7 +51,7 @@ struct IncomeOverviewView: View {
                         .foregroundStyle(.secondary)
                 }
                 ForEach(incomeEntries) { entry in
-                    Button { selected = entry } label: { TransactionRow(entry: entry) }
+                    Button { selected = entry } label: { TransactionRow(entry: entry, ledgerEntries: entries) }
                         .buttonStyle(.plain)
                 }
             }

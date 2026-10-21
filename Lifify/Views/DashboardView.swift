@@ -18,6 +18,7 @@ struct DashboardView: View {
     @State private var editingBooking: LedgerEntry?
     @State private var showingNewBooking = false
     @State private var bookingQuery = ""
+    @State private var editedTransfer: TransferForecastRecord?
     @AppStorage("portfolioPerformanceBasis") private var portfolioBasis = "today"
     @AppStorage("portfolioPerformanceUnit") private var portfolioUnit = "percent"
 
@@ -43,11 +44,19 @@ struct DashboardView: View {
                     .listRowBackground(Color.clear)
                     Section {
                         bookingSearchRow
-                        if filteredBookings.isEmpty {
+                        if filteredBookings.isEmpty && openTransferForecasts.isEmpty {
                             Text(bookingQuery.isEmpty
                                 ? L("In diesem Zeitraum liegen keine Buchungen.", "There are no transactions in this period.")
                                 : L("Keine Buchung gefunden.", "No transaction found."))
                                 .foregroundStyle(.secondary)
+                        }
+                        ForEach(openTransferForecasts) { item in
+                            Button {
+                                editedTransfer = item.forecast
+                            } label: {
+                                openTransferRow(item)
+                            }
+                            .buttonStyle(.plain)
                         }
                         ForEach(filteredBookings) { entry in
                             Button {
@@ -57,6 +66,7 @@ struct DashboardView: View {
                                     entry: entry,
                                     accounts: accounts,
                                     holdings: holdings,
+                                    ledgerEntries: entries,
                                     viewedAccountID: filters.showsDepot ? nil : selectedFilterAccount?.id,
                                     scope: bookingScope
                                 )
@@ -121,6 +131,9 @@ struct DashboardView: View {
         .sheet(item: $selectedBooking) { entry in
             TransactionDetailView(entry: entry)
         }
+        .sheet(item: $editedTransfer) { forecast in
+            TransferForecastForm(forecast: forecast)
+        }
     }
 
     @ViewBuilder
@@ -141,39 +154,41 @@ struct DashboardView: View {
                 let closingBalance = balanceTile(
                     L("Endsaldo (Prognose)", "Closing balance (forecast)"),
                     amount: snapshot.startBalance + prognose,
-                    delta: prognose,
                     liquid: liquid?.endBalance
                 )
-                HStack(alignment: .top, spacing: 8) {
+                EqualHeightTileRow {
                     linked(.income) {
-                        flowTile(L("Einnahmen", "Income"), amount: snapshot.income, footnote: incomeFootnote(snapshot, period: period))
+                        flowTile(L("Einnahmen", "Income"), amount: snapshot.income, footnote: incomeFootnote(snapshot, period: period), fillsRow: true)
                     }
                     linked(.expenses) {
-                        flowTile(L("Ausgaben", "Expenses"), amount: -snapshot.bookedExpenses, footnote: expenseFootnote(snapshot, period: period))
+                        flowTile(L("Ausgaben", "Expenses"), amount: -snapshot.bookedExpenses, footnote: expenseFootnote(snapshot, period: period), fillsRow: true)
                     }
                     flowTile(
                         L("Differenz", "Difference"),
                         amount: snapshot.realDifference,
-                        footnote: forecastFootnote(prognose, period: period)
+                        footnote: forecastFootnote(prognose, period: period),
+                        fillsRow: true
                     )
                 }
-                HStack(alignment: .top, spacing: 8) {
+                EqualHeightTileRow {
                     openingBalance
                     closingBalance
                 }
-                HStack(alignment: .top, spacing: 8) {
+                EqualHeightTileRow {
                     linked(.fixedCosts) {
                         flowTile(
                             L("Fixkosten", "Fixed costs"),
                             amount: -snapshot.bookedFixed,
-                            footnote: openFootnote(snapshot.remainingFixed, period: period)
+                            footnote: openFootnote(snapshot.remainingFixed, period: period),
+                            fillsRow: true
                         )
                     }
                     linked(.variableCosts) {
                         flowTile(
                             L("Variable Kosten", "Variable costs"),
                             amount: -snapshot.bookedVariable,
-                            footnote: openFootnote(snapshot.remainingVariable, period: period)
+                            footnote: openFootnote(snapshot.remainingVariable, period: period),
+                            fillsRow: true
                         )
                     }
                 }
@@ -240,8 +255,77 @@ struct DashboardView: View {
     private func deleteBooking(_ entry: LedgerEntry) {
         splits.filter { $0.transactionID == entry.id }.forEach { context.delete($0) }
         IconPreferenceStore.remove(for: entry.id)
+        RefundLinkStore.removeAll(touching: entry.id)
+        TransferForecastAssignmentStore.clear(entryID: entry.id)
         context.delete(entry)
         try? context.save()
+    }
+
+    private var openTransferForecasts: [OpenTransferForecast] {
+        guard let period = selectedPeriod, !filters.showsDepot else { return [] }
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: .now)
+        guard period.end >= today else { return [] }
+        return TransferForecastStore.all().filter(\.active).flatMap { forecast -> [OpenTransferForecast] in
+            if transferForecastIsBooked(forecast, period: period) { return [] }
+            if let account = selectedFilterAccount {
+                guard forecast.fromAccountID == account.id || forecast.toAccountID == account.id else { return [] }
+            }
+            return CalendarService.nextOccurrences(
+                firstDate: forecast.firstDate,
+                cadence: forecast.cadence,
+                rule: forecast.dueRule,
+                day: forecast.dayOfMonth,
+                endDate: forecast.endDate,
+                through: period.end
+            )
+            .map { calendar.startOfDay(for: $0) }
+            .filter { period.contains($0) && $0 >= today }
+            .map { day in
+                OpenTransferForecast(
+                    id: "\(forecast.id.uuidString)-\(day.dayKey)",
+                    forecast: forecast,
+                    date: day
+                )
+            }
+        }
+        .sorted { $0.date < $1.date }
+    }
+
+    private func transferForecastIsBooked(_ forecast: TransferForecastRecord, period: ForecastPeriod) -> Bool {
+        entries.contains { entry in
+            guard period.contains(entry.date) else { return false }
+            return TransferForecastAssignmentStore.forecastID(for: entry.id) == forecast.id
+        }
+    }
+
+    private func openTransferRow(_ item: OpenTransferForecast) -> some View {
+        let signed = transferForecastSigned(item.forecast)
+        return HStack(spacing: 12) {
+            Image(systemName: BookingCategory.transfer.systemImage)
+                .frame(width: 28)
+                .foregroundStyle(.primary)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(item.forecast.name)
+                    .foregroundStyle(.primary)
+                    .lineLimit(2)
+                Text("\(L("Umbuchung", "Transfer")) · \(AppDate.numeric(item.date)) · \(L("Prognose", "Forecast"))")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            Text(Money.string(cents: signed))
+                .foregroundStyle(selectedFilterAccount == nil ? Color.primary : BookingClassification.differenceColor(signed))
+                .monospacedDigit()
+        }
+    }
+
+    private func transferForecastSigned(_ forecast: TransferForecastRecord) -> Int {
+        let amount = abs(forecast.amountCents)
+        guard let account = selectedFilterAccount else { return amount }
+        if forecast.fromAccountID == account.id { return -amount }
+        if forecast.toAccountID == account.id { return amount }
+        return amount
     }
 
     private func linked<Label: View>(_ route: FinanceRoute, @ViewBuilder label: () -> Label) -> some View {
@@ -294,22 +378,23 @@ struct DashboardView: View {
                         .foregroundStyle(.secondary)
                     Text(Money.string(cents: forecast.biasApplied))
                         .font(.title3.weight(.semibold))
+                        .foregroundStyle(.red)
                 }
                 Spacer()
                 VStack(alignment: .trailing, spacing: 2) {
                     Text(L("Geplant", "Planned"))
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
-                    Text(Money.signed(cents: forecast.biasPlanned))
+                    Text(Money.string(cents: forecast.biasPlanned))
                         .font(.title3.weight(.semibold))
-                        .foregroundStyle(forecast.biasPlanned > 0 ? .orange : .primary)
+                        .foregroundStyle(.primary)
                 }
             }
         }
         .financeCard(padding: 12)
     }
 
-    private func flowTile(_ title: String, amount: Int, footnote: String? = nil) -> some View {
+    private func flowTile(_ title: String, amount: Int, footnote: String? = nil, fillsRow: Bool = false) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(title)
                 .font(.subheadline)
@@ -325,13 +410,12 @@ struct DashboardView: View {
                 .foregroundStyle(footnote == nil ? .clear : .secondary)
                 .lineLimit(2)
         }
-        .financeCard(padding: 12)
+        .financeCard(padding: 12, fillsRow: fillsRow)
     }
 
     private func balanceTile(
         _ title: String,
         amount: Int,
-        delta: Int? = nil,
         liquid: Int? = nil
     ) -> some View {
         VStack(alignment: .leading, spacing: 2) {
@@ -343,10 +427,6 @@ struct DashboardView: View {
                 .font(.title3.weight(.semibold))
                 .lineLimit(1)
                 .minimumScaleFactor(0.55)
-            Text(delta.map { Money.signed(cents: $0) } ?? " ")
-                .font(.footnote)
-                .foregroundStyle(delta.map { flowColor($0) } ?? .clear)
-                .lineLimit(1)
             if let liquid {
                 Text(L("Liquide", "Liquid"))
                     .font(.caption)
@@ -357,9 +437,7 @@ struct DashboardView: View {
                     .minimumScaleFactor(0.55)
             }
         }
-        .fixedSize(horizontal: false, vertical: true)
-        .frame(maxWidth: .infinity, alignment: .topLeading)
-        .financeCard(padding: 12)
+        .financeCard(padding: 12, fillsRow: true)
     }
 
     private var periods: [ForecastPeriod] {
@@ -587,6 +665,8 @@ private struct FinanceMoreSection: View {
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 4)
             VStack(alignment: .leading, spacing: 0) {
+                sectionLink(L("Umbuchungsprognosen", "Transfer forecasts"), systemImage: "arrow.left.arrow.right", route: .transferForecasts)
+                Divider().padding(.leading, 54)
                 sectionLink(L("Budgetpools", "Budget pools"), systemImage: "tray.full", route: .budgetPools)
                 Divider().padding(.leading, 54)
                 sectionLink(L("Ausgabengruppen", "Expense groups"), systemImage: "square.stack.3d.up", route: .expenseGroups)
@@ -630,11 +710,66 @@ private struct FinanceMoreSection: View {
     }
 }
 
-private extension View {
-    func financeCard(padding: CGFloat = 12) -> some View {
-        self
-            .frame(maxWidth: .infinity, alignment: .topLeading)
+private struct TileHeightPreference: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
+    }
+}
+
+private struct TileRowHeightKey: EnvironmentKey {
+    static let defaultValue: CGFloat = 0
+}
+
+private extension EnvironmentValues {
+    var tileRowHeight: CGFloat {
+        get { self[TileRowHeightKey.self] }
+        set { self[TileRowHeightKey.self] = newValue }
+    }
+}
+
+private struct EqualHeightTileRow<Content: View>: View {
+    @ViewBuilder var content: () -> Content
+    @State private var height: CGFloat = 0
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 8) {
+            content()
+        }
+        .environment(\.tileRowHeight, height)
+        .onPreferenceChange(TileHeightPreference.self) { height = $0 }
+    }
+}
+
+private struct OpenTransferForecast: Identifiable {
+    var id: String
+    var forecast: TransferForecastRecord
+    var date: Date
+}
+
+private struct FinanceCardModifier: ViewModifier {
+    var padding: CGFloat
+    var fillsRow: Bool
+    @Environment(\.tileRowHeight) private var rowHeight
+
+    func body(content: Content) -> some View {
+        content
             .padding(padding)
+            .frame(maxWidth: .infinity, alignment: .topLeading)
+            .background {
+                if fillsRow {
+                    GeometryReader { geo in
+                        Color.clear.preference(key: TileHeightPreference.self, value: geo.size.height)
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity, minHeight: fillsRow && rowHeight > 0 ? rowHeight : 0, alignment: .topLeading)
             .background(AppSurface.card, in: RoundedRectangle(cornerRadius: 14))
+    }
+}
+
+private extension View {
+    func financeCard(padding: CGFloat = 12, fillsRow: Bool = false) -> some View {
+        modifier(FinanceCardModifier(padding: padding, fillsRow: fillsRow))
     }
 }

@@ -53,6 +53,7 @@ enum HomeBudget {
         let incomeEntries = entries
             .filter {
                 $0.kind == .income
+                    && !BookingClassification.isRefund($0)
                     && $0.date >= periodStart
                     && $0.date <= periodEnd
                     && ExternalIncome.countsInHomeBudget($0, accounts: accounts)
@@ -97,12 +98,14 @@ enum HomeBudget {
         let expenseEntries = entries
             .filter { $0.kind == .expense && $0.date >= periodStart && $0.date <= now }
             .sorted { $0.date > $1.date }
-        let expenseLines = expenseEntries.map { entry in
-            HomeBudgetLine(
+        let expenseLines = expenseEntries.compactMap { entry -> HomeBudgetLine? in
+            let cents = RefundLinkStore.countedExpenseCents(of: entry, entries: entries)
+            guard cents > 0 else { return nil }
+            return HomeBudgetLine(
                 id: entry.id.uuidString,
                 title: entry.title,
                 date: entry.date,
-                cents: abs(entry.amountCents),
+                cents: cents,
                 entry: entry
             )
         }
