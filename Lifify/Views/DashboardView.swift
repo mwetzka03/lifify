@@ -466,7 +466,7 @@ struct DashboardView: View {
     }
 
     private func transferForecastIsBooked(_ forecast: TransferForecastRecord, period: ForecastPeriod) -> Bool {
-        if ForecastPeriodLinkStore.covers(.transfer, forecast.id, entries: entries, period: period) { return true }
+        if ForecastPeriodLinkStore.covers(.transfer, id: forecast.id, entries: entries, period: period) { return true }
         return entries.contains { entry in
             guard period.contains(entry.date) else { return false }
             return TransferForecastAssignmentStore.forecastID(for: entry.id) == forecast.id
@@ -813,7 +813,7 @@ struct DashboardView: View {
                 through: period.end
             )
             .map { calendar.startOfDay(for: $0) }
-            .filter { period.contains($0) && $0 >= today && !ForecastSkipStore.isSkipped(.transfer, forecast.id, on: $0) }
+            .filter { period.contains($0) && $0 >= today && !ForecastSkipStore.isSkipped(.transfer, id: forecast.id, on: $0) }
             .count
             let amount = abs(forecast.amountCents) * count
             if incoming { income += amount }
