@@ -1075,6 +1075,17 @@ enum VariableBudgetAccounts {
         return base + (index < remainder ? 1 : 0)
     }
 
+    static func fingerprint() -> Int {
+        var hasher = Hasher()
+        for pair in all().sorted(by: { $0.key < $1.key }) {
+            hasher.combine(pair.key)
+            for id in pair.value {
+                hasher.combine(id)
+            }
+        }
+        return hasher.finalize()
+    }
+
     private static func all() -> [String: [UUID]] {
         guard let data = UserDefaults.standard.data(forKey: key),
               let decoded = try? JSONDecoder().decode([String: [UUID]].self, from: data) else { return [:] }

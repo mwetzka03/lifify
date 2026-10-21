@@ -208,6 +208,8 @@ struct TransactionDetailView: View {
     @Query private var entries: [LedgerEntry]
     let entry: LedgerEntry
     var embedsNavigation = true
+    @Query private var splits: [TransactionSplit]
+    @State private var showingRefund = false
 
     var body: some View {
         Group {
@@ -241,6 +243,15 @@ struct TransactionDetailView: View {
                         L("Datum", "Date"),
                         value: AppDate.weekdayAndNumeric(entry.date)
                     )
+                }
+                if category == .expense {
+                    Section {
+                        Button {
+                            showingRefund = true
+                        } label: {
+                            Label(L("Rückerstattung anlegen", "Add refund"), systemImage: "arrow.uturn.backward.circle")
+                        }
+                    }
                 }
                 if category == .refund {
                     Section(L("Ursprüngliche Buchung", "Original transaction")) {
@@ -326,6 +337,9 @@ struct TransactionDetailView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button(L("Fertig", "Done")) { dismiss() }
                 }
+            }
+            .sheet(isPresented: $showingRefund) {
+                TransactionFormView(entry: nil, splits: splits, refundOriginal: entry)
             }
     }
 
@@ -440,16 +454,26 @@ struct TransactionFormView: View {
     @State private var transferForecasts: [TransferForecastRecord] = []
     @StateObject private var viewModel: TransactionFormViewModel
 
-    init(entry: LedgerEntry?, splits: [TransactionSplit]) {
-        _viewModel = StateObject(wrappedValue: TransactionFormViewModel(entry: entry, splits: splits))
+    init(entry: LedgerEntry?, splits: [TransactionSplit], refundOriginal: LedgerEntry? = nil) {
+        _viewModel = StateObject(wrappedValue: TransactionFormViewModel(
+            entry: entry,
+            splits: splits,
+            refundOriginal: refundOriginal
+        ))
     }
 
     var body: some View {
         NavigationStack {
             Form {
                 Section {
-                    Picker(L("Kategorie", "Category"), selection: $viewModel.category) {
-                        ForEach(BookingCategory.allCases) { Text($0.label).tag($0) }
+                    if viewModel.allowsCategoryChange {
+                        Picker(L("Kategorie", "Category"), selection: $viewModel.category) {
+                            ForEach(BookingCategory.allCases.filter(\.allowsManualEntry)) { category in
+                                Text(category.label).tag(category)
+                            }
+                        }
+                    } else {
+                        LabeledContent(L("Kategorie", "Category"), value: viewModel.category.label)
                     }
                     TextField(L("Titel", "Title"), text: $viewModel.title)
                     TextField(L("Betrag", "Amount"), text: $viewModel.amountText)
@@ -522,6 +546,9 @@ struct TransactionFormView: View {
             .onAppear {
                 viewModel.refineIfNeeded(accounts: accounts)
                 transferForecasts = TransferForecastStore.all().filter(\.active)
+            }
+            .onChange(of: accounts.count) { _, _ in
+                viewModel.refineIfNeeded(accounts: accounts)
             }
             .onChange(of: viewModel.category) { _, category in
                 viewModel.fillAccounts(for: category, accounts: accounts)

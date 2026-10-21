@@ -73,9 +73,23 @@ einzelnen Konten plus den Depotwert am Tag davor.
   damit beide Kacheln nebeneinander passen. Kacheln in einer Reihe sind gleich
   hoch, auch wenn eine Zahl oder der Hinweis darunter umbricht.
 - Das Endsaldo ist der Startsaldo plus die Prognose-Differenz. Unter dem
-  Endsaldo steht keine weitere Differenzzahl. Die Prognose-Differenz steht
-  unter der Differenz und heißt **Prognose**. Sie ist gebuchte plus offene
-  Einnahmen abzüglich gebuchter plus offener Ausgaben.
+  Endsaldo steht keine weitere Differenzzahl. Die Prognose-Differenz ist
+  gebuchte plus offene Einnahmen abzüglich gebuchter plus offener Ausgaben.
+- Im laufenden Zeitraum steht unter der Differenz das Wort **Prognose** in
+  einer eigenen Zeile und der Betrag darunter, ebenfalls allein. **Offen**
+  steht bei Einnahmen, Ausgaben, Fixkosten und variablen Kosten genauso:
+  Überschrift oben, Betrag darunter. Der große Betrag bleibt dort der schon
+  gebuchte. Bei den Einnahmen enthält der große Betrag die Prognose bereits,
+  Offen zeigt nur den noch offenen Teil.
+- Liegt der ganze Zeitraum in der Zukunft, gibt es kein Offen. Der große
+  Betrag ist dann der normale Wert, also gebucht plus noch offen. Bei den
+  Fixkosten steht dieser Betrag direkt in der Kachel Fixkosten. Die Differenz
+  zeigt direkt die Prognose, ohne eine zweite Zeile.
+- Ein abgeschlossener Zeitraum zeigt nur Gebuchtes, ohne Offen und ohne
+  Prognosezeile.
+- Während die Finanzkacheln oder die Liste unter Einnahmen und Ausgaben
+  rechnen, steht dort eine Ladeanzeige. Die Filter bleiben benutzbar. In der
+  Finanzansicht bleiben die Buchungen darunter sichtbar.
 - Ist **Depot** gewählt, zeigt die Karte Gesamtvermögen den Depotwert am Ende
   des gewählten Zeitraums, inklusive noch nicht gebuchter Sparpläne, und die
   Veränderung. Einnahmen, Ausgaben, Startsaldo und Endsaldo entfallen dort.
@@ -118,6 +132,14 @@ gezählt.
 
 Umbuchungen, die dieses Konto berühren, zählen dort voll mit. Depotkäufe eines
 anderen Girokontos erscheinen nicht.
+
+### Einnahmeprognosen
+
+Eine Prognose mit Konto gilt nur für dieses Konto. In der Einnahmenliste und
+in der Einnahmenkachel eines einzelnen Kontos erscheinen nur dessen Prognosen.
+Eine Prognose ohne Konto erscheint nur bei allen Konten, nicht auf einem
+einzelnen Konto. Dasselbe gilt für den Startsaldo: jedes Konto rechnet nur mit
+seinen eigenen Prognosen.
 
 ## Depot und Einzelpositionen
 
@@ -243,9 +265,14 @@ verknüpften Girokonto zählt der volle Betrag.
 
 Die Detailansicht einer Umbuchung zeigt beide Seiten, den Abgang auf dem einen
 Konto und den Zugang auf dem anderen. Ein Depotverkauf zeigt zusätzlich immer
-Einkaufspreis, Verkaufspreis und Differenz. Beim Buchen wählt man die Kategorie.
-Ein Depotverkauf wird dabei als Umbuchung vom Depot auf das Konto gespeichert,
-damit die Kursdifferenz weiter gilt.
+Einkaufspreis, Verkaufspreis und Differenz. Beim Anlegen einer gewöhnlichen
+Buchung wählt man die Kategorie. Depotkauf, Depotverkauf und Sparplan stehen
+in dieser Auswahl nicht, auch nicht beim Bearbeiten. Diese drei entstehen nur,
+wenn eine Depotposition angelegt, nachgekauft oder verkauft wird, oder wenn
+ein Sparplan angelegt wird. Öffnet man eine bestehende Buchung dieser Art,
+bleibt die Kategorie fest und lässt sich dort nicht umstellen. Ein Depotverkauf
+wird weiter als Umbuchung vom Depot auf das Konto gespeichert, damit die
+Kursdifferenz gilt.
 
 Das Depot steht bei gewöhnlichen Buchungen, Fixkosten, Einnahmeprognosen,
 Umbuchungsprognosen, variablen Kosten und Budgetpools nicht zur Auswahl. Nur
@@ -268,6 +295,11 @@ in der Buchung selbst.
   Rückerstattung kommt an.
 - In der Detailansicht der Ausgabe stehen die verknüpften Rückerstattungen.
   In der Detailansicht der Rückerstattung steht die ursprüngliche Buchung.
+- In der Detailansicht einer normalen Ausgabe legt ein Button eine
+  Rückerstattung an, die schon mit dieser Ausgabe verknüpft ist. Der Betrag
+  wird dort eingegeben. Weitere Rückerstattungen derselben Ausgabe bleiben
+  möglich. Eine Umbuchung, die auf einem einzelnen Konto wie eine Ausgabe
+  aussieht, bekommt diesen Button nicht.
 
 ## Umbuchungsprognosen
 
@@ -284,8 +316,17 @@ ohne Depot, einen Betrag und einen Rhythmus.
   Konto auf das andere. Liegen beide Konten in der Ansicht, bleibt die Summe
   null. Eine schon ersetzte, aber noch zukünftige Umbuchung zählt einmal mit
   ihrem echten Betrag. Sparpläne und Depotkäufe sind davon ausgenommen.
-- Das Endsaldo bleibt Startsaldo plus Prognose-Differenz. Eine Umbuchung ist
-  keine Einnahme und keine Ausgabe.
+- Auf einem einzelnen Konto zählt ein noch offener Termin zusätzlich als offene
+  Einnahme, wenn das Geld dort ankommt, und als offene Ausgabe, wenn es von
+  dort geht. Im laufenden Zeitraum steht das unter Offen. In einem zukünftigen
+  Zeitraum steckt es im normalen Einnahmen- oder Ausgabenbetrag. Termine vor
+  dem Zeitraum liegen schon im Startsaldo und werden dort nicht noch einmal
+  gezählt. Eine echte Umbuchung, die der Prognose im Zeitraum zugeordnet ist,
+  ersetzt die Termine.
+- Bei allen Konten und im Depot zählen Umbuchungsprognosen nicht als Einnahme
+  oder Ausgabe.
+- Das Endsaldo bleibt Startsaldo plus Prognose-Differenz. Auf einem einzelnen
+  Konto verschiebt die offene Umbuchung deshalb das Endsaldo.
 
 ## Variable Kosten
 

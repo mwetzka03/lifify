@@ -31,18 +31,20 @@ struct MarketQuote {
 @MainActor
 enum HistoricalPriceStore {
     private static let key = "lifify.historicalPrices"
+    private static var cached: [String: [String: Int]]?
+    private(set) static var cacheRevision = 0
 
     static func cents(for holdingID: UUID, dayKey: String) -> Int? {
-        all()[holdingID.uuidString]?[dayKey]
+        snapshot()[holdingID.uuidString]?[dayKey]
     }
 
     static func nearestCents(for holdingID: UUID, onOrBefore dayKey: String) -> Int? {
-        guard let prices = all()[holdingID.uuidString] else { return nil }
+        guard let prices = snapshot()[holdingID.uuidString] else { return nil }
         return prices.filter { $0.key <= dayKey }.max { $0.key < $1.key }?.value
     }
 
     static func replace(_ prices: [String: Int], holdingID: UUID) {
-        var map = all()
+        var map = snapshot()
         if prices.isEmpty {
             map.removeValue(forKey: holdingID.uuidString)
         } else {
@@ -52,20 +54,29 @@ enum HistoricalPriceStore {
     }
 
     static func remove(for holdingID: UUID) {
-        var map = all()
+        var map = snapshot()
         map.removeValue(forKey: holdingID.uuidString)
         save(map)
     }
 
-    private static func all() -> [String: [String: Int]] {
-        guard let data = UserDefaults.standard.data(forKey: key),
-              let decoded = try? JSONDecoder().decode([String: [String: Int]].self, from: data) else { return [:] }
+    private static func snapshot() -> [String: [String: Int]] {
+        if let cached { return cached }
+        let decoded: [String: [String: Int]]
+        if let data = UserDefaults.standard.data(forKey: key),
+           let value = try? JSONDecoder().decode([String: [String: Int]].self, from: data) {
+            decoded = value
+        } else {
+            decoded = [:]
+        }
+        cached = decoded
         return decoded
     }
 
     private static func save(_ map: [String: [String: Int]]) {
         guard let data = try? JSONEncoder().encode(map) else { return }
         UserDefaults.standard.set(data, forKey: key)
+        cached = map
+        cacheRevision += 1
     }
 }
 

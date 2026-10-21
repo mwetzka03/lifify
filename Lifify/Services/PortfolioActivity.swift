@@ -70,13 +70,15 @@ struct HoldingLot: Codable, Identifiable, Hashable {
 @MainActor
 enum HoldingLotStore {
     private static let key = "lifify.holdingLots"
+    private static var cached: [String: [HoldingLot]]?
+    private(set) static var cacheRevision = 0
 
     static func lots(for holdingID: UUID) -> [HoldingLot] {
-        all()[holdingID.uuidString] ?? []
+        snapshot()[holdingID.uuidString] ?? []
     }
 
     static func add(_ lot: HoldingLot, holdingID: UUID) {
-        var map = all()
+        var map = snapshot()
         var rows = map[holdingID.uuidString] ?? []
         rows.append(lot)
         map[holdingID.uuidString] = rows
@@ -84,7 +86,7 @@ enum HoldingLotStore {
     }
 
     static func replace(_ lots: [HoldingLot], holdingID: UUID) {
-        var map = all()
+        var map = snapshot()
         if lots.isEmpty {
             map.removeValue(forKey: holdingID.uuidString)
         } else {
@@ -100,20 +102,29 @@ enum HoldingLotStore {
     }
 
     static func removeAll(for holdingID: UUID) {
-        var map = all()
+        var map = snapshot()
         map.removeValue(forKey: holdingID.uuidString)
         save(map)
     }
 
-    private static func all() -> [String: [HoldingLot]] {
-        guard let data = UserDefaults.standard.data(forKey: key),
-              let decoded = try? JSONDecoder().decode([String: [HoldingLot]].self, from: data) else { return [:] }
+    private static func snapshot() -> [String: [HoldingLot]] {
+        if let cached { return cached }
+        let decoded: [String: [HoldingLot]]
+        if let data = UserDefaults.standard.data(forKey: key),
+           let value = try? JSONDecoder().decode([String: [HoldingLot]].self, from: data) {
+            decoded = value
+        } else {
+            decoded = [:]
+        }
+        cached = decoded
         return decoded
     }
 
     private static func save(_ map: [String: [HoldingLot]]) {
         guard let data = try? JSONEncoder().encode(map) else { return }
         UserDefaults.standard.set(data, forKey: key)
+        cached = map
+        cacheRevision += 1
     }
 }
 
@@ -157,10 +168,19 @@ struct SavingsPlanRecord: Codable, Identifiable, Hashable {
 @MainActor
 enum SavingsPlanStore {
     private static let key = "lifify.savingsPlans"
+    private static var cached: [SavingsPlanRecord]?
+    private(set) static var cacheRevision = 0
 
     static func all() -> [SavingsPlanRecord] {
-        guard let data = UserDefaults.standard.data(forKey: key),
-              let decoded = try? JSONDecoder().decode([SavingsPlanRecord].self, from: data) else { return [] }
+        if let cached { return cached }
+        let decoded: [SavingsPlanRecord]
+        if let data = UserDefaults.standard.data(forKey: key),
+           let value = try? JSONDecoder().decode([SavingsPlanRecord].self, from: data) {
+            decoded = value
+        } else {
+            decoded = []
+        }
+        cached = decoded
         return decoded
     }
 
@@ -191,6 +211,8 @@ enum SavingsPlanStore {
     static func save(_ plans: [SavingsPlanRecord]) {
         guard let data = try? JSONEncoder().encode(plans) else { return }
         UserDefaults.standard.set(data, forKey: key)
+        cached = plans
+        cacheRevision += 1
     }
 }
 
@@ -389,9 +411,32 @@ enum HoldingMaintenance {
         var unmatchedCents = 0
     }
 
+    private struct ShareCacheKey: Equatable {
+        var dayKey: String
+        var planRevision: Int
+        var holdingStamp: Int
+    }
+
+    private static var shareCacheKey: ShareCacheKey?
+    private static var shareCache = FutureShares()
+
     /// Each future execution buys `amount / current price` shares. The euro value of those
     /// shares is the nominal plan amount, so it is not added a second time.
     private static func futureShares(through day: Date, holdings: [PortfolioHolding]) -> FutureShares {
+        let dayKey = Calendar.current.startOfDay(for: day).dayKey
+        var hasher = Hasher()
+        for holding in holdings.sorted(by: { $0.id.uuidString < $1.id.uuidString }) {
+            hasher.combine(holding.id)
+            hasher.combine(holding.accountID)
+            hasher.combine(holding.symbol)
+            hasher.combine(holding.currentPriceCents)
+        }
+        let key = ShareCacheKey(
+            dayKey: dayKey,
+            planRevision: SavingsPlanStore.cacheRevision,
+            holdingStamp: hasher.finalize()
+        )
+        if shareCacheKey == key { return shareCache }
         var result = FutureShares()
         let ordered = holdings.sorted {
             $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
@@ -408,6 +453,8 @@ enum HoldingMaintenance {
             let shares = Double(executions) * Double(abs(plan.amountCents)) / Double(target.currentPriceCents)
             result.quantity[target.id, default: 0] += shares
         }
+        shareCacheKey = key
+        shareCache = result
         return result
     }
 
@@ -679,10 +726,18 @@ struct ClosedPositionRecord: Codable, Hashable {
 @MainActor
 enum ClosedPositionStore {
     private static let key = "lifify.closedPositions"
+    private static var cached: [ClosedPositionRecord]?
 
     static func all() -> [ClosedPositionRecord] {
-        guard let data = UserDefaults.standard.data(forKey: key),
-              let decoded = try? JSONDecoder().decode([ClosedPositionRecord].self, from: data) else { return [] }
+        if let cached { return cached }
+        let decoded: [ClosedPositionRecord]
+        if let data = UserDefaults.standard.data(forKey: key),
+           let value = try? JSONDecoder().decode([ClosedPositionRecord].self, from: data) {
+            decoded = value
+        } else {
+            decoded = []
+        }
+        cached = decoded
         return decoded
     }
 
@@ -702,6 +757,7 @@ enum ClosedPositionStore {
     private static func save(_ rows: [ClosedPositionRecord]) {
         guard let data = try? JSONEncoder().encode(rows) else { return }
         UserDefaults.standard.set(data, forKey: key)
+        cached = rows
     }
 }
 

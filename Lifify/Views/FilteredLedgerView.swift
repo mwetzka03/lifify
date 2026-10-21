@@ -14,6 +14,8 @@ struct FilteredLedgerView: View {
     @State private var showingNewForecast = false
     @State private var editedForecast: IncomeForecast?
     @State private var editedCost: FixedCost?
+    @State private var preparedRows: [FlowRow] = []
+    @State private var rowsToken: Int?
 
     private var filterAccounts: [Account] {
         accounts.filter { $0.kind != .savingsGroup }
@@ -97,7 +99,7 @@ struct FilteredLedgerView: View {
     }
 
     private var countedTotal: Int {
-        flowRows.reduce(0) { total, row in
+        preparedRows.reduce(0) { total, row in
             guard row.counts else { return total }
             if let counted = row.countedCents { return total + counted }
             return total + abs(row.signedCents)
@@ -190,7 +192,20 @@ struct FilteredLedgerView: View {
                         Text(L("Prognoseausgaben", "Expense forecasts"))
                     }
                 }
-                if flowRows.isEmpty {
+                if rowsToken != ledgerToken {
+                    HStack {
+                        Spacer()
+                        VStack(spacing: 8) {
+                            ProgressView()
+                                .controlSize(.large)
+                            Text(L("Wird geladen", "Loading"))
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding(.vertical, 24)
+                        Spacer()
+                    }
+                } else if preparedRows.isEmpty {
                     Text(emptyText)
                         .foregroundStyle(.secondary)
                 } else {
@@ -201,7 +216,8 @@ struct FilteredLedgerView: View {
                             .foregroundStyle(countedTotal == 0 ? Color.secondary : (kind == .expense ? .red : .green))
                     }
                 }
-                ForEach(flowRows) { row in
+                if rowsToken == ledgerToken {
+                ForEach(preparedRows) { row in
                     Button { selected = row.entry } label: {
                         let category = rowCategory(row)
                         let economics = category == .portfolioSale
@@ -247,7 +263,11 @@ struct FilteredLedgerView: View {
                     }
                     .buttonStyle(.plain)
                 }
+                }
             }
+        }
+        .task(id: ledgerToken) {
+            await refreshRows()
         }
         .appCanvas()
         .navigationTitle(kind == .income ? L("Einnahmen", "Income") : L("Ausgaben", "Expenses"))
@@ -300,7 +320,7 @@ struct FilteredLedgerView: View {
         let today = calendar.startOfDay(for: .now)
         guard period.end >= today else { return [] }
         var items: [ForecastOccurrence] = []
-        for forecast in forecasts where forecast.isActive {
+        for forecast in forecasts where forecast.isActive && forecastBelongsToSelection(forecast) {
             let dates = CalendarService.nextOccurrences(
                 firstDate: forecast.firstPaymentDate,
                 cadence: forecast.cadence,
@@ -322,6 +342,64 @@ struct FilteredLedgerView: View {
             ))
         }
         return items.sorted { $0.date < $1.date }
+    }
+
+    private func forecastBelongsToSelection(_ forecast: IncomeForecast) -> Bool {
+        guard !filters.showsDepot else { return false }
+        guard let account = selectedAccount else { return true }
+        return forecast.accountID == account.id
+    }
+
+    private var ledgerToken: Int {
+        var hasher = Hasher()
+        hasher.combine(kind.rawValue)
+        hasher.combine(filters.showsDepot)
+        hasher.combine(selectedAccount?.id)
+        hasher.combine(selectedPeriod?.id)
+        hasher.combine(RefundLinkStore.fingerprint())
+        hasher.combine(HoldingLotStore.cacheRevision)
+        for entry in entries {
+            hasher.combine(entry.id)
+            hasher.combine(entry.date)
+            hasher.combine(entry.amountCents)
+            hasher.combine(entry.kindRaw)
+            hasher.combine(entry.accountID)
+            hasher.combine(entry.fromAccountID)
+            hasher.combine(entry.toAccountID)
+            hasher.combine(entry.title)
+            hasher.combine(entry.notes)
+        }
+        for holding in holdings {
+            hasher.combine(holding.id)
+            hasher.combine(holding.accountID)
+            hasher.combine(holding.symbol)
+            hasher.combine(holding.quantity)
+            hasher.combine(holding.currentPriceCents)
+        }
+        for account in accounts {
+            hasher.combine(account.id)
+            hasher.combine(account.kindRaw)
+            hasher.combine(account.isMain)
+        }
+        return hasher.finalize()
+    }
+
+    private func refreshRows() async {
+        let token = ledgerToken
+        await Task.yield()
+        guard !Task.isCancelled else { return }
+        _ = SavingsPlanStore.all()
+        _ = ClosedPositionStore.all()
+        if let holding = holdings.first {
+            _ = HoldingLotStore.lots(for: holding.id)
+            _ = HistoricalPriceStore.cents(for: holding.id, dayKey: Date.now.dayKey)
+        }
+        await Task.yield()
+        guard !Task.isCancelled else { return }
+        let rows = flowRows
+        guard !Task.isCancelled else { return }
+        preparedRows = rows
+        rowsToken = token
     }
 
     private func forecastIsBooked(_ forecast: IncomeForecast, period: ForecastPeriod?, day: Date) -> Bool {

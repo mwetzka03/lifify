@@ -37,7 +37,7 @@ final class TransactionFormViewModel: ObservableObject {
     @Published var errorMessage: String?
     private var didRefine = false
 
-    init(entry: LedgerEntry?, splits: [TransactionSplit]) {
+    init(entry: LedgerEntry?, splits: [TransactionSplit], refundOriginal: LedgerEntry? = nil) {
         id = entry?.id ?? UUID()
         existing = entry
         date = entry?.date ?? .now
@@ -54,6 +54,15 @@ final class TransactionFormViewModel: ObservableObject {
         variableBudgetID = entry?.variableBudgetID
         shoppingItemID = entry?.shoppingItemID
         refundOriginalID = entry.flatMap { RefundLinkStore.originalID(for: $0.id) }
+        if entry == nil, let refundOriginal {
+            category = .refund
+            refundOriginalID = refundOriginal.id
+            accountID = refundOriginal.accountID
+            title = refundOriginal.title
+            notes = ""
+            amountText = ""
+            date = .now
+        }
         transferForecastID = entry.flatMap { TransferForecastAssignmentStore.forecastID(for: $0.id) }
         variableSplits = splits
             .filter { $0.transactionID == entry?.id && $0.kind == .variableBudget }
@@ -63,10 +72,21 @@ final class TransactionFormViewModel: ObservableObject {
             .map { SplitDraft(targetID: $0.targetID, amountText: String(format: "%.2f", Double($0.amountCents) / 100)) }
     }
 
+    var allowsCategoryChange: Bool {
+        existing == nil || (didRefine && category.allowsManualEntry)
+    }
+
     func refineIfNeeded(accounts: [Account]) {
-        guard !didRefine, let existing else { return }
+        guard let existing else { return }
+        let resolved = BookingClassification.category(of: existing, accounts: accounts, viewedAccountID: nil)
+        if !resolved.allowsManualEntry {
+            category = resolved
+            didRefine = true
+            return
+        }
+        guard !didRefine else { return }
         didRefine = true
-        category = BookingClassification.category(of: existing, accounts: accounts, viewedAccountID: nil)
+        category = resolved
     }
 
     func fillAccounts(for category: BookingCategory, accounts: [Account]) {
@@ -108,6 +128,22 @@ final class TransactionFormViewModel: ObservableObject {
         accounts: [Account],
         entries: [LedgerEntry]
     ) -> Bool {
+        if let existing {
+            let resolved = BookingClassification.category(of: existing, accounts: accounts, viewedAccountID: nil)
+            if !resolved.allowsManualEntry {
+                category = resolved
+            }
+        }
+        let keepsGeneratedCategory = existing.map {
+            !BookingClassification.category(of: $0, accounts: accounts, viewedAccountID: nil).allowsManualEntry
+        } ?? false
+        if !category.allowsManualEntry && !keepsGeneratedCategory {
+            errorMessage = L(
+                "Depotkauf, Depotverkauf und Sparplan entstehen nur über das Depot.",
+                "Portfolio buys, sales, and savings plans are created from the portfolio."
+            )
+            return false
+        }
         guard !title.trimmingCharacters(in: .whitespaces).isEmpty else {
             errorMessage = L("Bitte einen Titel eingeben.", "Please enter a title.")
             return false

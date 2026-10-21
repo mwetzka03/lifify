@@ -77,6 +77,23 @@ enum IncomeAssignmentStore {
         }
     }
 
+    static func fingerprint() -> Int {
+        var hasher = Hasher()
+        hasher.combine(UserDefaults.standard.string(forKey: "primaryIncomeIBAN"))
+        hasher.combine(UserDefaults.standard.string(forKey: "primaryIncomeForecastID"))
+        let secondary = UserDefaults.standard.dictionary(forKey: "secondaryIncomeMappings") as? [String: String] ?? [:]
+        for pair in secondary.sorted(by: { $0.key < $1.key }) {
+            hasher.combine(pair.key)
+            hasher.combine(pair.value)
+        }
+        let assigned = UserDefaults.standard.dictionary(forKey: "incomeEntryAssignments") as? [String: String] ?? [:]
+        for pair in assigned.sorted(by: { $0.key < $1.key }) {
+            hasher.combine(pair.key)
+            hasher.combine(pair.value)
+        }
+        return hasher.finalize()
+    }
+
     private static func normalize(_ iban: String) -> String {
         iban.replacingOccurrences(of: " ", with: "").uppercased()
     }
@@ -142,6 +159,15 @@ enum RefundLinkStore {
 
     static func reset() {
         UserDefaults.standard.removeObject(forKey: key)
+    }
+
+    static func fingerprint() -> Int {
+        var hasher = Hasher()
+        for pair in mapping().sorted(by: { $0.key < $1.key }) {
+            hasher.combine(pair.key)
+            hasher.combine(pair.value)
+        }
+        return hasher.finalize()
     }
 
     private static func refundedCents(for originalID: UUID, entries: [LedgerEntry]) -> Int {
@@ -273,6 +299,15 @@ enum TransferForecastAssignmentStore {
 
     static func reset() {
         UserDefaults.standard.removeObject(forKey: key)
+    }
+
+    static func fingerprint() -> Int {
+        var hasher = Hasher()
+        for pair in mapping().sorted(by: { $0.key < $1.key }) {
+            hasher.combine(pair.key)
+            hasher.combine(pair.value)
+        }
+        return hasher.finalize()
     }
 
     private static func mapping() -> [String: String] {

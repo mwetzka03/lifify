@@ -19,6 +19,8 @@ struct DashboardView: View {
     @State private var showingNewBooking = false
     @State private var bookingQuery = ""
     @State private var editedTransfer: TransferForecastRecord?
+    @State private var summary: PreparedSummary?
+    @State private var summaryToken: Int?
     @AppStorage("portfolioPerformanceBasis") private var portfolioBasis = "today"
     @AppStorage("portfolioPerformanceUnit") private var portfolioUnit = "percent"
 
@@ -37,7 +39,16 @@ struct DashboardView: View {
                         .padding(.bottom, 4)
                     List {
                     Section {
-                        financeSummary(period)
+                        if let summary, summaryToken == forecastToken {
+                            financeSummary(
+                                summary.forecast,
+                                period: period,
+                                liquidStart: summary.liquidStart,
+                                liquidEnd: summary.liquidEnd
+                            )
+                        } else {
+                            summaryLoading
+                        }
                     }
                     .listRowInsets(EdgeInsets(top: 8, leading: 12, bottom: 4, trailing: 12))
                     .listRowSeparator(.hidden)
@@ -98,6 +109,9 @@ struct DashboardView: View {
                     .listStyle(.plain)
                     .scrollContentBackground(.hidden)
                 }
+                .task(id: forecastToken) {
+                    await refreshSummary()
+                }
             } else {
                 VStack(alignment: .leading, spacing: 8) {
                     ContentUnavailableView(
@@ -137,36 +151,51 @@ struct DashboardView: View {
     }
 
     @ViewBuilder
-    private func financeSummary(_ period: ForecastPeriod) -> some View {
-        let snapshot = presented(forecast(for: period), period: period)
+    private func financeSummary(
+        _ snapshot: PeriodForecast,
+        period: ForecastPeriod,
+        liquidStart: Int?,
+        liquidEnd: Int?
+    ) -> some View {
         let prognose = snapshot.bookedIncome + snapshot.openIncome - snapshot.bookedExpenses - snapshot.openExpenses
+        let future = isFuturePeriod(period)
+        let showNotes = showsForecastNotes(period)
         VStack(alignment: .leading, spacing: 8) {
             netWorthCard(snapshot, period: period)
             if filters.showsDepot {
                 PortfolioElementsView(accountID: nil, showsValueHeader: false, path: path)
             } else {
-                let liquid = selectedFilterAccount == nil ? liquidForecast(for: period) : nil
                 let openingBalance = balanceTile(
                     L("Startsaldo", "Opening balance"),
                     amount: snapshot.startBalance,
-                    liquid: liquid?.startBalance
+                    liquid: liquidStart
                 )
                 let closingBalance = balanceTile(
                     L("Endsaldo (Prognose)", "Closing balance (forecast)"),
                     amount: snapshot.startBalance + prognose,
-                    liquid: liquid?.endBalance
+                    liquid: liquidEnd
                 )
                 EqualHeightTileRow {
                     linked(.income) {
-                        flowTile(L("Einnahmen", "Income"), amount: snapshot.income, footnote: incomeFootnote(snapshot, period: period), fillsRow: true)
+                        flowTile(
+                            L("Einnahmen", "Income"),
+                            amount: snapshot.income,
+                            note: showNotes ? FlowNote(title: L("Offen", "Open"), cents: snapshot.openIncome) : nil,
+                            fillsRow: true
+                        )
                     }
                     linked(.expenses) {
-                        flowTile(L("Ausgaben", "Expenses"), amount: -snapshot.bookedExpenses, footnote: expenseFootnote(snapshot, period: period), fillsRow: true)
+                        flowTile(
+                            L("Ausgaben", "Expenses"),
+                            amount: future ? -(snapshot.bookedExpenses + snapshot.openExpenses) : -snapshot.bookedExpenses,
+                            note: showNotes ? FlowNote(title: L("Offen", "Open"), cents: -snapshot.openExpenses) : nil,
+                            fillsRow: true
+                        )
                     }
                     flowTile(
                         L("Differenz", "Difference"),
-                        amount: snapshot.realDifference,
-                        footnote: forecastFootnote(prognose, period: period),
+                        amount: future ? prognose : snapshot.realDifference,
+                        note: showNotes ? FlowNote(title: L("Prognose", "Forecast"), cents: prognose) : nil,
                         fillsRow: true
                     )
                 }
@@ -178,16 +207,16 @@ struct DashboardView: View {
                     linked(.fixedCosts) {
                         flowTile(
                             L("Fixkosten", "Fixed costs"),
-                            amount: -snapshot.bookedFixed,
-                            footnote: openFootnote(snapshot.remainingFixed, period: period),
+                            amount: future ? -(snapshot.bookedFixed + snapshot.remainingFixed) : -snapshot.bookedFixed,
+                            note: showNotes ? FlowNote(title: L("Offen", "Open"), cents: -snapshot.remainingFixed) : nil,
                             fillsRow: true
                         )
                     }
                     linked(.variableCosts) {
                         flowTile(
                             L("Variable Kosten", "Variable costs"),
-                            amount: -snapshot.bookedVariable,
-                            footnote: openFootnote(snapshot.remainingVariable, period: period),
+                            amount: future ? -(snapshot.bookedVariable + snapshot.remainingVariable) : -snapshot.bookedVariable,
+                            note: showNotes ? FlowNote(title: L("Offen", "Open"), cents: -snapshot.remainingVariable) : nil,
                             fillsRow: true
                         )
                     }
@@ -196,6 +225,19 @@ struct DashboardView: View {
             }
             if isMainTab && !filters.showsDepot { FinanceMoreSection(path: path) }
         }
+    }
+
+    private var summaryLoading: some View {
+        VStack(spacing: 10) {
+            ProgressView()
+                .controlSize(.large)
+            Text(L("Wird geladen", "Loading"))
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 36)
+        .financeCard()
     }
 
     private var bookingSearchRow: some View {
@@ -394,7 +436,7 @@ struct DashboardView: View {
         .financeCard(padding: 12)
     }
 
-    private func flowTile(_ title: String, amount: Int, footnote: String? = nil, fillsRow: Bool = false) -> some View {
+    private func flowTile(_ title: String, amount: Int, note: FlowNote? = nil, fillsRow: Bool = false) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(title)
                 .font(.subheadline)
@@ -405,10 +447,17 @@ struct DashboardView: View {
                 .foregroundStyle(flowColor(amount))
                 .minimumScaleFactor(0.5)
                 .lineLimit(1)
-            Text(footnote ?? " ")
-                .font(.footnote)
-                .foregroundStyle(footnote == nil ? .clear : .secondary)
-                .lineLimit(2)
+            if let note {
+                Text(note.title)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .padding(.top, 4)
+                Text(Money.signed(cents: note.cents))
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(flowColor(note.cents))
+                    .minimumScaleFactor(0.5)
+                    .lineLimit(1)
+            }
         }
         .financeCard(padding: 12, fillsRow: fillsRow)
     }
@@ -501,8 +550,9 @@ struct DashboardView: View {
         accounts.filter { $0.kind != .portfolio && $0.kind != .savingsGroup }.map(\.id)
     }
 
-    private func forecast(for period: ForecastPeriod) -> PeriodForecast {
+    private func forecast(for period: ForecastPeriod) async -> PeriodForecast {
         let combined = selectedFilterAccount == nil && !filters.showsDepot
+        await Task.yield()
         var snapshot = FinanceService.periodForecast(
             period: period,
             periods: periods,
@@ -512,7 +562,7 @@ struct DashboardView: View {
             fixedCosts: forecastFixedCosts,
             variableBudgets: filters.showsDepot ? [] : variableBudgets,
             splits: splits,
-            forecasts: includePlans && !filters.showsDepot ? forecasts : [],
+            forecasts: accountScopedForecasts,
             shopping: includePlans && !filters.showsDepot ? shopping : [],
             incomePredicate: combined ? { ExternalIncome.countsInCombinedFinance($0, accounts: accounts) } : nil,
             includePortfolioValue: combined,
@@ -541,16 +591,26 @@ struct DashboardView: View {
         snapshot.bookedExpenses += tradedExpenses
         snapshot.income += tradedIncome
         snapshot.expenses += tradedExpenses
+        if let account = selectedFilterAccount, !filters.showsDepot {
+            let transfer = openTransferTotals(for: account, period: period)
+            snapshot.openIncome += transfer.income
+            snapshot.income += transfer.income
+            snapshot.openExpenses += transfer.expenses
+            snapshot.expenses += transfer.expenses
+        }
         if combined {
-            snapshot.startBalance = combinedOpening(for: period)
+            snapshot.startBalance = await combinedOpening(for: period)
         }
         return snapshot
     }
 
     /// All-accounts opening is each account's own opening plus the depot on the day before.
-    private func combinedOpening(for period: ForecastPeriod) -> Int {
+    private func combinedOpening(for period: ForecastPeriod) async -> Int {
         let cashAccounts = accounts.filter { $0.kind != .portfolio && $0.kind != .savingsGroup }
-        let cash = cashAccounts.reduce(0) { partial, account in
+        var cash = 0
+        for account in cashAccounts {
+            await Task.yield()
+            if Task.isCancelled { return cash }
             let touched = entries.filter {
                 $0.accountID == account.id || $0.fromAccountID == account.id || $0.toAccountID == account.id
             }
@@ -569,15 +629,17 @@ struct DashboardView: View {
                 ),
                 variableBudgets: variableBudgets,
                 splits: splits,
-                forecasts: household ? forecasts : [],
+                forecasts: forecasts.filter { $0.accountID == account.id },
                 shopping: household ? shopping : [],
                 includePortfolioValue: false,
                 countSavingsPlansInCash: true,
                 scopedCashAccountIDs: [account.id],
                 householdCashAccountIDs: cashAccountIDs
             ).startBalance
-            return partial + opening
+            cash += opening
         }
+        await Task.yield()
+        if Task.isCancelled { return cash }
         let start = Calendar.current.startOfDay(for: period.start)
         let dayBefore = Calendar.current.date(byAdding: .day, value: -1, to: start) ?? start
         return cash + HoldingMaintenance.marketValue(of: holdings, through: dayBefore)
@@ -595,7 +657,10 @@ struct DashboardView: View {
             fixedCosts: fixedCosts,
             variableBudgets: variableBudgets,
             splits: splits,
-            forecasts: forecasts,
+            forecasts: forecasts.filter { forecast in
+                guard let id = forecast.accountID else { return true }
+                return liquidIDs.contains(id)
+            },
             shopping: shopping,
             scopedCashAccountIDs: liquidIDs,
             householdCashAccountIDs: cashAccountIDs
@@ -609,23 +674,179 @@ struct DashboardView: View {
         return copy
     }
 
-    private func incomeFootnote(_ forecast: PeriodForecast, period: ForecastPeriod) -> String? {
-        guard period.end >= Calendar.current.startOfDay(for: .now) else { return nil }
-        return "\(L("Offen", "Open")) \(Money.signed(cents: forecast.openIncome))"
+    private var accountScopedForecasts: [IncomeForecast] {
+        guard !filters.showsDepot else { return [] }
+        guard let account = selectedFilterAccount else { return forecasts }
+        return forecasts.filter { $0.accountID == account.id }
     }
 
-    private func expenseFootnote(_ forecast: PeriodForecast, period: ForecastPeriod) -> String? {
-        openFootnote(forecast.openExpenses, period: period)
+    /// A period that has not started yet folds planned amounts into the main figure.
+    private func isFuturePeriod(_ period: ForecastPeriod) -> Bool {
+        let calendar = Calendar.current
+        return calendar.startOfDay(for: period.start) > calendar.startOfDay(for: .now)
     }
 
-    private func forecastFootnote(_ cents: Int, period: ForecastPeriod) -> String? {
-        guard period.end >= Calendar.current.startOfDay(for: .now) else { return nil }
-        return "\(L("Prognose", "Forecast")) \(Money.signed(cents: cents))"
+    private func showsForecastNotes(_ period: ForecastPeriod) -> Bool {
+        !isFuturePeriod(period) && period.end >= Calendar.current.startOfDay(for: .now)
     }
 
-    private func openFootnote(_ cents: Int, period: ForecastPeriod) -> String? {
-        guard period.end >= Calendar.current.startOfDay(for: .now) else { return nil }
-        return "\(L("Offen", "Open")) \(Money.signed(cents: -cents))"
+    private func openTransferTotals(for account: Account, period: ForecastPeriod) -> (income: Int, expenses: Int) {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: .now)
+        guard period.end >= today else { return (0, 0) }
+        var income = 0
+        var expenses = 0
+        for forecast in TransferForecastStore.all() where forecast.active {
+            if transferForecastIsBooked(forecast, period: period) { continue }
+            let incoming = forecast.toAccountID == account.id
+            let outgoing = forecast.fromAccountID == account.id
+            guard incoming || outgoing else { continue }
+            let count = CalendarService.nextOccurrences(
+                firstDate: forecast.firstDate,
+                cadence: forecast.cadence,
+                rule: forecast.dueRule,
+                day: forecast.dayOfMonth,
+                endDate: forecast.endDate,
+                through: period.end
+            )
+            .map { calendar.startOfDay(for: $0) }
+            .filter { period.contains($0) && $0 >= today }
+            .count
+            let amount = abs(forecast.amountCents) * count
+            if incoming { income += amount }
+            if outgoing { expenses += amount }
+        }
+        return (income, expenses)
+    }
+
+    private var forecastToken: Int {
+        var hasher = Hasher()
+        hasher.combine(filters.showsDepot)
+        hasher.combine(selectedFilterAccount?.id)
+        hasher.combine(selectedPeriod?.id)
+        hasher.combine(IncomeAssignmentStore.fingerprint())
+        hasher.combine(RefundLinkStore.fingerprint())
+        hasher.combine(TransferForecastAssignmentStore.fingerprint())
+        hasher.combine(VariableBudgetAccounts.fingerprint())
+        hasher.combine(SavingsPlanStore.cacheRevision)
+        hasher.combine(HoldingLotStore.cacheRevision)
+        hasher.combine(HistoricalPriceStore.cacheRevision)
+        for forecast in TransferForecastStore.all().sorted(by: { $0.id.uuidString < $1.id.uuidString }) {
+            hasher.combine(forecast)
+        }
+        for account in accounts {
+            hasher.combine(account.id)
+            hasher.combine(account.kindRaw)
+            hasher.combine(account.isMain)
+            hasher.combine(account.isLiquid)
+        }
+        for entry in entries {
+            hasher.combine(entry.id)
+            hasher.combine(entry.date)
+            hasher.combine(entry.amountCents)
+            hasher.combine(entry.kindRaw)
+            hasher.combine(entry.accountID)
+            hasher.combine(entry.fromAccountID)
+            hasher.combine(entry.toAccountID)
+            hasher.combine(entry.fixedCostID)
+            hasher.combine(entry.variableBudgetID)
+            hasher.combine(entry.shoppingItemID)
+            hasher.combine(entry.title)
+            hasher.combine(entry.notes)
+        }
+        for holding in holdings {
+            hasher.combine(holding.id)
+            hasher.combine(holding.accountID)
+            hasher.combine(holding.symbol)
+            hasher.combine(holding.quantity)
+            hasher.combine(holding.currentPriceCents)
+            hasher.combine(holding.purchasePriceCents)
+        }
+        for cost in fixedCosts {
+            hasher.combine(cost.id)
+            hasher.combine(cost.accountID)
+            hasher.combine(cost.amountCents)
+            hasher.combine(cost.cadenceRaw)
+            hasher.combine(cost.dueRuleRaw)
+            hasher.combine(cost.dayOfMonth)
+            hasher.combine(cost.firstChargeDate)
+            hasher.combine(cost.endChargeDate)
+            hasher.combine(cost.isActive)
+            hasher.combine(cost.name)
+        }
+        for forecast in forecasts {
+            hasher.combine(forecast.id)
+            hasher.combine(forecast.accountID)
+            hasher.combine(forecast.amountCents)
+            hasher.combine(forecast.cadenceRaw)
+            hasher.combine(forecast.dueRuleRaw)
+            hasher.combine(forecast.dayOfMonth)
+            hasher.combine(forecast.firstPaymentDate)
+            hasher.combine(forecast.endPaymentDate)
+            hasher.combine(forecast.isActive)
+            hasher.combine(forecast.name)
+        }
+        for budget in variableBudgets {
+            hasher.combine(budget.id)
+            hasher.combine(budget.accountID)
+            hasher.combine(budget.monthlyAmountCents)
+            hasher.combine(budget.name)
+        }
+        for item in shopping {
+            hasher.combine(item.id)
+            hasher.combine(item.amountCents)
+            hasher.combine(item.isPurchased)
+            hasher.combine(item.plannedDate)
+            hasher.combine(item.name)
+        }
+        for split in splits {
+            hasher.combine(split.id)
+            hasher.combine(split.transactionID)
+            hasher.combine(split.targetID)
+            hasher.combine(split.amountCents)
+            hasher.combine(split.kindRaw)
+            hasher.combine(split.periodKey)
+        }
+        return hasher.finalize()
+    }
+
+    private func refreshSummary() async {
+        let token = forecastToken
+        await Task.yield()
+        guard !Task.isCancelled else { return }
+        warmFinanceStores()
+        await Task.yield()
+        guard !Task.isCancelled else { return }
+        guard let period = selectedPeriod else {
+            summary = nil
+            summaryToken = token
+            return
+        }
+        let raw = await forecast(for: period)
+        guard !Task.isCancelled else { return }
+        await Task.yield()
+        guard !Task.isCancelled else { return }
+        let snapshot = presented(raw, period: period)
+        guard !Task.isCancelled else { return }
+        await Task.yield()
+        guard !Task.isCancelled else { return }
+        let liquid = selectedFilterAccount == nil && !filters.showsDepot ? liquidForecast(for: period) : nil
+        guard !Task.isCancelled else { return }
+        summary = PreparedSummary(
+            forecast: snapshot,
+            liquidStart: liquid?.startBalance,
+            liquidEnd: liquid?.endBalance
+        )
+        summaryToken = token
+    }
+
+    private func warmFinanceStores() {
+        _ = SavingsPlanStore.all()
+        _ = ClosedPositionStore.all()
+        if let holding = holdings.first {
+            _ = HoldingLotStore.lots(for: holding.id)
+            _ = HistoricalPriceStore.cents(for: holding.id, dayKey: Date.now.dayKey)
+        }
     }
 
     private func netWorthCaption(_ period: ForecastPeriod) -> String {
@@ -739,6 +960,17 @@ private struct EqualHeightTileRow<Content: View>: View {
         .environment(\.tileRowHeight, height)
         .onPreferenceChange(TileHeightPreference.self) { height = $0 }
     }
+}
+
+private struct FlowNote {
+    var title: String
+    var cents: Int
+}
+
+private struct PreparedSummary {
+    var forecast: PeriodForecast
+    var liquidStart: Int?
+    var liquidEnd: Int?
 }
 
 private struct OpenTransferForecast: Identifiable {

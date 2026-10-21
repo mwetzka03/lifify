@@ -59,6 +59,14 @@ enum BookingCategory: String, CaseIterable, Identifiable {
         case .portfolioBuy, .portfolioSale, .savingsPlan, .transfer: .transfer
         }
     }
+
+    /// Depot buys, sales, and savings plans are created from the holding or plan, not the booking form.
+    var allowsManualEntry: Bool {
+        switch self {
+        case .portfolioBuy, .portfolioSale, .savingsPlan: false
+        case .income, .interest, .dividend, .expense, .refund, .transfer, .adjustment: true
+        }
+    }
 }
 
 enum BookingScope {
