@@ -1390,7 +1390,7 @@ enum ForecastSchedule {
             let day = calendar.startOfDay(for: planned)
             guard period.contains(day) else { return nil }
             if ForecastSkipStore.isSkipped(.shopping, id: item.id, on: day) { return nil }
-            let bookings = shoppingBookings(for: item.id, entries: entries, period: period)
+            let bookings = FinanceService.shoppingBookings(for: item.id, entries: entries, period: period)
             let amount = bookings.isEmpty
                 ? abs(item.amountCents)
                 : bookings.reduce(0) { $0 + abs($1.amountCents) }
