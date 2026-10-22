@@ -1,19 +1,8 @@
 # Lifify – Funktionsumfang und Annahmen
 
-Diese Datei hält die ursprünglichen Annahmen gegenüber FinanzBuddy fest. Die
-App ist Version **0.2.0**. Wie Finanzen, Depot und Budget heute rechnen, steht
+Die App ist Version **0.2.0**. Wie Finanzen, Depot und Budget rechnen, steht
 in [FINANZEN.md](FINANZEN.md). Der Gesundheit-Tab ist kein Platzhalter mehr:
 Training ist umgesetzt, Ernährung zeigt „Noch nicht verfügbar“.
-
-## Referenz
-
-Die Implementierung orientiert sich an:
-
-- `mwetzka03/FinanzBuddy` Tag `v0.3.6` (Commit `98fa2c3`)
-- `mwetzka03/live-life` Tag `v0.2.5` (Commit `e9cee29`)
-
-Lifify verbindet beide fachlichen Konzepte in einer nativen, lokalen
-iPhone-App mit SwiftUI und SwiftData.
 
 ## Umgesetzter Umfang
 
@@ -55,15 +44,13 @@ iPhone-App mit SwiftUI und SwiftData.
 - Lokal gespeicherte Bucketlist-Daten; die Oberfläche ist vorerst ausgeblendet
 - Optionaler Import aus iOS-Kalendern und Erinnerungen über EventKit
 
-## Annahmen gegenüber FinanzBuddy v0.3.6
+## Annahmen
 
-1. **Sicherung:** Die v0.3.6-JSON-Sicherung lässt Budgetpools, Split-Zuordnungen
-   und einige weitere Tabellen aus. Lifify sichert absichtlich sämtliche
-   Nutzerdaten einschließlich Splits, damit eine Wiederherstellung vollständig
-   ist.
-2. **Geldbeträge:** Wie in FinanzBuddy werden Beträge intern als ganzzahlige
-   Cent gespeichert. Ausgaben sind negativ; Umbuchungen und Saldo-Korrekturen
-   speichern einen positiven Betrag.
+1. **Sicherung:** Lifify sichert sämtliche Nutzerdaten einschließlich Splits,
+   damit eine Wiederherstellung vollständig ist.
+2. **Geldbeträge:** Beträge werden intern als ganzzahlige Cent gespeichert.
+   Ausgaben sind negativ; Umbuchungen und Saldo-Korrekturen speichern einen
+   positiven Betrag.
 3. **Saldo-Korrektur:** Die zeitlich letzte Korrektur eines Kontos ist der neue
    Saldo-Anker. Nur spätere Buchungen verändern diesen Wert.
 4. **Oberspartopf:** Ein Oberspartopf gruppiert Spartöpfe. Er wird nicht noch
@@ -78,8 +65,8 @@ iPhone-App mit SwiftUI und SwiftData.
    Netz-, Rate-Limit- oder Zuordnungsfehlern bleibt der manuelle Fallbackkurs
    unverändert. Käufe und Verkäufe werden nicht automatisch in ein
    FIFO-Steuerlot umgerechnet.
-6. **Variable Kosten:** Monatswerte gelten ab dem Erstellungsmonat. Der in
-   FinanzBuddy hart codierte Startmonat `2026-06` wird nicht übernommen.
+6. **Variable Kosten:** Monatswerte gelten ab dem Erstellungsmonat. Es gibt
+   keinen fest eingebauten Startmonat.
 7. **Budgetpool-Gehaltszeitraum:** Der Starttag ist je Pool einstellbar
    (standardmäßig der 1.). Eine Periode läuft vom Starttag bis zum Vortag
    desselben Tages im Folgemonat. Bei kurzen Monaten wird der Tag auf das
@@ -102,9 +89,8 @@ iPhone-App mit SwiftUI und SwiftData.
     werden ISIN beziehungsweise das aufgelöste Börsensymbol an öffentliche
     Yahoo-Finance-Endpunkte gesendet. Alle gespeicherten Nutzerdaten bleiben auf
     dem Gerät; Import und Export erfolgen über den systemeigenen Dateidialog.
-12. **Challenge-Synchronisierung:** Die Desktop-Referenz speichert
-    CalDAV-/iCloud-Passwörter und nutzt eine Python-Brücke. Lifify speichert
-    keine solchen Zugangsdaten. Optional liest es nach ausdrücklicher
+12. **Challenge-Synchronisierung:** Lifify speichert keine CalDAV- oder
+    iCloud-Passwörter. Optional liest es nach ausdrücklicher
     iOS-Freigabe Termine und Erinnerungen über EventKit und schreibt geänderte
     sowie neue Termine in den Systemkalender zurück. Ein wiederkehrender Termin
     kann als wiederkehrende Challenge übernommen werden. Netzwerk- und

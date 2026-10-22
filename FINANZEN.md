@@ -1,4 +1,490 @@
-# Finanzregeln
+# Finance rules
+
+[English](#english) · [Deutsch](#deutsch)
+
+## English
+
+This file describes how Lifify calculates accounts, periods, income, expenses,
+the portfolio, and the home budget. It applies to version 0.2.0.
+
+Period and account are one shared filter. A change applies in the finance
+view, in transactions, and in the income and expense lists.
+
+### Accounts
+
+- Account kinds are checking account, savings pot, parent savings pot, and
+  portfolio.
+- A parent savings pot groups savings pots and is not added to the total
+  again.
+- The main account is required and cannot be deleted.
+- A portfolio is not liquid and must be linked to exactly one checking
+  account. It cannot be created without that link.
+- Several portfolios may be linked to different checking accounts. In the
+  account filter they appear as one **Portfolio** entry. The individual
+  portfolio accounts are not listed there separately.
+- There is no separate “Portfolio” link under More. The same positions appear
+  when **Portfolio** is selected in the filter.
+- Settings can store a default checking account and a default fee for buys and
+  sales. The fee starts turned off when booking.
+
+### Period
+
+- Back, forward, and Today sit above the finance list, so the change always
+  registers.
+- Periods follow the primary income when the salary period is active.
+  Otherwise they are calendar months.
+- The first period begins with the bookings of the main account. Its start is
+  the cutoff date.
+- Trade Republic bookings before the cutoff date are not created. Bookings on
+  the cutoff date and after are created, even when the first period has
+  already ended.
+- Portfolio positions from the whole statement are still taken, including buys
+  before the cutoff date.
+- If the main account has no booking yet, there is no period yet. Then every
+  statement row is booked.
+- The opening balance of the first period is the right-hand balance on the
+  statement before the start day, that is the last printed balance of the rows
+  before it. If there is no such row, the statement’s opening balance is used.
+- The balance is the checking-account balance after that row. It is never
+  booked as a payment amount.
+- This opening balance is stored as a balance adjustment on the start day. In
+  the display it counts as the beginning of the period. Income and other
+  bookings on the first day belong to the period, not to the opening balance.
+
+### Balance across all accounts
+
+When **All accounts** is selected, the opening balance is the sum of each
+account’s own opening balance plus the portfolio value on the day before.
+
+- Bookings on the first day, including income, are not part of the opening
+  balance. A balance adjustment on that day remains the opening value.
+- The portfolio value is the shares held at the end of the day before. Buys on
+  the first day are missing from the opening balance and belong to the period.
+- The price is that day’s closing price once it is stored. If it is missing,
+  the current price is used and the share count stays historical.
+- If the cutoff date is in the future, the current price is used. Savings
+  plans that have not been booked yet increase the share count up to that day.
+  Each execution adds as many shares as the plan amount buys at the current
+  price. If the ETF costs €100 and the plan is €50, that is half a share,
+  including across a year. The value of those shares is the euro amount, with
+  no percentage growth. A plan without a matching position still counts only
+  as a euro amount. On the linked checking account the same dates reduce the
+  opening balance, so the total stays unchanged.
+- In the portfolio list, the selected period shows that share count and the
+  matching value. The change beside it remains the change of the shares
+  already held.
+- Opening balance and closing balance sit in the same row. Below them is the
+  liquid balance without the portfolio, at the same digit size. The number may
+  shrink slightly so both tiles fit side by side. Tiles in a row are the same
+  height, even when a number or the note under it wraps.
+- The closing balance is the opening balance plus the forecast difference.
+  There is no further difference number under the closing balance. The
+  forecast difference is booked plus open income, minus booked plus open
+  expenses.
+- In the current period, the word **Forecast** sits under the difference on
+  its own line, and the amount sits under that, also alone. **Open** works the
+  same way for income, expenses, fixed costs, and variable costs: the label
+  above, the amount below. The large amount there stays what is already
+  booked. For income, the large amount already includes the forecast, and Open
+  shows only the part that is still open.
+- If the whole period is in the future, there is no Open. The large amount is
+  then the normal value, booked plus still open. For fixed costs that amount
+  sits directly in the fixed-costs tile. The difference shows the forecast
+  directly, with no second line.
+- A finished period shows only what was booked, with no Open and no forecast
+  line.
+- While the finance tiles calculate for the first time, or after a change of
+  period or account, a loading indicator is shown. Short data changes at
+  startup are folded into that one load. After that the tiles stay in place
+  and the numbers update without emptying the view again. The filters stay
+  usable. In the finance view the transactions below stay visible.
+- When **Portfolio** is selected, the net-worth card shows the portfolio value
+  at the end of the selected period, including savings plans that have not
+  been booked yet, and the change. The positions sit directly below. Both
+  appear without waiting for the other tiles. Income, expenses, opening
+  balance, and closing balance are omitted there. More is omitted as well.
+
+### Income and expenses
+
+#### All accounts
+
+Income is:
+
+- Inflows from a foreign IBAN or a foreign account
+- Dividends (yield)
+- Interest
+- The positive purchase-to-sale difference of a stock sale
+
+Inflows from your own IBAN, the full sale proceeds, and a refund do not count
+as income.
+
+A sale is compared with cost basis and fees. The proceeds are the payment
+amount after the fee. The cost basis is the average purchase price of the
+shares sold, including purchase fees. Only the difference appears:
+
+- positive, as income
+- negative, as an expense
+- zero is not shown
+
+Stock buys and savings plans are not expenses when all accounts are selected.
+The money only moves from the checking account into the portfolio. Other
+transfers between your own accounts do not count as income or an expense
+either.
+
+#### Linked checking account
+
+When the checking account linked to the portfolio is selected, buys, savings
+plans, and sales count at the full amount. An outflow is an expense, an
+inflow is income. The purchase-to-sale difference is not counted again on top.
+
+#### Another single account
+
+Transfers that touch this account count there in full. Portfolio buys of
+another checking account do not appear.
+
+#### Income forecasts
+
+A forecast with an account applies only to that account. The income list and
+the income tile of a single account show only that account’s forecasts. A
+forecast without an account appears only for all accounts, not on a single
+account. The same applies to the opening balance: each account calculates only
+with its own forecasts.
+
+The income view lists every still-open date in the period, not only the next
+one. When exactly one account is selected, transfer forecasts whose money
+arrives in that account are listed there as well. All accounts and the
+portfolio do not list transfers there. New income forecasts are created in the
+finance view with the plus in the Forecasts section. The income view no longer
+has its own plus. A forecast that already has a booking assigned stays in the
+list and is grayed out.
+
+### Portfolio and individual positions
+
+- Each buy of the same ISIN stays its own position, with date, share count,
+  and price.
+- The cost basis is the sum of the payments divided by the remaining shares,
+  rounded once.
+- The unit price of an imported buy is the payment amount divided by the
+  quantity.
+- A fee increases a buy and reduces sale proceeds. It applies once per
+  booking.
+- A buy is a transfer from the checking account into the portfolio. A sale is
+  a transfer from the portfolio to the checking account.
+- A transfer-in changes the portfolio without charging the checking account.
+- Selling works by share count or by percent, including 25%, 50%, 75%, and
+  100%.
+- A fully sold position disappears from the portfolio. The booking stays. The
+  purchase history stays, so the purchase-to-sale difference can still be
+  calculated.
+- The list sorts by value, purchase date, or name. The change is either since
+  yesterday or since purchase, in euros or in percent.
+- Update prices sits on the left in its own bubble. The plus for a new
+  position sits on the right in its own bubble, with space between them. The
+  same bounded bubbles are used for search and plus on transactions.
+- Prices come from Yahoo Finance. A German listing, such as Xetra, Frankfurt,
+  gettex, or Tradegate, is preferred. Lang & Schwarz has no public price API.
+  If there are several matches, the request is not aborted.
+- Updating stores daily euro closing prices. If a day is missing, the last
+  stored price before it is used, otherwise the current price.
+- If the request fails, the manual fallback price stays. The share count on
+  the cutoff date is still used.
+
+### Savings plans
+
+- A savings plan comes from the executions in the statement.
+- The amount is the last outgoing payment. If several executions fall on the
+  same day, the largest amount is used.
+- The cadence comes from the gap between execution days: up to 10 days is
+  weekly, up to 18 is biweekly, up to 45 is monthly, otherwise yearly. A
+  single execution counts as monthly.
+- The plan is kept when the last execution is close to the end of the
+  statement and the position still has a holding. An ended plan is deleted and
+  not shown. There is no switch between active and ended.
+- In the portfolio, **Savings plans** is a link to its own list, not an
+  expanding block. Swiping edits or deletes a plan. While editing, you can
+  choose the account the plan is debited or forecast from. If none is stored,
+  the checking account from Settings is used.
+- At the top are the costs of all active plans per week and per month. A week
+  is a quarter of the month, because a month has four debit dates.
+- At the bottom are the executions booked in the selected finance period, with
+  name, date, and amount. The period is the same one as in the finance view.
+- Trade Republic debits on the 2nd, 9th, 16th, and 23rd. Weekly uses all four
+  days, biweekly the 2nd and the 16th, monthly and yearly only the 2nd. If
+  that is not a banking day, the next banking day is used.
+- The savings plans in the portfolio are the source. Each plan remains a fixed
+  cost internally on the linked checking account, so the forecast keeps
+  running. In the fixed-costs list, one row shows the period total, already
+  debited executions plus dates that are still open, and opens the savings-plan
+  list. Under it, each plan is itself a fixed cost, with name, next date, and
+  open count. A tap opens the same detail as for other fixed costs. Swiping
+  edits or deletes the plan.
+- An execution that is already booked is not counted again as an open fixed
+  cost. It is included in the booked fixed-cost amount of the period, even
+  when it fell before the last execution.
+- These fixed costs are shown for all accounts. In the forecast difference,
+  open savings plans count as open expenses. In the portfolio value at the
+  same moment they are an inflow, and on the checking account they are an
+  outflow.
+- On another account they appear only when it is the linked checking account.
+- For ordinary fixed costs, the list shows the next debit day and how many
+  dates in the selected period are still open. A tap opens the detail: every
+  booking assigned so far, whether by hand or recognized automatically, and
+  the next three dates. A booking can be tapped, edited, or removed from the
+  assignment. The booking itself stays. Swiping right edits the fixed cost,
+  swiping left deletes it. When an account is selected, the assignment shows
+  only that account’s bookings.
+- The same open dates appear in expenses as forecast expenses, each on its
+  day, the way the fixed-cost tile counts them. On the main account those are
+  the household fixed costs. On another account, only that account’s savings
+  plans. The same list also shows the still-open remainder of each variable
+  cost and the planned shopping-list entries that have not been bought.
+  Shopping appears only for all accounts and on the main account. When exactly
+  one account is selected, transfer forecasts that leave that account are
+  listed there too. All accounts and the portfolio do not list transfers
+  there. Dates that are already assigned stay in these lists and are grayed
+  out.
+
+### Transactions in the finance view
+
+At the bottom are the transactions of the selected period and account, no
+longer a separate event list. Above them, a field searches by title or note.
+To the right, with space between, the plus creates a transaction. Both sit in
+their own bubbles. Each row shows icon, category, date, and amount, opens the
+transaction, and can be swiped: left deletes, right edits.
+
+Above the transactions is a separate **Forecasts** section. It holds the
+income, fixed costs, variable costs, and shopping items of the period,
+filtered as in the income and expense views. When exactly one account is
+selected, transfers are there too, an outflow negative and an inflow positive.
+Above that, its own field searches, and the plus on the right creates a
+forecast. The choices are income forecast, transfer forecast, savings plan,
+fixed cost, and variable cost. Each opens its own form. The title names the
+kind: New income forecast, New transfer forecast, New savings plan, New fixed
+cost, New variable cost. Editing uses Edit income forecast, and the same
+pattern for the others. The transaction search does not filter this section. A
+tap opens the detail. A real transaction can be assigned there. When an
+account is selected, only that account’s transactions are offered. For income,
+fixed costs, transfers, and the shopping list, the assignment replaces the
+forecast for the whole period. The other dates remain. A forecast that is
+already assigned, by hand or automatically, stays visible and is grayed out.
+Variable costs are different: each further transaction only reduces the
+reserved remainder, and the row stays until that remainder is zero. Swiping
+right edits the series. Swiping left deletes only that date. In the portfolio
+the section is omitted. The rows do not sit between the transactions.
+
+All savings plans in this section sit in one pot. The pot starts expanded, so
+the individual dates are visible. Collapsing it shows the cost per week and
+the period total.
+
+On the transactions below, the plus asks for the category first: income,
+interest, dividend, expense, refund, transfer, or balance adjustment. Then
+only that category’s form opens, without the other categories in the same
+form. The title is, for example, New expense. While editing, the category
+stays fixed and the title is Edit expense. The same preselection is in the
+transaction list.
+
+The displayed category is not its own stored kind. What is stored remains
+income, expense, transfer, or balance adjustment. What is shown is:
+
+- Income, interest, dividend, expense, refund, portfolio buy, portfolio sale,
+  savings plan, transfer
+- A balance adjustment stays a balance adjustment.
+
+Each has its own symbol. The same symbols are used in the income and expense
+lists and on the home-screen transactions.
+
+- Income is a banknote, an expense is a shopping cart, a refund is an arrow
+  back.
+- A portfolio buy is a rising chart, a portfolio sale is a falling chart.
+- Savings plan and transfer keep their existing symbols.
+
+The color of portfolio buy, savings plan, and portfolio sale depends on the
+filter:
+
+- Checking account: portfolio buy and savings plan are red, icon and amount. A
+  sale is green. Under the amount, the difference is smaller, green when
+  positive and red when negative.
+- All accounts: portfolio buy, savings plan, and the sale amount stay in the
+  text color, including the icon. Only the difference under the sale is red or
+  green.
+- Portfolio: portfolio buy and savings plan are green, icon and amount. A sale
+  is red.
+
+Income, interest, and dividends stay green, an expense red. A refund stays in
+the text color, icon and amount, and shows the full sum. In the income or
+expense list, the purchase-to-sale difference itself is the amount and takes
+that color. There is no second difference under it.
+
+A savings plan is recognized by the title “Savings plan:”. A portfolio buy
+goes into a portfolio, a portfolio sale comes from a portfolio. Interest and
+dividends are marked in the note as type Interest or type Yield.
+
+A transfer between your own accounts is called a transfer when all accounts
+are selected. When exactly one account is selected, it is an expense there if
+the money leaves the account, and income if it arrives. Portfolio buy,
+portfolio sale, and savings plan keep their category, including on a single
+account. The counting rules stay the same: for all accounts, a portfolio sale
+counts as income only with the positive purchase-to-sale difference, and as an
+expense with the negative one. On the linked checking account the full amount
+counts.
+
+The detail of a transfer shows both sides, the outflow on one account and the
+inflow on the other. A portfolio sale always also shows purchase price, sale
+price, and difference. When creating an ordinary transaction, the plus asks
+for the category first, then only that form appears. Portfolio buy, portfolio
+sale, and savings plan are not in that choice, including while editing. Those
+three are created only when a portfolio position is created, bought into, or
+sold, or when a savings plan is created. Opening an existing booking of that
+kind keeps the category fixed. It cannot be switched there. A portfolio sale
+continues to be stored as a transfer from the portfolio to the account, so the
+purchase-to-sale difference still applies.
+
+The portfolio is not offered for ordinary transactions, fixed costs, income
+forecasts, transfer forecasts, variable costs, or budget pools. Only portfolio
+buy, portfolio sale, and savings plan use it, and only on the portfolio side.
+
+### Refund
+
+A refund is its own category. It always needs an original expense. The link
+is stored in local settings, not on the transaction itself.
+
+- In the transaction list the refund shows its full amount. It does not count
+  in the income pot and does not appear in the income list.
+- The original expense stays an expense. Under its amount is the remainder
+  that still counts, smaller, like the purchase-to-sale difference on a sale.
+  An expense of €100 with a refund of €30 counts as a €70 expense. Several
+  refunds are added. If the sum exceeds the expense, the expense counts as
+  zero.
+- The account balance keeps both movements: the expense goes out, the refund
+  comes in.
+- The expense detail lists the linked refunds. The refund detail shows the
+  original transaction.
+- On the detail of an ordinary expense, a button creates a refund that is
+  already linked to that expense. The amount is entered there. Further refunds
+  of the same expense remain possible. A transfer that looks like an expense
+  on a single account does not get this button.
+
+### Transfer forecasts
+
+Besides income and expense forecasts there are transfer forecasts. Creating
+one uses the plus in the Forecasts section of the finance view, no longer a
+separate list under More. Each forecast has two accounts, neither a portfolio,
+an amount, and a cadence.
+
+- Dates in the selected period appear in the Forecasts section above the
+  transactions. The income view shows only inflows, the expense view only
+  outflows. That applies only when exactly one account is selected. For all
+  accounts and in the portfolio, the transfer is missing from those lists. A
+  tap opens the detail. The forecast can be assigned to a real transaction
+  there. When an account is selected, the list offers only that account’s
+  transactions. The assignment applies to the whole period. The dates stay
+  visible and are grayed out. The same assignment applies to income, fixed
+  costs, and the shopping list. For variable costs, each transaction only
+  reduces the reserved remainder, and further transactions remain possible. A
+  transaction that is already recognized automatically, for example by IBAN,
+  still replaces the forecast on its own and grays it out as well. Swiping
+  deletes only that single date, not the whole series.
+- Assigning the forecast to a real transfer replaces the forecast for the
+  whole period. The dates stay grayed out, and the transaction stays.
+- In the account-balance forecast, an open date moves money from one account
+  to the other. If both accounts are in the view, the total stays zero. A
+  transfer that has already been replaced, but is still in the future, counts
+  once at its real amount. Savings plans and portfolio buys are excluded from
+  that.
+- On a single account, a still-open date also counts as open income when the
+  money arrives there, and as an open expense when it leaves. In the current
+  period that sits under Open. In a future period it is inside the normal
+  income or expense amount. Dates before the period are already in the opening
+  balance and are not counted again there. A real transfer assigned to the
+  forecast in the period replaces the dates.
+- For all accounts and in the portfolio, transfer forecasts do not count as
+  income or an expense.
+- The closing balance stays opening balance plus forecast difference. On a
+  single account, the open transfer therefore moves the closing balance.
+
+### Variable costs
+
+- Swiping right edits a variable cost, swiping left deletes it.
+- A tap opens the transactions assigned to it in the selected period. When an
+  account is selected, only that account’s transactions. The period is the
+  same one as in the finance view.
+- When creating one, several accounts can be selected. The monthly amount is
+  split evenly, with leftover cents on the first accounts. With no selection,
+  the amount applies to every account except the portfolio.
+- All accounts show the full amount. A single account shows only its share,
+  and the row only when that account takes part.
+- The selected accounts are not in the data model. They are in local settings,
+  so an existing data file stays readable.
+- If an assigned expense is partly refunded, the variable cost counts only the
+  same share.
+- In the forecast, an assigned transaction does not replace the period. Each
+  transaction reduces the reserved amount, and further transactions can be
+  added. The row stays visible until the remainder is zero, and only then is
+  it grayed out. An older assignment for the period counts at its transaction
+  amount, not as completing the whole period. A deleted date stays hidden.
+
+### Shopping list
+
+- In the finance view, **Planned** has no plus sign and uses the text color.
+  **Applied** is red. The same two values sit at the top of the shopping list
+  for the selected finance period.
+- When a transaction is assigned to the forecast, Applied uses the
+  transaction’s amount, not the planned item amount. Several transactions are
+  added. If the item is only checked and has no transaction, the item amount
+  counts. Unchecked items without a transaction stay in Planned.
+- The assignment checks the item off, in the list and in the detail. A tap
+  opens the detail. The assigned transactions are listed there, and a tap on a
+  transaction opens it. Swiping right edits the item, swiping left deletes it.
+
+### Home budget
+
+The budget on the home screen is not the same total as the finance view. A
+tap opens the breakdown, not the finance view. That breakdown lists the
+income, the forecasts, and the transactions that produce the total and the
+amount spent.
+
+- Income is only foreign inflows. Your own IBAN, dividends, interest, and
+  refunds do not count. Open salary forecasts in the period still count.
+- Spending is ordinary expenses plus stock buys and savings-plan executions.
+  A refunded expense counts only with the remainder. Other transfers do not
+  count.
+- The daily budget is the remaining budget divided by the days until the next
+  payday.
+
+### Trade Republic import
+
+The import is separate from the bank import. During setup it comes after the
+main account and after the optional CSV or CAMT import. In Settings it has
+its own section. A destination account exists only for CSV and CAMT. A PDF is
+not recognized there automatically.
+
+What is read is the transaction overview, with date, type, description, money
+in, money out, and balance.
+
+- A trade changes the portfolio and the linked checking account.
+- A card transaction is an expense of the checking account. A refund that
+  increases the balance stays positive.
+- Yield and interest are income of the checking account, not a portfolio
+  booking.
+- A transfer to one of your own accounts is no longer turned into a transfer
+  automatically. After importing a Trade Republic PDF or a Sparkasse CAMT,
+  including during setup, a dialog appears.
+- Under “Possible transfer” are rows with the same amount, a known IBAN, and a
+  date at most three days apart. The switch is off. Only when it is on do the
+  two sides become one transfer, and the duplicate booking on the other
+  account is dropped.
+- Under “Similar transactions” are matches that already exist. The section is
+  collapsed. A fingerprint, or the same amount with a similar date and the
+  same title or the same IBAN, counts as a duplicate and is skipped. Expanding
+  the section and checking a row imports that row anyway. Executions a week
+  apart fall outside the three-day window and stay their own transactions.
+- Importing again replaces the previous statement of that checking account and
+  rebuilds the linked portfolio.
+
+For the purchase-to-sale difference of names that have already been sold in
+full to be right, the statement has to be imported again after a rule change.
+
+## Deutsch
 
 Diese Datei beschreibt, wie Lifify Konten, Zeiträume, Einnahmen, Ausgaben,
 Depot und das Home-Budget rechnet. Sie gilt für Version 0.2.0.
@@ -6,7 +492,7 @@ Depot und das Home-Budget rechnet. Sie gilt für Version 0.2.0.
 Zeitraum und Konto sind ein gemeinsamer Filter. Eine Änderung gilt in der
 Finanzansicht, in den Buchungen und in den Listen für Einnahmen und Ausgaben.
 
-## Konten
+### Konten
 
 - Kontenarten sind Girokonto, Spartopf, Oberspartopf und Depot.
 - Ein Oberspartopf gruppiert Spartöpfe und wird nicht noch einmal zur Summe
@@ -22,7 +508,7 @@ Finanzansicht, in den Buchungen und in den Listen für Einnahmen und Ausgaben.
 - Für Käufe und Verkäufe lässt sich in den Einstellungen ein Standard-Girokonto
   und eine Standardgebühr hinterlegen. Die Gebühr ist beim Buchen zunächst aus.
 
-## Zeitraum
+### Zeitraum
 
 - Vor und zurück sowie Heute stehen über der Finanzliste, damit der Wechsel
   immer ankommt.
@@ -46,7 +532,7 @@ Finanzansicht, in den Buchungen und in den Listen für Einnahmen und Ausgaben.
   Anzeige zählt er zum Beginn des Zeitraums. Einnahmen und andere Buchungen
   am ersten Tag gehören in den Zeitraum, nicht in den Startsaldo.
 
-## Saldo bei allen Konten
+### Saldo bei allen Konten
 
 Ist **Alle Konten** gewählt, ist der Startsaldo die Summe der Startsalden der
 einzelnen Konten plus den Depotwert am Tag davor.
@@ -99,9 +585,9 @@ einzelnen Konten plus den Depotwert am Tag davor.
   auf die übrigen Kacheln zu warten. Einnahmen, Ausgaben, Startsaldo und
   Endsaldo entfallen dort. Weitere Bereiche entfallen ebenfalls.
 
-## Einnahmen und Ausgaben
+### Einnahmen und Ausgaben
 
-### Alle Konten
+#### Alle Konten
 
 Einnahmen sind:
 
@@ -125,19 +611,19 @@ Aktienkäufe und Sparpläne sind bei allen Konten keine Ausgaben. Das Geld wechs
 nur vom Girokonto ins Depot. Andere Umbuchungen zwischen eigenen Konten zählen
 ebenfalls nicht als Einnahme oder Ausgabe.
 
-### Verknüpftes Girokonto
+#### Verknüpftes Girokonto
 
 Ist das Girokonto gewählt, das mit dem Depot verknüpft ist, zählen Käufe,
 Sparpläne und Verkäufe mit dem vollen Betrag. Ein Abfluss ist eine Ausgabe, ein
 Zufluss eine Einnahme. Die Kursdifferenz wird dann nicht noch einmal extra
 gezählt.
 
-### Einzelnes anderes Konto
+#### Einzelnes anderes Konto
 
 Umbuchungen, die dieses Konto berühren, zählen dort voll mit. Depotkäufe eines
 anderen Girokontos erscheinen nicht.
 
-### Einnahmeprognosen
+#### Einnahmeprognosen
 
 Eine Prognose mit Konto gilt nur für dieses Konto. In der Einnahmenliste und
 in der Einnahmenkachel eines einzelnen Kontos erscheinen nur dessen Prognosen.
@@ -153,7 +639,7 @@ legt man in der Finanzansicht über das Plus im Bereich Prognosen an. In der
 Einnahmenansicht gibt es dafür kein Plus mehr. Eine Prognose, der schon eine
 Buchung zugeordnet ist, bleibt in der Liste und ist ausgegraut.
 
-## Depot und Einzelpositionen
+### Depot und Einzelpositionen
 
 - Jeder Kauf derselben ISIN bleibt eine eigene Position mit Datum, Stückzahl
   und Kurs.
@@ -184,7 +670,7 @@ Buchung zugeordnet ist, bleibt in der Liste und ist ausgegraut.
 - Schlägt der Abruf fehl, bleibt der manuelle Fallbackkurs. Die Stückzahl zum
   Stichtag wird trotzdem verwendet.
 
-## Sparpläne
+### Sparpläne
 
 - Ein Sparplan entsteht aus den Ausführungen im Auszug.
 - Der Betrag ist der letzte Zahlungsausgang. Liegen am selben Tag mehrere
@@ -239,7 +725,7 @@ Buchung zugeordnet ist, bleibt in der Liste und ist ausgegraut.
   allen Konten und im Depot stehen dort keine Umbuchungen. Schon zugeordnete
   Termine bleiben in diesen Listen und sind ausgegraut.
 
-## Buchungen in der Finanzansicht
+### Buchungen in der Finanzansicht
 
 Unten stehen die Buchungen des gewählten Zeitraums und Kontos, nicht mehr eine
 eigene Ereignisliste. Darüber sucht ein Feld nach Titel oder Notiz. Rechts
@@ -338,7 +824,7 @@ Das Depot steht bei gewöhnlichen Buchungen, Fixkosten, Einnahmeprognosen,
 Umbuchungsprognosen, variablen Kosten und Budgetpools nicht zur Auswahl. Nur
 Depotkauf, Depotverkauf und Sparplan nutzen es, und dort nur auf der Depotseite.
 
-## Rückerstattung
+### Rückerstattung
 
 Eine Rückerstattung ist eine eigene Kategorie. Sie braucht immer eine
 ursprüngliche Ausgabe. Die Verknüpfung liegt in den lokalen Einstellungen, nicht
@@ -361,7 +847,7 @@ in der Buchung selbst.
   möglich. Eine Umbuchung, die auf einem einzelnen Konto wie eine Ausgabe
   aussieht, bekommt diesen Button nicht.
 
-## Umbuchungsprognosen
+### Umbuchungsprognosen
 
 Neben Einnahme- und Ausgabenprognosen gibt es Umbuchungsprognosen. Anlegen
 läuft über das Plus im Bereich Prognosen der Finanzansicht, nicht mehr über
@@ -400,7 +886,7 @@ ohne Depot, einen Betrag und einen Rhythmus.
 - Das Endsaldo bleibt Startsaldo plus Prognose-Differenz. Auf einem einzelnen
   Konto verschiebt die offene Umbuchung deshalb das Endsaldo.
 
-## Variable Kosten
+### Variable Kosten
 
 - Rechtswischen bearbeitet eine variable Kosten, Linkswischen löscht sie.
 - Ein Tipp öffnet die Buchungen, die ihr im gewählten Zeitraum zugeordnet sind.
@@ -422,7 +908,7 @@ ohne Depot, einen Betrag und einen Rhythmus.
   Buchungsbetrag, nicht als komplette Erledigung. Ein gelöschter Termin bleibt
   ausgeblendet.
 
-## Einkaufszettel
+### Einkaufszettel
 
 - In der Finanzansicht steht **Geplant** ohne Plus und in der Textfarbe.
   **Angewendet** ist rot. Dieselben zwei Werte stehen oben in der
@@ -436,7 +922,7 @@ ohne Depot, einen Betrag und einen Rhythmus.
   und ein Tipp auf eine Buchung öffnet sie. Rechtswischen bearbeitet den
   Artikel, Linkswischen löscht ihn.
 
-## Home-Budget
+### Home-Budget
 
 Das Budget auf der Home-Seite ist nicht dieselbe Summe wie die Finanzansicht.
 Ein Tipp öffnet die Aufschlüsselung, nicht die Finanzansicht. Dort stehen die
@@ -452,7 +938,7 @@ entstehen.
 - Das Tagesbudget ist das verbleibende Budget geteilt durch die Tage bis zum
   nächsten Gehalt.
 
-## Trade-Republic-Import
+### Trade-Republic-Import
 
 Der Import ist vom Bankimport getrennt. In der Einrichtung kommt er nach dem
 Hauptkonto und nach dem optionalen CSV- oder CAMT-Import. Unter Einstellungen
