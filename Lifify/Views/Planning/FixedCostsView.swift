@@ -9,6 +9,7 @@ struct FixedCostsView: View {
     @Query(sort: \LedgerEntry.date, order: .reverse) private var entries: [LedgerEntry]
     @Query private var forecasts: [IncomeForecast]
     @State private var edited: FixedCost?
+    @State private var selected: FixedCost?
     @State private var showingNew = false
 
     private var periods: [ForecastPeriod] {
@@ -51,7 +52,7 @@ struct FixedCostsView: View {
             }
             ForEach(regularCosts) { cost in
                 Button {
-                    edited = cost
+                    selected = cost
                 } label: {
                     HStack {
                         Image(systemName: IconPreferenceStore.icon(for: cost.id, fallback: "repeat"))
@@ -66,6 +67,15 @@ struct FixedCostsView: View {
                         Text(Money.string(cents: -abs(cost.amountCents)))
                             .foregroundStyle(.red)
                     }
+                }
+                .buttonStyle(.plain)
+                .swipeActions(edge: .leading, allowsFullSwipe: false) {
+                    Button {
+                        edited = cost
+                    } label: {
+                        Label(L("Bearbeiten", "Edit"), systemImage: "pencil")
+                    }
+                    .tint(.blue)
                 }
             }
             .onDelete { offsets in
@@ -83,6 +93,7 @@ struct FixedCostsView: View {
         }
         .sheet(isPresented: $showingNew) { FixedCostForm(cost: nil) }
         .sheet(item: $edited) { FixedCostForm(cost: $0) }
+        .sheet(item: $selected) { FixedCostDetailView(cost: $0) }
         .onAppear { SavingsPlanFixedCosts.sync(context: context) }
     }
 

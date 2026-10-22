@@ -645,6 +645,46 @@ enum FinanceService {
         .sorted { $0.date < $1.date }
     }
 
+    /// Bookings tied to a fixed cost: stored link, fixed-cost id, or the same-day automatic match.
+    static func assignedBookings(for cost: FixedCost, entries: [LedgerEntry]) -> [LedgerEntry] {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: .now)
+        var matched: [UUID: LedgerEntry] = [:]
+        for entry in entries {
+            if ForecastMatchRejectionStore.isRejected(costID: cost.id, entryID: entry.id) { continue }
+            if entry.fixedCostID == cost.id {
+                matched[entry.id] = entry
+                continue
+            }
+            if let link = ForecastPeriodLinkStore.link(for: entry.id), link.kind == .fixed, link.id == cost.id {
+                matched[entry.id] = entry
+            }
+        }
+        let start = calendar.startOfDay(for: cost.firstChargeDate)
+        if start <= today {
+            for charge in scheduledCharges(costs: [cost], entries: entries, from: start, through: today) {
+                let occurrence = (date: charge.date, amount: charge.amount, title: charge.title, costID: charge.costID)
+                if let entry = matchingExpense(occurrence, entries: entries) {
+                    matched[entry.id] = entry
+                }
+            }
+        }
+        return matched.values.sorted { $0.date > $1.date }
+    }
+
+    /// The next scheduled dates, including ones a booking already covers.
+    static func upcomingCharges(for cost: FixedCost, entries: [LedgerEntry], limit: Int = 3) -> [ScheduledCharge] {
+        guard cost.isActive, limit > 0 else { return [] }
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: .now)
+        guard let horizon = calendar.date(byAdding: .year, value: 2, to: today) else { return [] }
+        return Array(
+            scheduledCharges(costs: [cost], entries: entries, from: today, through: horizon)
+                .filter { !ForecastSkipStore.isSkipped(.fixed, id: cost.id, on: $0.date) }
+                .prefix(limit)
+        )
+    }
+
     static func nextChargeDate(for cost: FixedCost, entries: [LedgerEntry]) -> Date? {
         guard cost.isActive else { return nil }
         let calendar = Calendar.current
@@ -722,6 +762,7 @@ enum FinanceService {
     ) -> LedgerEntry? {
         entries.first { entry in
             guard entry.kind == .expense || entry.kind == .transfer else { return false }
+            if ForecastMatchRejectionStore.isRejected(costID: occurrence.costID, entryID: entry.id) { return false }
             guard Calendar.current.isDate(entry.date, inSameDayAs: occurrence.date) else { return false }
             if entry.fixedCostID == occurrence.costID { return true }
             let sameAmount = abs(entry.amountCents) == occurrence.amount
@@ -1075,6 +1116,8 @@ struct ForecastListItem: Identifiable {
     var date: Date
     var signedCents: Int
     var kind: Kind
+    /// A booking already covers this date, manually or automatically. The row stays visible.
+    var settled: Bool = false
 
     var fixedCostID: UUID? {
         if case .expense(let id) = kind { return id }
@@ -1199,8 +1242,8 @@ enum ForecastSchedule {
         }
         var items: [ForecastListItem] = []
         for forecast in chosen {
-            if incomeIsBooked(forecast, entries: entries, period: period) { continue }
-            if ForecastPeriodLinkStore.covers(.income, id: forecast.id, entries: entries, period: period) { continue }
+            let settled = incomeIsBooked(forecast, entries: entries, period: period)
+                || ForecastPeriodLinkStore.covers(.income, id: forecast.id, entries: entries, period: period)
             let dates = CalendarService.nextOccurrences(
                 firstDate: forecast.firstPaymentDate,
                 cadence: forecast.cadence,
@@ -1211,14 +1254,16 @@ enum ForecastSchedule {
             )
             for date in dates {
                 let day = calendar.startOfDay(for: date)
-                guard day >= today, period.contains(day) else { continue }
+                guard period.contains(day) else { continue }
                 if ForecastSkipStore.isSkipped(.income, id: forecast.id, on: day) { continue }
+                if !settled && day < today { continue }
                 items.append(ForecastListItem(
                     id: "income-\(forecast.id.uuidString)-\(day.dayKey)",
                     title: forecast.name,
                     date: day,
                     signedCents: abs(forecast.amountCents),
-                    kind: .income(forecast)
+                    kind: .income(forecast),
+                    settled: settled
                 ))
             }
         }
@@ -1248,17 +1293,17 @@ enum ForecastSchedule {
             through: period.end
         )
         .filter { charge in
-            guard !charge.isPaid else { return false }
-            if ForecastSkipStore.isSkipped(.fixed, id: charge.costID, on: charge.date) { return false }
-            return !ForecastPeriodLinkStore.covers(.fixed, id: charge.costID, entries: entries, period: period)
+            !ForecastSkipStore.isSkipped(.fixed, id: charge.costID, on: charge.date)
         }
         .map { charge in
-            ForecastListItem(
+            let linked = ForecastPeriodLinkStore.covers(.fixed, id: charge.costID, entries: entries, period: period)
+            return ForecastListItem(
                 id: charge.id,
                 title: charge.title,
                 date: charge.date,
                 signedCents: -charge.amount,
-                kind: .expense(charge.costID)
+                kind: .expense(charge.costID),
+                settled: charge.isPaid || linked
             )
         }
     }
@@ -1293,15 +1338,17 @@ enum ForecastSchedule {
                 accountID: account?.id
             )
             let open = max(plan - spent, 0)
-            guard open > 0 else { return nil }
             if ForecastSkipStore.isSkipped(.variable, id: budget.id, on: period.end) { return nil }
-            if ForecastPeriodLinkStore.covers(.variable, id: budget.id, entries: entries, period: period) { return nil }
+            let linked = ForecastPeriodLinkStore.covers(.variable, id: budget.id, entries: entries, period: period)
+            let settled = linked || open == 0
+            guard settled || open > 0 else { return nil }
             return ForecastListItem(
                 id: "variable-\(budget.id.uuidString)-\(period.id)",
                 title: budget.name,
                 date: period.end,
-                signedCents: -open,
-                kind: .variable(budget.id)
+                signedCents: -(open > 0 ? open : plan),
+                kind: .variable(budget.id),
+                settled: settled
             )
         }
     }
@@ -1319,17 +1366,18 @@ enum ForecastSchedule {
         guard period.end >= today else { return [] }
         let calendar = Calendar.current
         return shopping.compactMap { item in
-            guard !item.isPurchased, let planned = item.plannedDate else { return nil }
+            guard let planned = item.plannedDate else { return nil }
             let day = calendar.startOfDay(for: planned)
             guard period.contains(day) else { return nil }
             if ForecastSkipStore.isSkipped(.shopping, id: item.id, on: day) { return nil }
-            if ForecastPeriodLinkStore.covers(.shopping, id: item.id, entries: entries, period: period) { return nil }
+            let linked = ForecastPeriodLinkStore.covers(.shopping, id: item.id, entries: entries, period: period)
             return ForecastListItem(
                 id: "shopping-\(item.id.uuidString)",
                 title: item.name,
                 date: day,
                 signedCents: -abs(item.amountCents),
-                kind: .shopping(item.id)
+                kind: .shopping(item.id),
+                settled: item.isPurchased || linked
             )
         }
     }
@@ -1347,7 +1395,7 @@ enum ForecastSchedule {
         guard period.end >= today else { return [] }
         var items: [ForecastListItem] = []
         for forecast in TransferForecastStore.all() where forecast.active {
-            if transferIsBooked(forecast.id, entries: entries, period: period) { continue }
+            let settled = transferIsBooked(forecast.id, entries: entries, period: period)
             let amount = abs(forecast.amountCents)
             let signed: Int
             switch direction {
@@ -1376,14 +1424,16 @@ enum ForecastSchedule {
             )
             for date in dates {
                 let day = calendar.startOfDay(for: date)
-                guard day >= today, period.contains(day) else { continue }
+                guard period.contains(day) else { continue }
                 if ForecastSkipStore.isSkipped(.transfer, id: forecast.id, on: day) { continue }
+                if !settled && day < today { continue }
                 items.append(ForecastListItem(
                     id: "transfer-\(forecast.id.uuidString)-\(day.dayKey)",
                     title: forecast.name,
                     date: day,
                     signedCents: signed,
-                    kind: .transfer(forecast)
+                    kind: .transfer(forecast),
+                    settled: settled
                 ))
             }
         }

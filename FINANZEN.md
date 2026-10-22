@@ -148,7 +148,10 @@ seinen eigenen Prognosen.
 In der Einnahmenansicht steht jeder noch offene Termin des Zeitraums, nicht nur
 der nächste. Ist genau ein Konto gewählt, stehen dort zusätzlich die
 Umbuchungsprognosen, bei denen das Geld auf diesem Konto ankommt. Bei allen
-Konten und im Depot stehen dort keine Umbuchungen.
+Konten und im Depot stehen dort keine Umbuchungen. Neue Einnahmeprognosen
+legt man in der Finanzansicht über das Plus im Bereich Prognosen an. In der
+Einnahmenansicht gibt es dafür kein Plus mehr. Eine Prognose, der schon eine
+Buchung zugeordnet ist, bleibt in der Liste und ist ausgegraut.
 
 ## Depot und Einzelpositionen
 
@@ -217,7 +220,13 @@ Konten und im Depot stehen dort keine Umbuchungen.
 - Auf einem anderen Konto erscheinen sie nur, wenn es das verknüpfte Girokonto
   ist.
 - In der Fixkostenliste steht bei normalen Fixkosten der nächste Abbuchungstag
-  und wie viele Termine im gewählten Zeitraum noch offen sind.
+  und wie viele Termine im gewählten Zeitraum noch offen sind. Ein Tipp öffnet
+  die Detailansicht: alle bisher zugeordneten Buchungen, ob von Hand oder
+  automatisch erkannt, und die nächsten drei Termine. Eine Buchung lässt sich
+  dort antippen, bearbeiten oder aus der Zuweisung nehmen. Die Buchung selbst
+  bleibt dabei stehen. Wischen nach rechts bearbeitet die Fixkosten, Wischen
+  nach links löscht sie. Ist ein Konto gewählt, zeigt die Zuweisung nur
+  Buchungen dieses Kontos.
 - Dieselben offenen Termine stehen in den Ausgaben als Prognoseausgaben, je
   an ihrem Tag, so wie die Fixkostenkachel sie zählt. Auf dem Hauptkonto sind
   das die Haushalts-Fixkosten, auf einem anderen Konto nur dessen Sparpläne.
@@ -225,7 +234,8 @@ Konten und im Depot stehen dort keine Umbuchungen.
   die geplanten, noch nicht gekauften Einträge des Einkaufszettels. Einkäufe
   nur bei allen Konten und auf dem Hauptkonto. Ist genau ein Konto gewählt,
   stehen dort auch die Umbuchungsprognosen, die von diesem Konto abgehen. Bei
-  allen Konten und im Depot stehen dort keine Umbuchungen.
+  allen Konten und im Depot stehen dort keine Umbuchungen. Schon zugeordnete
+  Termine bleiben in diesen Listen und sind ausgegraut.
 
 ## Buchungen in der Finanzansicht
 
@@ -236,14 +246,23 @@ Blasen. Jede Zeile zeigt Icon, Kategorie, Datum und Betrag, öffnet die Buchung
 und lässt sich wischen: links löschen, rechts bearbeiten.
 
 Über den Buchungen steht ein eigener Bereich **Prognosen**. Darin liegen die
-offenen Einnahmen, Fixkosten, variablen Kosten und Einkäufe des Zeitraums,
-gefiltert wie in der Einnahmen- und Ausgabenansicht. Ist genau ein Konto
-gewählt, liegen dort auch die offenen Umbuchungen, Abgang negativ und Zugang
-positiv. Die Suche filtert auch diese Zeilen. Ein Tipp öffnet die Detailansicht.
-Dort lässt sich eine echte Buchung zuweisen. Die Zuweisung ersetzt die Prognose
-für den ganzen Zeitraum, die anderen Termine bleiben. Wischen nach rechts
-bearbeitet die Serie, Wischen nach links löscht nur diesen Termin. Im Depot
-entfällt der Bereich. Die Zeilen stehen nicht zwischen den Buchungen.
+Einnahmen, Fixkosten, variablen Kosten und Einkäufe des Zeitraums, gefiltert
+wie in der Einnahmen- und Ausgabenansicht. Ist genau ein Konto gewählt, liegen
+dort auch die Umbuchungen, Abgang negativ und Zugang positiv. Darüber sucht ein
+eigenes Feld, rechts daneben legt das Plus eine Prognose an. Zur Auswahl stehen
+Einnahmeprognose, Umbuchungsprognose, Sparplan, Fixkosten und variable Kosten.
+Jedes öffnet sein eigenes Formular. Die Buchungssuche filtert diesen Bereich
+nicht. Ein Tipp öffnet die Detailansicht. Dort lässt sich eine echte Buchung
+zuweisen. Ist ein Konto gewählt, stehen nur Buchungen dieses Kontos zur
+Auswahl. Die Zuweisung ersetzt die Prognose für den ganzen Zeitraum, die
+anderen Termine bleiben. Eine schon zugeordnete Prognose, von Hand oder
+automatisch, bleibt sichtbar und ist ausgegraut. Wischen nach rechts bearbeitet
+die Serie, Wischen nach links löscht nur diesen Termin. Im Depot entfällt der
+Bereich. Die Zeilen stehen nicht zwischen den Buchungen.
+
+Alle Sparpläne in diesem Bereich stehen in einem Topf. Zugeklappt zeigt er die
+Kosten pro Woche und die Summe des Zeitraums. Die einzelnen Termine erscheinen
+erst beim Aufklappen.
 
 Die angezeigte Kategorie ist keine eigene Speicherart. Gespeichert bleibt
 Einnahme, Ausgabe, Umbuchung oder Saldo-Korrektur. Angezeigt wird:
@@ -328,22 +347,25 @@ in der Buchung selbst.
 
 ## Umbuchungsprognosen
 
-Neben Einnahme- und Ausgabenprognosen gibt es Umbuchungsprognosen. Anlegen und
-Bearbeiten läuft über Weitere Bereiche. Jede Prognose hat zwei Konten, beide
+Neben Einnahme- und Ausgabenprognosen gibt es Umbuchungsprognosen. Anlegen
+läuft über das Plus im Bereich Prognosen der Finanzansicht, nicht mehr über
+eine eigene Liste in Weitere Bereiche. Jede Prognose hat zwei Konten, beide
 ohne Depot, einen Betrag und einen Rhythmus.
 
-- Offene Termine des gewählten Zeitraums stehen im Bereich Prognosen über den
+- Termine des gewählten Zeitraums stehen im Bereich Prognosen über den
   Buchungen. In der Einnahmenansicht nur die Zugänge, in der Ausgabenansicht
   nur die Abgänge. Das gilt nur, wenn genau ein Konto gewählt ist. Bei allen
   Konten und im Depot fehlt die Umbuchung in diesen Listen. Ein Tipp öffnet
   die Detailansicht. Dort kann die Prognose einer echten Buchung zugewiesen
-  werden und verschwindet dann für diesen Zeitraum. Dieselbe Zuweisung gilt
-  für Einnahmen, Fixkosten, variable Kosten und den Einkaufszettel. Eine
-  Buchung, die schon automatisch erkannt wird, zum Beispiel über die IBAN,
-  ersetzt die Prognose weiter von selbst. Wischen löscht nur den einzelnen
+  werden. Ist ein Konto gewählt, bietet die Liste nur dessen Buchungen an.
+  Die Zuweisung gilt für den ganzen Zeitraum. Die Termine bleiben sichtbar
+  und werden ausgegraut. Dieselbe Zuweisung gilt für Einnahmen, Fixkosten,
+  variable Kosten und den Einkaufszettel. Eine Buchung, die schon automatisch
+  erkannt wird, zum Beispiel über die IBAN, ersetzt die Prognose weiter von
+  selbst und graut sie ebenfalls aus. Wischen löscht nur den einzelnen
   Termin, nicht die ganze Serie.
 - Weist man die Prognose einer echten Umbuchung zu, ersetzt diese Buchung die
-  Prognose für den ganzen Zeitraum. Die offenen Termine verschwinden, die
+  Prognose für den ganzen Zeitraum. Die Termine bleiben ausgegraut stehen, die
   Buchung bleibt.
 - In der Prognose des Kontostands bewegt ein offener Termin Geld vom einen
   Konto auf das andere. Liegen beide Konten in der Ansicht, bleibt die Summe

@@ -6,6 +6,7 @@ struct ForecastDetailView: View {
     @Query(sort: \LedgerEntry.date, order: .reverse) private var entries: [LedgerEntry]
     let item: ForecastListItem
     let period: ForecastPeriod
+    var account: Account?
     @State private var chosen: UUID?
 
     var body: some View {
@@ -67,7 +68,7 @@ struct ForecastDetailView: View {
 
     private var candidates: [LedgerEntry] {
         entries.filter { entry in
-            guard period.contains(entry.date) else { return false }
+            guard period.contains(entry.date), matchesAccount(entry) else { return false }
             switch item.refKind {
             case .income:
                 return entry.kind == .income && !BookingClassification.isRefund(entry)
@@ -84,6 +85,11 @@ struct ForecastDetailView: View {
             guard period.contains(entry.date), let link = ForecastPeriodLinkStore.link(for: entry.id) else { return false }
             return link.kind == item.refKind && link.id == item.sourceID
         }?.id
+    }
+
+    private func matchesAccount(_ entry: LedgerEntry) -> Bool {
+        guard let account else { return true }
+        return entry.accountID == account.id || entry.fromAccountID == account.id || entry.toAccountID == account.id
     }
 
     private func choiceLabel(_ entry: LedgerEntry) -> String {

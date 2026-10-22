@@ -440,6 +440,53 @@ enum ForecastPeriodLinkStore {
     }
 }
 
+/// Stops a same-day fixed-cost match from attaching again after the user removes it.
+enum ForecastMatchRejectionStore {
+    private static let key = "lifify.forecastMatchRejections"
+    static let revisionKey = "lifify.forecastMatchRejectionRevision"
+
+    static func reject(costID: UUID, entryID: UUID) {
+        var values = all()
+        values.insert(token(costID, entryID))
+        save(values)
+    }
+
+    static func isRejected(costID: UUID, entryID: UUID) -> Bool {
+        all().contains(token(costID, entryID))
+    }
+
+    static func reset() {
+        UserDefaults.standard.removeObject(forKey: key)
+        UserDefaults.standard.set(revision() + 1, forKey: revisionKey)
+    }
+
+    static func fingerprint() -> Int {
+        var hasher = Hasher()
+        hasher.combine(revision())
+        for value in all().sorted() {
+            hasher.combine(value)
+        }
+        return hasher.finalize()
+    }
+
+    private static func token(_ costID: UUID, _ entryID: UUID) -> String {
+        "fixed|\(costID.uuidString)|\(entryID.uuidString)"
+    }
+
+    private static func all() -> Set<String> {
+        Set(UserDefaults.standard.stringArray(forKey: key) ?? [])
+    }
+
+    private static func save(_ values: Set<String>) {
+        UserDefaults.standard.set(Array(values), forKey: key)
+        UserDefaults.standard.set(revision() + 1, forKey: revisionKey)
+    }
+
+    private static func revision() -> Int {
+        UserDefaults.standard.integer(forKey: revisionKey)
+    }
+}
+
 enum RewardPolicyStore {
     static func allowsMultiplePurchases(for rewardID: UUID) -> Bool {
         let key = key(for: rewardID)

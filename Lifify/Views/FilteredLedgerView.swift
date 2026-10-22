@@ -14,7 +14,6 @@ struct FilteredLedgerView: View {
     @Query private var splits: [TransactionSplit]
     @Query(sort: \ShoppingItem.createdAt, order: .reverse) private var shopping: [ShoppingItem]
     @State private var selected: LedgerEntry?
-    @State private var showingNewForecast = false
     @State private var editedForecast: IncomeForecast?
     @State private var editedCost: FixedCost?
     @State private var editedTransfer: TransferForecastRecord?
@@ -23,6 +22,7 @@ struct FilteredLedgerView: View {
     @State private var selectedForecast: ForecastListItem?
     @AppStorage(ForecastSkipStore.revisionKey) private var forecastSkipRevision = 0
     @AppStorage(ForecastPeriodLinkStore.revisionKey) private var forecastLinkRevision = 0
+    @AppStorage(ForecastMatchRejectionStore.revisionKey) private var forecastRejectionRevision = 0
     @State private var preparedRows: [FlowRow] = []
     @State private var rowsToken: Int?
 
@@ -131,16 +131,7 @@ struct FilteredLedgerView: View {
                             forecastPlanButton(item)
                         }
                     } header: {
-                        HStack {
-                            Text(L("Einnahmeprognosen", "Income forecasts"))
-                            Spacer()
-                            Button {
-                                showingNewForecast = true
-                            } label: {
-                                Image(systemName: "plus.circle.fill")
-                            }
-                            .accessibilityLabel(L("Prognose hinzufügen", "Add forecast"))
-                        }
+                        Text(L("Einnahmeprognosen", "Income forecasts"))
                     }
                 }
                 if kind == .expense && !filters.showsDepot {
@@ -237,7 +228,6 @@ struct FilteredLedgerView: View {
         .navigationTitle(kind == .income ? L("Einnahmen", "Income") : L("Ausgaben", "Expenses"))
         .navigationBarTitleDisplayMode(.inline)
         .sheet(item: $selected) { TransactionDetailView(entry: $0) }
-        .sheet(isPresented: $showingNewForecast) { IncomeForecastForm(forecast: nil) }
         .sheet(item: $editedForecast) { IncomeForecastForm(forecast: $0) }
         .sheet(item: $editedCost) { FixedCostForm(cost: $0) }
         .sheet(item: $editedTransfer) { TransferForecastForm(forecast: $0) }
@@ -245,7 +235,7 @@ struct FilteredLedgerView: View {
         .sheet(item: $editedShopping) { ShoppingItemForm(item: $0) }
         .sheet(item: $selectedForecast) { item in
             if let period = selectedPeriod {
-                ForecastDetailView(item: item, period: period)
+                ForecastDetailView(item: item, period: period, account: filters.showsDepot ? nil : selectedAccount)
             }
         }
     }
@@ -257,6 +247,7 @@ struct FilteredLedgerView: View {
             forecastPlanRow(item)
         }
         .buttonStyle(.plain)
+        .opacity(item.settled ? 0.45 : 1)
         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
             Button(role: .destructive) {
                 ForecastSkipStore.skip(item.refKind, id: item.sourceID, on: item.date)
@@ -277,6 +268,7 @@ struct FilteredLedgerView: View {
     private var incomeForecastItems: [ForecastListItem] {
         _ = forecastSkipRevision
         _ = forecastLinkRevision
+        _ = forecastRejectionRevision
         guard kind == .income, let period = selectedPeriod else { return [] }
         return ForecastSchedule.incomeView(
             forecasts: forecasts,
@@ -290,6 +282,7 @@ struct FilteredLedgerView: View {
     private var expenseForecastItems: [ForecastListItem] {
         _ = forecastSkipRevision
         _ = forecastLinkRevision
+        _ = forecastRejectionRevision
         guard kind == .expense, let period = selectedPeriod else { return [] }
         return ForecastSchedule.expenseView(
             costs: fixedCosts,
@@ -356,7 +349,7 @@ struct FilteredLedgerView: View {
                 .foregroundStyle(category == .income || category == .expense ? Color.primary : paint.iconColor)
             VStack(alignment: .leading, spacing: 2) {
                 Text(item.title)
-                Text("\(caption) · \(AppDate.numeric(item.date)) · \(L("Prognose", "Forecast"))")
+                Text("\(caption) · \(AppDate.numeric(item.date)) · \(item.settled ? L("Gebucht", "Booked") : L("Prognose", "Forecast"))")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

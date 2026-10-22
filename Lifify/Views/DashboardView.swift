@@ -24,10 +24,18 @@ struct DashboardView: View {
     @State private var editedBudget: VariableBudget?
     @State private var editedShopping: ShoppingItem?
     @State private var selectedForecast: ForecastListItem?
+    @State private var forecastQuery = ""
+    @State private var showingNewIncome = false
+    @State private var showingNewTransfer = false
+    @State private var showingNewFixedCost = false
+    @State private var showingNewBudget = false
+    @State private var showingNewSavingsPlan = false
+    @State private var savingsForecastsExpanded = false
     @State private var summary: PreparedSummary?
     @State private var summarySelection: Int?
     @AppStorage(ForecastSkipStore.revisionKey) private var forecastSkipRevision = 0
     @AppStorage(ForecastPeriodLinkStore.revisionKey) private var forecastLinkRevision = 0
+    @AppStorage(ForecastMatchRejectionStore.revisionKey) private var forecastRejectionRevision = 0
     @AppStorage("portfolioPerformanceBasis") private var portfolioBasis = "today"
     @AppStorage("portfolioPerformanceUnit") private var portfolioUnit = "percent"
 
@@ -62,29 +70,20 @@ struct DashboardView: View {
                     .listRowInsets(EdgeInsets(top: 8, leading: 12, bottom: 4, trailing: 12))
                     .listRowSeparator(.hidden)
                     .listRowBackground(Color.clear)
-                    if !filters.showsDepot, !forecastItems(period).isEmpty {
+                    if !filters.showsDepot {
                         Section {
-                            ForEach(forecastItems(period)) { item in
-                                Button {
-                                    selectedForecast = item
-                                } label: {
-                                    forecastRow(item)
-                                }
-                                .buttonStyle(.plain)
-                                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                                    Button(role: .destructive) {
-                                        ForecastSkipStore.skip(item.refKind, id: item.sourceID, on: item.date)
-                                    } label: {
-                                        Label(L("Löschen", "Delete"), systemImage: "trash")
-                                    }
-                                }
-                                .swipeActions(edge: .leading, allowsFullSwipe: false) {
-                                    Button {
-                                        editForecast(item)
-                                    } label: {
-                                        Label(L("Bearbeiten", "Edit"), systemImage: "pencil")
-                                    }
-                                    .tint(.blue)
+                            forecastSearchRow
+                            if visibleForecasts(period).isEmpty {
+                                Text(forecastQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                                    ? L("In diesem Zeitraum liegen keine Prognosen.", "There are no forecasts in this period.")
+                                    : L("Keine Prognose gefunden.", "No forecast found."))
+                                    .foregroundStyle(.secondary)
+                            }
+                            ForEach(visibleForecasts(period)) { line in
+                                if line.isSavingsHeader {
+                                    savingsForecastHeader(weekCents: line.weekCents, periodCents: line.periodCents)
+                                } else if let item = line.item {
+                                    forecastButton(item)
                                 }
                             }
                         } header: {
@@ -202,9 +201,14 @@ struct DashboardView: View {
         }
         .sheet(item: $selectedForecast) { item in
             if let period = selectedPeriod {
-                ForecastDetailView(item: item, period: period)
+                ForecastDetailView(item: item, period: period, account: selectedFilterAccount)
             }
         }
+        .sheet(isPresented: $showingNewIncome) { IncomeForecastForm(forecast: nil) }
+        .sheet(isPresented: $showingNewTransfer) { TransferForecastForm(forecast: nil) }
+        .sheet(isPresented: $showingNewFixedCost) { FixedCostForm(cost: nil) }
+        .sheet(isPresented: $showingNewBudget) { VariableBudgetForm(budget: nil) }
+        .sheet(isPresented: $showingNewSavingsPlan) { SavingsPlanCreateForm() }
     }
 
     @ViewBuilder
@@ -303,8 +307,174 @@ struct DashboardView: View {
         }
     }
 
+    private func forecastButton(_ item: ForecastListItem) -> some View {
+        Button {
+            selectedForecast = item
+        } label: {
+            forecastRow(item)
+        }
+        .buttonStyle(.plain)
+        .opacity(item.settled ? 0.45 : 1)
+        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+            Button(role: .destructive) {
+                ForecastSkipStore.skip(item.refKind, id: item.sourceID, on: item.date)
+            } label: {
+                Label(L("Löschen", "Delete"), systemImage: "trash")
+            }
+        }
+        .swipeActions(edge: .leading, allowsFullSwipe: false) {
+            Button {
+                editForecast(item)
+            } label: {
+                Label(L("Bearbeiten", "Edit"), systemImage: "pencil")
+            }
+            .tint(.blue)
+        }
+    }
+
+    private var forecastSearchRow: some View {
+        HStack(spacing: 16) {
+            HStack(spacing: 8) {
+                Image(systemName: "magnifyingglass")
+                    .foregroundStyle(.secondary)
+                TextField(L("Prognose suchen", "Search forecasts"), text: $forecastQuery)
+                    .textFieldStyle(.plain)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                if !forecastQuery.isEmpty {
+                    Button {
+                        forecastQuery = ""
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.borderless)
+                }
+            }
+            .padding(.horizontal, 14)
+            .frame(height: 52)
+            .background(AppSurface.card, in: Capsule())
+            .overlay(Capsule().strokeBorder(Color.primary.opacity(0.08)))
+            .clipShape(Capsule())
+            Menu {
+                Button(L("Einnahmeprognose", "Income forecast")) { showingNewIncome = true }
+                Button(L("Umbuchungsprognose", "Transfer forecast")) { showingNewTransfer = true }
+                Button(L("Sparplan", "Savings plan")) { showingNewSavingsPlan = true }
+                Button(L("Fixkosten", "Fixed cost")) { showingNewFixedCost = true }
+                Button(L("Variable Kosten", "Variable cost")) { showingNewBudget = true }
+            } label: {
+                Image(systemName: "plus")
+                    .font(.title2.weight(.bold))
+                    .foregroundStyle(.primary)
+                    .frame(width: 52, height: 52)
+                    .boundedBubble(circle: true)
+            }
+            .buttonStyle(.borderless)
+            .tint(.primary)
+            .accessibilityLabel(L("Prognose hinzufügen", "Add forecast"))
+        }
+        .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 10, trailing: 16))
+        .listRowSeparator(.hidden)
+        .listRowBackground(Color.clear)
+    }
+
+    private func savingsForecastHeader(weekCents: Int, periodCents: Int) -> some View {
+        let expanded = savingsForecastsExpanded || !forecastQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        return Button {
+            savingsForecastsExpanded.toggle()
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: BookingCategory.savingsPlan.systemImage)
+                    .frame(width: 28)
+                    .foregroundStyle(.primary)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(L("Sparpläne", "Savings plans"))
+                        .foregroundStyle(.primary)
+                    Text("\(L("Pro Woche", "Per week")) \(Money.string(cents: weekCents)) · \(L("Zeitraum", "Period")) \(Money.string(cents: periodCents))")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Image(systemName: expanded ? "chevron.up" : "chevron.down")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func visibleForecasts(_ period: ForecastPeriod) -> [ForecastLine] {
+        let query = forecastQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+        let groupTitle = L("Sparpläne", "Savings plans")
+        let groupQuery = !query.isEmpty && groupTitle.localizedCaseInsensitiveContains(query)
+        let items = forecastItems(period).filter { item in
+            guard !query.isEmpty else { return true }
+            if isSavingsForecast(item), groupQuery { return true }
+            return item.title.localizedCaseInsensitiveContains(query)
+        }
+        let savings = items.filter(isSavingsForecast).sorted { $0.date < $1.date }
+        let others = items.filter { !isSavingsForecast($0) }
+        guard let first = savings.first else {
+            return others.map { ForecastLine(item: $0) }
+        }
+        let expanded = savingsForecastsExpanded || !forecastQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        var lines: [ForecastLine] = []
+        var inserted = false
+        let header = ForecastLine(
+            id: "savings-group",
+            weekCents: savingsWeekCents(savings),
+            periodCents: savings.reduce(0) { $0 + abs($1.signedCents) }
+        )
+        func appendSavings() {
+            lines.append(header)
+            if expanded {
+                lines.append(contentsOf: savings.map { ForecastLine(item: $0) })
+            }
+        }
+        for item in others {
+            if !inserted && item.date >= first.date {
+                appendSavings()
+                inserted = true
+            }
+            lines.append(ForecastLine(item: item))
+        }
+        if !inserted { appendSavings() }
+        return lines
+    }
+
+    private func isSavingsForecast(_ item: ForecastListItem) -> Bool {
+        guard item.fixedCostID != nil else { return false }
+        if let cost = fixedCosts.first(where: { $0.id == item.fixedCostID }) {
+            return SavingsPlanFixedCosts.isSavingsCost(cost)
+        }
+        return SavingsPlanFixedCosts.isManagedName(item.title)
+    }
+
+    private func savingsWeekCents(_ items: [ForecastListItem]) -> Int {
+        let ids = Set(items.compactMap(\.fixedCostID))
+        let plans = SavingsPlanStore.all().filter { plan in
+            guard let fixedID = plan.fixedCostID else { return false }
+            return ids.contains(fixedID)
+        }
+        if !plans.isEmpty {
+            return SavingsPlanFixedCosts.weeklyCostCents(of: plans)
+        }
+        let monthly = fixedCosts.filter { ids.contains($0.id) }.reduce(0) { sum, cost in
+            let amount = abs(cost.amountCents)
+            let month: Int
+            switch cost.cadence {
+            case .weekly: month = amount * 4
+            case .biweekly: month = amount * 2
+            case .monthly: month = amount
+            case .yearly: month = Int((Double(amount) / 12).rounded())
+            }
+            return sum + month
+        }
+        return Int((Double(monthly) / 4).rounded())
+    }
+
     private func forecastItems(_ period: ForecastPeriod) -> [ForecastListItem] {
-        let query = bookingQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+        _ = forecastRejectionRevision
         return ForecastSchedule.financeView(
             forecasts: forecasts,
             costs: fixedCosts,
@@ -317,10 +487,6 @@ struct DashboardView: View {
             shopping: shopping,
             cashAccountIDs: cashAccountIDs
         )
-        .filter { item in
-            guard !query.isEmpty else { return true }
-            return item.title.localizedCaseInsensitiveContains(query)
-        }
     }
 
     private func editForecast(_ item: ForecastListItem) {
@@ -367,7 +533,7 @@ struct DashboardView: View {
                 Text(item.title)
                     .foregroundStyle(.primary)
                     .lineLimit(2)
-                Text("\(caption) · \(AppDate.numeric(item.date)) · \(L("Prognose", "Forecast"))")
+                Text("\(caption) · \(AppDate.numeric(item.date)) · \(item.settled ? L("Gebucht", "Booked") : L("Prognose", "Forecast"))")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -832,6 +998,7 @@ struct DashboardView: View {
         hasher.combine(IncomeAssignmentStore.fingerprint())
         hasher.combine(ForecastSkipStore.fingerprint())
         hasher.combine(ForecastPeriodLinkStore.fingerprint())
+        hasher.combine(ForecastMatchRejectionStore.fingerprint())
         hasher.combine(RefundLinkStore.fingerprint())
         hasher.combine(TransferForecastAssignmentStore.fingerprint())
         hasher.combine(VariableBudgetAccounts.fingerprint())
@@ -1001,8 +1168,6 @@ private struct FinanceMoreSection: View {
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 4)
             VStack(alignment: .leading, spacing: 0) {
-                sectionLink(L("Umbuchungsprognosen", "Transfer forecasts"), systemImage: "arrow.left.arrow.right", route: .transferForecasts)
-                Divider().padding(.leading, 54)
                 sectionLink(L("Budgetpools", "Budget pools"), systemImage: "tray.full", route: .budgetPools)
                 Divider().padding(.leading, 54)
                 sectionLink(L("Ausgabengruppen", "Expense groups"), systemImage: "square.stack.3d.up", route: .expenseGroups)
@@ -1080,6 +1245,26 @@ private struct EqualHeightTileRow<Content: View>: View {
 private struct FlowNote {
     var title: String
     var cents: Int
+}
+
+private struct ForecastLine: Identifiable {
+    var id: String
+    var item: ForecastListItem?
+    var weekCents: Int = 0
+    var periodCents: Int = 0
+
+    var isSavingsHeader: Bool { item == nil }
+
+    init(item: ForecastListItem) {
+        id = item.id
+        self.item = item
+    }
+
+    init(id: String, weekCents: Int, periodCents: Int) {
+        self.id = id
+        self.weekCents = weekCents
+        self.periodCents = periodCents
+    }
 }
 
 private struct PreparedSummary {
