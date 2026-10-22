@@ -1,54 +1,92 @@
 # Lifify
 
-Lifify ist eine lokale iPhone-App, die Finanzplanung und Challenges verbindet:
-Konten, Buchungen und Budgets treffen auf Kalender, Challenges, Belohnungsshop
-und Coin-Wallet. Sie verwendet SwiftUI und SwiftData und benötigt weder Backend
-noch Benutzerkonto.
+Lifify 0.2.0 ist eine lokale iPhone-App für Finanzen, Challenges und Training.
+Sie ist mit SwiftUI und SwiftData gebaut, braucht kein Backend und kein
+Benutzerkonto. Deutsch und Englisch sowie Hell, Dunkel und System lassen sich
+in den Einstellungen umschalten.
 
-Beim ersten Start führt Lifify durch Sprache, Begrüßungsname, Budgetzeitraum,
-Hauptkonto und optionalen Bankimport. Ein vollständiger App-Reset startet diese
-Einrichtung erneut; das separate Löschen der Inhaltsdaten behält Konten und
-Einstellungen.
+Die geltenden Finanzregeln stehen in [FINANZEN.md](FINANZEN.md). Die
+ursprünglichen Annahmen gegenüber FinanzBuddy stehen in
+[FEATURES.md](FEATURES.md).
 
-Der fachliche Umfang und die gegenüber FinanzBuddy v0.3.6 getroffenen Annahmen
-stehen in [FEATURES.md](FEATURES.md). Die aktuellen Finanzregeln stehen in
-[FINANZEN.md](FINANZEN.md).
+## Bereiche
 
-## Voraussetzungen
+**Home** zeigt den Budgetring, das Restbudget, das nächste Gehalt und das
+Tagesbudget. Ein Tipp auf das Budget öffnet die Aufschlüsselung. Darunter
+liegen die Wochentage und die Challenges des Tages.
 
-- macOS mit einer aktuellen Xcode-Version (Xcode 16 oder neuer)
+**Finanzen** rechnet den gewählten Zeitraum für alle Konten, ein einzelnes
+Konto oder das Depot. Zeitraum und Konto sind ein gemeinsamer Filter und gelten
+auch in den Buchungen und in den Listen für Einnahmen und Ausgaben. Unten
+stehen die Buchungen, darüber die Prognosen. Weitere Listen führen zu
+Fixkosten, variablen Kosten, Einkaufszettel, Sparplänen und Budgetpools.
+
+**Challenges** verbinden Kalender, Wiederholungen, Streaks und einen
+Belohnungsshop mit Coin-Wallet. Termine und Erinnerungen vom iPhone lassen
+sich nach ausdrücklicher Freigabe übernehmen.
+
+**Gesundheit** enthält Trainingspläne. Übungen kommen aus einer lokalen
+Datenbank, inklusive eigener Übungen, die nicht in der Datenbank stehen.
+Ernährung ist noch nicht verfügbar.
+
+**Einstellungen** halten Sprache, Erscheinungsbild, Trainingsklingelton,
+Standardkonto und Gebühr fürs Depot, Konten, Import, Sicherung sowie Kalender
+und Erinnerungen. Die angezeigte Version ist 0.2.0.
+
+## Ersteinrichtung
+
+Beim ersten Start fragt Lifify nacheinander:
+
+1. Sprache
+2. Neue Einrichtung oder JSON-Sicherung
+3. Begrüßungsname
+4. Budgetzeitraum, Kalendermonat oder Gehalt
+5. Hauptkonto mit IBAN. Das Konto ist verpflichtend und lässt sich später
+   nicht löschen.
+6. Optional CSV oder CAMT für das Hauptkonto. Dieser Import legt den ersten
+   Zeitraum fest.
+7. Optional ein Trade-Republic-Kontoauszug als eigener Schritt. Daraus entsteht
+   ein Girokonto mit verknüpftem Depot.
+
+„Alle Daten löschen“ räumt Finanz-, Challenge- und Trainingsinhalte ab und
+behält Konten und Einstellungen. „App zurücksetzen“ entfernt auch Konten und
+Einstellungen und startet die Einrichtung neu.
+
+## Auf dem iPhone starten
+
+- macOS mit Xcode 16 oder neuer
 - iPhone mit iOS 17 oder neuer
-- kostenlose oder kostenpflichtige Apple-ID in Xcode
-
-## In Xcode öffnen und auf einem iPhone starten
+- eine Apple-ID in Xcode
 
 1. Dieses Repository auf den Mac klonen.
-2. Im Finder `Lifify.xcodeproj` doppelklicken oder in Xcode
-   **File → Open…** wählen und `Lifify.xcodeproj` öffnen.
-3. In der Projektübersicht das Target **Lifify** und anschließend
-   **Signing & Capabilities** öffnen.
-4. Unter **Team** das eigene Apple-Entwicklerteam auswählen. Falls die
-   Bundle-ID `com.mwetzka03.lifify` im eigenen Team bereits belegt ist, für
-   einen rein privaten Build eine eindeutige Bundle-ID eintragen.
-5. Das iPhone per Kabel verbinden (oder zuvor für drahtloses Debugging
-   koppeln), entsperren und die Vertrauensabfrage bestätigen.
-6. Oben in Xcode als Run Destination das verbundene iPhone auswählen.
+2. `Lifify.xcodeproj` öffnen.
+3. Das Target **Lifify** wählen und **Signing & Capabilities** öffnen.
+4. Unter **Team** das eigene Entwicklerteam auswählen. Ohne Team bricht der
+   Build mit „Signing for Lifify requires a development team“ ab. Das ist die
+   lokale Signatur, kein Fehler im Quelltext. Ist die Bundle-ID
+   `com.mwetzka03.lifify` im eigenen Team belegt, für einen privaten Build eine
+   eigene Bundle-ID eintragen.
+5. Das iPhone verbinden, entsperren und der Vertrauensabfrage zustimmen.
+6. Oben in Xcode dieses iPhone als Ziel wählen.
 7. Mit **Product → Run** oder `⌘R` bauen und installieren.
-8. Falls iOS danach eine Entwicklerfreigabe verlangt:
-   **Einstellungen → Allgemein → VPN & Geräteverwaltung** öffnen, dem
-   Entwicklerprofil vertrauen und Lifify erneut starten.
+8. Verlangt iOS danach eine Freigabe: **Einstellungen → Allgemein → VPN &
+   Geräteverwaltung**, dem Entwicklerprofil vertrauen und Lifify erneut
+   starten.
 
-Auf einem Simulator kann die App analog gestartet werden, indem in der
-Run-Destination ein iPhone-Simulator mit iOS 17+ gewählt wird.
+Dieselbe App läuft im Simulator, wenn als Ziel ein iPhone mit iOS 17 oder
+neuer gewählt ist.
 
-## Datenschutz und Import
+## Daten und Import
 
-Alle Daten liegen im lokalen SwiftData-Store des Geräts. JSON-Sicherungen sowie
-CSV- oder einzelne CAMT-XML-Dateien werden über den iOS-Dateidialog gewählt.
-Lifify unterstützt absichtlich weder ZIP noch MT940 und lädt keine Nachrichten.
-Für Depotpositionen wird die eingegebene ISIN beim App-Start bestmöglich über
-öffentliche Yahoo-Finance-Endpunkte aufgelöst; bei einem Fehler bleibt der
-manuelle Fallbackkurs bestehen. Optional können nach ausdrücklicher Freigabe
-Termine und Erinnerungen aus den auf dem iPhone eingerichteten Systemkonten
-eingelesen und verknüpfte Challenge-Abschlüsse zurückgeschrieben werden; Lifify
-speichert dafür keine Passwörter.
+Alles liegt im SwiftData-Store auf dem Gerät. JSON-Sicherungen sowie CSV- und
+einzelne CAMT-Dateien werden über den Dateidialog gewählt. Ein
+Trade-Republic-PDF ist ein eigener Import und kein normaler Bankimport. ZIP
+und MT940 werden nicht gelesen.
+
+Depotkurse kommen von Yahoo Finance, beim Start und über **Kurse aktualisieren**.
+Eine deutsche Notierung wird bevorzugt. Schlägt der Abruf fehl, bleibt der
+manuelle Kurs. Dafür wird die ISIN an diese öffentlichen Endpunkte geschickt.
+Andere Nutzerdaten verlassen das Gerät nicht.
+
+Kalender und Erinnerungen liest Lifify nur nach ausdrücklicher Freigabe über
+das System. Dafür werden keine Passwörter gespeichert.

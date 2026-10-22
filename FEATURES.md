@@ -1,5 +1,10 @@
 # Lifify – Funktionsumfang und Annahmen
 
+Diese Datei hält die ursprünglichen Annahmen gegenüber FinanzBuddy fest. Die
+App ist Version **0.2.0**. Wie Finanzen, Depot und Budget heute rechnen, steht
+in [FINANZEN.md](FINANZEN.md). Der Gesundheit-Tab ist kein Platzhalter mehr:
+Training ist umgesetzt, Ernährung zeigt „Noch nicht verfügbar“.
+
 ## Referenz
 
 Die Implementierung orientiert sich an:
@@ -43,7 +48,8 @@ iPhone-App mit SwiftUI und SwiftData.
 - Frei wählbare SF-Symbole für Buchungen, Fixkosten, Challenges und Belohnungen
 - Getrenntes Löschen der Inhaltsdaten sowie vollständiges Zurücksetzen der App
   einschließlich Konten und Ersteinrichtung
-- Platzhalter-Tab „Gesundheit/Health“ für einen späteren Funktionsausbau
+- Gesundheit: Trainingspläne aus der lokalen Übungsdatenbank, mit Sätzen,
+  Pausen und Verlauf. Ernährung ist noch nicht verfügbar
 - Mehrstufige Ersteinrichtung für Sprache, Backup/Neustart, Begrüßungsname,
   Dashboard-Zeitraum, Hauptkonto, optionalen Bankimport und Einnahmeprognosen
 - Lokal gespeicherte Bucketlist-Daten; die Oberfläche ist vorerst ausgeblendet
@@ -109,8 +115,9 @@ iPhone-App mit SwiftUI und SwiftData.
     erhalten, ihre Oberfläche ist vorerst ausgeblendet.
 14. **Home-Navigation:** Das bereitgestellte Mockup ist maßgeblich:
     Home, Finanzen, Challenges, Gesundheit und Einstellungen sind die
-    Haupttabs. Der Gesundheit-Tab ist zunächst ein Platzhalter. Budgetring und
-    Kalenderperioden öffnen ihre jeweiligen Detailansichten.
+    Haupttabs. Im Gesundheit-Tab ist das Training umgesetzt, die Ernährung
+    noch nicht. Budgetring und Kalenderperioden öffnen ihre jeweiligen
+    Detailansichten.
 15. **Erinnerungen:** Offene iOS-Erinnerungen werden nicht automatisch als
     erledigbare Challenges angelegt. Sie bleiben in „Empfehlungen“, bis sie
     übernommen werden. Bereits übernommene Erinnerungen werden bei späteren
