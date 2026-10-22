@@ -13,6 +13,8 @@ struct ImportedTransaction: Identifiable {
     let fingerprint: String
     let legacyFingerprint: String?
     let trade: ImportedSecurityTrade?
+    /// Saldo printed in the rightmost statement column after this row.
+    let statementBalanceCents: Int?
 
     init(
         id: UUID = UUID(),
@@ -25,7 +27,8 @@ struct ImportedTransaction: Identifiable {
         recipientIBAN: String,
         fingerprint: String,
         legacyFingerprint: String? = nil,
-        trade: ImportedSecurityTrade? = nil
+        trade: ImportedSecurityTrade? = nil,
+        statementBalanceCents: Int? = nil
     ) {
         self.id = id
         self.date = date
@@ -38,6 +41,7 @@ struct ImportedTransaction: Identifiable {
         self.fingerprint = fingerprint
         self.legacyFingerprint = legacyFingerprint
         self.trade = trade
+        self.statementBalanceCents = statementBalanceCents
     }
 }
 
@@ -46,6 +50,7 @@ struct ImportedSecurityTrade: Hashable {
     var name: String
     var quantity: Double
     var isSale: Bool
+    var isSavingsPlan: Bool = false
 }
 
 struct TradeRepublicStatement {
@@ -69,6 +74,7 @@ enum BankImportError: LocalizedError {
     case unreadableFile
     case unsupportedCSV
     case unsupportedPDF
+    case pdfUseTradeRepublicImport
     case invalidXML
     case missingAccount
 
@@ -77,6 +83,10 @@ enum BankImportError: LocalizedError {
         case .unreadableFile: L("Datei konnte nicht gelesen werden.", "The file could not be read.")
         case .unsupportedCSV: L("CSV-Spalten wurden nicht erkannt.", "CSV columns were not recognized.")
         case .unsupportedPDF: L("Dieses PDF ist kein Kontoauszug.", "This PDF is not a bank statement.")
+        case .pdfUseTradeRepublicImport: L(
+            "PDF-Dateien gehören in den separaten Trade-Republic-Import.",
+            "PDF files belong in the separate Trade Republic import."
+        )
         case .invalidXML: L("CAMT-XML ist ungültig.", "The CAMT XML is invalid.")
         case .missingAccount: L("Das gewählte Konto wurde nicht gefunden.", "The selected account was not found.")
         }
@@ -88,8 +98,7 @@ enum BankImportService {
     static func parseDocument(data: Data, fileExtension: String) throws -> BankImportDocument {
         let extensionName = fileExtension.lowercased()
         if extensionName == "pdf" || data.starts(with: Data("%PDF".utf8)) {
-            let statement = try TradeRepublicImporter.parse(data: data)
-            return BankImportDocument(rows: statement.rows, tradeRepublic: statement)
+            throw BankImportError.pdfUseTradeRepublicImport
         }
         if extensionName == "xml" || data.firstNonWhitespace == UInt8(ascii: "<") {
             return BankImportDocument(rows: try parseCAMT(data: data), tradeRepublic: nil)
@@ -98,6 +107,12 @@ enum BankImportService {
             throw BankImportError.unreadableFile
         }
         return BankImportDocument(rows: try parseCSV(text), tradeRepublic: nil)
+    }
+
+    @MainActor
+    static func parseTradeRepublic(data: Data) throws -> BankImportDocument {
+        let statement = try TradeRepublicImporter.parse(data: data)
+        return BankImportDocument(rows: statement.rows, tradeRepublic: statement)
     }
 
     @MainActor
@@ -203,7 +218,8 @@ enum BankImportService {
         legacyIBAN: String,
         legacyTitle: String,
         details: String,
-        trade: ImportedSecurityTrade? = nil
+        trade: ImportedSecurityTrade? = nil,
+        statementBalanceCents: Int? = nil
     ) -> ImportedTransaction {
         let senderIBAN = validIBAN(senderIBAN) ?? ""
         let recipientIBAN = validIBAN(recipientIBAN) ?? ""
@@ -228,7 +244,8 @@ enum BankImportService {
             recipientIBAN: recipientIBAN,
             fingerprint: fingerprint,
             legacyFingerprint: legacyFingerprint == fingerprint ? nil : legacyFingerprint,
-            trade: trade
+            trade: trade,
+            statementBalanceCents: statementBalanceCents
         )
     }
 

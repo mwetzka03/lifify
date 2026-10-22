@@ -6,6 +6,8 @@ struct HomeView: View {
     @Query private var variableBudgets: [VariableBudget]
     @Query private var pools: [BudgetPool]
     @Query private var entries: [LedgerEntry]
+    @Query private var accounts: [Account]
+    @Query private var holdings: [PortfolioHolding]
     @Query private var splits: [TransactionSplit]
     @Query private var forecasts: [IncomeForecast]
     @Query private var calendarEvents: [ChallengeCalendarEvent]
@@ -29,12 +31,12 @@ struct HomeView: View {
                 }
                 noticeSection
                 NavigationLink {
-                    DashboardView()
+                    BudgetBreakdownView()
                 } label: {
                     BudgetSummaryCard(
-                        planned: plannedBudget,
-                        spent: spentBudget,
-                        nextSalary: nextSalaryDate,
+                        planned: budget.planned,
+                        spent: budget.spent,
+                        nextSalary: budget.nextSalary,
                         daysUntilSalary: daysUntilSalary,
                         dailyAllowance: dailyAllowance
                     )
@@ -144,43 +146,26 @@ struct HomeView: View {
 
     private var weekView: some View {
         VStack(spacing: 7) {
-            ForEach(ChallengeService.days(for: .week, around: selectedDate), id: \.self) { day in
-                VStack(alignment: .leading, spacing: 8) {
-                    Button {
-                        withAnimation {
-                            if isExpanded(day) {
-                                expandedWeekday = nil
-                            } else {
-                                expandedWeekday = day
-                            }
-                        }
-                    } label: {
-                        HStack(spacing: 12) {
-                            VStack {
-                                Text(AppDate.weekdayShort(day))
-                                    .font(.caption)
-                                Text(AppDate.day(day))
-                                    .font(.title3.bold())
-                                    .foregroundStyle(Calendar.current.isDateInToday(day) ? .red : .primary)
-                            }
-                            .frame(width: 44)
-                            Divider()
-                            Label("\(events(on: day).count)", systemImage: "calendar")
-                            Label("\(dueChallenges(on: day).count)", systemImage: "target")
-                            Spacer()
-                            Image(systemName: isExpanded(day) ? "chevron.up" : "chevron.down")
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    .buttonStyle(.plain)
-                    if isExpanded(day) {
-                        dayDetails(day)
-                    }
+            ForEach(ChallengeService.days(for: .week, around: selectedDate), id: \.timeIntervalSinceReferenceDate) { day in
+                WeekDayCard(
+                    day: day,
+                    expanded: isExpanded(day),
+                    eventCount: events(on: day).count,
+                    challengeCount: dueChallenges(on: day).count,
+                    onToggle: { toggleWeekday(day) }
+                ) {
+                    dayDetails(day)
                 }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-                .background(AppSurface.card, in: RoundedRectangle(cornerRadius: 13))
             }
+        }
+    }
+
+    private func toggleWeekday(_ day: Date) {
+        let start = Calendar.current.startOfDay(for: day)
+        if let expandedWeekday, Calendar.current.isDate(expandedWeekday, inSameDayAs: start) {
+            self.expandedWeekday = nil
+        } else {
+            expandedWeekday = start
         }
     }
 
@@ -431,162 +416,31 @@ struct HomeView: View {
         }
     }
 
-    private var plannedBudget: Int {
-        let calendar = Calendar.current
-        let today = calendar.startOfDay(for: .now)
-        let start = calendar.startOfDay(for: budgetPeriodStart)
-        let periodIncome = entries.filter {
-            $0.kind == .income && $0.date >= start && $0.date <= budgetPeriodEnd
-        }
-        let booked = periodIncome.reduce(0) { $0 + abs($1.amountCents) }
-        let bookedFromToday = periodIncome.filter { $0.date >= today }.reduce(0) { $0 + abs($1.amountCents) }
-        let upcoming = forecasts.filter(\.isActive).reduce(0) { total, forecast in
-            total + upcomingAmount(of: forecast, from: today)
-        }
-        return booked + max(0, upcoming - bookedFromToday)
-    }
-
-    private func upcomingAmount(of forecast: IncomeForecast, from today: Date) -> Int {
-        let calendar = Calendar.current
-        let end = calendar.startOfDay(for: budgetPeriodEnd)
-        return CalendarService.nextOccurrences(
-            firstDate: forecast.firstPaymentDate,
-            cadence: forecast.cadence,
-            rule: forecast.dueRule,
-            day: forecast.dayOfMonth,
-            endDate: forecast.endPaymentDate,
-            through: budgetPeriodEnd
+    private var budget: HomeBudgetSnapshot {
+        HomeBudget.make(
+            entries: entries,
+            accounts: accounts,
+            forecasts: forecasts,
+            variableBudgets: variableBudgets,
+            pools: pools,
+            splits: splits,
+            dashboardPeriod: dashboardPeriod
         )
-        .filter {
-            let day = calendar.startOfDay(for: $0)
-            return day >= today && day <= end
-        }
-        .count * abs(forecast.amountCents)
-    }
-
-    private var spentBudget: Int {
-        if forecasts.contains(where: \.isActive) {
-            return entries
-                .filter { $0.kind == .expense && $0.date >= budgetPeriodStart && $0.date <= .now }
-                .reduce(0) { $0 + abs($1.amountCents) }
-        }
-        let variable = variableBudgets.reduce(0) {
-            $0 + FinanceService.variableSpent(budgetID: $1.id, monthKey: Date.now.monthKey, entries: entries, splits: splits)
-        }
-        let pool = pools.filter(\.isActive).reduce(0) {
-            let key = CalendarService.periodKey(for: .now, pool: $1)
-            return $0 + FinanceService.poolSpent(pool: $1, periodKey: key, splits: splits)
-        }
-        return variable + pool
-    }
-
-    private var primaryForecast: IncomeForecast? {
-        guard let idString = UserDefaults.standard.string(forKey: "primaryIncomeForecastID"),
-              let id = UUID(uuidString: idString)
-        else {
-            return forecasts.first(where: \.isActive)
-        }
-        return forecasts.first { $0.id == id } ?? forecasts.first(where: \.isActive)
-    }
-
-    private var nextSalaryDate: Date? {
-        guard let forecast = primaryForecast,
-              let limit = Calendar.current.date(byAdding: .year, value: 2, to: .now)
-        else {
-            return nil
-        }
-        let today = Calendar.current.startOfDay(for: .now)
-        return CalendarService.nextOccurrences(
-            firstDate: forecast.firstPaymentDate,
-            cadence: forecast.cadence,
-            rule: forecast.dueRule,
-            day: forecast.dayOfMonth,
-            endDate: forecast.endPaymentDate,
-            through: limit
-        )
-        .first { Calendar.current.startOfDay(for: $0) > today }
     }
 
     private var daysUntilSalary: Int? {
-        guard let nextSalaryDate else { return nil }
+        guard let nextSalary = budget.nextSalary else { return nil }
         return Calendar.current.dateComponents(
             [.day],
             from: Calendar.current.startOfDay(for: .now),
-            to: Calendar.current.startOfDay(for: nextSalaryDate)
+            to: Calendar.current.startOfDay(for: nextSalary)
         ).day
     }
 
     private var dailyAllowance: Int? {
-        let remaining = plannedBudget - spentBudget
+        let remaining = budget.remaining
         guard remaining > 0, let daysUntilSalary else { return nil }
         return remaining / max(daysUntilSalary, 1)
-    }
-
-    private var budgetPeriodStart: Date {
-        let calendar = Calendar.current
-        guard DashboardPeriodMode(rawValue: dashboardPeriod) == .salaryPeriod,
-              let idString = UserDefaults.standard.string(forKey: "primaryIncomeForecastID"),
-              let id = UUID(uuidString: idString),
-              let forecast = forecasts.first(where: { $0.id == id })
-        else {
-            return calendar.date(
-                from: calendar.dateComponents([.year, .month], from: .now)
-            ) ?? calendar.startOfDay(for: .now)
-        }
-        let now = Date.now
-        let occurrences = CalendarService.nextOccurrences(
-            firstDate: forecast.firstPaymentDate,
-            cadence: forecast.cadence,
-            rule: forecast.dueRule,
-            day: forecast.dayOfMonth,
-            endDate: forecast.endPaymentDate,
-            through: now
-        )
-        if let latest = occurrences.last(where: { $0 <= now }) {
-            return latest
-        }
-        let current = calendar.dateComponents([.year, .month], from: now)
-        let candidate = CalendarService.dueDate(
-            year: current.year ?? calendar.component(.year, from: now),
-            month: current.month ?? calendar.component(.month, from: now),
-            day: forecast.dayOfMonth,
-            rule: forecast.dueRule
-        )
-        if candidate <= now { return candidate }
-        let previousMonth = calendar.date(byAdding: .month, value: -1, to: now) ?? now
-        let previous = calendar.dateComponents([.year, .month], from: previousMonth)
-        return CalendarService.dueDate(
-            year: previous.year ?? calendar.component(.year, from: previousMonth),
-            month: previous.month ?? calendar.component(.month, from: previousMonth),
-            day: forecast.dayOfMonth,
-            rule: forecast.dueRule
-        )
-    }
-
-    private var budgetPeriodEnd: Date {
-        let calendar = Calendar.current
-        let fallback = calendar.date(byAdding: .month, value: 1, to: budgetPeriodStart)
-            .flatMap { calendar.date(byAdding: .second, value: -1, to: $0) }
-            ?? budgetPeriodStart
-        guard DashboardPeriodMode(rawValue: dashboardPeriod) == .salaryPeriod,
-              let idString = UserDefaults.standard.string(forKey: "primaryIncomeForecastID"),
-              let id = UUID(uuidString: idString),
-              let forecast = forecasts.first(where: { $0.id == id }),
-              let limit = calendar.date(byAdding: .year, value: 2, to: budgetPeriodStart)
-        else {
-            return fallback
-        }
-        let nextOccurrence = CalendarService.nextOccurrences(
-            firstDate: forecast.firstPaymentDate,
-            cadence: forecast.cadence,
-            rule: forecast.dueRule,
-            day: forecast.dayOfMonth,
-            endDate: forecast.endPaymentDate,
-            through: limit
-        )
-        .first { $0 > budgetPeriodStart }
-        guard let nextOccurrence else { return fallback }
-        return calendar.date(byAdding: .second, value: -1, to: nextOccurrence) ?? fallback
     }
 
     private var periodBookings: some View {
@@ -600,11 +454,11 @@ struct HomeView: View {
                     .foregroundStyle(.secondary)
             } else {
                 ForEach(visible) { entry in
-                    HomeTransactionRow(entry: entry)
+                    HomeTransactionRow(entry: entry, accounts: accounts, holdings: holdings, ledgerEntries: entries)
                 }
                 if periodEntries.count > 5 {
                     NavigationLink {
-                        PeriodTransactionsView(title: periodTitle, entries: periodEntries)
+                        PeriodTransactionsView(title: periodTitle, entries: periodEntries, accounts: accounts, holdings: holdings, ledgerEntries: entries)
                     } label: {
                         HStack {
                             Text(L("Alle anzeigen", "Show all"))
@@ -791,21 +645,42 @@ private struct HomePopup: Identifiable {
 
 private struct HomeTransactionRow: View {
     let entry: LedgerEntry
+    var accounts: [Account] = []
+    var holdings: [PortfolioHolding] = []
+    var ledgerEntries: [LedgerEntry] = []
 
     var body: some View {
+        let category = BookingClassification.category(of: entry, accounts: accounts, viewedAccountID: nil)
+        let signed = BookingClassification.signedAmount(of: entry, category: category, viewedAccountID: nil)
+        let difference = category == .portfolioSale
+            ? HoldingMaintenance.saleEconomics(for: entry, holdings: holdings)?.differenceCents
+            : (category == .expense ? RefundLinkStore.realExpenseCents(of: entry, entries: ledgerEntries) : nil)
+        let paint = BookingClassification.paint(
+            category: category,
+            signed: signed,
+            scope: .combined,
+            differenceCents: difference
+        )
         HStack(spacing: 10) {
+            Image(systemName: category.systemImage)
+                .frame(width: 22)
+                .foregroundStyle(paint.iconColor)
             VStack(alignment: .leading, spacing: 2) {
                 Text(entry.title)
                     .foregroundStyle(.primary)
                     .lineLimit(1)
-                Text(AppDate.numeric(entry.date))
+                Text("\(category.label) · \(AppDate.numeric(entry.date))")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             }
             Spacer()
-            Text(Money.string(cents: entry.kind == .expense ? -abs(entry.amountCents) : abs(entry.amountCents)))
-                .foregroundStyle(entry.kind == .expense ? .red : (entry.kind == .income ? .green : .primary))
-                .monospacedDigit()
+            BookingAmountStack(
+                amount: signed,
+                amountColor: paint.amountColor,
+                difference: paint.differenceCents,
+                amountFont: .subheadline,
+                differenceFont: .caption2
+            )
         }
         .font(.subheadline)
     }
@@ -814,10 +689,13 @@ private struct HomeTransactionRow: View {
 private struct PeriodTransactionsView: View {
     let title: String
     let entries: [LedgerEntry]
+    var accounts: [Account] = []
+    var holdings: [PortfolioHolding] = []
+    var ledgerEntries: [LedgerEntry] = []
 
     var body: some View {
         List(entries) { entry in
-            HomeTransactionRow(entry: entry)
+            HomeTransactionRow(entry: entry, accounts: accounts, holdings: holdings, ledgerEntries: ledgerEntries)
         }
         .navigationTitle(title)
         .navigationBarTitleDisplayMode(.inline)
@@ -828,5 +706,62 @@ private extension Array where Element == String {
     var shiftedForMonday: [String] {
         guard count == 7 else { return self }
         return Array(self[1...]) + [self[0]]
+    }
+}
+
+private struct WeekDayCard<Details: View>: View {
+    let day: Date
+    let expanded: Bool
+    let eventCount: Int
+    let challengeCount: Int
+    let onToggle: () -> Void
+    @ViewBuilder var details: () -> Details
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: expanded ? 8 : 0) {
+            Button {
+                Task { @MainActor in
+                    onToggle()
+                }
+            } label: {
+                HStack(spacing: 12) {
+                    VStack {
+                        Text(AppDate.weekdayShort(day))
+                            .font(.caption)
+                        Text(AppDate.day(day))
+                            .font(.title3.bold())
+                            .foregroundStyle(Calendar.current.isDateInToday(day) ? .red : .primary)
+                    }
+                    .frame(width: 44)
+                    Divider()
+                    Label("\(eventCount)", systemImage: "calendar")
+                    Label("\(challengeCount)", systemImage: "target")
+                    Spacer(minLength: 0)
+                    Image(systemName: expanded ? "chevron.up" : "chevron.down")
+                        .foregroundStyle(.secondary)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(WeekToggleButtonStyle())
+            Group {
+                if expanded {
+                    details()
+                }
+            }
+            .animation(.easeInOut(duration: 0.22), value: expanded)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(AppSurface.card, in: RoundedRectangle(cornerRadius: 13))
+    }
+}
+
+private struct WeekToggleButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+            .opacity(configuration.isPressed ? 0.55 : 1)
     }
 }

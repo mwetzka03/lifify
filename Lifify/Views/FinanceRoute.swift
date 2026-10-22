@@ -2,6 +2,9 @@ import SwiftUI
 
 enum FinanceRoute: Hashable, Codable {
     case income
+    case expenses
+    case incomeForecasts
+    case transferForecasts
     case fixedCosts
     case variableCosts
     case shopping
@@ -10,6 +13,7 @@ enum FinanceRoute: Hashable, Codable {
     case debts
     case expenseGroups
     case portfolio
+    case savingsPlans
 }
 
 struct FinanceRouteScreen: View {
@@ -18,7 +22,13 @@ struct FinanceRouteScreen: View {
     var body: some View {
         switch route {
         case .income:
-            IncomeOverviewView()
+            FilteredLedgerView(kind: .income)
+        case .expenses:
+            FilteredLedgerView(kind: .expense)
+        case .incomeForecasts:
+            FilteredLedgerView(kind: .income)
+        case .transferForecasts:
+            TransferForecastsView()
         case .fixedCosts:
             FixedCostsView()
         case .variableCosts:
@@ -35,6 +45,8 @@ struct FinanceRouteScreen: View {
             ExpenseGroupsView()
         case .portfolio:
             PortfolioView()
+        case .savingsPlans:
+            SavingsPlansView()
         }
     }
 }

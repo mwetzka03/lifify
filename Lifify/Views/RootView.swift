@@ -10,6 +10,7 @@ struct RootView: View {
     @AppStorage("appLanguage") private var language = "de"
     @AppStorage("appTheme") private var theme = AppTheme.system.rawValue
     @StateObject private var workouts = WorkoutStore()
+    @StateObject private var financeFilters = FinanceFilterStore()
     @State private var selectedTab = 0
     @State private var financePath = NavigationPath()
 
@@ -44,8 +45,11 @@ struct RootView: View {
         }
         .id(language)
         .environmentObject(workouts)
+        .environmentObject(financeFilters)
         .preferredColorScheme(colorScheme)
         .task {
+            SavingsPlanRunner.bookDue(context: context)
+            SavingsPlanFixedCosts.sync(context: context)
             await MarketDataService.refresh(holdings: holdings, context: context)
         }
         .task(id: scenePhase) {

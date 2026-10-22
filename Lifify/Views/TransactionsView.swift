@@ -3,28 +3,82 @@ import SwiftUI
 
 struct TransactionsView: View {
     @Environment(\.modelContext) private var context
+    @EnvironmentObject private var filters: FinanceFilterStore
+    @Query(sort: \Account.createdAt) private var accounts: [Account]
     @Query(sort: \LedgerEntry.date, order: .reverse) private var entries: [LedgerEntry]
+    @Query private var holdings: [PortfolioHolding]
+    @Query private var forecasts: [IncomeForecast]
     @Query private var splits: [TransactionSplit]
     @State private var search = ""
-    @State private var showingNew = false
+    @State private var newBookingCategory: BookingCategory?
     @State private var editing: LedgerEntry?
     @State private var selected: LedgerEntry?
 
+    private var filterAccounts: [Account] {
+        accounts.filter { $0.kind != .savingsGroup }
+    }
+
+    private var periods: [ForecastPeriod] {
+        FinancePeriods.all(entries: entries, forecasts: forecasts)
+    }
+
     private var filtered: [LedgerEntry] {
-        guard !search.isEmpty else { return entries }
-        return entries.filter {
-            $0.title.localizedCaseInsensitiveContains(search) ||
-            $0.notes.localizedCaseInsensitiveContains(search)
+        let period = filters.period(in: periods)
+        let account = filters.account(in: filterAccounts)
+        let depotIDs = filters.showsDepot ? Set(accounts.filter { $0.kind == .portfolio }.map(\.id)) : []
+        return entries.filter { entry in
+            guard FinancePeriods.includes(entry, period: period, account: account, depotIDs: depotIDs) else { return false }
+            guard !search.isEmpty else { return true }
+            return entry.title.localizedCaseInsensitiveContains(search)
+                || entry.notes.localizedCaseInsensitiveContains(search)
         }
     }
 
     var body: some View {
+        VStack(spacing: 8) {
+            FinanceFilterControls(periods: periods, accounts: filterAccounts)
+                .padding(.horizontal, 12)
+                .padding(.top, 8)
+            transactionList
+        }
+        .appCanvas()
+        .navigationTitle(L("Buchungen", "Transactions"))
+        .navigationBarTitleDisplayMode(.inline)
+        .searchable(text: $search, prompt: L("Titel oder Notiz", "Title or note"))
+        .toolbar {
+            Menu {
+                ForEach(BookingCategory.allCases.filter(\.allowsManualEntry)) { category in
+                    Button(category.label) { newBookingCategory = category }
+                }
+            } label: {
+                Label(L("Buchung hinzufügen", "Add transaction"), systemImage: "plus")
+            }
+        }
+        .sheet(item: $newBookingCategory) { category in
+            TransactionFormView(entry: nil, splits: splits, lockedCategory: category)
+        }
+        .sheet(item: $editing) { entry in
+            TransactionFormView(entry: entry, splits: splits)
+        }
+        .sheet(item: $selected) { entry in
+            TransactionDetailView(entry: entry)
+        }
+    }
+
+    private var transactionList: some View {
         List {
             ForEach(filtered) { entry in
                 Button {
                     selected = entry
-                } label: {
-                    TransactionRow(entry: entry)
+                }                 label: {
+                    TransactionRow(
+                        entry: entry,
+                        accounts: accounts,
+                        holdings: holdings,
+                        ledgerEntries: entries,
+                        viewedAccountID: filters.showsDepot ? nil : filters.account(in: filterAccounts)?.id,
+                        scope: filters.showsDepot ? .depot : (filters.account(in: filterAccounts) == nil ? .combined : .account)
+                    )
                 }
                 .buttonStyle(.plain)
                 .swipeActions(edge: .trailing, allowsFullSwipe: true) {
@@ -44,38 +98,27 @@ struct TransactionsView: View {
                 }
             }
         }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         .overlay {
-            if entries.isEmpty {
+            if filtered.isEmpty {
                 ContentUnavailableView(
                     L("Keine Buchungen", "No transactions"),
                     systemImage: "list.bullet.rectangle",
-                    description: Text(L("Erfasse eine Einnahme, Ausgabe, Umbuchung oder Saldo-Korrektur.", "Add income, an expense, a transfer or a balance adjustment."))
+                    description: Text(entries.isEmpty
+                        ? L("Erfasse eine Einnahme, Ausgabe, Umbuchung oder Saldo-Korrektur.", "Add income, an expense, a transfer or a balance adjustment.")
+                        : L("In diesem Zeitraum und Konto liegen keine Buchungen.", "There are no transactions in this period and account."))
                 )
             }
-        }
-        .navigationTitle(L("Buchungen", "Transactions"))
-        .searchable(text: $search, prompt: L("Titel oder Notiz", "Title or note"))
-        .toolbar {
-            Button {
-                showingNew = true
-            } label: {
-                Label(L("Buchung hinzufügen", "Add transaction"), systemImage: "plus")
-            }
-        }
-        .sheet(isPresented: $showingNew) {
-            TransactionFormView(entry: nil, splits: splits)
-        }
-        .sheet(item: $editing) { entry in
-            TransactionFormView(entry: entry, splits: splits)
-        }
-        .sheet(item: $selected) { entry in
-            TransactionDetailView(entry: entry)
         }
     }
 
     private func delete(_ entry: LedgerEntry) {
         splits.filter { $0.transactionID == entry.id }.forEach { context.delete($0) }
         IconPreferenceStore.remove(for: entry.id)
+        RefundLinkStore.removeAll(touching: entry.id)
+        TransferForecastAssignmentStore.clear(entryID: entry.id)
+        ForecastPeriodLinkStore.clear(entryID: entry.id)
+        IncomeAssignmentStore.clear(entryID: entry.id)
         context.delete(entry)
         try? context.save()
     }
@@ -83,66 +126,81 @@ struct TransactionsView: View {
 
 struct TransactionRow: View {
     let entry: LedgerEntry
+    var accounts: [Account] = []
+    var holdings: [PortfolioHolding] = []
+    var ledgerEntries: [LedgerEntry] = []
+    var viewedAccountID: UUID? = nil
+    var scope: BookingScope = .combined
 
     var body: some View {
         HStack(spacing: 12) {
-            Image(systemName: icon)
+            Image(systemName: category.systemImage)
                 .frame(width: 28)
-                .foregroundStyle(color)
+                .foregroundStyle(paint.iconColor)
             VStack(alignment: .leading, spacing: 3) {
                 Text(entry.title)
                     .foregroundStyle(.primary)
                     .lineLimit(2)
-                Text("\(entry.kind.label) · \(AppDate.numeric(entry.date))")
+                Text("\(category.label) · \(AppDate.numeric(entry.date))")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
             Spacer()
-            Text(Money.string(cents: signedAmount))
-                .foregroundStyle(signedAmount < 0 ? .red : (entry.kind == .income || signedAmount > 0 && isPortfolioSale ? .green : .primary))
-                .monospacedDigit()
+            BookingAmountStack(amount: displayAmount, amountColor: paint.amountColor, difference: paint.differenceCents)
         }
+    }
+
+    private var category: BookingCategory {
+        BookingClassification.category(of: entry, accounts: accounts, viewedAccountID: viewedAccountID)
     }
 
     private var signedAmount: Int {
-        switch entry.kind {
-        case .expense:
-            return -abs(entry.amountCents)
-        case .income:
-            return abs(entry.amountCents)
-        case .transfer:
-            if isPortfolioPurchase { return -abs(entry.amountCents) }
-            return abs(entry.amountCents)
-        case .adjustment:
-            return abs(entry.amountCents)
-        }
+        BookingClassification.signedAmount(of: entry, category: category, viewedAccountID: viewedAccountID)
     }
 
-    private var isPortfolioPurchase: Bool {
-        entry.title.hasPrefix("Kauf:") || entry.title.hasPrefix("Buy:")
+    private var displayAmount: Int {
+        BookingClassification.displayedAmount(signedAmount, category: category, scope: scope)
     }
 
-    private var isPortfolioSale: Bool {
-        entry.title.hasPrefix("Verkauf:") || entry.title.hasPrefix("Sell:")
+    private var paint: BookingPaint {
+        BookingClassification.paint(
+            category: category,
+            signed: displayAmount,
+            scope: scope,
+            differenceCents: category == .portfolioSale ? saleDifference : expenseRemainder
+        )
     }
 
-    private var icon: String {
-        if isPortfolioPurchase || isPortfolioSale { return "chart.line.uptrend.xyaxis" }
-        let fallback: String = switch entry.kind {
-        case .income: "arrow.down.left"
-        case .expense: "arrow.up.right"
-        case .transfer: "arrow.left.arrow.right"
-        case .adjustment: "equal.circle"
-        }
-        return IconPreferenceStore.icon(for: entry.id, fallback: fallback)
+    private var expenseRemainder: Int? {
+        guard category == .expense else { return nil }
+        return RefundLinkStore.realExpenseCents(of: entry, entries: ledgerEntries)
     }
 
-    private var color: Color {
-        switch entry.kind {
-        case .income: .green
-        case .expense: .red
-        case .transfer: .blue
-        case .adjustment: .orange
+    private var saleDifference: Int? {
+        HoldingMaintenance.saleEconomics(for: entry, holdings: holdings)?.differenceCents
+    }
+}
+
+struct BookingAmountStack: View {
+    let amount: Int
+    let amountColor: Color
+    let difference: Int?
+    var amountFont: Font = .body
+    var differenceFont: Font = .caption
+    var showsExplicitSign: Bool = false
+
+    var body: some View {
+        VStack(alignment: .trailing, spacing: 0) {
+            Text(showsExplicitSign ? Money.signed(cents: amount) : Money.string(cents: amount))
+                .font(amountFont)
+                .foregroundStyle(amountColor)
+                .monospacedDigit()
+            if let difference {
+                Text(Money.signed(cents: difference))
+                    .font(differenceFont)
+                    .foregroundStyle(BookingClassification.differenceColor(difference))
+                    .monospacedDigit()
+            }
         }
     }
 }
@@ -150,18 +208,97 @@ struct TransactionRow: View {
 struct TransactionDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @Query private var accounts: [Account]
+    @Query private var holdings: [PortfolioHolding]
+    @Query private var entries: [LedgerEntry]
     let entry: LedgerEntry
+    var embedsNavigation = true
+    @Query private var splits: [TransactionSplit]
+    @State private var showingRefund = false
 
     var body: some View {
-        NavigationStack {
-            Form {
+        Group {
+            if embedsNavigation {
+                NavigationStack { formContent }
+            } else {
+                formContent
+            }
+        }
+    }
+
+    private var formContent: some View {
+        Form {
                 Section {
-                    LabeledContent(L("Art", "Type"), value: entry.kind.label)
-                    LabeledContent(L("Betrag", "Amount"), value: Money.string(cents: displayAmount))
+                    LabeledContent(L("Kategorie", "Category"), value: category.label)
+                    HStack {
+                        Text(L("Betrag", "Amount"))
+                        Spacer()
+                        Text(Money.string(cents: displayAmount))
+                            .foregroundStyle(BookingClassification.amountColor(category: category, signed: displayAmount))
+                    }
+                    if let remainder = expenseRemainder {
+                        HStack {
+                            Text(L("Zählt als", "Counts as"))
+                            Spacer()
+                            Text(Money.string(cents: remainder))
+                                .foregroundStyle(BookingClassification.differenceColor(remainder))
+                        }
+                    }
                     LabeledContent(
                         L("Datum", "Date"),
                         value: AppDate.weekdayAndNumeric(entry.date)
                     )
+                }
+                if category == .expense {
+                    Section {
+                        Button {
+                            showingRefund = true
+                        } label: {
+                            Label(L("Rückerstattung anlegen", "Add refund"), systemImage: "arrow.uturn.backward.circle")
+                        }
+                    }
+                }
+                if category == .refund {
+                    Section(L("Ursprüngliche Buchung", "Original transaction")) {
+                        if let original = originalBooking {
+                            NavigationLink {
+                                TransactionDetailView(entry: original, embedsNavigation: false)
+                            } label: {
+                                linkedBookingLine(original)
+                            }
+                        } else {
+                            Text(L("Die ursprüngliche Buchung fehlt.", "The original transaction is missing."))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+                if !linkedRefunds.isEmpty {
+                    Section(L("Rückerstattungen", "Refunds")) {
+                        ForEach(linkedRefunds) { refund in
+                            NavigationLink {
+                                TransactionDetailView(entry: refund, embedsNavigation: false)
+                            } label: {
+                                linkedBookingLine(refund)
+                            }
+                        }
+                    }
+                }
+                if category == .portfolioSale {
+                    Section(L("Verkauf", "Sale")) {
+                        LabeledContent(L("Einkaufspreis", "Purchase price"), value: saleCostText)
+                        LabeledContent(L("Verkaufspreis", "Sale price"), value: saleProceedsText)
+                        HStack {
+                            Text(L("Differenz", "Difference"))
+                            Spacer()
+                            Text(saleDifferenceText)
+                                .foregroundStyle(saleDifferenceColor)
+                        }
+                    }
+                }
+                if let from = account(entry.fromAccountID), let to = account(entry.toAccountID) {
+                    Section(L("Beide Buchungen", "Both transactions")) {
+                        accountLine(from, signed: -abs(entry.amountCents))
+                        accountLine(to, signed: abs(entry.amountCents))
+                    }
                 }
                 Section(L("Konten", "Accounts")) {
                     if let account = account(entry.accountID) {
@@ -205,11 +342,59 @@ struct TransactionDetailView: View {
                     Button(L("Fertig", "Done")) { dismiss() }
                 }
             }
+            .sheet(isPresented: $showingRefund) {
+                TransactionFormView(entry: nil, splits: splits, refundOriginal: entry)
+            }
+    }
+
+    private var expenseRemainder: Int? {
+        guard category == .expense else { return nil }
+        return RefundLinkStore.realExpenseCents(of: entry, entries: entries)
+    }
+
+    private var originalBooking: LedgerEntry? {
+        guard let id = RefundLinkStore.originalID(for: entry.id) else { return nil }
+        return entries.first { $0.id == id }
+    }
+
+    private var linkedRefunds: [LedgerEntry] {
+        let ids = Set(RefundLinkStore.refundIDs(for: entry.id))
+        return entries.filter { ids.contains($0.id) }.sorted { $0.date > $1.date }
+    }
+
+    private func linkedBookingLine(_ linked: LedgerEntry) -> some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(linked.title)
+                Text(AppDate.numeric(linked.date))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            Text(Money.string(cents: abs(linked.amountCents)))
+                .foregroundStyle(.primary)
         }
     }
 
     private func account(_ id: UUID?) -> Account? {
         accounts.first { $0.id == id }
+    }
+
+    private func accountLine(_ account: Account, signed: Int) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: signed < 0 ? "arrow.up.circle" : "arrow.down.circle")
+                .frame(width: 28)
+                .foregroundStyle(.primary)
+            Text(account.name)
+            Spacer()
+            Text(Money.string(cents: signed))
+                .foregroundStyle(.primary)
+                .monospacedDigit()
+        }
+    }
+
+    private var category: BookingCategory {
+        BookingClassification.category(of: entry, accounts: accounts, viewedAccountID: nil)
     }
 
     private var importIBANs: (sender: String, recipient: String) {
@@ -234,11 +419,33 @@ struct TransactionDetailView: View {
     }
 
     private var displayAmount: Int {
-        entry.kind == .expense ? -abs(entry.amountCents) : abs(entry.amountCents)
+        BookingClassification.signedAmount(of: entry, category: category, viewedAccountID: nil)
+    }
+
+    private var saleEconomics: SaleEconomics? {
+        HoldingMaintenance.saleEconomics(for: entry, holdings: holdings)
+    }
+
+    private var saleCostText: String {
+        saleEconomics.map { Money.string(cents: $0.costCents) } ?? "—"
+    }
+
+    private var saleProceedsText: String {
+        if let saleEconomics { return Money.string(cents: saleEconomics.proceedsCents) }
+        return Money.string(cents: abs(entry.amountCents))
+    }
+
+    private var saleDifferenceText: String {
+        saleEconomics.map { Money.signed(cents: $0.differenceCents) } ?? "—"
+    }
+
+    private var saleDifferenceColor: Color {
+        guard let difference = saleEconomics?.differenceCents else { return .secondary }
+        return BookingClassification.differenceColor(difference)
     }
 }
 
-private struct TransactionFormView: View {
+struct TransactionFormView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
     @Query(sort: \Account.name) private var accounts: [Account]
@@ -247,20 +454,32 @@ private struct TransactionFormView: View {
     @Query(sort: \BudgetPool.name) private var pools: [BudgetPool]
     @Query(sort: \ShoppingItem.name) private var shopping: [ShoppingItem]
     @Query private var allSplits: [TransactionSplit]
+    @Query(sort: \LedgerEntry.date, order: .reverse) private var entries: [LedgerEntry]
+    @State private var transferForecasts: [TransferForecastRecord] = []
     @StateObject private var viewModel: TransactionFormViewModel
 
-    init(entry: LedgerEntry?, splits: [TransactionSplit]) {
-        _viewModel = StateObject(wrappedValue: TransactionFormViewModel(entry: entry, splits: splits))
+    init(entry: LedgerEntry?, splits: [TransactionSplit], refundOriginal: LedgerEntry? = nil, lockedCategory: BookingCategory? = nil) {
+        _viewModel = StateObject(wrappedValue: TransactionFormViewModel(
+            entry: entry,
+            splits: splits,
+            refundOriginal: refundOriginal,
+            lockedCategory: lockedCategory
+        ))
     }
 
     var body: some View {
         NavigationStack {
             Form {
                 Section {
-                    Picker(L("Art", "Type"), selection: $viewModel.kind) {
-                        ForEach(LedgerKind.allCases) { Text($0.label).tag($0) }
+                    if viewModel.allowsCategoryChange {
+                        Picker(L("Kategorie", "Category"), selection: $viewModel.category) {
+                            ForEach(BookingCategory.allCases.filter(\.allowsManualEntry)) { category in
+                                Text(category.label).tag(category)
+                            }
+                        }
+                    } else {
+                        LabeledContent(L("Kategorie", "Category"), value: viewModel.category.label)
                     }
-                    SymbolPicker(title: L("Symbol", "Icon"), selection: $viewModel.icon)
                     TextField(L("Titel", "Title"), text: $viewModel.title)
                     TextField(L("Betrag", "Amount"), text: $viewModel.amountText)
                         .keyboardType(.decimalPad)
@@ -269,15 +488,43 @@ private struct TransactionFormView: View {
                 }
 
                 Section(L("Konten", "Accounts")) {
-                    if viewModel.kind == .transfer {
-                        accountPicker(L("Von", "From"), selection: $viewModel.fromAccountID)
-                        accountPicker(L("Nach", "To"), selection: $viewModel.toAccountID)
+                    if viewModel.category.usesTwoAccounts {
+                        accountPicker(L("Von", "From"), selection: $viewModel.fromAccountID, portfolio: viewModel.category == .portfolioSale)
+                        accountPicker(L("Nach", "To"), selection: $viewModel.toAccountID, portfolio: viewModel.category == .portfolioBuy || viewModel.category == .savingsPlan)
                     } else {
-                        accountPicker(L("Konto", "Account"), selection: $viewModel.accountID)
+                        accountPicker(L("Konto", "Account"), selection: $viewModel.accountID, portfolio: false)
                     }
                 }
 
-                if viewModel.kind == .expense {
+                if viewModel.category == .refund {
+                    Section(L("Ursprüngliche Buchung", "Original transaction")) {
+                        if expenseChoices.isEmpty {
+                            Text(L("Es gibt noch keine Ausgabe, die erstattet werden kann.", "There is no expense to refund yet."))
+                                .foregroundStyle(.secondary)
+                        } else {
+                            Picker(L("Ausgabe", "Expense"), selection: $viewModel.refundOriginalID) {
+                                Text(L("Auswählen", "Select")).tag(Optional<UUID>.none)
+                                ForEach(expenseChoices) { entry in
+                                    Text(expenseChoiceLabel(entry))
+                                        .tag(Optional(entry.id))
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if viewModel.category == .transfer {
+                    Section(L("Prognose", "Forecast")) {
+                        Picker(L("Umbuchungsprognose", "Transfer forecast"), selection: $viewModel.transferForecastID) {
+                            Text(L("Keine", "None")).tag(Optional<UUID>.none)
+                            ForEach(transferForecasts) { forecast in
+                                Text(forecast.name).tag(Optional(forecast.id))
+                            }
+                        }
+                    }
+                }
+
+                if viewModel.category == .expense {
                     Section(L("Zuordnung", "Assignment")) {
                         optionalPicker(L("Fixkosten", "Fixed cost"), selection: $viewModel.fixedCostID, values: fixedCosts.map { ($0.id, $0.name) })
                         optionalPicker(L("Variable Kosten", "Variable cost"), selection: $viewModel.variableBudgetID, values: variableBudgets.map { ($0.id, $0.name) })
@@ -299,26 +546,51 @@ private struct TransactionFormView: View {
                     Section { Text(error).foregroundStyle(.red) }
                 }
             }
-            .navigationTitle(viewModel.title.isEmpty ? L("Neue Buchung", "New transaction") : viewModel.title)
+            .navigationTitle(viewModel.formTitle)
             .navigationBarTitleDisplayMode(.inline)
+            .onAppear {
+                viewModel.refineIfNeeded(accounts: accounts)
+                viewModel.prepareAccounts(accounts)
+                transferForecasts = TransferForecastStore.all().filter(\.active)
+            }
+            .onChange(of: accounts.count) { _, _ in
+                viewModel.refineIfNeeded(accounts: accounts)
+                viewModel.prepareAccounts(accounts)
+            }
+            .onChange(of: viewModel.category) { _, category in
+                viewModel.fillAccounts(for: category, accounts: accounts)
+            }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(L("Abbrechen", "Cancel")) { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(L("Speichern", "Save")) {
-                        if viewModel.save(context: context, pools: pools, allSplits: allSplits) { dismiss() }
+                        if viewModel.save(context: context, pools: pools, allSplits: allSplits, accounts: accounts, entries: entries) { dismiss() }
                     }
                 }
             }
         }
     }
 
-    private func accountPicker(_ title: String, selection: Binding<UUID?>) -> some View {
-        Picker(title, selection: selection) {
+    private var expenseChoices: [LedgerEntry] {
+        entries.filter { $0.kind == .expense && $0.id != viewModel.id }
+    }
+
+    private func expenseChoiceLabel(_ entry: LedgerEntry) -> String {
+        "\(entry.title) · \(AppDate.numeric(entry.date)) · \(Money.string(cents: abs(entry.amountCents)))"
+    }
+
+    private func accountPicker(_ title: String, selection: Binding<UUID?>, portfolio: Bool) -> some View {
+        let choices = accounts.filter { account in
+            guard account.kind != .savingsGroup else { return false }
+            return portfolio ? account.kind == .portfolio : account.kind != .portfolio
+        }
+        return Picker(title, selection: selection) {
             Text(L("Auswählen", "Select")).tag(Optional<UUID>.none)
-            ForEach(accounts.filter { $0.kind != .savingsGroup }) { account in
-                Text(account.name).tag(Optional(account.id))
+            ForEach(choices) { account in
+                Text(account.kind == .checking ? account.name : "\(account.name) · \(account.kind.label)")
+                    .tag(Optional(account.id))
             }
         }
     }

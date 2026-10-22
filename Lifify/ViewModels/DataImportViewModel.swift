@@ -6,6 +6,7 @@ import SwiftData
 final class DataImportViewModel: ObservableObject {
     @Published var destination: BankImportDestination?
     @Published var message: String?
+    @Published var review: ImportReview?
 
     func importBankFile(
         from url: URL,
@@ -16,16 +17,12 @@ final class DataImportViewModel: ObservableObject {
         defer { if accessing { url.stopAccessingSecurityScopedResource() } }
         do {
             let data = try Data(contentsOf: url)
-            let document = try BankImportService.parseDocument(data: data, fileExtension: url.pathExtension)
-            let target: BankImportDestination
-            if let destination {
-                target = destination
-            } else if document.tradeRepublic != nil {
-                target = .separateChecking
-            } else {
+            guard let destination else {
                 message = L("Bitte zuerst ein Zielkonto auswählen.", "Select a destination account first.")
                 return
             }
+            let document = try BankImportService.parseDocument(data: data, fileExtension: url.pathExtension)
+            let target = destination
             let known = Set(existingEntries.compactMap(\.importFingerprint))
             let result = try BankImportApplier.apply(
                 document: document,
@@ -42,6 +39,39 @@ final class DataImportViewModel: ObservableObject {
                 IncomeAssignmentStore.assign(entryID: entryID, to: forecastID)
             }
             message = importMessage(for: result)
+            review = result.review.isEmpty ? nil : result.review
+        } catch {
+            message = error.localizedDescription
+        }
+    }
+
+    func importTradeRepublic(
+        from url: URL,
+        context: ModelContext,
+        existingEntries: [LedgerEntry]
+    ) {
+        let accessing = url.startAccessingSecurityScopedResource()
+        defer { if accessing { url.stopAccessingSecurityScopedResource() } }
+        do {
+            let data = try Data(contentsOf: url)
+            let document = try BankImportService.parseTradeRepublic(data: data)
+            let known = Set(existingEntries.compactMap(\.importFingerprint))
+            let result = try BankImportApplier.apply(
+                document: document,
+                to: .separateChecking,
+                openingBalanceCents: nil,
+                context: context
+            )
+            for row in document.rows where row.amountCents > 0 && row.trade == nil {
+                let fingerprints = [row.fingerprint, row.legacyFingerprint].compactMap { $0 }
+                guard known.isDisjoint(with: fingerprints),
+                      let entryID = result.entryIDs[row.fingerprint],
+                      let forecastID = IncomeAssignmentStore.forecastID(for: row.senderIBAN)
+                else { continue }
+                IncomeAssignmentStore.assign(entryID: entryID, to: forecastID)
+            }
+            message = importMessage(for: result)
+            review = result.review.isEmpty ? nil : result.review
         } catch {
             message = error.localizedDescription
         }
@@ -68,6 +98,18 @@ final class DataImportViewModel: ObservableObject {
             parts.append(String(
                 format: L("%d Depotpositionen übernommen.", "%d portfolio positions imported."),
                 result.holdingCount
+            ))
+        }
+        if result.skippedBeforeStart > 0 {
+            parts.append(L(
+                "Buchungen vor dem Start des ersten Zeitraums wurden nicht angelegt. Spätere Buchungen sind dabei. Der Startsaldo kommt aus der Saldo-Spalte.",
+                "Transactions before the start of the first period were not booked. Later transactions are included. The opening balance comes from the balance column."
+            ))
+        }
+        if !result.review.isEmpty {
+            parts.append(L(
+                "Prüfe mögliche Umbuchungen und ähnliche Buchungen.",
+                "Review possible transfers and similar transactions."
             ))
         }
         return parts.joined(separator: " ")

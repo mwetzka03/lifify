@@ -10,7 +10,7 @@ struct IncomeOverviewView: View {
     @State private var selected: LedgerEntry?
 
     private var incomeEntries: [LedgerEntry] {
-        entries.filter { $0.kind == .income }
+        entries.filter { $0.kind == .income && !BookingClassification.isRefund($0) }
     }
 
     var body: some View {
@@ -51,7 +51,7 @@ struct IncomeOverviewView: View {
                         .foregroundStyle(.secondary)
                 }
                 ForEach(incomeEntries) { entry in
-                    Button { selected = entry } label: { TransactionRow(entry: entry) }
+                    Button { selected = entry } label: { TransactionRow(entry: entry, ledgerEntries: entries) }
                         .buttonStyle(.plain)
                 }
             }
@@ -125,7 +125,7 @@ struct IncomeForecastsView: View {
     }
 }
 
-private struct IncomeForecastForm: View {
+struct IncomeForecastForm: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
     @Query(sort: \Account.name) private var accounts: [Account]
@@ -171,7 +171,7 @@ private struct IncomeForecastForm: View {
                     Stepper("\(L("Tag", "Day")): \(day)", value: $day, in: 1...31)
                 }
             }
-            .navigationTitle(existing == nil ? L("Neue Prognose", "New forecast") : L("Prognose bearbeiten", "Edit forecast"))
+            .navigationTitle(existing == nil ? L("Neue Einnahmenprognose", "New income forecast") : L("Einnahmenprognose bearbeiten", "Edit income forecast"))
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button(L("Abbrechen", "Cancel")) { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {

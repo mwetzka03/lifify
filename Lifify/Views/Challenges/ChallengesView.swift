@@ -133,9 +133,14 @@ struct ChallengesView: View {
                     }
                 }
             }
+
+            if visibleChallengesEmpty && !recommendations.isEmpty {
+                Text(L("Keine Challenges", "No challenges"))
+                    .foregroundStyle(.secondary)
+            }
         }
         .overlay {
-            if groups.isEmpty && challenges.isEmpty {
+            if visibleChallengesEmpty && recommendations.isEmpty {
                 ContentUnavailableView(L("Keine Challenges", "No challenges"), systemImage: "target")
             }
         }
@@ -219,6 +224,17 @@ struct ChallengesView: View {
                     .background(.regularMaterial, in: Capsule())
             }
             .buttonStyle(.plain)
+        }
+    }
+
+    private var visibleChallengesEmpty: Bool {
+        switch filter {
+        case .groups:
+            return groups.isEmpty
+        case .single:
+            return filteredChallenges.isEmpty
+        case .all:
+            return groups.isEmpty && filteredChallenges.isEmpty
         }
     }
 

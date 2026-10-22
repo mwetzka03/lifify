@@ -100,6 +100,94 @@ enum CalendarService {
         return result
     }
 
+    /// Trade Republic debits savings plans on the 2nd, 9th, 16th and 23rd.
+    /// Weekly uses all four days, biweekly the 2nd and 16th, monthly and yearly the 2nd.
+    static func chargeDays(for cadence: Cadence) -> [Int] {
+        switch cadence {
+        case .weekly: return [2, 9, 16, 23]
+        case .biweekly: return [2, 16]
+        case .monthly, .yearly: return [2]
+        }
+    }
+
+    static func nextBankingDay(onOrAfter date: Date) -> Date {
+        var cursor = calendar.startOfDay(for: date)
+        for _ in 0..<14 {
+            if isBankingDay(cursor) { return cursor }
+            guard let next = calendar.date(byAdding: .day, value: 1, to: cursor) else { return cursor }
+            cursor = next
+        }
+        return cursor
+    }
+
+    static func savingsPlanDates(
+        cadence: Cadence,
+        from: Date,
+        through: Date,
+        endDate: Date? = nil,
+        yearlyMonth: Int? = nil
+    ) -> [Date] {
+        let start = calendar.startOfDay(for: from)
+        let end = calendar.startOfDay(for: through)
+        let cappedEnd = endDate.map { min(end, calendar.startOfDay(for: $0)) } ?? end
+        guard start <= cappedEnd else { return [] }
+        let days = chargeDays(for: cadence)
+        var cursor = calendar.date(from: calendar.dateComponents([.year, .month], from: start)) ?? start
+        var result: [Date] = []
+        var seen = Set<String>()
+        while cursor <= cappedEnd {
+            let parts = calendar.dateComponents([.year, .month], from: cursor)
+            let month = parts.month ?? 1
+            let includeMonth = cadence != .yearly || month == (yearlyMonth ?? month)
+            if includeMonth, let year = parts.year {
+                for day in days {
+                    guard let nominal = calendar.date(from: DateComponents(year: year, month: month, day: day)) else { continue }
+                    let actual = nextBankingDay(onOrAfter: nominal)
+                    guard actual >= start, actual <= cappedEnd, seen.insert(actual.dayKey).inserted else { continue }
+                    result.append(actual)
+                }
+            }
+            guard let next = calendar.date(byAdding: .month, value: 1, to: cursor) else { break }
+            cursor = next
+        }
+        return result.sorted()
+    }
+
+    static func nextSavingsPlanDate(cadence: Cadence, onOrAfter date: Date, yearlyMonth: Int? = nil) -> Date? {
+        let horizon = calendar.date(byAdding: .year, value: 2, to: date) ?? date
+        return savingsPlanDates(
+            cadence: cadence,
+            from: date,
+            through: horizon,
+            yearlyMonth: yearlyMonth
+        ).first
+    }
+
+    static func savingsPlanScheduleText(cadence: Cadence) -> String {
+        switch cadence {
+        case .weekly:
+            return L(
+                "Abbuchung am 2., 9., 16. und 23. Ist das kein Bankarbeitstag, gilt der nächste.",
+                "Debited on the 2nd, 9th, 16th and 23rd. If that is not a banking day, the next one is used."
+            )
+        case .biweekly:
+            return L(
+                "Abbuchung am 2. und 16. Ist das kein Bankarbeitstag, gilt der nächste.",
+                "Debited on the 2nd and 16th. If that is not a banking day, the next one is used."
+            )
+        case .monthly:
+            return L(
+                "Abbuchung am 2. Ist das kein Bankarbeitstag, gilt der nächste.",
+                "Debited on the 2nd. If that is not a banking day, the next one is used."
+            )
+        case .yearly:
+            return L(
+                "Abbuchung einmal im Jahr am 2. Ist das kein Bankarbeitstag, gilt der nächste.",
+                "Debited once a year on the 2nd. If that is not a banking day, the next one is used."
+            )
+        }
+    }
+
     private static func easterSunday(year: Int) -> Date {
         let a = year % 19
         let b = year / 100
