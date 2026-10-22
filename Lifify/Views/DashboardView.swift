@@ -403,7 +403,7 @@ struct DashboardView: View {
         .buttonStyle(.plain)
     }
 
-    private func visibleForecasts(_ period: ForecastPeriod) -> [ForecastLine] {
+    private func visibleForecasts(_ period: ForecastPeriod) -> [ForecastDisplayLine] {
         let query = forecastQuery.trimmingCharacters(in: .whitespacesAndNewlines)
         let groupTitle = L("Sparpläne", "Savings plans")
         let groupQuery = !query.isEmpty && groupTitle.localizedCaseInsensitiveContains(query)
@@ -415,12 +415,12 @@ struct DashboardView: View {
         let savings = items.filter(isSavingsForecast).sorted { $0.date < $1.date }
         let others = items.filter { !isSavingsForecast($0) }
         guard let first = savings.first else {
-            return others.map { ForecastLine(item: $0) }
+            return others.map { ForecastDisplayLine(item: $0) }
         }
         let expanded = savingsForecastsExpanded || !forecastQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        var lines: [ForecastLine] = []
+        var lines: [ForecastDisplayLine] = []
         var inserted = false
-        let header = ForecastLine(
+        let header = ForecastDisplayLine(
             id: "savings-group",
             weekCents: savingsWeekCents(savings),
             periodCents: savings.reduce(0) { $0 + abs($1.signedCents) }
@@ -428,7 +428,7 @@ struct DashboardView: View {
         func appendSavings() {
             lines.append(header)
             if expanded {
-                lines.append(contentsOf: savings.map { ForecastLine(item: $0) })
+                lines.append(contentsOf: savings.map { ForecastDisplayLine(item: $0) })
             }
         }
         for item in others {
@@ -436,7 +436,7 @@ struct DashboardView: View {
                 appendSavings()
                 inserted = true
             }
-            lines.append(ForecastLine(item: item))
+            lines.append(ForecastDisplayLine(item: item))
         }
         if !inserted { appendSavings() }
         return lines
@@ -1247,7 +1247,7 @@ private struct FlowNote {
     var cents: Int
 }
 
-private struct ForecastLine: Identifiable {
+private struct ForecastDisplayLine: Identifiable {
     var id: String
     var item: ForecastListItem?
     var weekCents: Int = 0
