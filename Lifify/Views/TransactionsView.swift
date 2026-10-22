@@ -10,7 +10,7 @@ struct TransactionsView: View {
     @Query private var forecasts: [IncomeForecast]
     @Query private var splits: [TransactionSplit]
     @State private var search = ""
-    @State private var showingNew = false
+    @State private var newBookingCategory: BookingCategory?
     @State private var editing: LedgerEntry?
     @State private var selected: LedgerEntry?
 
@@ -46,14 +46,16 @@ struct TransactionsView: View {
         .navigationBarTitleDisplayMode(.inline)
         .searchable(text: $search, prompt: L("Titel oder Notiz", "Title or note"))
         .toolbar {
-            Button {
-                showingNew = true
+            Menu {
+                ForEach(BookingCategory.allCases.filter(\.allowsManualEntry)) { category in
+                    Button(category.label) { newBookingCategory = category }
+                }
             } label: {
                 Label(L("Buchung hinzufügen", "Add transaction"), systemImage: "plus")
             }
         }
-        .sheet(isPresented: $showingNew) {
-            TransactionFormView(entry: nil, splits: splits)
+        .sheet(item: $newBookingCategory) { category in
+            TransactionFormView(entry: nil, splits: splits, lockedCategory: category)
         }
         .sheet(item: $editing) { entry in
             TransactionFormView(entry: entry, splits: splits)
@@ -456,11 +458,12 @@ struct TransactionFormView: View {
     @State private var transferForecasts: [TransferForecastRecord] = []
     @StateObject private var viewModel: TransactionFormViewModel
 
-    init(entry: LedgerEntry?, splits: [TransactionSplit], refundOriginal: LedgerEntry? = nil) {
+    init(entry: LedgerEntry?, splits: [TransactionSplit], refundOriginal: LedgerEntry? = nil, lockedCategory: BookingCategory? = nil) {
         _viewModel = StateObject(wrappedValue: TransactionFormViewModel(
             entry: entry,
             splits: splits,
-            refundOriginal: refundOriginal
+            refundOriginal: refundOriginal,
+            lockedCategory: lockedCategory
         ))
     }
 
@@ -543,14 +546,16 @@ struct TransactionFormView: View {
                     Section { Text(error).foregroundStyle(.red) }
                 }
             }
-            .navigationTitle(viewModel.title.isEmpty ? L("Neue Buchung", "New transaction") : viewModel.title)
+            .navigationTitle(viewModel.formTitle)
             .navigationBarTitleDisplayMode(.inline)
             .onAppear {
                 viewModel.refineIfNeeded(accounts: accounts)
+                viewModel.prepareAccounts(accounts)
                 transferForecasts = TransferForecastStore.all().filter(\.active)
             }
             .onChange(of: accounts.count) { _, _ in
                 viewModel.refineIfNeeded(accounts: accounts)
+                viewModel.prepareAccounts(accounts)
             }
             .onChange(of: viewModel.category) { _, category in
                 viewModel.fillAccounts(for: category, accounts: accounts)

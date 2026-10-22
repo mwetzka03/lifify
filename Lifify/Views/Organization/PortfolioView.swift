@@ -777,7 +777,7 @@ private struct SavingsPlanEditor: View {
                 }
                 DatePicker(L("Letzte Ausführung", "Last execution"), selection: $lastExecution, displayedComponents: .date)
             }
-            .navigationTitle(L("Sparplan", "Savings plan"))
+            .navigationTitle(L("Sparplan bearbeiten", "Edit savings plan"))
             .navigationBarTitleDisplayMode(.inline)
             .onAppear(perform: fillDefaultAccount)
             .toolbar {

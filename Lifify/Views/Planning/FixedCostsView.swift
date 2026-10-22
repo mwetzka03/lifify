@@ -49,34 +49,15 @@ struct FixedCostsView: View {
                 NavigationLink(value: FinanceRoute.savingsPlans) {
                     savingsSummaryRow
                 }
+                ForEach(savingsCosts) { cost in
+                    costRow(cost)
+                }
+                .onDelete { offsets in
+                    offsets.map { savingsCosts[$0] }.forEach(delete)
+                }
             }
             ForEach(regularCosts) { cost in
-                Button {
-                    selected = cost
-                } label: {
-                    HStack {
-                        Image(systemName: IconPreferenceStore.icon(for: cost.id, fallback: "repeat"))
-                            .frame(width: 28)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(cost.name).foregroundStyle(.primary)
-                            Text(detail(for: cost))
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                        Text(Money.string(cents: -abs(cost.amountCents)))
-                            .foregroundStyle(.red)
-                    }
-                }
-                .buttonStyle(.plain)
-                .swipeActions(edge: .leading, allowsFullSwipe: false) {
-                    Button {
-                        edited = cost
-                    } label: {
-                        Label(L("Bearbeiten", "Edit"), systemImage: "pencil")
-                    }
-                    .tint(.blue)
-                }
+                costRow(cost)
             }
             .onDelete { offsets in
                 offsets.map { regularCosts[$0] }.forEach(delete)
@@ -95,6 +76,37 @@ struct FixedCostsView: View {
         .sheet(item: $edited) { FixedCostForm(cost: $0) }
         .sheet(item: $selected) { FixedCostDetailView(cost: $0) }
         .onAppear { SavingsPlanFixedCosts.sync(context: context) }
+    }
+
+    private func costRow(_ cost: FixedCost) -> some View {
+        let savings = SavingsPlanFixedCosts.isSavingsCost(cost)
+        return Button {
+            selected = cost
+        } label: {
+            HStack {
+                Image(systemName: savings ? BookingCategory.savingsPlan.systemImage : IconPreferenceStore.icon(for: cost.id, fallback: "repeat"))
+                    .frame(width: 28)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(savings ? SavingsPlanFixedCosts.planName(inFixedCostName: cost.name) : cost.name)
+                        .foregroundStyle(.primary)
+                    Text(detail(for: cost))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Text(Money.string(cents: -abs(cost.amountCents)))
+                    .foregroundStyle(.red)
+            }
+        }
+        .buttonStyle(.plain)
+        .swipeActions(edge: .leading, allowsFullSwipe: false) {
+            Button {
+                edited = cost
+            } label: {
+                Label(L("Bearbeiten", "Edit"), systemImage: "pencil")
+            }
+            .tint(.blue)
+        }
     }
 
     private func detail(for cost: FixedCost) -> String {
@@ -233,7 +245,7 @@ struct FixedCostForm: View {
                 }
                 Toggle(L("Aktiv", "Active"), isOn: $active)
             }
-            .navigationTitle(L("Fixkosten", "Fixed cost"))
+            .navigationTitle(existing == nil ? L("Neue Fixkosten", "New fixed cost") : L("Fixkosten bearbeiten", "Edit fixed cost"))
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button(L("Abbrechen", "Cancel")) { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {

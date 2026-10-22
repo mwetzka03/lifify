@@ -64,7 +64,7 @@ enum FinanceService {
         )
         let direct = entries
             .filter { entry in
-                guard entry.variableBudgetID == budgetID, !splitIDs.contains(entry.id) else { return false }
+                guard countsTowardVariable(entry, budgetID: budgetID), !splitIDs.contains(entry.id) else { return false }
                 guard entry.date >= start, entry.date <= end else { return false }
                 return entryTouches(entry, accountID: accountID)
             }
@@ -284,8 +284,7 @@ enum FinanceService {
             .reduce(0) { $0 + $1.amount }
         let suppressedVariable = variableBudgets.reduce(0) { partial, budget in
             let skipped = ForecastSkipStore.isSkipped(.variable, id: budget.id, on: period.end)
-            let linked = ForecastPeriodLinkStore.covers(.variable, id: budget.id, entries: entries, period: period)
-            guard skipped || linked else { return partial }
+            guard skipped else { return partial }
             let plan = VariableBudgetAccounts.planCents(
                 budget: budget,
                 scopedAccountIDs: scopedCashAccountIDs,
@@ -301,7 +300,7 @@ enum FinanceService {
             return partial + max(plan - spent, 0)
         }
         let remainingVariable = period.end < today ? 0 : max(variablePlan - bookedVariable - suppressedVariable, 0)
-        let bias = biasAmounts(shopping: shopping, entries: entries, period: period)
+        let bias = shoppingBias(shopping: shopping, entries: entries, period: period)
         let outstandingBias = period.end < today ? 0 : bias.planned
         let periodStart = calendar.startOfDay(for: period.start)
         let dayBefore = calendar.date(byAdding: .day, value: -1, to: periodStart) ?? periodStart
@@ -581,9 +580,7 @@ enum FinanceService {
                 : 0
             let full = budgets.reduce(0) { $0 + abs($1.monthlyAmountCents) }
             let suppressedFull = budgets.reduce(0) { sum, budget in
-                let skipped = ForecastSkipStore.isSkipped(.variable, id: budget.id, on: period.end)
-                let linked = ForecastPeriodLinkStore.covers(.variable, id: budget.id, entries: entries, period: period)
-                guard skipped || linked else { return sum }
+                guard ForecastSkipStore.isSkipped(.variable, id: budget.id, on: period.end) else { return sum }
                 return sum + abs(budget.monthlyAmountCents)
             }
             let suppressed = full > 0 ? Int((Double(variablePlan) * Double(suppressedFull) / Double(full)).rounded()) : 0
@@ -972,7 +969,7 @@ enum FinanceService {
             guard let planned = item.plannedDate else { continue }
             let day = calendar.startOfDay(for: planned)
             guard day >= start, day <= calendar.startOfDay(for: period.end) else { continue }
-            if entries.contains(where: { $0.shoppingItemID == item.id }) { continue }
+            if item.isPurchased || !shoppingBookings(for: item.id, entries: entries, period: period).isEmpty { continue }
             lines.append(ForecastLine(
                 id: "bias-\(item.id.uuidString)",
                 date: planned,
@@ -1010,9 +1007,9 @@ enum FinanceService {
         let ids = Set(budgets.map(\.id))
         let splitIDs = Set(splits.filter { $0.kind == .variableBudget && ids.contains($0.targetID) }.map(\.transactionID))
         let direct = entries
-            .filter {
-                guard let budgetID = $0.variableBudgetID, ids.contains(budgetID) else { return false }
-                return $0.date >= start && $0.date <= end && !splitIDs.contains($0.id)
+            .filter { entry in
+                guard !splitIDs.contains(entry.id), entry.date >= start, entry.date <= end else { return false }
+                return ids.contains { countsTowardVariable(entry, budgetID: $0) }
             }
             .reduce(0) { $0 + abs($1.amountCents) }
         let split = splits
@@ -1025,23 +1022,47 @@ enum FinanceService {
         return direct + split
     }
 
-    private static func biasAmounts(
+    /// Applied uses the assigned booking amount. Planned stays the unchecked item amount.
+    static func shoppingBias(
         shopping: [ShoppingItem],
         entries: [LedgerEntry],
         period: ForecastPeriod
     ) -> (applied: Int, planned: Int) {
         let start = Calendar.current.startOfDay(for: period.start)
         let end = Calendar.current.startOfDay(for: period.end)
-        let items = shopping.filter { item in
-            guard let planned = item.plannedDate else { return false }
-            let day = Calendar.current.startOfDay(for: planned)
-            guard day >= start, day <= end else { return false }
-            if ForecastSkipStore.isSkipped(.shopping, id: item.id, on: day) { return false }
-            return !ForecastPeriodLinkStore.covers(.shopping, id: item.id, entries: entries, period: period)
+        var applied = 0
+        var planned = 0
+        for item in shopping {
+            guard let plannedDate = item.plannedDate else { continue }
+            let day = Calendar.current.startOfDay(for: plannedDate)
+            guard day >= start, day <= end else { continue }
+            if ForecastSkipStore.isSkipped(.shopping, id: item.id, on: day) { continue }
+            let bookings = shoppingBookings(for: item.id, entries: entries, period: period)
+            if item.isPurchased || !bookings.isEmpty {
+                applied += bookings.isEmpty
+                    ? abs(item.amountCents)
+                    : bookings.reduce(0) { $0 + abs($1.amountCents) }
+            } else {
+                planned += abs(item.amountCents)
+            }
         }
-        let applied = items.filter(\.isPurchased).reduce(0) { $0 + abs($1.amountCents) }
-        let planned = items.filter { !$0.isPurchased }.reduce(0) { $0 + abs($1.amountCents) }
         return (applied, planned)
+    }
+
+    static func shoppingBookings(for itemID: UUID, entries: [LedgerEntry], period: ForecastPeriod? = nil) -> [LedgerEntry] {
+        entries.filter { entry in
+            if let period, !period.contains(entry.date) { return false }
+            if entry.shoppingItemID == itemID { return true }
+            guard let link = ForecastPeriodLinkStore.link(for: entry.id) else { return false }
+            return link.kind == .shopping && link.id == itemID
+        }
+        .sorted { $0.date > $1.date }
+    }
+
+    private static func countsTowardVariable(_ entry: LedgerEntry, budgetID: UUID) -> Bool {
+        if entry.variableBudgetID == budgetID { return true }
+        guard let link = ForecastPeriodLinkStore.link(for: entry.id) else { return false }
+        return link.kind == .variable && link.id == budgetID
     }
 
     private static func entryTouches(_ entry: LedgerEntry, accountID: UUID?) -> Bool {
@@ -1339,8 +1360,7 @@ enum ForecastSchedule {
             )
             let open = max(plan - spent, 0)
             if ForecastSkipStore.isSkipped(.variable, id: budget.id, on: period.end) { return nil }
-            let linked = ForecastPeriodLinkStore.covers(.variable, id: budget.id, entries: entries, period: period)
-            let settled = linked || open == 0
+            let settled = open == 0
             guard settled || open > 0 else { return nil }
             return ForecastListItem(
                 id: "variable-\(budget.id.uuidString)-\(period.id)",
@@ -1370,14 +1390,17 @@ enum ForecastSchedule {
             let day = calendar.startOfDay(for: planned)
             guard period.contains(day) else { return nil }
             if ForecastSkipStore.isSkipped(.shopping, id: item.id, on: day) { return nil }
-            let linked = ForecastPeriodLinkStore.covers(.shopping, id: item.id, entries: entries, period: period)
+            let bookings = shoppingBookings(for: item.id, entries: entries, period: period)
+            let amount = bookings.isEmpty
+                ? abs(item.amountCents)
+                : bookings.reduce(0) { $0 + abs($1.amountCents) }
             return ForecastListItem(
                 id: "shopping-\(item.id.uuidString)",
                 title: item.name,
                 date: day,
-                signedCents: -abs(item.amountCents),
+                signedCents: -amount,
                 kind: .shopping(item.id),
-                settled: item.isPurchased || linked
+                settled: item.isPurchased || !bookings.isEmpty
             )
         }
     }

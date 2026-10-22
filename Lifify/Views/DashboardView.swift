@@ -16,7 +16,7 @@ struct DashboardView: View {
     @EnvironmentObject private var filters: FinanceFilterStore
     @State private var selectedBooking: LedgerEntry?
     @State private var editingBooking: LedgerEntry?
-    @State private var showingNewBooking = false
+    @State private var newBookingCategory: BookingCategory?
     @State private var bookingQuery = ""
     @State private var editedTransfer: TransferForecastRecord?
     @State private var editedIncomeForecast: IncomeForecast?
@@ -30,7 +30,7 @@ struct DashboardView: View {
     @State private var showingNewFixedCost = false
     @State private var showingNewBudget = false
     @State private var showingNewSavingsPlan = false
-    @State private var savingsForecastsExpanded = false
+    @State private var savingsForecastsExpanded = true
     @State private var summary: PreparedSummary?
     @State private var summarySelection: Int?
     @AppStorage(ForecastSkipStore.revisionKey) private var forecastSkipRevision = 0
@@ -178,8 +178,8 @@ struct DashboardView: View {
         .sheet(item: $editingBooking) { entry in
             TransactionFormView(entry: entry, splits: splits)
         }
-        .sheet(isPresented: $showingNewBooking) {
-            TransactionFormView(entry: nil, splits: splits)
+        .sheet(item: $newBookingCategory) { category in
+            TransactionFormView(entry: nil, splits: splits, lockedCategory: category)
         }
         .sheet(item: $selectedBooking) { entry in
             TransactionDetailView(entry: entry)
@@ -590,8 +590,10 @@ struct DashboardView: View {
             .background(AppSurface.card, in: Capsule())
             .overlay(Capsule().strokeBorder(Color.primary.opacity(0.08)))
             .clipShape(Capsule())
-            Button {
-                showingNewBooking = true
+            Menu {
+                ForEach(BookingCategory.allCases.filter(\.allowsManualEntry)) { category in
+                    Button(category.label) { newBookingCategory = category }
+                }
             } label: {
                 Image(systemName: "plus")
                     .font(.title2.weight(.bold))

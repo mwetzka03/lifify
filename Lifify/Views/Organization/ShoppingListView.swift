@@ -3,27 +3,85 @@ import SwiftUI
 
 struct ShoppingListView: View {
     @Environment(\.modelContext) private var context
+    @EnvironmentObject private var filters: FinanceFilterStore
     @Query(sort: \ShoppingItem.createdAt, order: .reverse) private var items: [ShoppingItem]
+    @Query(sort: \LedgerEntry.date, order: .reverse) private var entries: [LedgerEntry]
+    @Query private var forecasts: [IncomeForecast]
     @State private var showingNew = false
     @State private var edited: ShoppingItem?
+    @State private var selected: ShoppingItem?
+
+    private var period: ForecastPeriod? {
+        filters.period(in: FinancePeriods.all(entries: entries, forecasts: forecasts))
+    }
+
+    private var bias: (applied: Int, planned: Int) {
+        guard let period else { return (0, 0) }
+        return FinanceService.shoppingBias(shopping: items, entries: entries, period: period)
+    }
 
     var body: some View {
+        VStack(spacing: 0) {
+            summary
+            itemList
+        }
+        .navigationTitle(L("Einkaufszettel", "Shopping list"))
+        .toolbar { Button { showingNew = true } label: { Image(systemName: "plus") } }
+        .sheet(isPresented: $showingNew) { ShoppingItemForm(item: nil) }
+        .sheet(item: $edited) { ShoppingItemForm(item: $0) }
+        .sheet(item: $selected) { ShoppingItemDetailView(item: $0) }
+        .onAppear(perform: markAssignedPurchased)
+    }
+
+    private var summary: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            if let period {
+                Text(AppDate.range(from: period.start, to: period.end))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(L("Angewendet", "Applied"))
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    Text(Money.string(cents: bias.applied))
+                        .font(.title3.weight(.semibold))
+                        .foregroundStyle(.red)
+                        .monospacedDigit()
+                }
+                Spacer()
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text(L("Geplant", "Planned"))
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    Text(Money.string(cents: bias.planned))
+                        .font(.title3.weight(.semibold))
+                        .foregroundStyle(.primary)
+                        .monospacedDigit()
+                }
+            }
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 12)
+    }
+
+    private var itemList: some View {
         List {
             ForEach(items) { item in
                 HStack {
                     Button {
-                        item.isPurchased.toggle()
-                        try? context.save()
+                        togglePurchased(item)
                     } label: {
-                        Image(systemName: item.isPurchased ? "checkmark.circle.fill" : "circle")
+                        Image(systemName: isChecked(item) ? "checkmark.circle.fill" : "circle")
                     }
                     .buttonStyle(.borderless)
                     Button {
-                        edited = item
+                        selected = item
                     } label: {
                         HStack {
                             VStack(alignment: .leading) {
-                                Text(item.name).strikethrough(item.isPurchased)
+                                Text(item.name).strikethrough(isChecked(item))
                                 if let planned = item.plannedDate {
                                     Text(AppDate.numeric(planned))
                                         .font(.caption)
@@ -34,7 +92,7 @@ struct ShoppingListView: View {
                                 }
                             }
                             Spacer()
-                            if item.amountCents > 0 { Text(Money.string(cents: item.amountCents)) }
+                            Text(rowAmount(item))
                         }
                     }
                     .buttonStyle(.plain)
@@ -58,10 +116,100 @@ struct ShoppingListView: View {
         .overlay {
             if items.isEmpty { ContentUnavailableView(L("Einkaufszettel ist leer", "Shopping list is empty"), systemImage: "cart") }
         }
-        .navigationTitle(L("Einkaufszettel", "Shopping list"))
-        .toolbar { Button { showingNew = true } label: { Image(systemName: "plus") } }
-        .sheet(isPresented: $showingNew) { ShoppingItemForm(item: nil) }
-        .sheet(item: $edited) { ShoppingItemForm(item: $0) }
+    }
+
+    private func isChecked(_ item: ShoppingItem) -> Bool {
+        item.isPurchased || !FinanceService.shoppingBookings(for: item.id, entries: entries).isEmpty
+    }
+
+    private func rowAmount(_ item: ShoppingItem) -> String {
+        let bookings = FinanceService.shoppingBookings(for: item.id, entries: entries, period: period)
+        let cents = bookings.isEmpty ? item.amountCents : bookings.reduce(0) { $0 + abs($1.amountCents) }
+        guard cents > 0 else { return "" }
+        return Money.string(cents: cents)
+    }
+
+    private func togglePurchased(_ item: ShoppingItem) {
+        guard FinanceService.shoppingBookings(for: item.id, entries: entries).isEmpty else { return }
+        item.isPurchased.toggle()
+        try? context.save()
+    }
+
+    private func markAssignedPurchased() {
+        var changed = false
+        for item in items where !item.isPurchased && !FinanceService.shoppingBookings(for: item.id, entries: entries).isEmpty {
+            item.isPurchased = true
+            changed = true
+        }
+        if changed { try? context.save() }
+    }
+}
+
+struct ShoppingItemDetailView: View {
+    @Environment(\.dismiss) private var dismiss
+    @Query(sort: \LedgerEntry.date, order: .reverse) private var entries: [LedgerEntry]
+    let item: ShoppingItem
+    @State private var selectedBooking: LedgerEntry?
+
+    private var bookings: [LedgerEntry] {
+        FinanceService.shoppingBookings(for: item.id, entries: entries)
+    }
+
+    private var isChecked: Bool {
+        item.isPurchased || !bookings.isEmpty
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    LabeledContent(L("Artikel", "Item"), value: item.name)
+                    LabeledContent(L("Geplanter Betrag", "Planned amount"), value: Money.string(cents: item.amountCents))
+                    if let planned = item.plannedDate {
+                        LabeledContent(L("Geplant am", "Planned on"), value: AppDate.numeric(planned))
+                    }
+                    HStack {
+                        Image(systemName: isChecked ? "checkmark.circle.fill" : "circle")
+                            .foregroundStyle(isChecked ? Color.green : Color.secondary)
+                        Text(isChecked ? L("Gekauft", "Purchased") : L("Offen", "Open"))
+                        Spacer()
+                    }
+                }
+                Section(L("Buchungen", "Transactions")) {
+                    if bookings.isEmpty {
+                        Text(L("Noch keine Buchung zugeordnet.", "No transaction is assigned yet."))
+                            .foregroundStyle(.secondary)
+                    }
+                    ForEach(bookings) { entry in
+                        Button {
+                            selectedBooking = entry
+                        } label: {
+                            HStack {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(entry.title)
+                                        .foregroundStyle(.primary)
+                                    Text(AppDate.numeric(entry.date))
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                Text(Money.string(cents: -abs(entry.amountCents)))
+                                    .foregroundStyle(.red)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+            .navigationTitle(item.name)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(L("Fertig", "Done")) { dismiss() }
+                }
+            }
+        }
+        .sheet(item: $selectedBooking) { TransactionDetailView(entry: $0) }
     }
 }
 

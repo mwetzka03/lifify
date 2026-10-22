@@ -171,7 +171,7 @@ struct IncomeForecastForm: View {
                     Stepper("\(L("Tag", "Day")): \(day)", value: $day, in: 1...31)
                 }
             }
-            .navigationTitle(existing == nil ? L("Neue Prognose", "New forecast") : L("Prognose bearbeiten", "Edit forecast"))
+            .navigationTitle(existing == nil ? L("Neue Einnahmenprognose", "New income forecast") : L("Einnahmenprognose bearbeiten", "Edit income forecast"))
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button(L("Abbrechen", "Cancel")) { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {

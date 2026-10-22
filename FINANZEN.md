@@ -208,9 +208,11 @@ Buchung zugeordnet ist, bleibt in der Liste und ist ausgegraut.
   das kein Bankarbeitstag, gilt der nächste Bankarbeitstag.
 - Die Sparpläne im Depot sind die Vorlage. Jeder Plan bleibt intern eine
   Fixkosten auf dem verknüpften Girokonto, damit die Prognose weiterläuft.
-  In der Fixkostenliste stehen die Pläne nicht einzeln. Eine Zeile zeigt den
-  Gesamtbetrag des Zeitraums, also schon abgebuchte Ausführungen plus noch
-  offene Termine, und öffnet die Sparplanliste.
+  In der Fixkostenliste zeigt eine Zeile den Gesamtbetrag des Zeitraums, also
+  schon abgebuchte Ausführungen plus noch offene Termine, und öffnet die
+  Sparplanliste. Darunter steht jeder Plan selbst als Fixkosten, mit Namen,
+  nächstem Termin und offener Anzahl. Ein Tipp öffnet dieselbe Detailansicht
+  wie bei anderen Fixkosten, Wischen bearbeitet oder löscht den Plan.
 - Eine bereits gebuchte Ausführung zählt nicht noch einmal als offene Fixkosten.
   Sie steht aber im gebuchten Fixkostenbetrag des Zeitraums, auch wenn sie vor
   der letzten Ausführung lag.
@@ -251,18 +253,31 @@ wie in der Einnahmen- und Ausgabenansicht. Ist genau ein Konto gewählt, liegen
 dort auch die Umbuchungen, Abgang negativ und Zugang positiv. Darüber sucht ein
 eigenes Feld, rechts daneben legt das Plus eine Prognose an. Zur Auswahl stehen
 Einnahmeprognose, Umbuchungsprognose, Sparplan, Fixkosten und variable Kosten.
-Jedes öffnet sein eigenes Formular. Die Buchungssuche filtert diesen Bereich
-nicht. Ein Tipp öffnet die Detailansicht. Dort lässt sich eine echte Buchung
-zuweisen. Ist ein Konto gewählt, stehen nur Buchungen dieses Kontos zur
-Auswahl. Die Zuweisung ersetzt die Prognose für den ganzen Zeitraum, die
-anderen Termine bleiben. Eine schon zugeordnete Prognose, von Hand oder
-automatisch, bleibt sichtbar und ist ausgegraut. Wischen nach rechts bearbeitet
-die Serie, Wischen nach links löscht nur diesen Termin. Im Depot entfällt der
-Bereich. Die Zeilen stehen nicht zwischen den Buchungen.
+Jedes öffnet sein eigenes Formular. Die Überschrift nennt die Art: Neue
+Einnahmenprognose, Neue Umbuchungsprognose, Neuer Sparplan, Neue Fixkosten,
+Neue variable Kosten. Beim Bearbeiten entsprechend Einnahmenprognose
+bearbeiten und so weiter. Die Buchungssuche filtert diesen Bereich nicht. Ein
+Tipp öffnet die Detailansicht. Dort lässt sich eine echte Buchung zuweisen.
+Ist ein Konto gewählt, stehen nur Buchungen dieses Kontos zur Auswahl. Bei
+Einnahmen, Fixkosten, Umbuchungen und dem Einkaufszettel ersetzt die Zuweisung
+die Prognose für den ganzen Zeitraum, die anderen Termine bleiben. Eine schon
+zugeordnete Prognose, von Hand oder automatisch, bleibt sichtbar und ist
+ausgegraut. Variable Kosten sind davon ausgenommen: jede weitere Buchung
+mindert nur den noch reservierten Betrag, und die Zeile bleibt stehen, bis
+dieser Rest null ist. Wischen nach rechts bearbeitet die Serie, Wischen nach
+links löscht nur diesen Termin. Im Depot entfällt der Bereich. Die Zeilen
+stehen nicht zwischen den Buchungen.
 
-Alle Sparpläne in diesem Bereich stehen in einem Topf. Zugeklappt zeigt er die
-Kosten pro Woche und die Summe des Zeitraums. Die einzelnen Termine erscheinen
-erst beim Aufklappen.
+Alle Sparpläne in diesem Bereich stehen in einem Topf. Der Topf ist zuerst
+aufgeklappt, die einzelnen Termine sind sichtbar. Zuklappen zeigt die Kosten
+pro Woche und die Summe des Zeitraums.
+
+Unten bei den Buchungen wählt das Plus zuerst die Kategorie: Einnahme, Zinsen,
+Dividende, Ausgabe, Rückerstattung, Umbuchung oder Saldo-Korrektur. Danach
+öffnet sich nur das Formular dieser Kategorie, ohne weitere Kategorien in
+demselben Formular. Die Überschrift ist zum Beispiel Neue Ausgabe. Beim
+Bearbeiten bleibt die Kategorie fest, die Überschrift lautet Ausgabe
+bearbeiten. Dieselbe Vorauswahl steht in der Buchungsliste.
 
 Die angezeigte Kategorie ist keine eigene Speicherart. Gespeichert bleibt
 Einnahme, Ausgabe, Umbuchung oder Saldo-Korrektur. Angezeigt wird:
@@ -310,8 +325,9 @@ verknüpften Girokonto zählt der volle Betrag.
 Die Detailansicht einer Umbuchung zeigt beide Seiten, den Abgang auf dem einen
 Konto und den Zugang auf dem anderen. Ein Depotverkauf zeigt zusätzlich immer
 Einkaufspreis, Verkaufspreis und Differenz. Beim Anlegen einer gewöhnlichen
-Buchung wählt man die Kategorie. Depotkauf, Depotverkauf und Sparplan stehen
-in dieser Auswahl nicht, auch nicht beim Bearbeiten. Diese drei entstehen nur,
+Buchung wählt das Plus zuerst die Kategorie, danach kommt nur dieses Formular.
+Depotkauf, Depotverkauf und Sparplan stehen in dieser Auswahl nicht, auch
+nicht beim Bearbeiten. Diese drei entstehen nur,
 wenn eine Depotposition angelegt, nachgekauft oder verkauft wird, oder wenn
 ein Sparplan angelegt wird. Öffnet man eine bestehende Buchung dieser Art,
 bleibt die Kategorie fest und lässt sich dort nicht umstellen. Ein Depotverkauf
@@ -359,11 +375,12 @@ ohne Depot, einen Betrag und einen Rhythmus.
   die Detailansicht. Dort kann die Prognose einer echten Buchung zugewiesen
   werden. Ist ein Konto gewählt, bietet die Liste nur dessen Buchungen an.
   Die Zuweisung gilt für den ganzen Zeitraum. Die Termine bleiben sichtbar
-  und werden ausgegraut. Dieselbe Zuweisung gilt für Einnahmen, Fixkosten,
-  variable Kosten und den Einkaufszettel. Eine Buchung, die schon automatisch
-  erkannt wird, zum Beispiel über die IBAN, ersetzt die Prognose weiter von
-  selbst und graut sie ebenfalls aus. Wischen löscht nur den einzelnen
-  Termin, nicht die ganze Serie.
+  und werden ausgegraut. Dieselbe Zuweisung gilt für Einnahmen, Fixkosten und
+  den Einkaufszettel. Bei variablen Kosten mindert jede Buchung nur den
+  reservierten Rest, weitere Buchungen bleiben möglich. Eine Buchung, die
+  schon automatisch erkannt wird, zum Beispiel über die IBAN, ersetzt die
+  Prognose weiter von selbst und graut sie ebenfalls aus. Wischen löscht nur
+  den einzelnen Termin, nicht die ganze Serie.
 - Weist man die Prognose einer echten Umbuchung zu, ersetzt diese Buchung die
   Prognose für den ganzen Zeitraum. Die Termine bleiben ausgegraut stehen, die
   Buchung bleibt.
@@ -398,13 +415,26 @@ ohne Depot, einen Betrag und einen Rhythmus.
   Einstellungen. So bleibt eine bestehende Datendatei lesbar.
 - Ist eine zugeordnete Ausgabe teilweise erstattet, zählt bei den variablen
   Kosten nur derselbe Anteil.
+- In der Prognose ersetzt eine zugeordnete Buchung den Zeitraum nicht. Jede
+  Buchung mindert den reservierten Betrag, weitere Buchungen können dazukommen.
+  Die Zeile bleibt sichtbar, bis der Rest null ist, und wird erst dann
+  ausgegraut. Eine ältere Zuweisung für den Zeitraum zählt dabei mit ihrem
+  Buchungsbetrag, nicht als komplette Erledigung. Ein gelöschter Termin bleibt
+  ausgeblendet.
 
 ## Einkaufszettel
 
 - In der Finanzansicht steht **Geplant** ohne Plus und in der Textfarbe.
-  **Angewendet** ist rot.
-- In der Liste bearbeitet Rechtswischen einen Eintrag, Linkswischen löscht ihn.
-  Ein Tipp öffnet ihn ebenfalls.
+  **Angewendet** ist rot. Dieselben zwei Werte stehen oben in der
+  Einkaufsliste für den gewählten Finanzzeitraum.
+- Wird der Prognose eine Buchung zugewiesen, zählt bei Angewendet der Betrag
+  der Buchung, nicht der geplante Artikelbetrag. Mehrere Buchungen werden
+  addiert. Ist der Artikel nur abgehakt und hat keine Buchung, zählt der
+  Artikelbetrag. Nicht abgehakte Artikel ohne Buchung bleiben bei Geplant.
+- Die Zuweisung hakt den Artikel ab, in der Liste und in der Detailansicht.
+  Ein Tipp öffnet die Detailansicht. Dort stehen die zugewiesenen Buchungen,
+  und ein Tipp auf eine Buchung öffnet sie. Rechtswischen bearbeitet den
+  Artikel, Linkswischen löscht ihn.
 
 ## Home-Budget
 

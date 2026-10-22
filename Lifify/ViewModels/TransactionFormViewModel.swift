@@ -36,8 +36,9 @@ final class TransactionFormViewModel: ObservableObject {
     @Published var poolSplits: [SplitDraft]
     @Published var errorMessage: String?
     private var didRefine = false
+    private let categoryLocked: Bool
 
-    init(entry: LedgerEntry?, splits: [TransactionSplit], refundOriginal: LedgerEntry? = nil) {
+    init(entry: LedgerEntry?, splits: [TransactionSplit], refundOriginal: LedgerEntry? = nil, lockedCategory: BookingCategory? = nil) {
         id = entry?.id ?? UUID()
         existing = entry
         date = entry?.date ?? .now
@@ -46,7 +47,7 @@ final class TransactionFormViewModel: ObservableObject {
         amountText = entry.map { String(format: "%.2f", Double(abs($0.amountCents)) / 100) } ?? ""
         category = entry.map {
             BookingClassification.category(of: $0, accounts: [], viewedAccountID: nil)
-        } ?? .expense
+        } ?? lockedCategory ?? .expense
         accountID = entry?.accountID
         fromAccountID = entry?.fromAccountID
         toAccountID = entry?.toAccountID
@@ -70,10 +71,18 @@ final class TransactionFormViewModel: ObservableObject {
         poolSplits = splits
             .filter { $0.transactionID == entry?.id && $0.kind == .budgetPool }
             .map { SplitDraft(targetID: $0.targetID, amountText: String(format: "%.2f", Double($0.amountCents) / 100)) }
+        categoryLocked = entry != nil || lockedCategory != nil || refundOriginal != nil
+    }
+
+    var formTitle: String {
+        if existing == nil {
+            return L("Neue \(category.label)", "New \(category.label)")
+        }
+        return L("\(category.label) bearbeiten", "Edit \(category.label)")
     }
 
     var allowsCategoryChange: Bool {
-        existing == nil || (didRefine && category.allowsManualEntry)
+        !categoryLocked && (existing == nil || (didRefine && category.allowsManualEntry))
     }
 
     func refineIfNeeded(accounts: [Account]) {
@@ -87,6 +96,11 @@ final class TransactionFormViewModel: ObservableObject {
         guard !didRefine else { return }
         didRefine = true
         category = resolved
+    }
+
+    func prepareAccounts(_ accounts: [Account]) {
+        guard existing == nil else { return }
+        fillAccounts(for: category, accounts: accounts)
     }
 
     func fillAccounts(for category: BookingCategory, accounts: [Account]) {
@@ -206,6 +220,7 @@ final class TransactionFormViewModel: ObservableObject {
             errorMessage = L("Alle Splits benötigen Ziel und Betrag.", "Every split needs a target and amount.")
             return false
         }
+        let previousShoppingID = existing?.shoppingItemID
         let absolute = abs(rawAmount)
         if let values = variableValues, !values.isEmpty, values.reduce(0, { $0 + $1.amount }) != absolute {
             errorMessage = L("Variable Splits müssen dem Gesamtbetrag entsprechen.", "Variable splits must equal the total.")
@@ -251,6 +266,7 @@ final class TransactionFormViewModel: ObservableObject {
         }
         do {
             try context.save()
+            syncShoppingPurchase(context: context, previousID: previousShoppingID, currentID: entry.shoppingItemID)
             if category == .refund, let refundOriginalID {
                 RefundLinkStore.link(refundID: id, to: refundOriginalID)
             } else {
@@ -266,6 +282,28 @@ final class TransactionFormViewModel: ObservableObject {
             errorMessage = error.localizedDescription
             return false
         }
+    }
+
+    private func syncShoppingPurchase(context: ModelContext, previousID: UUID?, currentID: UUID?) {
+        let ids = Set([previousID, currentID].compactMap { $0 })
+        guard !ids.isEmpty else { return }
+        guard let items = try? context.fetch(FetchDescriptor<ShoppingItem>()),
+              let ledger = try? context.fetch(FetchDescriptor<LedgerEntry>()) else { return }
+        var changed = false
+        for id in ids {
+            guard let item = items.first(where: { $0.id == id }) else { continue }
+            let linked = !FinanceService.shoppingBookings(for: id, entries: ledger).isEmpty
+            if linked {
+                if !item.isPurchased {
+                    item.isPurchased = true
+                    changed = true
+                }
+            } else if id == previousID, previousID != currentID, item.isPurchased {
+                item.isPurchased = false
+                changed = true
+            }
+        }
+        if changed { try? context.save() }
     }
 
     private func splitValues(_ drafts: [SplitDraft]) -> [(targetID: UUID, amount: Int)]? {
