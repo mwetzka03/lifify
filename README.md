@@ -65,9 +65,7 @@ starts setup again.
 3. Select the **Lifify** target and open **Signing & Capabilities**.
 4. Under **Team**, select your own developer team. Without a team the build
    stops with “Signing for Lifify requires a development team”. That is local
-   signing, not a defect in the source. If the bundle ID
-   `com.mwetzka03.lifify` is already taken in your team, enter your own bundle
-   ID for a private build.
+   signing, not a defect in the source.
 5. Connect the iPhone, unlock it, and accept the trust prompt.
 6. At the top of Xcode, choose that iPhone as the run destination.
 7. Build and install with **Product → Run** or `⌘R`.
@@ -155,9 +153,7 @@ Einstellungen und startet die Einrichtung neu.
 3. Das Target **Lifify** wählen und **Signing & Capabilities** öffnen.
 4. Unter **Team** das eigene Entwicklerteam auswählen. Ohne Team bricht der
    Build mit „Signing for Lifify requires a development team“ ab. Das ist die
-   lokale Signatur, kein Fehler im Quelltext. Ist die Bundle-ID
-   `com.mwetzka03.lifify` im eigenen Team belegt, für einen privaten Build eine
-   eigene Bundle-ID eintragen.
+   lokale Signatur, kein Fehler im Quelltext.
 5. Das iPhone verbinden, entsperren und der Vertrauensabfrage zustimmen.
 6. Oben in Xcode dieses iPhone als Ziel wählen.
 7. Mit **Product → Run** oder `⌘R` bauen und installieren.
