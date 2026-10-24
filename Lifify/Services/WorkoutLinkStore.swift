@@ -22,7 +22,7 @@ enum WorkoutLinkStore {
         challengeLinks().filter { $0.planID == planID }.map(\.challengeID)
     }
 
-    static func planIDs(for challengeID: UUID) -> [UUID] {
+    static func planIDs(forChallenge challengeID: UUID) -> [UUID] {
         challengeLinks().filter { $0.challengeID == challengeID }.map(\.planID)
     }
 
@@ -30,7 +30,7 @@ enum WorkoutLinkStore {
         eventLinks().filter { $0.planID == planID }.map(\.eventID)
     }
 
-    static func planIDs(for eventID: UUID) -> [UUID] {
+    static func planIDs(forEvent eventID: UUID) -> [UUID] {
         eventLinks().filter { $0.eventID == eventID }.map(\.planID)
     }
 

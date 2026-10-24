@@ -42,7 +42,7 @@ enum WorkoutCalendarSync {
         func isSport(_ event: ChallengeCalendarEvent) -> Bool {
             if event.details.contains(noteMarker) || WorkoutLinkStore.isManaged(eventID: event.id) { return true }
             if let id = event.linkedChallengeID, sportIDs.contains(id) { return true }
-            return WorkoutLinkStore.planIDs(for: event.id).contains { plan in
+            return WorkoutLinkStore.planIDs(forEvent: event.id).contains { plan in
                 !Set(WorkoutLinkStore.challengeIDs(for: plan)).isDisjoint(with: sportIDs)
             }
         }
@@ -124,7 +124,7 @@ enum WorkoutCalendarSync {
             guard day < today else { return false }
             guard !sessions.contains(where: { calendar.isDate($0.finishedAt, inSameDayAs: day) }) else { return false }
             if WorkoutLinkStore.isManaged(eventID: event.id) || event.details.contains(noteMarker) { return true }
-            let linked = !WorkoutLinkStore.planIDs(for: event.id).isEmpty
+            let linked = !WorkoutLinkStore.planIDs(forEvent: event.id).isEmpty
             let sport = event.linkedChallengeID.map { sportIDs.contains($0) } ?? false
             return linked && sport
         }

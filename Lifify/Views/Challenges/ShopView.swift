@@ -110,7 +110,7 @@ struct ShopView: View {
             .padding(.horizontal, 12)
             .padding(.bottom, 12)
         }
-        .frame(maxWidth: .infinity, height: 276, alignment: .top)
+        .frame(maxWidth: .infinity, minHeight: 276, maxHeight: 276, alignment: .top)
         .background(AppSurface.card)
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
         .overlay(
