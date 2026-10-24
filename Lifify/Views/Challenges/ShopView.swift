@@ -54,30 +54,26 @@ struct ShopView: View {
         return VStack(alignment: .leading, spacing: 0) {
             Button { edited = reward } label: {
                 VStack(alignment: .leading, spacing: 0) {
-                    HStack(alignment: .center, spacing: 10) {
+                    HStack(alignment: .top, spacing: 10) {
                         Image(systemName: reward.icon)
                             .font(.title2.weight(.semibold))
                             .foregroundStyle(.white)
                             .frame(width: 44, height: 44)
                             .background(.white.opacity(0.22), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                        Spacer(minLength: 0)
-                        Text(redemptionLabel(purchases.filter { $0.rewardID == reward.id }.count))
-                            .font(.caption2.weight(.bold))
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .background(.white.opacity(0.2), in: Capsule())
-                    }
-                    .padding(14)
-                    .frame(maxWidth: .infinity, minHeight: 86, alignment: .topLeading)
-                    .background(accent)
-                    VStack(alignment: .leading, spacing: 8) {
                         Text(reward.title)
                             .font(.headline)
-                            .foregroundStyle(.primary)
-                            .lineLimit(2)
+                            .foregroundStyle(.white)
+                            .lineLimit(3)
                             .multilineTextAlignment(.leading)
                             .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .padding(14)
+                    .frame(maxWidth: .infinity, minHeight: 104, alignment: .topLeading)
+                    .background(accent)
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(redemptionLabel(purchases.filter { $0.rewardID == reward.id }.count))
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.secondary)
                         if !reward.details.isEmpty {
                             Text(reward.details)
                                 .font(.caption)
@@ -127,12 +123,17 @@ struct ShopView: View {
                 }
             }
             Button(role: .destructive) {
-                reward.isActive = false
-                try? context.save()
+                deleteReward(reward)
             } label: {
-                Label(L("Entfernen", "Remove"), systemImage: "trash")
+                Label(L("Löschen", "Delete"), systemImage: "trash")
             }
         }
+    }
+
+    private func deleteReward(_ reward: RewardItem) {
+        RewardPolicyStore.remove(for: reward.id)
+        context.delete(reward)
+        try? context.save()
     }
 
     private func redemptionLabel(_ count: Int) -> String {
@@ -182,6 +183,7 @@ private struct RewardForm: View {
     @State private var icon: String
     @State private var colorHex: String
     @State private var allowsMultiple: Bool
+    @State private var confirmDelete = false
 
     init(reward: RewardItem?) {
         existing = reward
@@ -232,8 +234,34 @@ private struct RewardForm: View {
                         }
                     }
                 }
+                if existing != nil {
+                    Section {
+                        Button(L("Belohnung löschen", "Delete reward"), role: .destructive) {
+                            confirmDelete = true
+                        }
+                    }
+                }
             }
             .navigationTitle(L("Belohnung", "Reward"))
+            .confirmationDialog(
+                L("Belohnung löschen?", "Delete reward?"),
+                isPresented: $confirmDelete,
+                titleVisibility: .visible
+            ) {
+                Button(L("Löschen", "Delete"), role: .destructive) {
+                    guard let existing else { return }
+                    RewardPolicyStore.remove(for: existing.id)
+                    context.delete(existing)
+                    try? context.save()
+                    dismiss()
+                }
+                Button(L("Abbrechen", "Cancel"), role: .cancel) {}
+            } message: {
+                Text(L(
+                    "Die Belohnung verschwindet aus dem Shop. Bereits verbrauchte Coins bleiben verbucht.",
+                    "The reward leaves the shop. Coins already spent stay on the record."
+                ))
+            }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button(L("Abbrechen", "Cancel")) { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {

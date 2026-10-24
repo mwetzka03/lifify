@@ -2,6 +2,8 @@ import Foundation
 
 @MainActor
 final class WorkoutStore: ObservableObject {
+    static let replacedNotification = Notification.Name("lifify.workouts.replaced")
+
     @Published private(set) var plans: [WorkoutPlan] = []
     @Published private(set) var sessions: [WorkoutSession] = []
     @Published private(set) var meals: [MealEntry] = []
@@ -9,17 +11,56 @@ final class WorkoutStore: ObservableObject {
     private let fileURL: URL
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
+    nonisolated(unsafe) private var replacementObserver: NSObjectProtocol?
 
     init(fileURL: URL? = nil) {
-        let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("Lifify", isDirectory: true)
-        self.fileURL = fileURL ?? support.appendingPathComponent("workouts.json")
+        self.fileURL = fileURL ?? Self.defaultFileURL()
         encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         load()
+        replacementObserver = NotificationCenter.default.addObserver(
+            forName: Self.replacedNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                self?.load()
+            }
+        }
+    }
+
+    deinit {
+        if let replacementObserver {
+            NotificationCenter.default.removeObserver(replacementObserver)
+        }
+    }
+
+    static func defaultFileURL() -> URL {
+        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("Lifify", isDirectory: true)
+            .appendingPathComponent("workouts.json")
+    }
+
+    func exportSnapshotData() throws -> Data {
+        try encoder.encode(Snapshot(plans: plans, sessions: sessions, meals: meals))
+    }
+
+    static func replaceStoredSnapshot(_ data: Data) throws {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        _ = try decoder.decode(Snapshot.self, from: data)
+        let url = defaultFileURL()
+        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try data.write(to: url, options: .atomic)
+        NotificationCenter.default.post(name: replacedNotification, object: nil)
+    }
+
+    static func clearStored() {
+        try? FileManager.default.removeItem(at: defaultFileURL())
+        NotificationCenter.default.post(name: replacedNotification, object: nil)
     }
 
     func plan(id: UUID) -> WorkoutPlan? {
@@ -139,7 +180,12 @@ final class WorkoutStore: ObservableObject {
     }
 
     private func load() {
-        guard FileManager.default.fileExists(atPath: fileURL.path) else { return }
+        guard FileManager.default.fileExists(atPath: fileURL.path) else {
+            plans = []
+            sessions = []
+            meals = []
+            return
+        }
         do {
             let data = try Data(contentsOf: fileURL)
             let snapshot = try decoder.decode(Snapshot.self, from: data)

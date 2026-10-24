@@ -1,7 +1,7 @@
 import Foundation
 import SwiftData
 
-/// Writes a finished workout into the calendar and removes a planned sport slot once its day ended without a workout.
+/// Writes a finished workout onto that day's linked challenge and calendar occurrence.
 @MainActor
 enum WorkoutCalendarSync {
     static let noteMarker = "Lifify-Training"
@@ -25,108 +25,72 @@ enum WorkoutCalendarSync {
         let start = end.addingTimeInterval(-TimeInterval(length))
         let challenges = (try? context.fetch(FetchDescriptor<ChallengeItem>())) ?? []
         let events = (try? context.fetch(FetchDescriptor<ChallengeCalendarEvent>())) ?? []
-        let sportIDs = Set(challenges.filter { $0.category == .sport && !$0.isArchived }.map(\.id))
-        let planChallenges = Set(WorkoutLinkStore.challengeIDs(for: session.planID)).intersection(sportIDs)
-        let planEvents = Set(WorkoutLinkStore.eventIDs(for: session.planID))
-        let calendar = Calendar.current
-        let title = session.planName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            ? L("Training", "Workout")
-            : session.planName
-        let notes = "\(noteMarker)\n\(title)"
-
-        func onFinishDay(_ event: ChallengeCalendarEvent) -> Bool {
-            calendar.isDate(event.startDate, inSameDayAs: session.finishedAt)
-                || calendar.isDate(event.endDate, inSameDayAs: session.finishedAt)
+        let completions = (try? context.fetch(FetchDescriptor<ChallengeCompletion>())) ?? []
+        let linkedIDs = Set(WorkoutLinkStore.challengeIDs(for: session.planID))
+        let explicitEventIDs = Set(WorkoutLinkStore.eventIDs(for: session.planID))
+        var challengeByID: [UUID: ChallengeItem] = [:]
+        for challenge in challenges where linkedIDs.contains(challenge.id) && !challenge.isArchived {
+            challengeByID[challenge.id] = challenge
         }
 
-        func isSport(_ event: ChallengeCalendarEvent) -> Bool {
-            if event.details.contains(noteMarker) || WorkoutLinkStore.isManaged(eventID: event.id) { return true }
-            if let id = event.linkedChallengeID, sportIDs.contains(id) { return true }
-            return WorkoutLinkStore.planIDs(forEvent: event.id).contains { plan in
-                !Set(WorkoutLinkStore.challengeIDs(for: plan)).isDisjoint(with: sportIDs)
+        for event in events where !event.isReminderSuggestion && explicitEventIDs.contains(event.id) && onFinishDay(event, session: session) {
+            await updateOccurrence(event, start: start, end: end)
+            if let id = event.linkedChallengeID,
+               let challenge = challenges.first(where: { $0.id == id && !$0.isArchived }) {
+                challengeByID[id] = challenge
             }
         }
 
-        let linkedSport = events.filter { event in
-            !event.isReminderSuggestion && onFinishDay(event) && planEvents.contains(event.id) && isSport(event)
-        }
-        let challengeSport = events.filter { event in
-            guard !event.isReminderSuggestion, onFinishDay(event), let id = event.linkedChallengeID else { return false }
-            return planChallenges.contains(id)
-        }
-        let chosen = linkedSport.first ?? challengeSport.first
-        let challengeID = chosen?.linkedChallengeID.flatMap { sportIDs.contains($0) ? $0 : nil }
-            ?? planChallenges.sorted { $0.uuidString < $1.uuidString }.first
-
-        if let chosen {
-            let identifier = await EventKitSyncService.saveCalendarEvent(
-                externalIdentifier: chosen.externalIdentifier,
-                originalStart: chosen.startDate,
-                title: title,
-                notes: notes,
-                start: start,
-                end: end,
-                isAllDay: false
-            )
-            chosen.title = title
-            chosen.details = notes
-            chosen.startDate = start
-            chosen.endDate = end
-            chosen.isAllDay = false
-            chosen.icon = "figure.strengthtraining.traditional"
-            if chosen.linkedChallengeID == nil {
-                chosen.linkedChallengeID = challengeID
+        for challenge in challengeByID.values {
+            let occurrences = events.filter { event in
+                !event.isReminderSuggestion
+                    && onFinishDay(event, session: session)
+                    && event.linkedChallengeID == challenge.id
             }
-            if let identifier {
-                chosen.externalIdentifier = identifier
+            if occurrences.isEmpty {
+                if ChallengeService.isDue(challenge, on: session.finishedAt),
+                   challenge.externalIdentifier?.hasPrefix("event-challenge:") != true {
+                    await createOccurrence(for: challenge, session: session, start: start, end: end, context: context)
+                }
+            } else {
+                for event in occurrences {
+                    await updateOccurrence(event, start: start, end: end)
+                }
             }
-            WorkoutLinkStore.link(planID: session.planID, eventID: chosen.id, managed: true)
-        } else {
-            let identifier = await EventKitSyncService.saveCalendarEvent(
-                externalIdentifier: nil,
-                originalStart: nil,
-                title: title,
-                notes: notes,
-                start: start,
-                end: end,
-                isAllDay: false
-            )
-            let event = ChallengeCalendarEvent(
-                title: title,
-                details: notes,
-                startDate: start,
-                endDate: end,
-                isAllDay: false,
-                colorHex: "#2F9E7A",
-                icon: "figure.strengthtraining.traditional",
-                linkedChallengeID: challengeID,
-                externalIdentifier: identifier,
-                isReadOnly: false
-            )
-            context.insert(event)
-            WorkoutLinkStore.link(planID: session.planID, eventID: event.id, managed: true)
+            if ChallengeService.isDue(challenge, on: session.finishedAt) || !occurrences.isEmpty {
+                ChallengeService.markCompletedIfNeeded(
+                    challenge: challenge,
+                    date: session.finishedAt,
+                    completions: completions,
+                    context: context
+                )
+            }
         }
         try? context.save()
         await cleanup(context: context, sessions: sessions)
     }
 
-    /// After a day ends with no workout, removes the sport slot Lifify created or the one explicitly linked to a workout.
-    /// Other calendar events stay, including ones that are not tied to sport.
+    /// After a day ends with none of the linked workouts, removes only that occurrence.
     static func cleanup(context: ModelContext, sessions: [WorkoutSession]) async {
         let events = (try? context.fetch(FetchDescriptor<ChallengeCalendarEvent>())) ?? []
-        let challenges = (try? context.fetch(FetchDescriptor<ChallengeItem>())) ?? []
-        let sportIDs = Set(challenges.filter { $0.category == .sport }.map(\.id))
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: .now)
         let doomed = events.filter { event in
             guard !event.isReminderSuggestion else { return false }
             let day = calendar.startOfDay(for: event.startDate)
             guard day < today else { return false }
-            guard !sessions.contains(where: { calendar.isDate($0.finishedAt, inSameDayAs: day) }) else { return false }
-            if WorkoutLinkStore.isManaged(eventID: event.id) || event.details.contains(noteMarker) { return true }
-            let linked = !WorkoutLinkStore.planIDs(forEvent: event.id).isEmpty
-            let sport = event.linkedChallengeID.map { sportIDs.contains($0) } ?? false
-            return linked && sport
+            let challengePlans = Set(
+                event.linkedChallengeID.map { WorkoutLinkStore.planIDs(forChallenge: $0) } ?? []
+            )
+            let eventPlans = Set(WorkoutLinkStore.planIDs(forEvent: event.id))
+            let relevant = challengePlans.union(eventPlans)
+            let managed = WorkoutLinkStore.isManaged(eventID: event.id) || event.details.contains(noteMarker)
+            guard !relevant.isEmpty || managed else { return false }
+            let covered = sessions.contains { session in
+                guard calendar.isDate(session.finishedAt, inSameDayAs: day) else { return false }
+                return relevant.isEmpty || relevant.contains(session.planID)
+            }
+            return !covered
         }
         guard !doomed.isEmpty else { return }
         for event in doomed {
@@ -140,5 +104,67 @@ enum WorkoutCalendarSync {
             context.delete(event)
         }
         try? context.save()
+    }
+
+    private static func onFinishDay(_ event: ChallengeCalendarEvent, session: WorkoutSession) -> Bool {
+        Calendar.current.isDate(event.startDate, inSameDayAs: session.finishedAt)
+    }
+
+    /// Moves one occurrence. The series title stays, and later days of a recurrence are left alone.
+    private static func updateOccurrence(_ event: ChallengeCalendarEvent, start: Date, end: Date) async {
+        let hadExternal = event.externalIdentifier?.isEmpty == false
+        let identifier = await EventKitSyncService.saveCalendarEvent(
+            externalIdentifier: event.externalIdentifier,
+            originalStart: event.startDate,
+            title: event.title,
+            notes: event.details,
+            start: start,
+            end: end,
+            isAllDay: false,
+            occurrenceOnly: true
+        )
+        guard identifier != nil || !hadExternal else { return }
+        event.startDate = start
+        event.endDate = end
+        event.isAllDay = false
+        if let identifier {
+            event.externalIdentifier = identifier
+        }
+    }
+
+    private static func createOccurrence(
+        for challenge: ChallengeItem,
+        session: WorkoutSession,
+        start: Date,
+        end: Date,
+        context: ModelContext
+    ) async {
+        let trimmed = challenge.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let title = trimmed.isEmpty ? session.planName : trimmed
+        let notes = "\(noteMarker)\n\(session.planName)"
+        let identifier = await EventKitSyncService.saveCalendarEvent(
+            externalIdentifier: nil,
+            originalStart: nil,
+            title: title,
+            notes: notes,
+            start: start,
+            end: end,
+            isAllDay: false,
+            occurrenceOnly: true
+        )
+        let event = ChallengeCalendarEvent(
+            title: title,
+            details: notes,
+            startDate: start,
+            endDate: end,
+            isAllDay: false,
+            colorHex: "#2F9E7A",
+            icon: "figure.strengthtraining.traditional",
+            linkedChallengeID: challenge.id,
+            externalIdentifier: identifier,
+            isReadOnly: false
+        )
+        context.insert(event)
+        WorkoutLinkStore.link(planID: session.planID, eventID: event.id, managed: true)
     }
 }

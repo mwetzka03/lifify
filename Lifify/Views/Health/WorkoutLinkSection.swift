@@ -9,8 +9,8 @@ struct WorkoutLinkSection: View {
     @State private var showingChallenges = false
     @State private var showingEvents = false
 
-    private var sportChallenges: [ChallengeItem] {
-        challenges.filter { $0.category == .sport && !$0.isArchived }
+    private var linkableChallenges: [ChallengeItem] {
+        challenges.filter { !$0.isArchived }
     }
 
     private var calendarEvents: [ChallengeCalendarEvent] {
@@ -23,15 +23,15 @@ struct WorkoutLinkSection: View {
             Text(L("Verknüpfungen", "Links"))
                 .font(.headline)
             Text(L(
-                "Mehrere Trainings können dieselbe Sport-Challenge oder denselben Kalendereintrag nutzen.",
-                "Several workouts can share the same sport challenge or the same calendar event."
+                "Mehrere Trainings können dieselbe Challenge nutzen, zum Beispiel Push und Pull für Gym. Ist eines davon an dem Tag fertig, wird die Challenge abgehakt und nur dieser Kalendereintrag angepasst.",
+                "Several workouts can share one challenge, for example Push and Pull for Gym. Finishing any of them that day checks off the challenge and updates only that calendar entry."
             ))
             .font(.caption)
             .foregroundStyle(.secondary)
             Button { showingChallenges = true } label: {
                 linkRow(
-                    title: L("Sport-Challenges", "Sport challenges"),
-                    systemImage: "figure.run",
+                    title: L("Challenges", "Challenges"),
+                    systemImage: "target",
                     value: challengeSummary
                 )
             }
@@ -49,7 +49,7 @@ struct WorkoutLinkSection: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(AppSurface.card, in: RoundedRectangle(cornerRadius: 16))
         .sheet(isPresented: $showingChallenges) {
-            WorkoutChallengePicker(planID: planID, challenges: sportChallenges)
+            WorkoutChallengePicker(planID: planID, challenges: linkableChallenges)
         }
         .sheet(isPresented: $showingEvents) {
             WorkoutEventPicker(planID: planID, events: calendarEvents)
@@ -58,7 +58,7 @@ struct WorkoutLinkSection: View {
 
     private var challengeSummary: String {
         let ids = Set(WorkoutLinkStore.challengeIDs(for: planID))
-        let names = sportChallenges.filter { ids.contains($0.id) }.map(\.title)
+        let names = linkableChallenges.filter { ids.contains($0.id) }.map(\.title)
         return names.isEmpty ? L("Keine", "None") : names.joined(separator: ", ")
     }
 
@@ -105,7 +105,7 @@ private struct WorkoutChallengePicker: View {
         NavigationStack {
             List {
                 if challenges.isEmpty {
-                    Text(L("Keine Sport-Challenge.", "No sport challenge."))
+                    Text(L("Keine Challenge.", "No challenge."))
                         .foregroundStyle(.secondary)
                 }
                 ForEach(challenges) { challenge in
@@ -117,8 +117,13 @@ private struct WorkoutChallengePicker: View {
                         }
                     } label: {
                         HStack {
-                            Text(challenge.title)
-                                .foregroundStyle(.primary)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(challenge.title)
+                                    .foregroundStyle(.primary)
+                                Text(challenge.category.label)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
                             Spacer()
                             if selected.contains(challenge.id) {
                                 Image(systemName: "checkmark")
@@ -129,7 +134,7 @@ private struct WorkoutChallengePicker: View {
                     .buttonStyle(.plain)
                 }
             }
-            .navigationTitle(L("Sport-Challenges", "Sport challenges"))
+            .navigationTitle(L("Challenges", "Challenges"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {

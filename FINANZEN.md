@@ -446,8 +446,9 @@ an amount, and a cadence.
 
 - A pool is not tied to an account, and the form does not ask for one.
 - A tap opens the pool. Swiping right edits it, swiping left deletes it.
-- The detail can add a transaction. That is a real booking, assigned to the
-  pool for the period of its date.
+- The detail links an existing transaction. It does not create a new booking.
+  The transaction is assigned to the pool for the period of its date. Several
+  can be linked at once. Unlinking removes only that assignment.
 - There is no start day. A salary period is the calendar month, and a calendar
   year is the calendar year. An older pool that stored a start day still
   counts those assignments in the calendar month that contains the start of
@@ -982,8 +983,10 @@ ohne Depot, einen Betrag und einen Rhythmus.
 - Ein Pool hängt an keinem Konto, das Formular fragt nicht danach.
 - Ein Tipp öffnet den Pool. Wischen nach rechts bearbeitet ihn, Wischen nach
   links löscht ihn.
-- In der Detailansicht lässt sich eine Buchung hinzufügen. Das ist eine echte
-  Buchung und wird dem Pool im Zeitraum ihres Datums zugeordnet.
+- In der Detailansicht lässt sich eine bestehende Buchung zuordnen. Es wird
+  keine neue Buchung angelegt. Die Buchung wird dem Pool im Zeitraum ihres
+  Datums zugeordnet. Mehrere können zugleich zugeordnet werden. Das Lösen
+  entfernt nur die Zuordnung.
 - Es gibt keinen Starttag. Der Gehaltszeitraum ist der Kalendermonat, das
   Kalenderjahr das Kalenderjahr. Ein älterer Pool mit gespeichertem Starttag
   zählt diese Zuweisungen in dem Kalendermonat, in dem der alte Zeitraum

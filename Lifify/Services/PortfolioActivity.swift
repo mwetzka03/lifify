@@ -107,6 +107,12 @@ enum HoldingLotStore {
         save(map)
     }
 
+    static func reset() {
+        UserDefaults.standard.removeObject(forKey: key)
+        cached = [:]
+        cacheRevision += 1
+    }
+
     private static func snapshot() -> [String: [HoldingLot]] {
         if let cached { return cached }
         let decoded: [String: [HoldingLot]]
@@ -206,6 +212,12 @@ enum SavingsPlanStore {
 
     static func remove(id: UUID) {
         save(all().filter { $0.id != id })
+    }
+
+    static func reset() {
+        UserDefaults.standard.removeObject(forKey: key)
+        cached = []
+        cacheRevision += 1
     }
 
     static func save(_ plans: [SavingsPlanRecord]) {
@@ -706,6 +718,11 @@ enum ClosedPositionStore {
     static func remove(isin: String) {
         let symbol = isin.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
         save(all().filter { $0.isin.uppercased() != symbol })
+    }
+
+    static func reset() {
+        UserDefaults.standard.removeObject(forKey: key)
+        cached = []
     }
 
     private static func save(_ rows: [ClosedPositionRecord]) {

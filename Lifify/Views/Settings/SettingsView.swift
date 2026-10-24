@@ -99,6 +99,24 @@ struct SettingsView: View {
             }
             Section {
                 Button(role: .destructive) {
+                    destructiveAction = .deleteFinance
+                } label: {
+                    Label(L("Finanzen löschen", "Delete finance"), systemImage: "eurosign.circle")
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                Button(role: .destructive) {
+                    destructiveAction = .deleteTraining
+                } label: {
+                    Label(L("Training löschen", "Delete training"), systemImage: "figure.strengthtraining.traditional")
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                Button(role: .destructive) {
+                    destructiveAction = .deleteChallenges
+                } label: {
+                    Label(L("Challenges löschen", "Delete challenges"), systemImage: "target")
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                Button(role: .destructive) {
                     destructiveAction = .deleteData
                 } label: {
                     Label(L("Alle Daten löschen", "Delete all data"), systemImage: "trash")
@@ -130,6 +148,13 @@ struct SettingsView: View {
                     switch destructiveAction {
                     case .deleteData:
                         try BackupService.deleteUserData(from: context)
+                    case .deleteFinance:
+                        try BackupService.deleteFinanceData(from: context)
+                    case .deleteTraining:
+                        try BackupService.deleteTrainingData()
+                        workouts.reset()
+                    case .deleteChallenges:
+                        try BackupService.deleteChallengeData(from: context)
                     case .resetApp:
                         try BackupService.resetApp(from: context)
                         workouts.reset()
@@ -176,11 +201,17 @@ struct SettingsView: View {
 }
 
 private enum DestructiveAction {
+    case deleteFinance
+    case deleteTraining
+    case deleteChallenges
     case deleteData
     case resetApp
 
     var title: String {
         switch self {
+        case .deleteFinance: L("Finanzen löschen?", "Delete finance?")
+        case .deleteTraining: L("Training löschen?", "Delete training?")
+        case .deleteChallenges: L("Challenges löschen?", "Delete challenges?")
         case .deleteData: L("Alle Daten löschen?", "Delete all data?")
         case .resetApp: L("App vollständig zurücksetzen?", "Reset the entire app?")
         }
@@ -188,6 +219,21 @@ private enum DestructiveAction {
 
     var message: String {
         switch self {
+        case .deleteFinance:
+            L(
+                "Buchungen, Budgets, Prognosen, Einkäufe, Schulden, Depot und Pools werden gelöscht. Konten, Challenges, Kalender und Trainings bleiben.",
+                "Transactions, budgets, forecasts, shopping, debts, holdings, and pools will be deleted. Accounts, challenges, calendar, and training remain."
+            )
+        case .deleteTraining:
+            L(
+                "Trainingspläne, Einheiten, Mahlzeiten und die Verknüpfungen zu Challenges werden gelöscht. Challenges, Kalender und Finanzen bleiben.",
+                "Workout plans, sessions, meals, and the links to challenges will be deleted. Challenges, calendar, and finance remain."
+            )
+        case .deleteChallenges:
+            L(
+                "Challenges, Kalender, Shop, Coins und die Verknüpfungen zu Trainings werden gelöscht. Trainingspläne und Finanzen bleiben.",
+                "Challenges, calendar, shop, coins, and the links to workouts will be deleted. Workout plans and finance remain."
+            )
         case .deleteData:
             L(
                 "Buchungen, Budgets, Challenges und weitere Inhalte werden gelöscht. Deine Konten und App-Einstellungen bleiben erhalten.",

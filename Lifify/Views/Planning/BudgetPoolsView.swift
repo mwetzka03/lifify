@@ -63,6 +63,7 @@ struct BudgetPoolsView: View {
 }
 
 private struct BudgetPoolDetailView: View {
+    @Environment(\.modelContext) private var context
     @Query private var splits: [TransactionSplit]
     @Query(sort: \LedgerEntry.date, order: .reverse) private var entries: [LedgerEntry]
     let pool: BudgetPool
@@ -101,20 +102,40 @@ private struct BudgetPoolDetailView: View {
                         Spacer()
                         Text(Money.string(cents: assignedAmount(entry)))
                     }
+                    .swipeActions(edge: .trailing) {
+                        Button(role: .destructive) {
+                            unlink(entry)
+                        } label: {
+                            Text(L("Lösen", "Unlink"))
+                        }
+                    }
                 }
                 Button {
                     showingBooking = true
                 } label: {
-                    Label(L("Buchung hinzufügen", "Add transaction"), systemImage: "plus")
+                    Label(L("Buchung zuordnen", "Assign transaction"), systemImage: "plus")
                 }
                 .buttonStyle(.borderless)
+                Text(L(
+                    "Eine bestehende Buchung wird verknüpft. Es entsteht keine neue Buchung.",
+                    "An existing transaction is linked. No new booking is created."
+                ))
+                .font(.caption)
+                .foregroundStyle(.secondary)
             }
         }
         .navigationTitle(pool.name)
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $showingBooking) {
-            PoolBookingForm(pool: pool)
+            PoolBookingPicker(pool: pool)
         }
+    }
+
+    private func unlink(_ entry: LedgerEntry) {
+        splits
+            .filter { $0.transactionID == entry.id && $0.kind == .budgetPool && $0.targetID == pool.id }
+            .forEach { context.delete($0) }
+        try? context.save()
     }
 
     private var periodSplits: [TransactionSplit] {
@@ -202,79 +223,103 @@ private struct BudgetPoolForm: View {
     }
 }
 
-private struct PoolBookingForm: View {
+private struct PoolBookingPicker: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
-    @Query(sort: \Account.name) private var accounts: [Account]
+    @Query private var splits: [TransactionSplit]
+    @Query(sort: \LedgerEntry.date, order: .reverse) private var entries: [LedgerEntry]
     let pool: BudgetPool
-    @State private var title = ""
-    @State private var amount = ""
-    @State private var date = Date.now
-    @State private var accountID: UUID?
-    @State private var notes = ""
-
-    private var cashAccounts: [Account] {
-        accounts.filter { $0.kind != .portfolio && $0.kind != .savingsGroup }
-    }
+    @State private var selected: Set<UUID> = []
+    @State private var query = ""
 
     var body: some View {
         NavigationStack {
-            Form {
-                TextField(L("Titel", "Title"), text: $title)
-                TextField(L("Betrag", "Amount"), text: $amount)
-                    .keyboardType(.decimalPad)
-                AppDateField(title: L("Datum", "Date"), selection: $date)
-                Picker(L("Konto", "Account"), selection: $accountID) {
-                    Text(L("Auswählen", "Select")).tag(Optional<UUID>.none)
-                    ForEach(cashAccounts) { account in
-                        Text(account.name).tag(Optional(account.id))
-                    }
+            Group {
+                if availableEntries.isEmpty {
+                    ContentUnavailableView(
+                        L("Keine freien Buchungen", "No free transactions"),
+                        systemImage: "tray",
+                        description: Text(L(
+                            "Jede Buchung, die diesem Pool noch nicht zugeordnet ist, erscheint hier.",
+                            "Transactions that are not yet assigned to this pool appear here."
+                        ))
+                    )
+                } else {
+                    bookingList
                 }
-                TextField(L("Notiz", "Note"), text: $notes, axis: .vertical)
-                Text(L(
-                    "Die Buchung wird diesem Pool im Zeitraum des Datums zugeordnet.",
-                    "The transaction is assigned to this pool for the period of its date."
-                ))
-                .font(.caption)
-                .foregroundStyle(.secondary)
             }
-            .navigationTitle(L("Buchung hinzufügen", "Add transaction"))
+            .searchable(text: $query, prompt: L("Buchung suchen", "Search transactions"))
+            .navigationTitle(L("Buchung zuordnen", "Assign transaction"))
             .navigationBarTitleDisplayMode(.inline)
-            .onAppear {
-                guard accountID == nil else { return }
-                accountID = cashAccounts.first(where: \.isMain)?.id ?? cashAccounts.first?.id
-            }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(L("Abbrechen", "Cancel")) { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(L("Speichern", "Save")) { save() }
+                        .disabled(selected.isEmpty)
                 }
             }
         }
     }
 
-    private func save() {
-        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let cents = Money.cents(from: amount), cents != 0, !trimmed.isEmpty, let accountID else { return }
-        let absolute = abs(cents)
-        let entry = LedgerEntry(
-            date: date,
-            title: trimmed,
-            notes: notes,
-            amountCents: -absolute,
-            kind: .expense,
-            accountID: accountID
+    private var bookingList: some View {
+        List(filtered) { entry in
+                Button {
+                    if selected.contains(entry.id) {
+                        selected.remove(entry.id)
+                    } else {
+                        selected.insert(entry.id)
+                    }
+                } label: {
+                    HStack(spacing: 12) {
+                        Image(systemName: selected.contains(entry.id) ? "checkmark.circle.fill" : "circle")
+                            .foregroundStyle(selected.contains(entry.id) ? Color.accentColor : Color.secondary)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(entry.title)
+                                .foregroundStyle(.primary)
+                            Text(AppDate.numeric(entry.date))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Text(Money.string(cents: abs(entry.amountCents)))
+                            .foregroundStyle(.primary)
+                    }
+                }
+                .buttonStyle(.plain)
+            }
+    }
+
+    private var availableEntries: [LedgerEntry] {
+        let assigned = Set(
+            splits
+                .filter { $0.kind == .budgetPool && $0.targetID == pool.id }
+                .map(\.transactionID)
         )
-        context.insert(entry)
-        context.insert(TransactionSplit(
-            transactionID: entry.id,
-            targetID: pool.id,
-            kind: .budgetPool,
-            periodKey: CalendarService.periodKey(for: date, pool: pool),
-            amountCents: absolute
-        ))
+        return entries.filter { !assigned.contains($0.id) && $0.amountCents != 0 }
+    }
+
+    private var filtered: [LedgerEntry] {
+        let text = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return availableEntries }
+        return availableEntries.filter {
+            $0.title.localizedCaseInsensitiveContains(text) || $0.notes.localizedCaseInsensitiveContains(text)
+        }
+    }
+
+    private func save() {
+        for entry in entries where selected.contains(entry.id) {
+            let absolute = abs(entry.amountCents)
+            guard absolute > 0 else { continue }
+            context.insert(TransactionSplit(
+                transactionID: entry.id,
+                targetID: pool.id,
+                kind: .budgetPool,
+                periodKey: CalendarService.periodKey(for: entry.date, pool: pool),
+                amountCents: absolute
+            ))
+        }
         try? context.save()
         dismiss()
     }
