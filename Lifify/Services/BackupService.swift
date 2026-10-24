@@ -68,8 +68,32 @@ struct BackupDocument: FileDocument {
     }
 }
 
+enum BackupScope: String {
+    case all
+    case finance
+    case challenges
+    case training
+}
+
 @MainActor
 enum BackupService {
+    private static let financeTypes: Set<String> = [
+        "account", "entry", "split", "fixed", "variable", "pool", "forecast", "shopping", "debt",
+        "group", "line", "holding", "marketSymbol", "previousClose", "purchaseDate",
+        "primaryIncome", "secondaryIncome", "incomeAssignment", "expenseGroupAssignment"
+    ]
+    private static let challengeTypes: Set<String> = [
+        "challengeEvent", "challenge", "reminderRecurrence", "eventRecurrence", "completion",
+        "challengeGroup", "coin", "reward", "rewardPolicy", "reminderSync", "purchase", "bucket",
+        "workoutChallengeLink", "workoutEventLink"
+    ]
+    private static let sideTypes: Set<String> = [
+        "iconPreference", "reminderRecurrence", "eventRecurrence", "marketSymbol", "previousClose", "purchaseDate",
+        "rewardPolicy", "reminderSync",
+        "primaryIncome", "secondaryIncome", "incomeAssignment", "expenseGroupAssignment",
+        "workoutChallengeLink", "workoutEventLink", "appPreferences", "backupScope", "workoutSnapshot"
+    ]
+
     static func exportData(
         accounts: [Account],
         entries: [LedgerEntry],
@@ -90,7 +114,9 @@ enum BackupService {
         coinTransactions: [CoinTransaction],
         rewards: [RewardItem],
         purchases: [RewardPurchase],
-        bucketItems: [BucketListItem]
+        bucketItems: [BucketListItem],
+        scope: BackupScope = .all,
+        workoutSnapshot: Data? = nil
     ) throws -> Data {
         var records: [BackupRecord] = []
         records += accounts.map {
@@ -241,6 +267,15 @@ enum BackupService {
             }
             return BackupRecord(type: "incomeAssignment", id: entryID, uuids: [forecastID])
         }
+        records += ExpenseGroupAssignmentStore.pairs().map { pair in
+            BackupRecord(type: "expenseGroupAssignment", id: pair.entryID, uuids: [pair.groupID])
+        }
+        records += WorkoutLinkStore.challengePairs().map { pair in
+            BackupRecord(type: "workoutChallengeLink", id: pair.planID, uuids: [pair.challengeID])
+        }
+        records += WorkoutLinkStore.eventPairs().map { pair in
+            BackupRecord(type: "workoutEventLink", id: pair.planID, booleans: [pair.managed], uuids: [pair.eventID])
+        }
         records.append(BackupRecord(
             type: "appPreferences",
             id: UUID(),
@@ -251,6 +286,20 @@ enum BackupService {
                 defaults.string(forKey: "appTheme") ?? AppTheme.system.rawValue
             ]
         ))
+        records = scopedRecords(
+            records,
+            scope: scope,
+            financeIconIDs: Set(entries.map(\.id) + fixedCosts.map(\.id)),
+            challengeIconIDs: Set(challenges.map(\.id))
+        )
+        records.append(BackupRecord(type: "backupScope", id: UUID(), strings: [scope.rawValue]))
+        if scope == .all || scope == .training, let workoutSnapshot, !workoutSnapshot.isEmpty {
+            records.append(BackupRecord(
+                type: "workoutSnapshot",
+                id: UUID(),
+                strings: [String(decoding: workoutSnapshot, as: UTF8.self)]
+            ))
+        }
         let backup = LififyBackup(version: 1, exportedAt: .now, records: records)
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
@@ -264,26 +313,16 @@ enum BackupService {
         decoder.dateDecodingStrategy = .iso8601
         let backup = try decoder.decode(LififyBackup.self, from: data)
         guard backup.version == 1 else { throw CocoaError(.fileReadUnsupportedScheme) }
-        let oldSideStores = try sideStoreKeys(in: context)
-        try clear(context, includingAccounts: true)
-        let sideTypes = Set([
-            "iconPreference", "reminderRecurrence", "eventRecurrence", "marketSymbol", "previousClose", "purchaseDate",
-            "rewardPolicy", "reminderSync",
-            "primaryIncome", "secondaryIncome", "incomeAssignment", "appPreferences"
-        ])
-        for record in backup.records where !sideTypes.contains(record.type) {
-            insert(record, into: context)
-        }
-        try context.save()
-        clearSideStores(oldSideStores)
-        IncomeAssignmentStore.reset()
-        RefundLinkStore.reset()
-        TransferForecastStore.reset()
-        ForecastSkipStore.reset()
-        ForecastPeriodLinkStore.reset()
-        ForecastMatchRejectionStore.reset()
-        for record in backup.records where sideTypes.contains(record.type) {
-            insert(record, into: context)
+        let scope = BackupScope(rawValue: backup.records.first { $0.type == "backupScope" }?.strings.first ?? "") ?? .all
+        switch scope {
+        case .all:
+            try restoreAll(backup, into: context)
+        case .finance:
+            try restoreFinance(backup, into: context)
+        case .challenges:
+            try restoreChallenges(backup, into: context)
+        case .training:
+            try restoreTraining(backup)
         }
     }
 
@@ -292,12 +331,33 @@ enum BackupService {
         try clear(context, includingAccounts: false)
         try context.save()
         clearSideStores(sideStores)
-        IncomeAssignmentStore.reset()
-        RefundLinkStore.reset()
-        TransferForecastStore.reset()
-        ForecastSkipStore.reset()
-        ForecastPeriodLinkStore.reset()
-        ForecastMatchRejectionStore.reset()
+        resetFinanceSideStores()
+        WorkoutLinkStore.reset()
+    }
+
+    static func deleteFinanceData(from context: ModelContext) throws {
+        let sideStores = try financeSideKeys(in: context)
+        try clearFinance(context, includingAccounts: false)
+        try context.save()
+        clearSideStores(sideStores)
+        resetFinanceSideStores()
+        HoldingLotStore.reset()
+        SavingsPlanStore.reset()
+        ClosedPositionStore.reset()
+    }
+
+    static func deleteChallengeData(from context: ModelContext) throws {
+        let sideStores = try challengeSideKeys(in: context)
+        try clearChallenges(context)
+        try context.save()
+        clearSideStores(sideStores)
+        WorkoutLinkStore.reset()
+    }
+
+    static func deleteTrainingData() throws {
+        WorkoutLinkStore.reset()
+        ExerciseImageStore.removeAll()
+        WorkoutStore.clearStored()
     }
 
     static func resetApp(from context: ModelContext) throws {
@@ -305,7 +365,131 @@ enum BackupService {
         try clear(context, includingAccounts: true)
         try context.save()
         clearSideStores(sideStores)
+        resetFinanceSideStores()
+        WorkoutLinkStore.reset()
+        HoldingLotStore.reset()
+        SavingsPlanStore.reset()
+        ClosedPositionStore.reset()
+    }
+
+    @MainActor
+    private static func restoreAll(_ backup: LififyBackup, into context: ModelContext) throws {
+        let oldSideStores = try sideStoreKeys(in: context)
+        try clear(context, includingAccounts: true)
+        for record in backup.records where !sideTypes.contains(record.type) {
+            insert(record, into: context)
+        }
+        try context.save()
+        clearSideStores(oldSideStores)
+        resetFinanceSideStores()
+        WorkoutLinkStore.reset()
+        for record in backup.records where sideTypes.contains(record.type) {
+            insert(record, into: context)
+        }
+        try restoreWorkoutSnapshot(from: backup, required: false)
+    }
+
+    @MainActor
+    private static func restoreFinance(_ backup: LififyBackup, into context: ModelContext) throws {
+        let oldSideStores = try financeSideKeys(in: context)
+        try clearFinance(context, includingAccounts: false)
+        try context.save()
+        clearSideStores(oldSideStores)
         IncomeAssignmentStore.reset()
+        ExpenseGroupAssignmentStore.reset()
+        let accounts = try context.fetch(FetchDescriptor<Account>())
+        if backup.records.contains(where: { $0.type == "account" && $0.booleans.count > 1 && $0.booleans[1] }) {
+            accounts.forEach { $0.isMain = false }
+        }
+        let accountsByID = Dictionary(uniqueKeysWithValues: accounts.map { ($0.id, $0) })
+        for record in backup.records where record.type == "account" {
+            if let existing = accountsByID[record.id] {
+                applyAccount(record, to: existing)
+            } else {
+                insert(record, into: context)
+            }
+        }
+        for record in backup.records where financeTypes.contains(record.type) && record.type != "account" && !sideTypes.contains(record.type) {
+            insert(record, into: context)
+        }
+        try context.save()
+        for record in backup.records where financeTypes.contains(record.type) && sideTypes.contains(record.type) {
+            insert(record, into: context)
+        }
+        let challengeIcons = Set(try context.fetch(FetchDescriptor<ChallengeItem>()).map(\.id))
+        for record in backup.records where record.type == "iconPreference" && !challengeIcons.contains(record.id) {
+            insert(record, into: context)
+        }
+    }
+
+    @MainActor
+    private static func restoreChallenges(_ backup: LififyBackup, into context: ModelContext) throws {
+        let oldSideStores = try challengeSideKeys(in: context)
+        try clearChallenges(context)
+        try context.save()
+        clearSideStores(oldSideStores)
+        WorkoutLinkStore.reset()
+        for record in backup.records where challengeTypes.contains(record.type) && !sideTypes.contains(record.type) {
+            insert(record, into: context)
+        }
+        try context.save()
+        for record in backup.records where challengeTypes.contains(record.type) && sideTypes.contains(record.type) {
+            insert(record, into: context)
+        }
+        let entryIDs = try context.fetch(FetchDescriptor<LedgerEntry>()).map(\.id)
+        let costIDs = try context.fetch(FetchDescriptor<FixedCost>()).map(\.id)
+        let keptIcons = Set(entryIDs + costIDs)
+        for record in backup.records where record.type == "iconPreference" && !keptIcons.contains(record.id) {
+            insert(record, into: context)
+        }
+    }
+
+    private static func restoreTraining(_ backup: LififyBackup) throws {
+        WorkoutLinkStore.reset()
+        for record in backup.records where record.type == "workoutChallengeLink" || record.type == "workoutEventLink" {
+            insertLink(record)
+        }
+        try restoreWorkoutSnapshot(from: backup, required: true)
+    }
+
+    private static func scopedRecords(
+        _ records: [BackupRecord],
+        scope: BackupScope,
+        financeIconIDs: Set<UUID>,
+        challengeIconIDs: Set<UUID>
+    ) -> [BackupRecord] {
+        switch scope {
+        case .all:
+            return records
+        case .finance:
+            return records.filter { record in
+                if record.type == "iconPreference" { return financeIconIDs.contains(record.id) }
+                return financeTypes.contains(record.type)
+            }
+        case .challenges:
+            return records.filter { record in
+                if record.type == "iconPreference" { return challengeIconIDs.contains(record.id) }
+                return challengeTypes.contains(record.type)
+            }
+        case .training:
+            return records.filter { $0.type == "workoutChallengeLink" || $0.type == "workoutEventLink" }
+        }
+    }
+
+    private static func restoreWorkoutSnapshot(from backup: LififyBackup, required: Bool) throws {
+        guard let text = backup.records.first(where: { $0.type == "workoutSnapshot" })?.strings.first,
+              let data = text.data(using: .utf8),
+              !data.isEmpty
+        else {
+            if required { throw CocoaError(.fileReadCorruptFile) }
+            return
+        }
+        try WorkoutStore.replaceStoredSnapshot(data)
+    }
+
+    private static func resetFinanceSideStores() {
+        IncomeAssignmentStore.reset()
+        ExpenseGroupAssignmentStore.reset()
         RefundLinkStore.reset()
         TransferForecastStore.reset()
         ForecastSkipStore.reset()
@@ -313,8 +497,43 @@ enum BackupService {
         ForecastMatchRejectionStore.reset()
     }
 
+    private static func applyAccount(_ record: BackupRecord, to account: Account) {
+        func string(_ index: Int) -> String { record.strings.indices.contains(index) ? record.strings[index] : "" }
+        account.name = string(0)
+        if record.strings.indices.contains(1) { account.kindRaw = record.strings[1] }
+        if record.strings.indices.contains(2) { account.iban = record.strings[2] }
+        if record.booleans.indices.contains(0) { account.isLiquid = record.booleans[0] }
+        if record.booleans.indices.contains(1) { account.isMain = record.booleans[1] }
+        if record.dates.indices.contains(0), let created = record.dates[0] { account.createdAt = created }
+        if record.uuids.indices.contains(0) { account.parentAccountID = record.uuids[0] }
+    }
+
+    private static func insertLink(_ record: BackupRecord) {
+        func uuid(_ index: Int) -> UUID? { record.uuids.indices.contains(index) ? record.uuids[index] : nil }
+        func bool(_ index: Int) -> Bool { record.booleans.indices.contains(index) ? record.booleans[index] : false }
+        switch record.type {
+        case "workoutChallengeLink":
+            if let challengeID = uuid(0) {
+                WorkoutLinkStore.link(planID: record.id, challengeID: challengeID)
+            }
+        case "workoutEventLink":
+            if let eventID = uuid(0) {
+                WorkoutLinkStore.link(planID: record.id, eventID: eventID, managed: bool(0))
+            }
+        default:
+            break
+        }
+    }
+
     @MainActor
     private static func clear(_ context: ModelContext, includingAccounts: Bool) throws {
+        try clearFinance(context, includingAccounts: includingAccounts)
+        try clearChallenges(context)
+        try context.fetch(FetchDescriptor<SavedArticle>()).forEach { context.delete($0) }
+    }
+
+    @MainActor
+    private static func clearFinance(_ context: ModelContext, includingAccounts: Bool) throws {
         try context.fetch(FetchDescriptor<TransactionSplit>()).forEach { context.delete($0) }
         try context.fetch(FetchDescriptor<LedgerEntry>()).forEach { context.delete($0) }
         if includingAccounts {
@@ -329,7 +548,10 @@ enum BackupService {
         try context.fetch(FetchDescriptor<ExpenseGroupLine>()).forEach { context.delete($0) }
         try context.fetch(FetchDescriptor<ExpenseGroup>()).forEach { context.delete($0) }
         try context.fetch(FetchDescriptor<PortfolioHolding>()).forEach { context.delete($0) }
-        try context.fetch(FetchDescriptor<SavedArticle>()).forEach { context.delete($0) }
+    }
+
+    @MainActor
+    private static func clearChallenges(_ context: ModelContext) throws {
         try context.fetch(FetchDescriptor<ChallengeCalendarEvent>()).forEach { context.delete($0) }
         try context.fetch(FetchDescriptor<ChallengeCompletion>()).forEach { context.delete($0) }
         try context.fetch(FetchDescriptor<ChallengeItem>()).forEach { context.delete($0) }
@@ -349,9 +571,25 @@ enum BackupService {
     }
 
     private static func sideStoreKeys(in context: ModelContext) throws -> SideStoreKeys {
+        var keys = try financeSideKeys(in: context)
+        let challenges = try challengeSideKeys(in: context)
+        keys.iconIDs += challenges.iconIDs
+        keys.reminderIdentifiers += challenges.reminderIdentifiers
+        keys.eventIdentifiers += challenges.eventIdentifiers
+        keys.rewardIDs += challenges.rewardIDs
+        return keys
+    }
+
+    private static func financeSideKeys(in context: ModelContext) throws -> SideStoreKeys {
         var keys = SideStoreKeys()
         keys.iconIDs += try context.fetch(FetchDescriptor<LedgerEntry>()).map(\.id)
         keys.iconIDs += try context.fetch(FetchDescriptor<FixedCost>()).map(\.id)
+        keys.holdingIDs = try context.fetch(FetchDescriptor<PortfolioHolding>()).map(\.id)
+        return keys
+    }
+
+    private static func challengeSideKeys(in context: ModelContext) throws -> SideStoreKeys {
+        var keys = SideStoreKeys()
         let challenges = try context.fetch(FetchDescriptor<ChallengeItem>())
         keys.iconIDs += challenges.map(\.id)
         keys.reminderIdentifiers += challenges.compactMap(\.externalIdentifier)
@@ -360,7 +598,6 @@ enum BackupService {
             .filter(\.isReminderSuggestion)
             .compactMap(\.externalIdentifier)
         keys.eventIdentifiers += calendarEvents.compactMap(\.externalIdentifier).filter { !$0.hasPrefix("reminder:") }
-        keys.holdingIDs = try context.fetch(FetchDescriptor<PortfolioHolding>()).map(\.id)
         keys.rewardIDs = try context.fetch(FetchDescriptor<RewardItem>()).map(\.id)
         return keys
     }
@@ -479,6 +716,15 @@ enum BackupService {
             if let forecastID = uuid(0) {
                 IncomeAssignmentStore.assign(entryID: r.id, to: forecastID)
             }
+        case "expenseGroupAssignment":
+            if let groupID = uuid(0) {
+                let existing = Set(ExpenseGroupAssignmentStore.entryIDs(in: groupID))
+                ExpenseGroupAssignmentStore.replace(groupID: groupID, entryIDs: existing.union([r.id]))
+            }
+        case "workoutChallengeLink", "workoutEventLink":
+            insertLink(r)
+        case "backupScope", "workoutSnapshot":
+            break
         case "appPreferences":
             UserDefaults.standard.set(string(0), forKey: "userName")
             UserDefaults.standard.set(string(1), forKey: "dashboardPeriodMode")

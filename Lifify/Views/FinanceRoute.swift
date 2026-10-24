@@ -14,6 +14,7 @@ enum FinanceRoute: Hashable, Codable {
     case expenseGroups
     case portfolio
     case savingsPlans
+    case portfolioShares
 }
 
 struct FinanceRouteScreen: View {
@@ -47,6 +48,8 @@ struct FinanceRouteScreen: View {
             PortfolioView()
         case .savingsPlans:
             SavingsPlansView()
+        case .portfolioShares:
+            PortfolioShareChartView()
         }
     }
 }

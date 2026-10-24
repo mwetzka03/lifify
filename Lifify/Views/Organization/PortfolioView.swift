@@ -50,10 +50,17 @@ struct PortfolioView: View {
                 .pickerStyle(.segmented)
                 .labelsHidden()
             }
-            if !savingsPlans.isEmpty {
+            if !savingsPlans.isEmpty || !sortedHoldings.isEmpty {
                 Section {
-                    NavigationLink(value: FinanceRoute.savingsPlans) {
-                        Text(L("Sparpläne", "Savings plans"))
+                    if !savingsPlans.isEmpty {
+                        NavigationLink(value: FinanceRoute.savingsPlans) {
+                            Text(L("Sparpläne", "Savings plans"))
+                        }
+                    }
+                    if !sortedHoldings.isEmpty {
+                        NavigationLink(value: FinanceRoute.portfolioShares) {
+                            Label(L("Anteile", "Shares"), systemImage: "chart.pie")
+                        }
                     }
                 }
             }
@@ -255,6 +262,7 @@ struct PortfolioElementsView: View {
                 .background(AppSurface.card, in: RoundedRectangle(cornerRadius: 14))
             }
             savingsPlanCard
+            shareChartCard
 
             VStack(alignment: .leading, spacing: 8) {
                 Picker(L("Zeitraum", "Period"), selection: $basis) {
@@ -374,6 +382,46 @@ struct PortfolioElementsView: View {
     private var savingsPlanLinkLabel: some View {
         HStack {
             Text(L("Sparpläne", "Savings plans"))
+                .font(.headline)
+                .foregroundStyle(.primary)
+            Spacer()
+            Image(systemName: "chevron.right")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+        }
+        .padding(12)
+        .contentShape(Rectangle())
+    }
+
+    @ViewBuilder
+    private var shareChartCard: some View {
+        if !visibleHoldings.isEmpty {
+            shareChartLink
+                .buttonStyle(.plain)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(AppSurface.card, in: RoundedRectangle(cornerRadius: 14))
+        }
+    }
+
+    private var shareChartLink: some View {
+        Group {
+            if let path {
+                Button {
+                    path.wrappedValue.append(FinanceRoute.portfolioShares)
+                } label: {
+                    shareChartLinkLabel
+                }
+            } else {
+                NavigationLink(value: FinanceRoute.portfolioShares) {
+                    shareChartLinkLabel
+                }
+            }
+        }
+    }
+
+    private var shareChartLinkLabel: some View {
+        HStack {
+            Label(L("Anteile", "Shares"), systemImage: "chart.pie")
                 .font(.headline)
                 .foregroundStyle(.primary)
             Spacer()

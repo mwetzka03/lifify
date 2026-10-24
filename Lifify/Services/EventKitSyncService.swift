@@ -172,7 +172,8 @@ final class EventKitSyncService: ObservableObject {
         notes: String,
         start: Date,
         end: Date,
-        isAllDay: Bool
+        isAllDay: Bool,
+        occurrenceOnly: Bool = false
     ) async -> String? {
         do {
             let eventStore = EKEventStore()
@@ -191,7 +192,8 @@ final class EventKitSyncService: ObservableObject {
             event.isAllDay = isAllDay
             event.startDate = start
             event.endDate = end > start ? end : start.addingTimeInterval(isAllDay ? 86_400 : 3_600)
-            try eventStore.save(event, span: event.hasRecurrenceRules ? .futureEvents : .thisEvent, commit: true)
+            let span: EKSpan = occurrenceOnly || !event.hasRecurrenceRules ? .thisEvent : .futureEvents
+            try eventStore.save(event, span: span, commit: true)
             return event.eventIdentifier
         } catch {
             return nil

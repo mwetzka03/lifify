@@ -81,6 +81,10 @@ struct WorkoutSession: Codable, Identifiable, Hashable {
         }
     }
 
+    var durationSeconds: Int {
+        max(0, Int(finishedAt.timeIntervalSince(startedAt).rounded(.down)))
+    }
+
     var performedExercises: [WorkoutSessionExercise] {
         exercises.compactMap { exercise in
             let completed = exercise.sets.filter(\.completed)
@@ -172,6 +176,17 @@ enum WorkoutFormat {
     static func rest(_ seconds: Int) -> String {
         let clamped = max(0, seconds)
         return String(format: "%d:%02d", clamped / 60, clamped % 60)
+    }
+
+    static func duration(seconds: Int) -> String {
+        let clamped = max(0, seconds)
+        let hours = clamped / 3600
+        let minutes = (clamped % 3600) / 60
+        let secs = clamped % 60
+        if hours > 0 {
+            return String(format: "%d:%02d:%02d", hours, minutes, secs)
+        }
+        return String(format: "%02d:%02d", minutes, secs)
     }
 
     static func previous(weight weightKg: Double, reps: Int) -> String {

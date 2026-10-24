@@ -40,21 +40,45 @@ enum CalendarService {
     }
 
     static func periodKey(for date: Date, pool: BudgetPool) -> String {
-        if pool.periodMode == .calendarYear {
+        periodKey(for: date, mode: pool.periodMode, startDay: 1)
+    }
+
+    /// A salary period is the calendar month. There is no chosen start day.
+    static func periodKey(for date: Date, mode: BudgetPeriodMode, startDay: Int) -> String {
+        if mode == .calendarYear {
             return String(calendar.component(.year, from: date))
         }
         let day = calendar.component(.day, from: date)
         var startComponents = calendar.dateComponents([.year, .month], from: date)
-        if day < pool.salaryStartDay, let previous = calendar.date(byAdding: .month, value: -1, to: date) {
+        if day < startDay, let previous = calendar.date(byAdding: .month, value: -1, to: date) {
             startComponents = calendar.dateComponents([.year, .month], from: previous)
         }
         let monthSeed = calendar.date(from: startComponents)!
         let maxDay = calendar.range(of: .day, in: .month, for: monthSeed)!.count
-        startComponents.day = min(pool.salaryStartDay, maxDay)
+        startComponents.day = min(max(startDay, 1), maxDay)
         let start = calendar.date(from: startComponents)!
         let nextMonth = calendar.date(byAdding: .month, value: 1, to: start)!
         let end = calendar.date(byAdding: .day, value: -1, to: nextMonth)!
         return "\(start.dayKey):\(end.dayKey)"
+    }
+
+    /// Older pools stored a start day. Their splits still count in the calendar
+    /// month that contains the start of that old period, and only there.
+    static func splitCounts(in canonicalKey: String, splitKey: String, pool: BudgetPool) -> Bool {
+        if splitKey == canonicalKey { return true }
+        guard pool.periodMode != .calendarYear, pool.salaryStartDay != 1 else { return false }
+        let token = splitKey.split(separator: ":", maxSplits: 1).first.map { String($0) } ?? ""
+        guard let start = dayKeyDate(token) else { return false }
+        return periodKey(for: start, pool: pool) == canonicalKey
+    }
+
+    private static func dayKeyDate(_ key: String) -> Date? {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(identifier: "Europe/Berlin")
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.date(from: key)
     }
 
     static func periodKeys(from startDate: Date, through endDate: Date, pool: BudgetPool) -> [String] {

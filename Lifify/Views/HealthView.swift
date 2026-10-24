@@ -1,3 +1,4 @@
+import SwiftData
 import SwiftUI
 
 enum HealthRoute: Hashable {
@@ -8,6 +9,7 @@ enum HealthRoute: Hashable {
 }
 
 struct HealthView: View {
+    @Environment(\.modelContext) private var context
     @EnvironmentObject private var store: WorkoutStore
     @State private var editorPlan: WorkoutPlan?
 
@@ -39,6 +41,7 @@ struct HealthView: View {
                     }
                     .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                         Button(role: .destructive) {
+                            WorkoutLinkStore.removePlan(plan.id)
                             store.deletePlan(id: plan.id)
                         } label: {
                             Label(L("Löschen", "Delete"), systemImage: "trash")
@@ -77,6 +80,9 @@ struct HealthView: View {
         .sheet(item: $editorPlan) { plan in
             WorkoutEditorView(plan: plan)
                 .environmentObject(store)
+        }
+        .onAppear {
+            Task { await WorkoutCalendarSync.cleanup(context: context, sessions: store.sessions) }
         }
     }
 
@@ -152,6 +158,8 @@ struct WorkoutPlanDetailView: View {
                         .buttonStyle(.borderedProminent)
                         .disabled(plan.exercises.isEmpty)
 
+                        WorkoutLinkSection(planID: plan.id)
+
                         ForEach(plan.exercises) { exercise in
                             VStack(alignment: .leading, spacing: 8) {
                                 HStack(spacing: 12) {
@@ -209,6 +217,9 @@ struct WorkoutHistoryView: View {
                         Text(AppDate.numeric(session.finishedAt))
                             .font(.headline)
                             .foregroundStyle(.secondary)
+                        Text("\(L("Dauer", "Duration")) \(WorkoutFormat.duration(seconds: session.durationSeconds))")
+                            .font(.title3.weight(.semibold))
+                            .monospacedDigit()
                         Text("\(L("Volumen", "Volume")) \(WorkoutProgress.volumeText(WorkoutProgress.volume(of: session)))")
                             .font(.title3.weight(.semibold))
                         let performed = session.performedExercises
@@ -279,7 +290,7 @@ struct WorkoutHistoryListView: View {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(session.planName)
                                 .font(.body.weight(.semibold))
-                            Text("\(AppDate.numeric(session.finishedAt)) · \(WorkoutProgress.volumeText(WorkoutProgress.volume(of: session)))")
+                            Text("\(AppDate.numeric(session.finishedAt)) · \(WorkoutFormat.duration(seconds: session.durationSeconds)) · \(WorkoutProgress.volumeText(WorkoutProgress.volume(of: session)))")
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
                         }

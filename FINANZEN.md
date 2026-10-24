@@ -5,7 +5,7 @@
 ## English
 
 This file describes how Lifify calculates accounts, periods, income, expenses,
-the portfolio, and the home budget. It applies to version 0.2.0.
+the portfolio, and the home budget. It applies to version 0.3.0.
 
 Period and account are one shared filter. A change applies in the finance
 view, in transactions, and in the income and expense lists.
@@ -91,6 +91,11 @@ account’s own opening balance plus the portfolio value on the day before.
   then the normal value, booked plus still open. For fixed costs that amount
   sits directly in the fixed-costs tile. The difference shows the forecast
   directly, with no second line.
+- The fixed-cost tile shows only how much is booked and how much is open.
+  A tap opens the fixed-costs list. Savings plans are one row in that list,
+  with the same overview as the savings-plan view: per week, per month, and
+  the debit days. A tap on that row opens the savings-plan view, where plans
+  are created. The other fixed costs stay in the list.
 - A finished period shows only what was booked, with no Open and no forecast
   line.
 - While the finance tiles calculate for the first time, or after a change of
@@ -188,6 +193,11 @@ list and is grayed out.
   stored price before it is used, otherwise the current price.
 - If the request fails, the manual fallback price stays. The share count on
   the cutoff date is still used.
+- Under the savings plans, **Shares** opens a pie chart. Each slice is that
+  position’s share of the portfolio value, using the same value as the depot
+  list. €1,000 in an ETF, €500 in Tesla, and €500 in Amazon are 50%, 25%,
+  and 25%. A tap on a slice shows the position name, the euro amount, and
+  the percent.
 
 ### Savings plans
 
@@ -213,11 +223,13 @@ list and is grayed out.
   that is not a banking day, the next banking day is used.
 - The savings plans in the portfolio are the source. Each plan remains a fixed
   cost internally on the linked checking account, so the forecast keeps
-  running. In the fixed-costs list, one row shows the period total, already
-  debited executions plus dates that are still open, and opens the savings-plan
-  list. Under it, each plan is itself a fixed cost, with name, next date, and
-  open count. A tap opens the same detail as for other fixed costs. Swiping
-  edits or deletes the plan.
+  running. The fixed-costs list does not repeat each plan. One row shows the
+  weekly amount, the monthly amount, and the debit days, and opens the
+  savings-plans view. Swiping in that view edits or deletes a plan.   When a
+  debit day passes, Lifify does not create a booking. The date stays a
+  forecast and counts as open until a real booking, such as the statement,
+  covers it. Only then is it grayed out. A booking created earlier for that
+  reason is removed again, including the shares it had added.
 - An execution that is already booked is not counted again as an open fixed
   cost. It is included in the booked fixed-cost amount of the period, even
   when it fell before the last execution.
@@ -267,14 +279,21 @@ account is selected, only that account’s transactions are offered. For income,
 fixed costs, transfers, and the shopping list, the assignment replaces the
 forecast for the whole period. The other dates remain. A forecast that is
 already assigned, by hand or automatically, stays visible and is grayed out.
-Variable costs are different: each further transaction only reduces the
+A date that has passed is not copied into the transactions. It stays in
+Forecasts and still counts as open in the current period until a real
+booking covers it. Forecasts, fixed costs, and variable costs are never
+booked by themselves. In a future period they still count in full in the
+main amounts. A finished period shows only real bookings. Variable costs
+are different in one way: each further transaction only reduces the
 reserved remainder, and the row stays until that remainder is zero. Swiping
 right edits the series. Swiping left deletes only that date. In the portfolio
 the section is omitted. The rows do not sit between the transactions.
 
 All savings plans in this section sit in one pot. The pot starts expanded, so
-the individual dates are visible. Collapsing it shows the cost per week and
-the period total.
+the individual dates are visible. The header shows the total, what is already
+booked, and what is still open. The total is the sum of the selected period:
+booked plus still open. Booked is what has already been debited. Open is the
+remainder. The previous per-week and period caption is not shown there.
 
 On the transactions below, the plus asks for the category first: income,
 interest, dividend, expense, refund, transfer, or balance adjustment. Then
@@ -423,6 +442,37 @@ an amount, and a cadence.
   it grayed out. An older assignment for the period counts at its transaction
   amount, not as completing the whole period. A deleted date stays hidden.
 
+### Budget pools
+
+- A pool is not tied to an account, and the form does not ask for one.
+- A tap opens the pool. Swiping right edits it, swiping left deletes it.
+- The detail links an existing transaction. It does not create a new booking.
+  The transaction is assigned to the pool for the period of its date. Several
+  can be linked at once. Unlinking removes only that assignment.
+- There is no start day. A salary period is the calendar month, and a calendar
+  year is the calendar year. An older pool that stored a start day still
+  counts those assignments in the calendar month that contains the start of
+  the old period.
+- The option is called scalable. When it is on and money remains, that
+  remainder is carried into the next period. When it is off, the next period
+  starts again at the pool amount.
+- Assigning a transaction does not change that transaction outside the pool.
+  The pool only counts the assigned amount in its own period.
+
+### Expense groups
+
+- A tap opens the group. Swiping right edits it, swiping left deletes it.
+- Positions are not entered freely. Existing transactions are assigned to the
+  group, and several can be assigned at once. A transaction belongs to one
+  group.
+- The group matters only inside expense groups. Outside, the transaction keeps
+  its amount, its category, and its effect on the totals.
+- The assignment is stored beside the data model, so an existing data file
+  stays readable.
+- The transaction detail lists an assignment to a budget pool, an expense
+  group, a fixed cost, a variable cost, a shopping item, or a similar
+  forecast. The transaction itself is unchanged.
+
 ### Shopping list
 
 - In the finance view, **Planned** has no plus sign and uses the text color.
@@ -487,7 +537,7 @@ full to be right, the statement has to be imported again after a rule change.
 ## Deutsch
 
 Diese Datei beschreibt, wie Lifify Konten, Zeiträume, Einnahmen, Ausgaben,
-Depot und das Home-Budget rechnet. Sie gilt für Version 0.2.0.
+Depot und das Home-Budget rechnet. Sie gilt für Version 0.3.0.
 
 Zeitraum und Konto sind ein gemeinsamer Filter. Eine Änderung gilt in der
 Finanzansicht, in den Buchungen und in den Listen für Einnahmen und Ausgaben.
@@ -571,6 +621,12 @@ einzelnen Konten plus den Depotwert am Tag davor.
   Betrag ist dann der normale Wert, also gebucht plus noch offen. Bei den
   Fixkosten steht dieser Betrag direkt in der Kachel Fixkosten. Die Differenz
   zeigt direkt die Prognose, ohne eine zweite Zeile.
+- Die Fixkostenkachel zeigt nur, wie viel gebucht ist und wie viel offen ist.
+  Ein Tipp öffnet die Fixkostenliste. Die Sparpläne stehen dort in einer
+  Zeile, mit derselben Übersicht wie in der Sparplanansicht: pro Woche, pro
+  Monat und die Abbuchungstage. Ein Tipp auf diese Zeile öffnet die
+  Sparplanansicht, dort werden Pläne angelegt. Die übrigen Fixkosten bleiben
+  in der Liste.
 - Ein abgeschlossener Zeitraum zeigt nur Gebuchtes, ohne Offen und ohne
   Prognosezeile.
 - Während die Finanzkacheln zum ersten Mal oder nach einem Wechsel von
@@ -669,6 +725,10 @@ Buchung zugeordnet ist, bleibt in der Liste und ist ausgegraut.
   Tag, gilt der letzte gespeicherte Kurs davor, sonst der aktuelle Kurs.
 - Schlägt der Abruf fehl, bleibt der manuelle Fallbackkurs. Die Stückzahl zum
   Stichtag wird trotzdem verwendet.
+- Unter den Sparplänen öffnet **Anteile** ein Kreisdiagramm. Jede Position
+  zeigt ihren Anteil am Depotwert, mit demselben Wert wie in der Depotliste.
+  1.000 € ETF, 500 € Tesla und 500 € Amazon sind 50 %, 25 % und 25 %. Ein
+  Tipp auf ein Stück zeigt den Namen, den Eurobetrag und den Prozentwert.
 
 ### Sparpläne
 
@@ -694,11 +754,13 @@ Buchung zugeordnet ist, bleibt in der Liste und ist ausgegraut.
   das kein Bankarbeitstag, gilt der nächste Bankarbeitstag.
 - Die Sparpläne im Depot sind die Vorlage. Jeder Plan bleibt intern eine
   Fixkosten auf dem verknüpften Girokonto, damit die Prognose weiterläuft.
-  In der Fixkostenliste zeigt eine Zeile den Gesamtbetrag des Zeitraums, also
-  schon abgebuchte Ausführungen plus noch offene Termine, und öffnet die
-  Sparplanliste. Darunter steht jeder Plan selbst als Fixkosten, mit Namen,
-  nächstem Termin und offener Anzahl. Ein Tipp öffnet dieselbe Detailansicht
-  wie bei anderen Fixkosten, Wischen bearbeitet oder löscht den Plan.
+  Die Fixkostenliste wiederholt die einzelnen Pläne nicht. Eine Zeile zeigt
+  den Wochenbetrag, den Monatsbetrag und die Abbuchungstage und öffnet die
+  Sparplanansicht. Dort bearbeitet oder löscht Wischen einen Plan. Ist ein
+  Abbuchungstag vorbei, legt Lifify keine Buchung an. Der Termin bleibt eine
+  Prognose und zählt als offen, bis eine echte Buchung, etwa der Auszug, ihn
+  deckt. Erst dann wird er ausgegraut. Eine früher dafür angelegte Buchung
+  wird wieder entfernt, einschließlich der Stücke, die sie hinzugefügt hatte.
 - Eine bereits gebuchte Ausführung zählt nicht noch einmal als offene Fixkosten.
   Sie steht aber im gebuchten Fixkostenbetrag des Zeitraums, auch wenn sie vor
   der letzten Ausführung lag.
@@ -748,15 +810,23 @@ Ist ein Konto gewählt, stehen nur Buchungen dieses Kontos zur Auswahl. Bei
 Einnahmen, Fixkosten, Umbuchungen und dem Einkaufszettel ersetzt die Zuweisung
 die Prognose für den ganzen Zeitraum, die anderen Termine bleiben. Eine schon
 zugeordnete Prognose, von Hand oder automatisch, bleibt sichtbar und ist
-ausgegraut. Variable Kosten sind davon ausgenommen: jede weitere Buchung
+ausgegraut. Ein Termin, der schon vorbei ist, wird nicht in die Buchungen
+übernommen. Er bleibt bei den Prognosen und zählt im laufenden Zeitraum
+weiter als offen, bis eine echte Buchung ihn deckt. Prognosen, Fixkosten und
+variable Kosten werden nie von selbst gebucht. In einem zukünftigen Zeitraum
+zählen sie weiterhin vollständig in den großen Beträgen. Ein abgeschlossener
+Zeitraum zeigt nur echte Buchungen. Variable Kosten sind in einem Punkt
+anders: jede weitere Buchung
 mindert nur den noch reservierten Betrag, und die Zeile bleibt stehen, bis
 dieser Rest null ist. Wischen nach rechts bearbeitet die Serie, Wischen nach
 links löscht nur diesen Termin. Im Depot entfällt der Bereich. Die Zeilen
 stehen nicht zwischen den Buchungen.
 
 Alle Sparpläne in diesem Bereich stehen in einem Topf. Der Topf ist zuerst
-aufgeklappt, die einzelnen Termine sind sichtbar. Zuklappen zeigt die Kosten
-pro Woche und die Summe des Zeitraums.
+aufgeklappt, die einzelnen Termine sind sichtbar. Die Überschrift zeigt
+Gesamt, gebucht und offen. Gesamt ist die Summe des gewählten Zeitraums, also
+gebucht plus noch offen. Gebucht ist, was schon abgebucht wurde. Offen ist der
+Rest. Die bisherige Angabe pro Woche und Zeitraum steht dort nicht mehr.
 
 Unten bei den Buchungen wählt das Plus zuerst die Kategorie: Einnahme, Zinsen,
 Dividende, Ausgabe, Rückerstattung, Umbuchung oder Saldo-Korrektur. Danach
@@ -907,6 +977,39 @@ ohne Depot, einen Betrag und einen Rhythmus.
   ausgegraut. Eine ältere Zuweisung für den Zeitraum zählt dabei mit ihrem
   Buchungsbetrag, nicht als komplette Erledigung. Ein gelöschter Termin bleibt
   ausgeblendet.
+
+### Budgetpools
+
+- Ein Pool hängt an keinem Konto, das Formular fragt nicht danach.
+- Ein Tipp öffnet den Pool. Wischen nach rechts bearbeitet ihn, Wischen nach
+  links löscht ihn.
+- In der Detailansicht lässt sich eine bestehende Buchung zuordnen. Es wird
+  keine neue Buchung angelegt. Die Buchung wird dem Pool im Zeitraum ihres
+  Datums zugeordnet. Mehrere können zugleich zugeordnet werden. Das Lösen
+  entfernt nur die Zuordnung.
+- Es gibt keinen Starttag. Der Gehaltszeitraum ist der Kalendermonat, das
+  Kalenderjahr das Kalenderjahr. Ein älterer Pool mit gespeichertem Starttag
+  zählt diese Zuweisungen in dem Kalendermonat, in dem der alte Zeitraum
+  beginnt.
+- Die Option heißt skalierbar. Ist sie an und bleibt Geld übrig, wird dieser
+  Rest in den nächsten Zeitraum mitgenommen. Ist sie aus, beginnt der nächste
+  Zeitraum wieder mit dem Poolbetrag.
+- Eine zugeordnete Buchung bleibt außerhalb des Pools unverändert. Der Pool
+  zählt nur den zugeordneten Betrag in seinem eigenen Zeitraum.
+
+### Ausgabengruppen
+
+- Ein Tipp öffnet die Gruppe. Wischen nach rechts bearbeitet sie, Wischen nach
+  links löscht sie.
+- Positionen legt man nicht frei an. Der Gruppe werden bestehende Buchungen
+  zugewiesen, auch mehrere auf einmal. Eine Buchung gehört zu einer Gruppe.
+- Die Gruppe wirkt nur innerhalb der Ausgabengruppen. Außerhalb behält die
+  Buchung Betrag, Kategorie und ihre Wirkung auf die Summen.
+- Die Zuweisung liegt neben dem Datenmodell, damit eine bestehende Datendatei
+  lesbar bleibt.
+- In der Detailansicht einer Buchung steht eine Zuweisung zu einem Budgetpool,
+  einer Ausgabengruppe, Fixkosten, variablen Kosten, einem Einkauf oder einer
+  vergleichbaren Prognose. Die Buchung selbst bleibt unverändert.
 
 ### Einkaufszettel
 

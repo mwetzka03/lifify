@@ -506,3 +506,69 @@ enum RewardPolicyStore {
         "reward.multiple.\(rewardID.uuidString)"
     }
 }
+
+/// Which expense group shows a booking. The booking itself is not changed.
+enum ExpenseGroupAssignmentStore {
+    private static let key = "lifify.expenseGroupAssignments"
+    static let revisionKey = "lifify.expenseGroupAssignmentRevision"
+
+    static func groupID(for entryID: UUID) -> UUID? {
+        mapping()[entryID.uuidString].flatMap(UUID.init(uuidString:))
+    }
+
+    static func entryIDs(in groupID: UUID) -> [UUID] {
+        let token = groupID.uuidString
+        return mapping().compactMap { entryID, assigned in
+            guard assigned == token else { return nil }
+            return UUID(uuidString: entryID)
+        }
+    }
+
+    static func pairs() -> [(entryID: UUID, groupID: UUID)] {
+        mapping().compactMap { entryID, groupID in
+            guard let entryID = UUID(uuidString: entryID), let groupID = UUID(uuidString: groupID) else { return nil }
+            return (entryID, groupID)
+        }
+    }
+
+    static func replace(groupID: UUID, entryIDs: Set<UUID>) {
+        var map = mapping()
+        let token = groupID.uuidString
+        for key in map.filter({ $0.value == token }).map(\.key) {
+            map.removeValue(forKey: key)
+        }
+        for id in entryIDs {
+            map[id.uuidString] = token
+        }
+        save(map)
+    }
+
+    static func clear(entryID: UUID) {
+        var map = mapping()
+        guard map.removeValue(forKey: entryID.uuidString) != nil else { return }
+        save(map)
+    }
+
+    static func removeGroup(_ groupID: UUID) {
+        let token = groupID.uuidString
+        save(mapping().filter { $0.value != token })
+    }
+
+    static func reset() {
+        UserDefaults.standard.removeObject(forKey: key)
+        UserDefaults.standard.set(revision() + 1, forKey: revisionKey)
+    }
+
+    private static func mapping() -> [String: String] {
+        UserDefaults.standard.dictionary(forKey: key) as? [String: String] ?? [:]
+    }
+
+    private static func save(_ map: [String: String]) {
+        UserDefaults.standard.set(map, forKey: key)
+        UserDefaults.standard.set(revision() + 1, forKey: revisionKey)
+    }
+
+    private static func revision() -> Int {
+        UserDefaults.standard.integer(forKey: revisionKey)
+    }
+}

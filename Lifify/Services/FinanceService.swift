@@ -108,7 +108,11 @@ enum FinanceService {
         splits: [TransactionSplit]
     ) -> Int {
         splits
-            .filter { $0.kind == .budgetPool && $0.targetID == pool.id && $0.periodKey == periodKey }
+            .filter {
+                $0.kind == .budgetPool
+                    && $0.targetID == pool.id
+                    && CalendarService.splitCounts(in: periodKey, splitKey: $0.periodKey, pool: pool)
+            }
             .reduce(0) { $0 + $1.amountCents }
     }
 
@@ -275,7 +279,6 @@ enum FinanceService {
         )
         let remainingFixed = fixedDates
             .filter { occurrence in
-                guard calendar.startOfDay(for: occurrence.date) >= today else { return false }
                 if ForecastSkipStore.isSkipped(.fixed, id: occurrence.costID, on: occurrence.date) { return false }
                 if ForecastPeriodLinkStore.covers(.fixed, id: occurrence.costID, entries: entries, period: period) { return false }
                 guard let match = matchingExpense(occurrence, entries: entries) else { return true }
@@ -1277,7 +1280,6 @@ enum ForecastSchedule {
                 let day = calendar.startOfDay(for: date)
                 guard period.contains(day) else { continue }
                 if ForecastSkipStore.isSkipped(.income, id: forecast.id, on: day) { continue }
-                if !settled && day < today { continue }
                 items.append(ForecastListItem(
                     id: "income-\(forecast.id.uuidString)-\(day.dayKey)",
                     title: forecast.name,
@@ -1449,7 +1451,6 @@ enum ForecastSchedule {
                 let day = calendar.startOfDay(for: date)
                 guard period.contains(day) else { continue }
                 if ForecastSkipStore.isSkipped(.transfer, id: forecast.id, on: day) { continue }
-                if !settled && day < today { continue }
                 items.append(ForecastListItem(
                     id: "transfer-\(forecast.id.uuidString)-\(day.dayKey)",
                     title: forecast.name,

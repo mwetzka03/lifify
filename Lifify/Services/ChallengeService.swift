@@ -145,6 +145,34 @@ enum ChallengeService {
         }
     }
 
+    /// Marks a challenge done for that day and awards coins once. Does nothing when it is already done.
+    @discardableResult
+    static func markCompletedIfNeeded(
+        challenge: ChallengeItem,
+        date: Date,
+        completions: [ChallengeCompletion],
+        context: ModelContext
+    ) -> Bool {
+        guard !challenge.isArchived else { return false }
+        guard !isCompleted(challenge, on: date, completions: completions) else { return false }
+        let previous = Calendar.current.date(byAdding: .day, value: -1, to: date) ?? date
+        let currentStreak = streak(for: challenge, endingOn: previous, completions: completions)
+        let earned = Int((Double(challenge.rewardCoins) * multiplier(streak: currentStreak + 1)).rounded())
+        let completion = ChallengeCompletion(challengeID: challenge.id, date: date, earnedCoins: earned)
+        context.insert(completion)
+        context.insert(CoinTransaction(title: challenge.title, amount: earned, referenceID: completion.id))
+        try? context.save()
+        if let externalIdentifier = challenge.externalIdentifier {
+            Task {
+                await EventKitSyncService.setReminderCompletion(
+                    externalIdentifier: externalIdentifier,
+                    isCompleted: true
+                )
+            }
+        }
+        return true
+    }
+
     static func walletBalance(transactions: [CoinTransaction]) -> Int {
         transactions.reduce(0) { $0 + $1.amount }
     }

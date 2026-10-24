@@ -27,9 +27,11 @@ struct DataManagementView: View {
     @StateObject private var viewModel = DataImportViewModel()
     @State private var importingBank = false
     @State private var importingTradeRepublic = false
+    @EnvironmentObject private var workouts: WorkoutStore
     @State private var importingBackup = false
     @State private var exportingBackup = false
     @State private var backupDocument = BackupDocument()
+    @State private var exportFilename = "Lifify"
 
     var body: some View {
         Form {
@@ -74,9 +76,24 @@ struct DataManagementView: View {
 
             Section(L("JSON-Sicherung", "JSON backup")) {
                 Button {
-                    createBackup()
+                    createBackup(.all)
                 } label: {
-                    Label(L("Sicherung exportieren", "Export backup"), systemImage: "square.and.arrow.up")
+                    Label(L("Gesamte App exportieren", "Export entire app"), systemImage: "square.and.arrow.up")
+                }
+                Button {
+                    createBackup(.finance)
+                } label: {
+                    Label(L("Finanzen exportieren", "Export finance"), systemImage: "eurosign.circle")
+                }
+                Button {
+                    createBackup(.challenges)
+                } label: {
+                    Label(L("Challenges und Kalender exportieren", "Export challenges and calendar"), systemImage: "target")
+                }
+                Button {
+                    createBackup(.training)
+                } label: {
+                    Label(L("Training exportieren", "Export training"), systemImage: "figure.strengthtraining.traditional")
                 }
                 Button {
                     importingBackup = true
@@ -84,8 +101,8 @@ struct DataManagementView: View {
                     Label(L("Sicherung wiederherstellen", "Restore backup"), systemImage: "arrow.clockwise.icloud")
                 }
                 Text(L(
-                    "Wiederherstellen ersetzt alle derzeitigen Lifify-Daten.",
-                    "Restoring replaces all current Lifify data."
+                    "Eine Teilsicherung ersetzt nur diesen Bereich. Verknüpfungen zwischen Challenges und Trainings liegen in beiden Sicherungen. Eine volle Sicherung ersetzt alles.",
+                    "A partial backup replaces only that area. Links between challenges and workouts are stored in both backups. A full backup replaces everything."
                 ))
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -129,7 +146,7 @@ struct DataManagementView: View {
             isPresented: $exportingBackup,
             document: backupDocument,
             contentType: .json,
-            defaultFilename: "Lifify-\(Date.now.dayKey)"
+            defaultFilename: exportFilename
         ) { result in
             if case let .failure(error) = result { viewModel.message = error.localizedDescription }
         }
@@ -152,8 +169,9 @@ struct DataManagementView: View {
         }
     }
 
-    private func createBackup() {
+    private func createBackup(_ scope: BackupScope) {
         do {
+            let snapshot = try workouts.exportSnapshotData()
             backupDocument = BackupDocument(data: try BackupService.exportData(
                 accounts: accounts,
                 entries: entries,
@@ -174,11 +192,23 @@ struct DataManagementView: View {
                 coinTransactions: coinTransactions,
                 rewards: rewards,
                 purchases: purchases,
-                bucketItems: bucketItems
+                bucketItems: bucketItems,
+                scope: scope,
+                workoutSnapshot: snapshot
             ))
+            exportFilename = "\(exportPrefix(scope))-\(Date.now.dayKey)"
             exportingBackup = true
         } catch {
             viewModel.message = error.localizedDescription
+        }
+    }
+
+    private func exportPrefix(_ scope: BackupScope) -> String {
+        switch scope {
+        case .all: "Lifify"
+        case .finance: "Lifify-Finanzen"
+        case .challenges: "Lifify-Challenges"
+        case .training: "Lifify-Training"
         }
     }
 }
