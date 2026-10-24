@@ -91,9 +91,11 @@ account’s own opening balance plus the portfolio value on the day before.
   then the normal value, booked plus still open. For fixed costs that amount
   sits directly in the fixed-costs tile. The difference shows the forecast
   directly, with no second line.
-- The fixed-cost tile shows only how much is booked and how much is open. It
-  does not list each savings plan. A tap on that overview opens the
-  savings-plans view. Ordinary fixed costs stay in their own list under More.
+- The fixed-cost tile shows only how much is booked and how much is open.
+  A tap opens the fixed-costs list. Savings plans are one row in that list,
+  with the same overview as the savings-plan view: per week, per month, and
+  the debit days. A tap on that row opens the savings-plan view, where plans
+  are created. The other fixed costs stay in the list.
 - A finished period shows only what was booked, with no Open and no forecast
   line.
 - While the finance tiles calculate for the first time, or after a change of
@@ -194,7 +196,8 @@ list and is grayed out.
 - Under the savings plans, **Shares** opens a pie chart. Each slice is that
   position’s share of the portfolio value, using the same value as the depot
   list. €1,000 in an ETF, €500 in Tesla, and €500 in Amazon are 50%, 25%,
-  and 25%.
+  and 25%. A tap on a slice shows the position name, the euro amount, and
+  the percent.
 
 ### Savings plans
 
@@ -220,10 +223,13 @@ list and is grayed out.
   that is not a banking day, the next banking day is used.
 - The savings plans in the portfolio are the source. Each plan remains a fixed
   cost internally on the linked checking account, so the forecast keeps
-  running. The fixed-costs list does not repeat each plan. One overview row
-  shows what is already booked and what is still open in the selected period,
-  and opens the savings-plans view. Swiping in that view edits or deletes a
-  plan.
+  running. The fixed-costs list does not repeat each plan. One row shows the
+  weekly amount, the monthly amount, and the debit days, and opens the
+  savings-plans view. Swiping in that view edits or deletes a plan.   When a
+  debit day passes, Lifify does not create a booking. The date stays a
+  forecast and counts as open until a real booking, such as the statement,
+  covers it. Only then is it grayed out. A booking created earlier for that
+  reason is removed again, including the shares it had added.
 - An execution that is already booked is not counted again as an open fixed
   cost. It is included in the booked fixed-cost amount of the period, even
   when it fell before the last execution.
@@ -273,7 +279,12 @@ account is selected, only that account’s transactions are offered. For income,
 fixed costs, transfers, and the shopping list, the assignment replaces the
 forecast for the whole period. The other dates remain. A forecast that is
 already assigned, by hand or automatically, stays visible and is grayed out.
-Variable costs are different: each further transaction only reduces the
+A date that has passed is not copied into the transactions. It stays in
+Forecasts and still counts as open in the current period until a real
+booking covers it. Forecasts, fixed costs, and variable costs are never
+booked by themselves. In a future period they still count in full in the
+main amounts. A finished period shows only real bookings. Variable costs
+are different in one way: each further transaction only reduces the
 reserved remainder, and the row stays until that remainder is zero. Swiping
 right edits the series. Swiping left deletes only that date. In the portfolio
 the section is omitted. The rows do not sit between the transactions.
@@ -433,7 +444,10 @@ an amount, and a cadence.
 
 ### Budget pools
 
+- A pool is not tied to an account, and the form does not ask for one.
 - A tap opens the pool. Swiping right edits it, swiping left deletes it.
+- The detail can add a transaction. That is a real booking, assigned to the
+  pool for the period of its date.
 - There is no start day. A salary period is the calendar month, and a calendar
   year is the calendar year. An older pool that stored a start day still
   counts those assignments in the calendar month that contains the start of
@@ -607,9 +621,11 @@ einzelnen Konten plus den Depotwert am Tag davor.
   Fixkosten steht dieser Betrag direkt in der Kachel Fixkosten. Die Differenz
   zeigt direkt die Prognose, ohne eine zweite Zeile.
 - Die Fixkostenkachel zeigt nur, wie viel gebucht ist und wie viel offen ist.
-  Die einzelnen Sparpläne stehen nicht darauf. Ein Tipp auf diese Übersicht
-  öffnet die Sparplanansicht. Die gewöhnlichen Fixkosten bleiben in einer
-  eigenen Liste unter Weitere Bereiche.
+  Ein Tipp öffnet die Fixkostenliste. Die Sparpläne stehen dort in einer
+  Zeile, mit derselben Übersicht wie in der Sparplanansicht: pro Woche, pro
+  Monat und die Abbuchungstage. Ein Tipp auf diese Zeile öffnet die
+  Sparplanansicht, dort werden Pläne angelegt. Die übrigen Fixkosten bleiben
+  in der Liste.
 - Ein abgeschlossener Zeitraum zeigt nur Gebuchtes, ohne Offen und ohne
   Prognosezeile.
 - Während die Finanzkacheln zum ersten Mal oder nach einem Wechsel von
@@ -710,7 +726,8 @@ Buchung zugeordnet ist, bleibt in der Liste und ist ausgegraut.
   Stichtag wird trotzdem verwendet.
 - Unter den Sparplänen öffnet **Anteile** ein Kreisdiagramm. Jede Position
   zeigt ihren Anteil am Depotwert, mit demselben Wert wie in der Depotliste.
-  1.000 € ETF, 500 € Tesla und 500 € Amazon sind 50 %, 25 % und 25 %.
+  1.000 € ETF, 500 € Tesla und 500 € Amazon sind 50 %, 25 % und 25 %. Ein
+  Tipp auf ein Stück zeigt den Namen, den Eurobetrag und den Prozentwert.
 
 ### Sparpläne
 
@@ -736,10 +753,13 @@ Buchung zugeordnet ist, bleibt in der Liste und ist ausgegraut.
   das kein Bankarbeitstag, gilt der nächste Bankarbeitstag.
 - Die Sparpläne im Depot sind die Vorlage. Jeder Plan bleibt intern eine
   Fixkosten auf dem verknüpften Girokonto, damit die Prognose weiterläuft.
-  Die Fixkostenliste wiederholt die einzelnen Pläne nicht. Eine Übersicht
-  zeigt, was im gewählten Zeitraum schon gebucht ist und was noch offen ist,
-  und öffnet die Sparplanansicht. Dort bearbeitet oder löscht Wischen einen
-  Plan.
+  Die Fixkostenliste wiederholt die einzelnen Pläne nicht. Eine Zeile zeigt
+  den Wochenbetrag, den Monatsbetrag und die Abbuchungstage und öffnet die
+  Sparplanansicht. Dort bearbeitet oder löscht Wischen einen Plan. Ist ein
+  Abbuchungstag vorbei, legt Lifify keine Buchung an. Der Termin bleibt eine
+  Prognose und zählt als offen, bis eine echte Buchung, etwa der Auszug, ihn
+  deckt. Erst dann wird er ausgegraut. Eine früher dafür angelegte Buchung
+  wird wieder entfernt, einschließlich der Stücke, die sie hinzugefügt hatte.
 - Eine bereits gebuchte Ausführung zählt nicht noch einmal als offene Fixkosten.
   Sie steht aber im gebuchten Fixkostenbetrag des Zeitraums, auch wenn sie vor
   der letzten Ausführung lag.
@@ -789,7 +809,13 @@ Ist ein Konto gewählt, stehen nur Buchungen dieses Kontos zur Auswahl. Bei
 Einnahmen, Fixkosten, Umbuchungen und dem Einkaufszettel ersetzt die Zuweisung
 die Prognose für den ganzen Zeitraum, die anderen Termine bleiben. Eine schon
 zugeordnete Prognose, von Hand oder automatisch, bleibt sichtbar und ist
-ausgegraut. Variable Kosten sind davon ausgenommen: jede weitere Buchung
+ausgegraut. Ein Termin, der schon vorbei ist, wird nicht in die Buchungen
+übernommen. Er bleibt bei den Prognosen und zählt im laufenden Zeitraum
+weiter als offen, bis eine echte Buchung ihn deckt. Prognosen, Fixkosten und
+variable Kosten werden nie von selbst gebucht. In einem zukünftigen Zeitraum
+zählen sie weiterhin vollständig in den großen Beträgen. Ein abgeschlossener
+Zeitraum zeigt nur echte Buchungen. Variable Kosten sind in einem Punkt
+anders: jede weitere Buchung
 mindert nur den noch reservierten Betrag, und die Zeile bleibt stehen, bis
 dieser Rest null ist. Wischen nach rechts bearbeitet die Serie, Wischen nach
 links löscht nur diesen Termin. Im Depot entfällt der Bereich. Die Zeilen
@@ -953,8 +979,11 @@ ohne Depot, einen Betrag und einen Rhythmus.
 
 ### Budgetpools
 
+- Ein Pool hängt an keinem Konto, das Formular fragt nicht danach.
 - Ein Tipp öffnet den Pool. Wischen nach rechts bearbeitet ihn, Wischen nach
   links löscht ihn.
+- In der Detailansicht lässt sich eine Buchung hinzufügen. Das ist eine echte
+  Buchung und wird dem Pool im Zeitraum ihres Datums zugeordnet.
 - Es gibt keinen Starttag. Der Gehaltszeitraum ist der Kalendermonat, das
   Kalenderjahr das Kalenderjahr. Ein älterer Pool mit gespeichertem Starttag
   zählt diese Zuweisungen in dem Kalendermonat, in dem der alte Zeitraum

@@ -50,32 +50,50 @@ struct ShopView: View {
     }
 
     private func rewardTile(_ reward: RewardItem) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
+        let accent = rewardAccent(reward)
+        return VStack(alignment: .leading, spacing: 0) {
             Button { edited = reward } label: {
-                VStack(alignment: .leading, spacing: 8) {
-                    Image(systemName: reward.icon)
-                        .font(.largeTitle)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    Text(reward.title)
-                        .font(.headline)
-                        .foregroundStyle(.primary)
-                        .lineLimit(2)
-                        .multilineTextAlignment(.leading)
-                    if !reward.details.isEmpty {
-                        Text(reward.details)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 0) {
+                    HStack(alignment: .center, spacing: 10) {
+                        Image(systemName: reward.icon)
+                            .font(.title2.weight(.semibold))
+                            .foregroundStyle(.white)
+                            .frame(width: 44, height: 44)
+                            .background(.white.opacity(0.22), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        Spacer(minLength: 0)
+                        Text(redemptionLabel(purchases.filter { $0.rewardID == reward.id }.count))
+                            .font(.caption2.weight(.bold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(.white.opacity(0.2), in: Capsule())
+                    }
+                    .padding(14)
+                    .frame(maxWidth: .infinity, minHeight: 86, alignment: .topLeading)
+                    .background(accent)
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(reward.title)
+                            .font(.headline)
+                            .foregroundStyle(.primary)
                             .lineLimit(2)
                             .multilineTextAlignment(.leading)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        if !reward.details.isEmpty {
+                            Text(reward.details)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(3)
+                                .multilineTextAlignment(.leading)
+                        }
+                        Spacer(minLength: 0)
+                        CoinAmountView(amount: reward.price)
                     }
-                    Text(redemptionLabel(purchases.filter { $0.rewardID == reward.id }.count))
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                    CoinAmountView(amount: reward.price)
+                    .padding(12)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
             }
             .buttonStyle(.plain)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             Button {
                 message = ChallengeService.purchase(reward: reward, transactions: transactions, context: context)
                     ? L("Belohnung gekauft.", "Reward purchased.")
@@ -83,13 +101,22 @@ struct ShopView: View {
             } label: {
                 Text(L("Einlösen", "Redeem"))
                     .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
+                    .padding(.vertical, 8)
+                    .background(accent, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
             }
-            .buttonStyle(.bordered)
+            .buttonStyle(.plain)
+            .padding(.horizontal, 12)
+            .padding(.bottom, 12)
         }
-        .padding(14)
-        .frame(maxWidth: .infinity, minHeight: 210, alignment: .topLeading)
-        .background(AppSurface.card, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .frame(maxWidth: .infinity, height: 276, alignment: .top)
+        .background(AppSurface.card)
+        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .stroke(accent.opacity(0.45), lineWidth: 1)
+        )
         .contextMenu {
             Button { edited = reward } label: {
                 Label(L("Bearbeiten", "Edit"), systemImage: "pencil")
@@ -112,7 +139,38 @@ struct ShopView: View {
         if count == 1 { return L("1× eingelöst", "Redeemed once") }
         return "\(count)× \(L("eingelöst", "redeemed"))"
     }
+
+    private func rewardAccent(_ reward: RewardItem) -> Color {
+        let stored = reward.colorHex.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !stored.isEmpty, stored.caseInsensitiveCompare("#C78335") != .orderedSame, let custom = color(hex: stored) {
+            return custom
+        }
+        return color(hex: rewardPalette[paletteIndex(reward.id)]) ?? Color(red: 0.78, green: 0.51, blue: 0.21)
+    }
+
+    private func paletteIndex(_ id: UUID) -> Int {
+        var total = 0
+        for scalar in id.uuidString.unicodeScalars {
+            total = (total + Int(scalar.value)) % rewardPalette.count
+        }
+        return total
+    }
+
+    private func color(hex: String) -> Color? {
+        var text = hex.trimmingCharacters(in: .whitespacesAndNewlines)
+        if text.hasPrefix("#") { text.removeFirst() }
+        guard text.count == 6, let value = UInt32(text, radix: 16) else { return nil }
+        return Color(
+            red: Double((value >> 16) & 0xFF) / 255,
+            green: Double((value >> 8) & 0xFF) / 255,
+            blue: Double(value & 0xFF) / 255
+        )
+    }
 }
+
+private let rewardPalette = [
+    "#C45C6A", "#4F7CAC", "#2F9E7A", "#E09A3E", "#7B61A8", "#3D8B8B", "#D4783A", "#5B6EAE"
+]
 private struct RewardForm: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
@@ -122,6 +180,7 @@ private struct RewardForm: View {
     @State private var price: Int
     @State private var url: String
     @State private var icon: String
+    @State private var colorHex: String
     @State private var allowsMultiple: Bool
 
     init(reward: RewardItem?) {
@@ -131,6 +190,7 @@ private struct RewardForm: View {
         _price = State(initialValue: reward?.price ?? 100)
         _url = State(initialValue: reward?.urlString ?? "")
         _icon = State(initialValue: reward?.icon ?? "gift")
+        _colorHex = State(initialValue: reward?.colorHex ?? rewardPalette[0])
         _allowsMultiple = State(initialValue: reward.map { RewardPolicyStore.allowsMultiplePurchases(for: $0.id) } ?? true)
     }
 
@@ -150,6 +210,28 @@ private struct RewardForm: View {
                 }
                 TextField("URL", text: $url).keyboardType(.URL).textInputAutocapitalization(.never)
                 SymbolPicker(title: L("Symbol", "Icon"), selection: $icon)
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(L("Farbe", "Color"))
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4), spacing: 8) {
+                        ForEach(rewardPalette, id: \.self) { hex in
+                            Button {
+                                colorHex = hex
+                            } label: {
+                                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                    .fill(rewardColor(hex))
+                                    .frame(height: 32)
+                                    .overlay {
+                                        if colorHex.caseInsensitiveCompare(hex) == .orderedSame {
+                                            Image(systemName: "checkmark")
+                                                .font(.caption.weight(.bold))
+                                                .foregroundStyle(.white)
+                                        }
+                                    }
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
             }
             .navigationTitle(L("Belohnung", "Reward"))
             .toolbar {
@@ -163,6 +245,7 @@ private struct RewardForm: View {
                         reward.price = max(price, 0)
                         reward.urlString = url
                         reward.icon = icon
+                        reward.colorHex = colorHex
                         if existing == nil { context.insert(reward) }
                         RewardPolicyStore.setAllowsMultiplePurchases(allowsMultiple, for: reward.id)
                         try? context.save()
@@ -171,5 +254,18 @@ private struct RewardForm: View {
                 }
             }
         }
+    }
+
+    private func rewardColor(_ hex: String) -> Color {
+        var text = hex.trimmingCharacters(in: .whitespacesAndNewlines)
+        if text.hasPrefix("#") { text.removeFirst() }
+        guard text.count == 6, let value = UInt32(text, radix: 16) else {
+            return Color(red: 0.78, green: 0.51, blue: 0.21)
+        }
+        return Color(
+            red: Double((value >> 16) & 0xFF) / 255,
+            green: Double((value >> 8) & 0xFF) / 255,
+            blue: Double(value & 0xFF) / 255
+        )
     }
 }

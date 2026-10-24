@@ -11,6 +11,7 @@ struct FixedCostsView: View {
     @State private var edited: FixedCost?
     @State private var selected: FixedCost?
     @State private var showingNew = false
+    @State private var savingsPlans: [SavingsPlanRecord] = []
 
     private var periods: [ForecastPeriod] {
         FinancePeriods.all(entries: entries, forecasts: forecasts)
@@ -37,6 +38,10 @@ struct FixedCostsView: View {
         )
     }
 
+    private var activeSavingsPlans: [SavingsPlanRecord] {
+        savingsPlans.filter(\.active)
+    }
+
     var body: some View {
         List {
             if let period = filters.period(in: periods) {
@@ -45,7 +50,7 @@ struct FixedCostsView: View {
                     .foregroundStyle(.secondary)
                     .listRowBackground(Color.clear)
             }
-            if !savingsCosts.isEmpty {
+            if !activeSavingsPlans.isEmpty || !savingsCosts.isEmpty {
                 NavigationLink(value: FinanceRoute.savingsPlans) {
                     savingsSummaryRow
                 }
@@ -58,7 +63,7 @@ struct FixedCostsView: View {
             }
         }
         .overlay {
-            if regularCosts.isEmpty && savingsCosts.isEmpty {
+            if regularCosts.isEmpty && savingsCosts.isEmpty && activeSavingsPlans.isEmpty {
                 ContentUnavailableView(L("Keine Fixkosten", "No fixed costs"), systemImage: "repeat")
             }
         }
@@ -69,7 +74,10 @@ struct FixedCostsView: View {
         .sheet(isPresented: $showingNew) { FixedCostForm(cost: nil) }
         .sheet(item: $edited) { FixedCostForm(cost: $0) }
         .sheet(item: $selected) { FixedCostDetailView(cost: $0) }
-        .onAppear { SavingsPlanFixedCosts.sync(context: context) }
+        .onAppear {
+            SavingsPlanFixedCosts.sync(context: context)
+            savingsPlans = SavingsPlanStore.all()
+        }
     }
 
     private func costRow(_ cost: FixedCost) -> some View {
@@ -129,47 +137,38 @@ struct FixedCostsView: View {
     }
 
     private var savingsSummaryRow: some View {
-        let summary = savingsSummary
-        return HStack(spacing: 12) {
+        HStack(alignment: .top, spacing: 12) {
             Image(systemName: BookingCategory.savingsPlan.systemImage)
                 .frame(width: 28)
                 .foregroundStyle(.primary)
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 8) {
                 Text(L("Sparpläne", "Savings plans"))
                     .foregroundStyle(.primary)
-                Text("\(L("Gebucht", "Booked")) \(Money.string(cents: summary.booked))")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Text("\(L("Offen", "Open")) \(Money.string(cents: summary.open))")
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(L("Pro Woche", "Per week"))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Text(Money.string(cents: SavingsPlanFixedCosts.weeklyCostCents(of: activeSavingsPlans)))
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.primary)
+                    }
+                    Spacer(minLength: 8)
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text(L("Pro Monat", "Per month"))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Text(Money.string(cents: SavingsPlanFixedCosts.monthlyCostCents(of: activeSavingsPlans)))
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.primary)
+                    }
+                }
+                Text(CalendarService.savingsPlanScheduleText(cadence: .weekly))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
-            Spacer()
         }
-    }
-
-    private var savingsSummary: (booked: Int, open: Int) {
-        let ids = Set(savingsCosts.compactMap(\.accountID))
-        let accountIDs: Set<UUID>? = selectedAccount == nil ? nil : ids
-        guard let period = filters.period(in: periods) else {
-            let monthly = savingsCosts.filter(\.isActive).reduce(0) { $0 + abs($1.amountCents) }
-            return (0, monthly)
-        }
-        let booked = FinanceService.savingsPlanBookedCents(
-            entries: entries,
-            from: period.start,
-            through: period.end,
-            accountIDs: accountIDs
-        )
-        let open = FinanceService.scheduledCharges(
-            costs: savingsCosts.filter(\.isActive),
-            entries: entries,
-            from: period.start,
-            through: period.end
-        )
-        .filter { !$0.isPaid }
-        .reduce(0) { $0 + $1.amount }
-        return (booked, open)
+        .padding(.vertical, 4)
     }
 
     private func delete(_ cost: FixedCost) {

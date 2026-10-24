@@ -1,8 +1,10 @@
+import SwiftData
 import SwiftUI
 import UIKit
 
 struct WorkoutSessionView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var context
     @EnvironmentObject private var store: WorkoutStore
     let plan: WorkoutPlan
     @State private var draft: WorkoutSession
@@ -408,6 +410,11 @@ struct WorkoutSessionView: View {
         let records = WorkoutProgress.personalRecords(in: draft, sessions: store.sessions)
         let phrase = WorkoutProgress.motivation(for: grade, seed: draft.id.hashValue)
         store.save(session: draft)
+        let finished = draft
+        let sessions = store.sessions
+        Task {
+            await WorkoutCalendarSync.apply(session: finished, context: context, sessions: sessions)
+        }
         finishSummary = WorkoutFinishSummary(
             phrase: phrase,
             volume: WorkoutProgress.volume(of: draft),

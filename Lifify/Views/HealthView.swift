@@ -1,3 +1,4 @@
+import SwiftData
 import SwiftUI
 
 enum HealthRoute: Hashable {
@@ -8,6 +9,7 @@ enum HealthRoute: Hashable {
 }
 
 struct HealthView: View {
+    @Environment(\.modelContext) private var context
     @EnvironmentObject private var store: WorkoutStore
     @State private var editorPlan: WorkoutPlan?
 
@@ -39,6 +41,7 @@ struct HealthView: View {
                     }
                     .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                         Button(role: .destructive) {
+                            WorkoutLinkStore.removePlan(plan.id)
                             store.deletePlan(id: plan.id)
                         } label: {
                             Label(L("Löschen", "Delete"), systemImage: "trash")
@@ -77,6 +80,9 @@ struct HealthView: View {
         .sheet(item: $editorPlan) { plan in
             WorkoutEditorView(plan: plan)
                 .environmentObject(store)
+        }
+        .onAppear {
+            Task { await WorkoutCalendarSync.cleanup(context: context, sessions: store.sessions) }
         }
     }
 
@@ -151,6 +157,8 @@ struct WorkoutPlanDetailView: View {
                         }
                         .buttonStyle(.borderedProminent)
                         .disabled(plan.exercises.isEmpty)
+
+                        WorkoutLinkSection(planID: plan.id)
 
                         ForEach(plan.exercises) { exercise in
                             VStack(alignment: .leading, spacing: 8) {

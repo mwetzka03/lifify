@@ -65,8 +65,8 @@ struct BudgetPoolsView: View {
 private struct BudgetPoolDetailView: View {
     @Query private var splits: [TransactionSplit]
     @Query(sort: \LedgerEntry.date, order: .reverse) private var entries: [LedgerEntry]
-    @Query(sort: \Account.name) private var accounts: [Account]
     let pool: BudgetPool
+    @State private var showingBooking = false
 
     var body: some View {
         let key = CalendarService.periodKey(for: .now, pool: pool)
@@ -78,9 +78,6 @@ private struct BudgetPoolDetailView: View {
                 LabeledContent(L("Budget", "Budget"), value: Money.string(cents: pool.amountCents))
                 LabeledContent(L("Zeitraum", "Period"), value: pool.periodMode.label)
                 LabeledContent(L("Aktuell", "Current"), value: key)
-                if let account = accounts.first(where: { $0.id == pool.accountID }) {
-                    LabeledContent(L("Konto", "Account"), value: account.name)
-                }
                 LabeledContent(L("Verbraucht", "Spent"), value: Money.string(cents: spent))
                 if pool.isScalable {
                     LabeledContent(L("Übertrag", "Carryover"), value: Money.string(cents: carry))
@@ -105,10 +102,19 @@ private struct BudgetPoolDetailView: View {
                         Text(Money.string(cents: assignedAmount(entry)))
                     }
                 }
+                Button {
+                    showingBooking = true
+                } label: {
+                    Label(L("Buchung hinzufügen", "Add transaction"), systemImage: "plus")
+                }
+                .buttonStyle(.borderless)
             }
         }
         .navigationTitle(pool.name)
         .navigationBarTitleDisplayMode(.inline)
+        .sheet(isPresented: $showingBooking) {
+            PoolBookingForm(pool: pool)
+        }
     }
 
     private var periodSplits: [TransactionSplit] {
@@ -133,11 +139,9 @@ private struct BudgetPoolDetailView: View {
 private struct BudgetPoolForm: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
-    @Query(sort: \Account.name) private var accounts: [Account]
     private let existing: BudgetPool?
     @State private var name: String
     @State private var amount: String
-    @State private var accountID: UUID?
     @State private var mode: BudgetPeriodMode
     @State private var scalable: Bool
 
@@ -145,7 +149,6 @@ private struct BudgetPoolForm: View {
         existing = pool
         _name = State(initialValue: pool?.name ?? "")
         _amount = State(initialValue: pool.map { String(format: "%.2f", Double($0.amountCents) / 100) } ?? "")
-        _accountID = State(initialValue: pool?.accountID)
         _mode = State(initialValue: pool?.periodMode ?? .salaryPeriod)
         _scalable = State(initialValue: pool?.isScalable ?? false)
     }
@@ -155,17 +158,13 @@ private struct BudgetPoolForm: View {
             Form {
                 TextField(L("Name", "Name"), text: $name)
                 TextField(L("Budget", "Budget"), text: $amount).keyboardType(.decimalPad)
-                Picker(L("Konto", "Account"), selection: $accountID) {
-                    Text(L("Keins", "None")).tag(Optional<UUID>.none)
-                    ForEach(accounts.filter { $0.kind != .portfolio && $0.kind != .savingsGroup }) { Text($0.name).tag(Optional($0.id)) }
-                }
                 Picker(L("Zeitraum", "Period"), selection: $mode) {
                     ForEach(BudgetPeriodMode.allCases) { Text($0.label).tag($0) }
                 }
                 Toggle(L("Skalierbar", "Scalable"), isOn: $scalable)
                 Text(L(
-                    "Bleibt Geld übrig, wird es in den nächsten Zeitraum mitgenommen.",
-                    "Money left over is carried into the next period."
+                    "Bleibt Geld übrig, wird es in den nächsten Zeitraum mitgenommen. Der Pool gehört zu keinem Konto.",
+                    "Money left over is carried into the next period. The pool is not tied to an account."
                 ))
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -185,19 +184,97 @@ private struct BudgetPoolForm: View {
         if let existing {
             existing.name = name
             existing.amountCents = abs(cents)
-            existing.accountID = accountID
+            existing.accountID = nil
             existing.periodMode = mode
             existing.isScalable = scalable
         } else {
             context.insert(BudgetPool(
                 name: name,
                 amountCents: abs(cents),
-                accountID: accountID,
+                accountID: nil,
                 periodMode: mode,
                 salaryStartDay: 1,
                 isScalable: scalable
             ))
         }
+        try? context.save()
+        dismiss()
+    }
+}
+
+private struct PoolBookingForm: View {
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var context
+    @Query(sort: \Account.name) private var accounts: [Account]
+    let pool: BudgetPool
+    @State private var title = ""
+    @State private var amount = ""
+    @State private var date = Date.now
+    @State private var accountID: UUID?
+    @State private var notes = ""
+
+    private var cashAccounts: [Account] {
+        accounts.filter { $0.kind != .portfolio && $0.kind != .savingsGroup }
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                TextField(L("Titel", "Title"), text: $title)
+                TextField(L("Betrag", "Amount"), text: $amount)
+                    .keyboardType(.decimalPad)
+                AppDateField(title: L("Datum", "Date"), selection: $date)
+                Picker(L("Konto", "Account"), selection: $accountID) {
+                    Text(L("Auswählen", "Select")).tag(Optional<UUID>.none)
+                    ForEach(cashAccounts) { account in
+                        Text(account.name).tag(Optional(account.id))
+                    }
+                }
+                TextField(L("Notiz", "Note"), text: $notes, axis: .vertical)
+                Text(L(
+                    "Die Buchung wird diesem Pool im Zeitraum des Datums zugeordnet.",
+                    "The transaction is assigned to this pool for the period of its date."
+                ))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            }
+            .navigationTitle(L("Buchung hinzufügen", "Add transaction"))
+            .navigationBarTitleDisplayMode(.inline)
+            .onAppear {
+                guard accountID == nil else { return }
+                accountID = cashAccounts.first(where: \.isMain)?.id ?? cashAccounts.first?.id
+            }
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(L("Abbrechen", "Cancel")) { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(L("Speichern", "Save")) { save() }
+                }
+            }
+        }
+    }
+
+    private func save() {
+        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let cents = Money.cents(from: amount), cents != 0, !trimmed.isEmpty, let accountID else { return }
+        let absolute = abs(cents)
+        let entry = LedgerEntry(
+            date: date,
+            title: trimmed,
+            notes: notes,
+            amountCents: -absolute,
+            kind: .expense,
+            accountID: accountID
+        )
+        context.insert(entry)
+        context.insert(TransactionSplit(
+            transactionID: entry.id,
+            targetID: pool.id,
+            kind: .budgetPool,
+            periodKey: CalendarService.periodKey(for: date, pool: pool),
+            amountCents: absolute
+        ))
         try? context.save()
         dismiss()
     }

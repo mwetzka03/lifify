@@ -244,6 +244,12 @@ enum BackupService {
         records += ExpenseGroupAssignmentStore.pairs().map { pair in
             BackupRecord(type: "expenseGroupAssignment", id: pair.entryID, uuids: [pair.groupID])
         }
+        records += WorkoutLinkStore.challengePairs().map { pair in
+            BackupRecord(type: "workoutChallengeLink", id: pair.planID, uuids: [pair.challengeID])
+        }
+        records += WorkoutLinkStore.eventPairs().map { pair in
+            BackupRecord(type: "workoutEventLink", id: pair.planID, booleans: [pair.managed], uuids: [pair.eventID])
+        }
         records.append(BackupRecord(
             type: "appPreferences",
             id: UUID(),
@@ -272,7 +278,8 @@ enum BackupService {
         let sideTypes = Set([
             "iconPreference", "reminderRecurrence", "eventRecurrence", "marketSymbol", "previousClose", "purchaseDate",
             "rewardPolicy", "reminderSync",
-            "primaryIncome", "secondaryIncome", "incomeAssignment", "expenseGroupAssignment", "appPreferences"
+            "primaryIncome", "secondaryIncome", "incomeAssignment", "expenseGroupAssignment",
+            "workoutChallengeLink", "workoutEventLink", "appPreferences"
         ])
         for record in backup.records where !sideTypes.contains(record.type) {
             insert(record, into: context)
@@ -281,6 +288,7 @@ enum BackupService {
         clearSideStores(oldSideStores)
         IncomeAssignmentStore.reset()
         ExpenseGroupAssignmentStore.reset()
+        WorkoutLinkStore.reset()
         RefundLinkStore.reset()
         TransferForecastStore.reset()
         ForecastSkipStore.reset()
@@ -298,6 +306,7 @@ enum BackupService {
         clearSideStores(sideStores)
         IncomeAssignmentStore.reset()
         ExpenseGroupAssignmentStore.reset()
+        WorkoutLinkStore.reset()
         RefundLinkStore.reset()
         TransferForecastStore.reset()
         ForecastSkipStore.reset()
@@ -312,6 +321,7 @@ enum BackupService {
         clearSideStores(sideStores)
         IncomeAssignmentStore.reset()
         ExpenseGroupAssignmentStore.reset()
+        WorkoutLinkStore.reset()
         RefundLinkStore.reset()
         TransferForecastStore.reset()
         ForecastSkipStore.reset()
@@ -489,6 +499,14 @@ enum BackupService {
             if let groupID = uuid(0) {
                 let existing = Set(ExpenseGroupAssignmentStore.entryIDs(in: groupID))
                 ExpenseGroupAssignmentStore.replace(groupID: groupID, entryIDs: existing.union([r.id]))
+            }
+        case "workoutChallengeLink":
+            if let challengeID = uuid(0) {
+                WorkoutLinkStore.link(planID: r.id, challengeID: challengeID)
+            }
+        case "workoutEventLink":
+            if let eventID = uuid(0) {
+                WorkoutLinkStore.link(planID: r.id, eventID: eventID, managed: bool(0))
             }
         case "appPreferences":
             UserDefaults.standard.set(string(0), forKey: "userName")

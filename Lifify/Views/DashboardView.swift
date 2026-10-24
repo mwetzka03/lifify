@@ -265,7 +265,7 @@ struct DashboardView: View {
                     closingBalance
                 }
                 EqualHeightTileRow {
-                    linked(.savingsPlans) {
+                    linked(.fixedCosts) {
                         flowTile(
                             L("Fixkosten", "Fixed costs"),
                             amount: future ? -(snapshot.bookedFixed + snapshot.remainingFixed) : -snapshot.bookedFixed,
@@ -976,7 +976,7 @@ struct DashboardView: View {
                 through: period.end
             )
             .map { calendar.startOfDay(for: $0) }
-            .filter { period.contains($0) && $0 >= today && !ForecastSkipStore.isSkipped(.transfer, id: forecast.id, on: $0) }
+            .filter { period.contains($0) && !ForecastSkipStore.isSkipped(.transfer, id: forecast.id, on: $0) }
             .count
             let amount = abs(forecast.amountCents) * count
             if incoming { income += amount }
@@ -1165,8 +1165,6 @@ private struct FinanceMoreSection: View {
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 4)
             VStack(alignment: .leading, spacing: 0) {
-                sectionLink(L("Fixkosten", "Fixed costs"), systemImage: "repeat", route: .fixedCosts)
-                Divider().padding(.leading, 54)
                 sectionLink(L("Budgetpools", "Budget pools"), systemImage: "tray.full", route: .budgetPools)
                 Divider().padding(.leading, 54)
                 sectionLink(L("Ausgabengruppen", "Expense groups"), systemImage: "square.stack.3d.up", route: .expenseGroups)
