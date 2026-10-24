@@ -23,8 +23,8 @@ struct WorkoutLinkSection: View {
             Text(L("Verknüpfungen", "Links"))
                 .font(.headline)
             Text(L(
-                "Mehrere Trainings können dieselbe Challenge nutzen, zum Beispiel Push und Pull für Gym. Ist eines davon an dem Tag fertig, wird die Challenge abgehakt und nur dieser Kalendereintrag angepasst.",
-                "Several workouts can share one challenge, for example Push and Pull for Gym. Finishing any of them that day checks off the challenge and updates only that calendar entry."
+                "Mehrere Trainings können dieselbe Challenge nutzen, ohne festem Wochentag. Ist an einem Tag eines davon fertig, wird die Challenge für diesen Tag abgehakt und nur der Kalendereintrag dieses Tages angepasst. Ohne eines dieser Trainings fällt der Eintrag nach dem Tag weg.",
+                "Several workouts can share one challenge, with no fixed weekday. Finishing any of them checks off the challenge for that day and updates only that day’s calendar entry. If none of those workouts happened, that entry is removed after the day."
             ))
             .font(.caption)
             .foregroundStyle(.secondary)
