@@ -462,7 +462,7 @@ enum MarketDataService {
 
     private static func request<Response: Decodable>(_ url: URL) async throws -> Response {
         var request = URLRequest(url: url)
-        request.setValue("Mozilla/5.0 Lifify/0.2.0", forHTTPHeaderField: "User-Agent")
+        request.setValue("Mozilla/5.0 Lifify/0.3.0", forHTTPHeaderField: "User-Agent")
         request.timeoutInterval = 25
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let http = response as? HTTPURLResponse, 200..<300 ~= http.statusCode else {

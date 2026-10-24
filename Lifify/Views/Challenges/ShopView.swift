@@ -6,58 +6,35 @@ struct ShopView: View {
     @Environment(\.openURL) private var openURL
     @Query(sort: \RewardItem.title) private var rewards: [RewardItem]
     @Query(sort: \CoinTransaction.date, order: .reverse) private var transactions: [CoinTransaction]
+    @Query private var purchases: [RewardPurchase]
     @State private var showingNew = false
     @State private var edited: RewardItem?
     @State private var message: String?
 
+    private let columns = [
+        GridItem(.flexible(), spacing: 12),
+        GridItem(.flexible(), spacing: 12)
+    ]
+
+    private var activeRewards: [RewardItem] {
+        rewards.filter(\.isActive)
+    }
+
     var body: some View {
-        List {
-            Section(L("Shop", "Shop")) {
-                if rewards.filter(\.isActive).isEmpty {
-                    Text(L("Der Shop ist leer", "The shop is empty"))
-                        .foregroundStyle(.secondary)
-                }
-                ForEach(rewards.filter(\.isActive)) { reward in
-                    Button {
-                        edited = reward
-                    } label: {
-                        HStack {
-                            Image(systemName: reward.icon)
-                                .font(.title2)
-                                .frame(width: 38)
-                            VStack(alignment: .leading) {
-                                Text(reward.title).foregroundStyle(.primary)
-                                if !reward.details.isEmpty {
-                                    Text(reward.details).font(.caption).foregroundStyle(.secondary)
-                                }
-                                Text(RewardPolicyStore.allowsMultiplePurchases(for: reward.id) ? L("Mehrmals", "Repeatable") : L("Einmalig", "One-time"))
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            CoinAmountView(amount: reward.price)
-                        }
-                    }
-                    .swipeActions(edge: .leading) {
-                        Button {
-                            message = ChallengeService.purchase(reward: reward, transactions: transactions, context: context)
-                                ? L("Belohnung gekauft.", "Reward purchased.")
-                                : L("Nicht genug Coins.", "Not enough coins.")
-                        } label: {
-                            Label(L("Kaufen", "Buy"), systemImage: "cart")
-                        }
-                        .tint(.green)
-                        if let url = URL(string: reward.urlString), !reward.urlString.isEmpty {
-                            Button { openURL(url) } label: { Label("Link", systemImage: "safari") }
-                        }
+        ScrollView {
+            if activeRewards.isEmpty {
+                ContentUnavailableView(L("Der Shop ist leer", "The shop is empty"), systemImage: "gift")
+                    .padding(.top, 48)
+            } else {
+                LazyVGrid(columns: columns, spacing: 12) {
+                    ForEach(activeRewards) { reward in
+                        rewardTile(reward)
                     }
                 }
-                .onDelete { offsets in
-                    offsets.map { rewards.filter(\.isActive)[$0] }.forEach { $0.isActive = false }
-                    try? context.save()
-                }
+                .padding(16)
             }
         }
+        .appCanvas()
         .navigationTitle(L("Shop", "Shop"))
         .toolbar { Button { showingNew = true } label: { Image(systemName: "plus") } }
         .sheet(isPresented: $showingNew) { RewardForm(reward: nil) }
@@ -70,6 +47,70 @@ struct ShopView: View {
         } message: {
             Text(message ?? "")
         }
+    }
+
+    private func rewardTile(_ reward: RewardItem) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Button { edited = reward } label: {
+                VStack(alignment: .leading, spacing: 8) {
+                    Image(systemName: reward.icon)
+                        .font(.largeTitle)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    Text(reward.title)
+                        .font(.headline)
+                        .foregroundStyle(.primary)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
+                    if !reward.details.isEmpty {
+                        Text(reward.details)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
+                            .multilineTextAlignment(.leading)
+                    }
+                    Text(redemptionLabel(purchases.filter { $0.rewardID == reward.id }.count))
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                    CoinAmountView(amount: reward.price)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .buttonStyle(.plain)
+            Button {
+                message = ChallengeService.purchase(reward: reward, transactions: transactions, context: context)
+                    ? L("Belohnung gekauft.", "Reward purchased.")
+                    : L("Nicht genug Coins.", "Not enough coins.")
+            } label: {
+                Text(L("Einlösen", "Redeem"))
+                    .font(.subheadline.weight(.semibold))
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.bordered)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, minHeight: 210, alignment: .topLeading)
+        .background(AppSurface.card, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .contextMenu {
+            Button { edited = reward } label: {
+                Label(L("Bearbeiten", "Edit"), systemImage: "pencil")
+            }
+            if let url = URL(string: reward.urlString), !reward.urlString.isEmpty {
+                Button { openURL(url) } label: {
+                    Label("Link", systemImage: "safari")
+                }
+            }
+            Button(role: .destructive) {
+                reward.isActive = false
+                try? context.save()
+            } label: {
+                Label(L("Entfernen", "Remove"), systemImage: "trash")
+            }
+        }
+    }
+
+    private func redemptionLabel(_ count: Int) -> String {
+        if count == 1 { return L("1× eingelöst", "Redeemed once") }
+        return "\(count)× \(L("eingelöst", "redeemed"))"
     }
 }
 private struct RewardForm: View {

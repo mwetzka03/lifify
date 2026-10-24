@@ -108,7 +108,11 @@ enum FinanceService {
         splits: [TransactionSplit]
     ) -> Int {
         splits
-            .filter { $0.kind == .budgetPool && $0.targetID == pool.id && $0.periodKey == periodKey }
+            .filter {
+                $0.kind == .budgetPool
+                    && $0.targetID == pool.id
+                    && CalendarService.splitCounts(in: periodKey, splitKey: $0.periodKey, pool: pool)
+            }
             .reduce(0) { $0 + $1.amountCents }
     }
 

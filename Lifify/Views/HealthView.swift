@@ -209,6 +209,9 @@ struct WorkoutHistoryView: View {
                         Text(AppDate.numeric(session.finishedAt))
                             .font(.headline)
                             .foregroundStyle(.secondary)
+                        Text("\(L("Dauer", "Duration")) \(WorkoutFormat.duration(seconds: session.durationSeconds))")
+                            .font(.title3.weight(.semibold))
+                            .monospacedDigit()
                         Text("\(L("Volumen", "Volume")) \(WorkoutProgress.volumeText(WorkoutProgress.volume(of: session)))")
                             .font(.title3.weight(.semibold))
                         let performed = session.performedExercises
@@ -279,7 +282,7 @@ struct WorkoutHistoryListView: View {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(session.planName)
                                 .font(.body.weight(.semibold))
-                            Text("\(AppDate.numeric(session.finishedAt)) · \(WorkoutProgress.volumeText(WorkoutProgress.volume(of: session)))")
+                            Text("\(AppDate.numeric(session.finishedAt)) · \(WorkoutFormat.duration(seconds: session.durationSeconds)) · \(WorkoutProgress.volumeText(WorkoutProgress.volume(of: session)))")
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
                         }

@@ -49,12 +49,6 @@ struct FixedCostsView: View {
                 NavigationLink(value: FinanceRoute.savingsPlans) {
                     savingsSummaryRow
                 }
-                ForEach(savingsCosts) { cost in
-                    costRow(cost)
-                }
-                .onDelete { offsets in
-                    offsets.map { savingsCosts[$0] }.forEach(delete)
-                }
             }
             ForEach(regularCosts) { cost in
                 costRow(cost)
@@ -143,13 +137,14 @@ struct FixedCostsView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(L("Sparpläne", "Savings plans"))
                     .foregroundStyle(.primary)
-                Text("\(L("Gebucht", "Booked")) \(Money.string(cents: summary.booked)) · \(L("Offen", "Open")) \(Money.string(cents: summary.open))")
+                Text("\(L("Gebucht", "Booked")) \(Money.string(cents: summary.booked))")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Text("\(L("Offen", "Open")) \(Money.string(cents: summary.open))")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
             Spacer()
-            Text(Money.string(cents: -(summary.booked + summary.open)))
-                .foregroundStyle(.red)
         }
     }
 

@@ -241,6 +241,9 @@ enum BackupService {
             }
             return BackupRecord(type: "incomeAssignment", id: entryID, uuids: [forecastID])
         }
+        records += ExpenseGroupAssignmentStore.pairs().map { pair in
+            BackupRecord(type: "expenseGroupAssignment", id: pair.entryID, uuids: [pair.groupID])
+        }
         records.append(BackupRecord(
             type: "appPreferences",
             id: UUID(),
@@ -269,7 +272,7 @@ enum BackupService {
         let sideTypes = Set([
             "iconPreference", "reminderRecurrence", "eventRecurrence", "marketSymbol", "previousClose", "purchaseDate",
             "rewardPolicy", "reminderSync",
-            "primaryIncome", "secondaryIncome", "incomeAssignment", "appPreferences"
+            "primaryIncome", "secondaryIncome", "incomeAssignment", "expenseGroupAssignment", "appPreferences"
         ])
         for record in backup.records where !sideTypes.contains(record.type) {
             insert(record, into: context)
@@ -277,6 +280,7 @@ enum BackupService {
         try context.save()
         clearSideStores(oldSideStores)
         IncomeAssignmentStore.reset()
+        ExpenseGroupAssignmentStore.reset()
         RefundLinkStore.reset()
         TransferForecastStore.reset()
         ForecastSkipStore.reset()
@@ -293,6 +297,7 @@ enum BackupService {
         try context.save()
         clearSideStores(sideStores)
         IncomeAssignmentStore.reset()
+        ExpenseGroupAssignmentStore.reset()
         RefundLinkStore.reset()
         TransferForecastStore.reset()
         ForecastSkipStore.reset()
@@ -306,6 +311,7 @@ enum BackupService {
         try context.save()
         clearSideStores(sideStores)
         IncomeAssignmentStore.reset()
+        ExpenseGroupAssignmentStore.reset()
         RefundLinkStore.reset()
         TransferForecastStore.reset()
         ForecastSkipStore.reset()
@@ -478,6 +484,11 @@ enum BackupService {
         case "incomeAssignment":
             if let forecastID = uuid(0) {
                 IncomeAssignmentStore.assign(entryID: r.id, to: forecastID)
+            }
+        case "expenseGroupAssignment":
+            if let groupID = uuid(0) {
+                let existing = Set(ExpenseGroupAssignmentStore.entryIDs(in: groupID))
+                ExpenseGroupAssignmentStore.replace(groupID: groupID, entryIDs: existing.union([r.id]))
             }
         case "appPreferences":
             UserDefaults.standard.set(string(0), forKey: "userName")

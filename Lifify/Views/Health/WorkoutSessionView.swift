@@ -38,6 +38,17 @@ struct WorkoutSessionView: View {
                 Text(plan.name)
                     .font(.largeTitle.bold())
                     .listRowBackground(Color.clear)
+                TimelineView(.periodic(from: draft.startedAt, by: 1)) { context in
+                    let elapsed = max(0, Int(context.date.timeIntervalSince(draft.startedAt).rounded(.down)))
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(WorkoutFormat.duration(seconds: elapsed))
+                            .font(.system(.largeTitle, design: .rounded).monospacedDigit().bold())
+                        Text(L("Dauer", "Duration"))
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .listRowBackground(Color.clear)
             }
             if draft.exercises.isEmpty {
                 ContentUnavailableView(
@@ -400,6 +411,7 @@ struct WorkoutSessionView: View {
         finishSummary = WorkoutFinishSummary(
             phrase: phrase,
             volume: WorkoutProgress.volume(of: draft),
+            durationSeconds: draft.durationSeconds,
             records: records
         )
     }
@@ -409,6 +421,7 @@ private struct WorkoutFinishSummary: Identifiable {
     let id = UUID()
     let phrase: String
     let volume: Double
+    let durationSeconds: Int
     let records: [WorkoutPersonalRecord]
 }
 
@@ -422,6 +435,9 @@ private struct WorkoutFinishSheet: View {
                 VStack(alignment: .leading, spacing: 16) {
                     Text(summary.phrase)
                         .font(.title.bold())
+                    Text("\(L("Dauer", "Duration")) \(WorkoutFormat.duration(seconds: summary.durationSeconds))")
+                        .font(.title3.weight(.semibold))
+                        .monospacedDigit()
                     Text("\(L("Volumen", "Volume")) \(WorkoutProgress.volumeText(summary.volume))")
                         .font(.title3.weight(.semibold))
                         .foregroundStyle(.secondary)

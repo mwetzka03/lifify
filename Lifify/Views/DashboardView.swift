@@ -81,7 +81,7 @@ struct DashboardView: View {
                             }
                             ForEach(visibleForecasts(period)) { line in
                                 if line.isSavingsHeader {
-                                    savingsForecastHeader(weekCents: line.weekCents, periodCents: line.periodCents)
+                                    savingsForecastHeader(bookedCents: line.bookedCents, openCents: line.openCents)
                                 } else if let item = line.item {
                                     forecastButton(item)
                                 }
@@ -265,7 +265,7 @@ struct DashboardView: View {
                     closingBalance
                 }
                 EqualHeightTileRow {
-                    linked(.fixedCosts) {
+                    linked(.savingsPlans) {
                         flowTile(
                             L("Fixkosten", "Fixed costs"),
                             amount: future ? -(snapshot.bookedFixed + snapshot.remainingFixed) : -snapshot.bookedFixed,
@@ -378,8 +378,9 @@ struct DashboardView: View {
         .listRowBackground(Color.clear)
     }
 
-    private func savingsForecastHeader(weekCents: Int, periodCents: Int) -> some View {
+    private func savingsForecastHeader(bookedCents: Int, openCents: Int) -> some View {
         let expanded = savingsForecastsExpanded || !forecastQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let total = bookedCents + openCents
         return Button {
             savingsForecastsExpanded.toggle()
         } label: {
@@ -390,7 +391,10 @@ struct DashboardView: View {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(L("Sparpläne", "Savings plans"))
                         .foregroundStyle(.primary)
-                    Text("\(L("Pro Woche", "Per week")) \(Money.string(cents: weekCents)) · \(L("Zeitraum", "Period")) \(Money.string(cents: periodCents))")
+                    Text("\(L("Gesamt", "Total")) \(Money.string(cents: total))")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text("\(L("Gebucht", "Booked")) \(Money.string(cents: bookedCents)) · \(L("Offen", "Open")) \(Money.string(cents: openCents))")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -420,10 +424,11 @@ struct DashboardView: View {
         let expanded = savingsForecastsExpanded || !forecastQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         var lines: [ForecastDisplayLine] = []
         var inserted = false
+        let figures = savingsForecastFigures(period: period)
         let header = ForecastDisplayLine(
             id: "savings-group",
-            weekCents: savingsWeekCents(savings),
-            periodCents: savings.reduce(0) { $0 + abs($1.signedCents) }
+            bookedCents: figures.booked,
+            openCents: figures.open
         )
         func appendSavings() {
             lines.append(header)
@@ -450,27 +455,17 @@ struct DashboardView: View {
         return SavingsPlanFixedCosts.isManagedName(item.title)
     }
 
-    private func savingsWeekCents(_ items: [ForecastListItem]) -> Int {
-        let ids = Set(items.compactMap(\.fixedCostID))
-        let plans = SavingsPlanStore.all().filter { plan in
-            guard let fixedID = plan.fixedCostID else { return false }
-            return ids.contains(fixedID)
-        }
-        if !plans.isEmpty {
-            return SavingsPlanFixedCosts.weeklyCostCents(of: plans)
-        }
-        let monthly = fixedCosts.filter { ids.contains($0.id) }.reduce(0) { sum, cost in
-            let amount = abs(cost.amountCents)
-            let month: Int
-            switch cost.cadence {
-            case .weekly: month = amount * 4
-            case .biweekly: month = amount * 2
-            case .monthly: month = amount
-            case .yearly: month = Int((Double(amount) / 12).rounded())
-            }
-            return sum + month
-        }
-        return Int((Double(monthly) / 4).rounded())
+    private func savingsForecastFigures(period: ForecastPeriod) -> (booked: Int, open: Int) {
+        let savings = forecastItems(period).filter(isSavingsForecast)
+        let open = savings.filter { !$0.settled }.reduce(0) { $0 + abs($1.signedCents) }
+        let accountIDs: Set<UUID>? = selectedFilterAccount.map { Set([$0.id]) }
+        let booked = FinanceService.savingsPlanBookedCents(
+            entries: entries,
+            from: period.start,
+            through: period.end,
+            accountIDs: accountIDs
+        )
+        return (booked, open)
     }
 
     private func forecastItems(_ period: ForecastPeriod) -> [ForecastListItem] {
@@ -1170,6 +1165,8 @@ private struct FinanceMoreSection: View {
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 4)
             VStack(alignment: .leading, spacing: 0) {
+                sectionLink(L("Fixkosten", "Fixed costs"), systemImage: "repeat", route: .fixedCosts)
+                Divider().padding(.leading, 54)
                 sectionLink(L("Budgetpools", "Budget pools"), systemImage: "tray.full", route: .budgetPools)
                 Divider().padding(.leading, 54)
                 sectionLink(L("Ausgabengruppen", "Expense groups"), systemImage: "square.stack.3d.up", route: .expenseGroups)
@@ -1252,8 +1249,8 @@ private struct FlowNote {
 private struct ForecastDisplayLine: Identifiable {
     var id: String
     var item: ForecastListItem?
-    var weekCents: Int = 0
-    var periodCents: Int = 0
+    var bookedCents: Int = 0
+    var openCents: Int = 0
 
     var isSavingsHeader: Bool { item == nil }
 
@@ -1262,10 +1259,10 @@ private struct ForecastDisplayLine: Identifiable {
         self.item = item
     }
 
-    init(id: String, weekCents: Int, periodCents: Int) {
+    init(id: String, bookedCents: Int, openCents: Int) {
         self.id = id
-        self.weekCents = weekCents
-        self.periodCents = periodCents
+        self.bookedCents = bookedCents
+        self.openCents = openCents
     }
 }
 
