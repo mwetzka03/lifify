@@ -16,17 +16,28 @@ struct HomeView: View {
     @Query private var transactions: [CoinTransaction]
     @Query private var rewards: [RewardItem]
     @State private var mode = ChallengeCalendarViewMode.day
-    @State private var selectedDate = Date.now
+    @State private var selectedDate = AppClock.now
+    @AppStorage(AppClock.modeKey) private var developerMode = false
+    @AppStorage(AppClock.dayKey) private var developerDay = 0.0
     @State private var expandedWeekday: Date?
     @AppStorage("userName") private var userName = ""
     @AppStorage("dashboardPeriodMode") private var dashboardPeriod = DashboardPeriodMode.calendarMonth.rawValue
+    @AppStorage(StreakSettings.revisionKey) private var streakRevision = 0
 
     var body: some View {
         ScrollView {
             VStack(spacing: 16) {
+                let _ = developerMode
+                let _ = developerDay
                 if !userName.isEmpty {
                     Text("\(L("Willkommen zurück", "Welcome back")), \(userName)")
                         .font(.title2.bold())
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                if developerMode {
+                    Text("\(L("Simulierter Tag", "Simulated day")): \(AppDate.numeric(AppClock.now))")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.orange)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 noticeSection
@@ -52,7 +63,7 @@ struct HomeView: View {
                     Button { move(by: -1) } label: { Image(systemName: "chevron.left") }
                     Spacer()
                     Button {
-                        withAnimation { selectedDate = .now }
+                        withAnimation { selectedDate = AppClock.now }
                     } label: {
                         Text(periodTitle)
                             .font(.headline)
@@ -78,6 +89,18 @@ struct HomeView: View {
             .padding()
         }
         .appCanvas()
+        .onAppear {
+            ChallengeService.commitFreezes(for: challenges, completions: completions, events: calendarEvents, on: AppClock.now)
+        }
+        .onChange(of: developerDay) {
+            guard developerMode else { return }
+            selectedDate = AppClock.now
+            ChallengeService.commitFreezes(for: challenges, completions: completions, events: calendarEvents, on: AppClock.now)
+        }
+        .onChange(of: developerMode) {
+            selectedDate = AppClock.now
+            ChallengeService.commitFreezes(for: challenges, completions: completions, events: calendarEvents, on: AppClock.now)
+        }
     }
 
     private var dayView: some View {
@@ -89,7 +112,7 @@ struct HomeView: View {
                     Text(AppDate.weekdayAndNumeric(selectedDate))
                         .font(.title3.bold())
                     Spacer()
-                    if Calendar.current.isDateInToday(selectedDate) {
+                    if AppClock.isToday(selectedDate) {
                         Text(L("Heute", "Today"))
                             .font(.caption.bold())
                             .foregroundStyle(.red)
@@ -112,11 +135,16 @@ struct HomeView: View {
                                     .font(.caption.monospacedDigit())
                                     .foregroundStyle(.secondary)
                                     .frame(width: 58, alignment: .leading)
-                                Label(event.title, systemImage: event.icon)
-                                Spacer()
-                                if event.linkedChallengeID != nil {
-                                    Image(systemName: "target").foregroundStyle(.green)
+                                VStack(alignment: .leading, spacing: 1) {
+                                    Label(event.title, systemImage: event.icon)
+                                    if let id = event.linkedChallengeID,
+                                       let title = challenges.first(where: { $0.id == id })?.title {
+                                        Text(LinkCaption.challenge(title))
+                                            .font(.caption2)
+                                            .foregroundStyle(.green)
+                                    }
                                 }
+                                Spacer()
                             }
                         }
                     }
@@ -124,7 +152,14 @@ struct HomeView: View {
                         ForEach(dayChallenges.prefix(5)) { challenge in
                             HStack {
                                 Image(systemName: IconPreferenceStore.icon(for: challenge.id, fallback: "target"))
-                                Text(challenge.title)
+                                VStack(alignment: .leading, spacing: 1) {
+                                    Text(challenge.title)
+                                    if let caption = homeCalendarCaption(challenge) {
+                                        Text(caption)
+                                            .font(.caption2)
+                                            .foregroundStyle(.green)
+                                    }
+                                }
                                 Spacer()
                                 CoinAmountView(amount: challenge.rewardCoins, showsPlus: true)
                                     .font(.caption)
@@ -230,9 +265,9 @@ struct HomeView: View {
                             VStack(spacing: 3) {
                                 Text(AppDate.day(date))
                                     .font(.subheadline)
-                                    .foregroundStyle(Calendar.current.isDateInToday(date) ? .white : .primary)
+                                    .foregroundStyle(AppClock.isToday(date) ? .white : .primary)
                                     .frame(width: 28, height: 28)
-                                    .background(Calendar.current.isDateInToday(date) ? Color.red : .clear, in: Circle())
+                                    .background(AppClock.isToday(date) ? Color.red : .clear, in: Circle())
                                 HStack(spacing: 2) {
                                     if !events(on: date).isEmpty {
                                         Circle().fill(.blue).frame(width: 4, height: 4)
@@ -294,6 +329,9 @@ struct HomeView: View {
             case .reward:
                 Label(L("Belohnung", "Reward"), systemImage: "gift.fill")
                     .font(.headline)
+            case .freeze:
+                Label(L("Streak-Freeze", "Streak freeze"), systemImage: "snowflake")
+                    .font(.headline)
             }
             popupRows(popup)
         }
@@ -310,9 +348,10 @@ struct HomeView: View {
                 Button {
                     ChallengeService.toggleCompletion(
                         challenge: item.challenge,
-                        date: .now,
+                        date: AppClock.now,
                         completions: completions,
                         transactions: transactions,
+                        events: calendarEvents,
                         context: context
                     )
                 } label: {
@@ -324,14 +363,23 @@ struct HomeView: View {
                                 .foregroundStyle(.secondary)
                         }
                         Spacer(minLength: 8)
-                        CoinAmountView(amount: item.challenge.rewardCoins, showsPlus: true)
-                            .font(.caption)
-                        if item.challenge.recurrence != .none {
-                            let streak = ChallengeService.streak(
+                        CoinAmountView(
+                            amount: ChallengeService.projectedCoins(
+                                challenge: item.challenge,
+                                on: AppClock.now,
+                                completions: completions,
+                                events: calendarEvents
+                            ),
+                            showsPlus: true
+                        )
+                        .font(.caption)
+                        if StreakSettings.isEnabled(for: item.challenge.id) {
+                            let streak = ChallengeService.status(
                                 for: item.challenge,
-                                endingOn: .now,
-                                completions: completions
-                            )
+                                endingOn: AppClock.now,
+                                completions: completions,
+                                events: calendarEvents
+                            ).count
                             HStack(spacing: 2) {
                                 Image(systemName: "flame.fill")
                                 Text("\(streak)")
@@ -358,7 +406,45 @@ struct HomeView: View {
                 CoinAmountView(amount: reward.price)
                     .font(.caption)
             }
+        case .freeze(let items):
+            VStack(alignment: .leading, spacing: 8) {
+                ForEach(items, id: \.challenge.id) { item in
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(item.challenge.title)
+                        Text(freezeWarning(done: item.done, required: item.required, recurrence: item.challenge.recurrence))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                NavigationLink {
+                    ShopView()
+                } label: {
+                    Text(L("Im Shop kaufen", "Buy in the shop"))
+                        .font(.subheadline.weight(.semibold))
+                }
+            }
         }
+    }
+
+    private func freezeWarning(done: Int, required: Int, recurrence: ChallengeRecurrence) -> String {
+        let when: String
+        switch recurrence {
+        case .daily: when = L("heute", "today")
+        case .weekly: when = L("diese Woche", "this week")
+        case .monthly: when = L("diesen Monat", "this month")
+        case .yearly: when = L("dieses Jahr", "this year")
+        case .none, .irregular: when = L("in diesem Zeitraum", "this period")
+        }
+        return "\(done)/\(required) \(when). \(L("Keine Streak-Freeze mehr. Kauf eine im Shop, sonst fällt die Serie am Ende auf 0.", "No streak freeze left. Buy one in the shop, or the streak drops to 0 at the end."))"
+    }
+
+    private func homeCalendarCaption(_ challenge: ChallengeItem) -> String? {
+        let linked = calendarEvents.filter { !$0.isReminderSuggestion && $0.linkedChallengeID == challenge.id }
+        return LinkCaption.calendar(
+            titles: linked.map(\.title),
+            count: linked.count,
+            singleDate: linked.count == 1 ? linked.first?.startDate : nil
+        )
     }
 
     private func rewardDaysText(_ days: Int) -> String {
@@ -380,12 +466,30 @@ struct HomeView: View {
                 )
             )
         }
+        if !freezeWarnings.isEmpty {
+            popups.append(HomePopup(id: "freeze", kind: .freeze(freezeWarnings)))
+        }
         return popups
+    }
+
+    private var freezeWarnings: [(challenge: ChallengeItem, done: Int, required: Int)] {
+        let _ = streakRevision
+        return challenges.compactMap { challenge in
+            guard !challenge.isArchived else { return nil }
+            let status = ChallengeService.status(
+                for: challenge,
+                endingOn: AppClock.now,
+                completions: completions,
+                events: calendarEvents
+            )
+            guard status.needsFreezeWarning else { return nil }
+            return (challenge, status.done, status.required)
+        }
     }
 
     private var rewardReminders: [(event: ChallengeCalendarEvent, reward: RewardItem, days: Int)] {
         let calendar = Calendar.current
-        let today = calendar.startOfDay(for: .now)
+        let today = calendar.startOfDay(for: AppClock.now)
         return calendarEvents.compactMap { event in
             guard !event.isReminderSuggestion,
                   let rewardID = event.linkedRewardID,
@@ -405,10 +509,10 @@ struct HomeView: View {
     }
 
     private var morningChecks: [(event: ChallengeCalendarEvent, challenge: ChallengeItem)] {
-        events(on: .now).compactMap { event in
+        events(on: AppClock.now).compactMap { event in
             guard let challengeID = event.linkedChallengeID,
                   let challenge = challenges.first(where: { $0.id == challengeID }),
-                  !ChallengeService.isCompleted(challenge, on: .now, completions: completions)
+                  !ChallengeService.isCompleted(challenge, on: AppClock.now, completions: completions)
             else {
                 return nil
             }
@@ -637,6 +741,7 @@ private struct HomePopup: Identifiable {
     enum Kind {
         case morning([(event: ChallengeCalendarEvent, challenge: ChallengeItem)])
         case reward(ChallengeCalendarEvent, RewardItem, Int)
+        case freeze([(challenge: ChallengeItem, done: Int, required: Int)])
     }
 
     let id: String
@@ -730,7 +835,7 @@ private struct WeekDayCard<Details: View>: View {
                             .font(.caption)
                         Text(AppDate.day(day))
                             .font(.title3.bold())
-                            .foregroundStyle(Calendar.current.isDateInToday(day) ? .red : .primary)
+                            .foregroundStyle(AppClock.isToday(day) ? .red : .primary)
                     }
                     .frame(width: 44)
                     Divider()

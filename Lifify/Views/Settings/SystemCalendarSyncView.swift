@@ -11,8 +11,8 @@ struct SystemCalendarSyncView: View {
         Form {
             Section {
                 Text(L(
-                    "Termine werden in beide Richtungen mit dem Systemkalender abgeglichen. Ein wiederkehrender Termin kann als wiederkehrende Challenge übernommen werden. Erinnerungen bleiben Empfehlungen, bis sie übernommen werden.",
-                    "Events stay in sync both ways with the system calendar. A recurring event can become a recurring challenge. Reminders stay recommendations until they are accepted."
+                    "Lifify gleicht den Kalender beim Öffnen ab, sobald der Zugriff erlaubt ist. Apple liefert wiederkehrende Termine etwa ein Jahr im Voraus. Neue Termine einer Serie behalten die verknüpfte Challenge, und Trainings, die an dieser Challenge hängen, bekommen diese Termine dazu. Hier kann derselbe Abgleich von Hand gestartet werden.",
+                    "Lifify syncs the calendar when it opens, once access is allowed. Apple provides recurring events about one year ahead. New events in a series keep the linked challenge, and workouts linked to that challenge receive those events. The same sync can be started here by hand."
                 ))
                 Button {
                     Task {

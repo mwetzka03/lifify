@@ -4,7 +4,7 @@
 
 ## English
 
-Lifify 0.2.0 is a local iPhone app for finance, challenges, and training. It
+Lifify 0.3.0 is a local iPhone app for finance, challenges, and training. It
 is built with SwiftUI and SwiftData, and it needs neither a backend nor a user
 account. German and English, and light, dark, and system appearance, can be
 switched in Settings.
@@ -33,7 +33,7 @@ not available yet.
 
 **Settings** hold language, appearance, the workout chime, the default account
 and fee for the portfolio, accounts, import, backup, and calendar and
-reminders. The version shown there is 0.2.0.
+reminders. The version shown there is 0.3.0.
 
 ### First launch
 
@@ -92,7 +92,7 @@ through the system. It does not store passwords for that.
 
 ## Deutsch
 
-Lifify 0.2.0 ist eine lokale iPhone-App für Finanzen, Challenges und Training.
+Lifify 0.3.0 ist eine lokale iPhone-App für Finanzen, Challenges und Training.
 Sie ist mit SwiftUI und SwiftData gebaut, braucht kein Backend und kein
 Benutzerkonto. Deutsch und Englisch sowie Hell, Dunkel und System lassen sich
 in den Einstellungen umschalten.
@@ -121,7 +121,7 @@ Ernährung ist noch nicht verfügbar.
 
 **Einstellungen** halten Sprache, Erscheinungsbild, Trainingsklingelton,
 Standardkonto und Gebühr fürs Depot, Konten, Import, Sicherung sowie Kalender
-und Erinnerungen. Die angezeigte Version ist 0.2.0.
+und Erinnerungen. Die angezeigte Version ist 0.3.0.
 
 ### Ersteinrichtung
 

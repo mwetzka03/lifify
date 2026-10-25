@@ -5,20 +5,26 @@ struct ChallengeCalendarView: View {
     @Environment(\.modelContext) private var context
     @Query(sort: \ChallengeCalendarEvent.startDate) private var events: [ChallengeCalendarEvent]
     @Query(sort: \ChallengeItem.createdAt) private var challenges: [ChallengeItem]
+    @Query(sort: \ChallengeGroup.title) private var groups: [ChallengeGroup]
+    @Query(sort: \RewardItem.title) private var rewards: [RewardItem]
     @Query private var completions: [ChallengeCompletion]
     @Query private var transactions: [CoinTransaction]
+    @AppStorage(AppClock.modeKey) private var developerMode = false
+    @AppStorage(AppClock.dayKey) private var developerDay = 0.0
     @State private var selectedDate: Date
     @State private var mode: ChallengeCalendarViewMode
     @State private var showingNewEvent = false
     @State private var editedEvent: ChallengeCalendarEvent?
 
-    init(initialDate: Date = .now, initialMode: ChallengeCalendarViewMode = .week) {
+    init(initialDate: Date = AppClock.now, initialMode: ChallengeCalendarViewMode = .week) {
         _selectedDate = State(initialValue: initialDate)
         _mode = State(initialValue: initialMode)
     }
 
     var body: some View {
-        VStack(spacing: 10) {
+        let _ = developerMode
+        let _ = developerDay
+        return VStack(spacing: 10) {
             Picker(L("Ansicht", "View"), selection: $mode) {
                 ForEach(ChallengeCalendarViewMode.allCases) { Text($0.label).tag($0) }
             }
@@ -28,7 +34,7 @@ struct ChallengeCalendarView: View {
             HStack {
                 Button { move(-1) } label: { Image(systemName: "chevron.left") }
                 Spacer()
-                Button(L("Heute", "Today")) { selectedDate = .now }
+                Button(L("Heute", "Today")) { selectedDate = AppClock.now }
                 Spacer()
                 Button { move(1) } label: { Image(systemName: "chevron.right") }
             }
@@ -40,7 +46,11 @@ struct ChallengeCalendarView: View {
                         DayAgendaCard(
                             day: day,
                             events: eventsForDay(day),
+                            scheduleEvents: events,
                             challenges: challengesForDay(day),
+                            allChallenges: challenges,
+                            groups: groups,
+                            rewards: rewards,
                             completions: completions,
                             onEvent: { editedEvent = $0 },
                             onChallenge: {
@@ -49,6 +59,7 @@ struct ChallengeCalendarView: View {
                                     date: day,
                                     completions: completions,
                                     transactions: transactions,
+                                    events: events,
                                     context: context
                                 )
                             }
@@ -77,6 +88,12 @@ struct ChallengeCalendarView: View {
                 if value.translation.width > 60 { move(-1) }
             }
         )
+        .onChange(of: developerDay) {
+            if developerMode { selectedDate = AppClock.now }
+        }
+        .onChange(of: developerMode) {
+            selectedDate = AppClock.now
+        }
     }
 
     private var days: [Date] {
@@ -106,7 +123,11 @@ struct ChallengeCalendarView: View {
 private struct DayAgendaCard: View {
     let day: Date
     let events: [ChallengeCalendarEvent]
+    let scheduleEvents: [ChallengeCalendarEvent]
     let challenges: [ChallengeItem]
+    let allChallenges: [ChallengeItem]
+    let groups: [ChallengeGroup]
+    let rewards: [RewardItem]
     let completions: [ChallengeCompletion]
     let onEvent: (ChallengeCalendarEvent) -> Void
     let onChallenge: (ChallengeItem) -> Void
@@ -117,7 +138,7 @@ private struct DayAgendaCard: View {
                 Text(AppDate.weekdayAndNumeric(day))
                     .font(.headline)
                 Spacer()
-                if Calendar.current.isDateInToday(day) {
+                if AppClock.isToday(day) {
                     Text(L("Heute", "Today")).font(.caption).foregroundStyle(.blue)
                 }
             }
@@ -142,14 +163,10 @@ private struct DayAgendaCard: View {
                                 Text(AppDate.time(event.startDate))
                                     .font(.caption)
                             }
-                            if event.linkedChallengeID != nil || event.linkedChallengeGroupID != nil {
-                                Label(L("Mit Challenge verknüpft", "Linked to challenge"), systemImage: "target")
+                            if let caption = eventLinkCaption(event) {
+                                Label(caption.text, systemImage: caption.symbol)
                                     .font(.caption2)
-                                    .foregroundStyle(.green)
-                            } else if event.linkedRewardID != nil {
-                                Label(L("Mit Belohnung verknüpft", "Linked to reward"), systemImage: "gift")
-                                    .font(.caption2)
-                                    .foregroundStyle(.orange)
+                                    .foregroundStyle(caption.color)
                             }
                         }
                         Spacer()
@@ -172,10 +189,40 @@ private struct DayAgendaCard: View {
                 Button { onChallenge(challenge) } label: {
                     HStack {
                         Image(systemName: IconPreferenceStore.icon(for: challenge.id, fallback: "target"))
-                        Text(challenge.title)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(challenge.title)
+                            if let caption = challengeCalendarCaption(challenge) {
+                                Text(caption)
+                                    .font(.caption2)
+                                    .foregroundStyle(.green)
+                            }
+                        }
                         Spacer()
-                        CoinAmountView(amount: challenge.rewardCoins, showsPlus: true)
+                        CoinAmountView(
+                            amount: ChallengeService.projectedCoins(
+                                challenge: challenge,
+                                on: day,
+                                completions: completions,
+                                events: scheduleEvents
+                            ),
+                            showsPlus: true
+                        )
+                        .font(.caption)
+                        if StreakSettings.isEnabled(for: challenge.id) {
+                            let streak = ChallengeService.status(
+                                for: challenge,
+                                endingOn: day,
+                                completions: completions,
+                                events: scheduleEvents
+                            ).count
+                            HStack(spacing: 2) {
+                                Image(systemName: "flame.fill")
+                                Text("\(streak)")
+                                    .monospacedDigit()
+                            }
                             .font(.caption)
+                            .foregroundStyle(.orange)
+                        }
                         Image(systemName: completed ? "checkmark.circle.fill" : "circle")
                             .foregroundStyle(completed ? .green : .secondary)
                     }
@@ -187,6 +234,34 @@ private struct DayAgendaCard: View {
         .padding()
         .background(AppSurface.card, in: RoundedRectangle(cornerRadius: 16))
     }
+
+    private func eventLinkCaption(_ event: ChallengeCalendarEvent) -> EventLinkCaption? {
+        if let id = event.linkedChallengeID, let title = allChallenges.first(where: { $0.id == id })?.title {
+            return EventLinkCaption(text: LinkCaption.challenge(title), symbol: "target", color: .green)
+        }
+        if let id = event.linkedChallengeGroupID, let title = groups.first(where: { $0.id == id })?.title {
+            return EventLinkCaption(text: LinkCaption.group(title), symbol: "target", color: .green)
+        }
+        if let id = event.linkedRewardID, let title = rewards.first(where: { $0.id == id })?.title {
+            return EventLinkCaption(text: LinkCaption.reward(title), symbol: "gift", color: .orange)
+        }
+        return nil
+    }
+
+    private func challengeCalendarCaption(_ challenge: ChallengeItem) -> String? {
+        let linked = scheduleEvents.filter { !$0.isReminderSuggestion && $0.linkedChallengeID == challenge.id }
+        return LinkCaption.calendar(
+            titles: linked.map(\.title),
+            count: linked.count,
+            singleDate: linked.count == 1 ? linked.first?.startDate : nil
+        )
+    }
+}
+
+private struct EventLinkCaption {
+    var text: String
+    var symbol: String
+    var color: Color
 }
 
 private struct ChallengeEventForm: View {
@@ -324,7 +399,15 @@ private struct ChallengeEventForm: View {
         if event.modelContext == nil { context.insert(event) }
         savedEvent = event
         try? context.save()
+        syncWorkoutLinks()
         return event
+    }
+
+    private func syncWorkoutLinks() {
+        let stored = (try? context.fetch(FetchDescriptor<ChallengeCalendarEvent>())) ?? []
+        WorkoutLinkStore.reconcile(calendar: stored.filter { !$0.isReminderSuggestion }.map {
+            WorkoutLinkRules.CalendarLink(eventID: $0.id, challengeID: $0.linkedChallengeID)
+        })
     }
 
     @MainActor
@@ -383,6 +466,7 @@ private struct ChallengeEventForm: View {
             }
         }
         try? context.save()
+        syncWorkoutLinks()
         if event.externalIdentifier == nil {
             statusMessage = L(
                 "Challenge lokal angelegt. Der Systemkalender konnte nicht aktualisiert werden.",
