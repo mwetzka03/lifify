@@ -156,7 +156,7 @@ enum StreakSettings {
         var map = states()
         map[record.id.uuidString] = State(
             enabled: record.booleans.first ?? false,
-            enabledAt: record.dates.first ?? .now,
+            enabledAt: record.dates.compactMap { $0 }.first ?? .now,
             purchased: record.integers.first ?? 0,
             usedPeriodKeys: record.strings
         )
