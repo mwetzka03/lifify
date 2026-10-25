@@ -7,6 +7,8 @@ struct WorkoutLinkSection: View {
     @Query(sort: \ChallengeCalendarEvent.startDate, order: .reverse) private var events: [ChallengeCalendarEvent]
     @AppStorage(WorkoutLinkStore.revisionKey) private var revision = 0
     @State private var picker: LinkPicker?
+    @State private var challengeSelection: Set<UUID> = []
+    @State private var eventSelection: Set<UUID> = []
 
     private var linkableChallenges: [ChallengeItem] {
         challenges.filter { !$0.isArchived }
@@ -27,7 +29,10 @@ struct WorkoutLinkSection: View {
             ))
             .font(.caption)
             .foregroundStyle(.secondary)
-            Button { picker = .challenges } label: {
+            Button {
+                challengeSelection = Set(WorkoutLinkStore.challengeIDs(for: planID))
+                picker = .challenges
+            } label: {
                 linkRow(
                     title: L("Challenges", "Challenges"),
                     systemImage: "target",
@@ -35,7 +40,10 @@ struct WorkoutLinkSection: View {
                 )
             }
             .buttonStyle(.plain)
-            Button { picker = .events } label: {
+            Button {
+                eventSelection = Set(WorkoutLinkStore.eventIDs(for: planID))
+                picker = .events
+            } label: {
                 linkRow(
                     title: L("Kalender", "Calendar"),
                     systemImage: "calendar",
@@ -48,12 +56,14 @@ struct WorkoutLinkSection: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(AppSurface.card, in: RoundedRectangle(cornerRadius: 16))
         .sheet(item: $picker) { kind in
-            switch kind {
-            case .challenges:
-                WorkoutChallengePicker(planID: planID, challenges: linkableChallenges, events: calendarEvents)
-            case .events:
-                WorkoutEventPicker(planID: planID, challenges: linkableChallenges, events: calendarEvents)
-            }
+            WorkoutLinkPickerSheet(
+                kind: kind,
+                planID: planID,
+                challenges: linkableChallenges,
+                events: calendarEvents,
+                challengeSelection: $challengeSelection,
+                eventSelection: $eventSelection
+            )
         }
         .onAppear { closeWorkoutLinks() }
         .onChange(of: calendarSignature) { closeWorkoutLinks() }
@@ -109,53 +119,55 @@ private enum LinkPicker: String, Identifiable {
     var id: String { rawValue }
 }
 
+private struct WorkoutLinkPickerSheet: View {
+    let kind: LinkPicker
+    let planID: UUID
+    let challenges: [ChallengeItem]
+    let events: [ChallengeCalendarEvent]
+    @Binding var challengeSelection: Set<UUID>
+    @Binding var eventSelection: Set<UUID>
+
+    var body: some View {
+        switch kind {
+        case .challenges:
+            WorkoutChallengePicker(planID: planID, challenges: challenges, events: events, selected: $challengeSelection)
+        case .events:
+            WorkoutEventPicker(planID: planID, challenges: challenges, events: events, selected: $eventSelection)
+        }
+    }
+}
+
 private struct WorkoutChallengePicker: View {
     @Environment(\.dismiss) private var dismiss
     let planID: UUID
     let challenges: [ChallengeItem]
     let events: [ChallengeCalendarEvent]
-    @State private var selected: Set<UUID>
-
-    init(planID: UUID, challenges: [ChallengeItem], events: [ChallengeCalendarEvent]) {
-        self.planID = planID
-        self.challenges = challenges
-        self.events = events
-        _selected = State(initialValue: Set(WorkoutLinkStore.challengeIDs(for: planID)))
-    }
+    @Binding var selected: Set<UUID>
 
     var body: some View {
         NavigationStack {
-            List {
-                if challenges.isEmpty {
-                    Text(L("Keine Challenge.", "No challenge."))
-                        .foregroundStyle(.secondary)
-                }
-                ForEach(challenges) { challenge in
-                    Button {
-                        if selected.contains(challenge.id) {
-                            selected.remove(challenge.id)
-                        } else {
-                            selected.insert(challenge.id)
-                        }
-                    } label: {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(challenge.title)
-                                    .foregroundStyle(.primary)
-                                Text(challenge.category.label)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            if selected.contains(challenge.id) {
-                                Image(systemName: "checkmark")
-                                    .foregroundStyle(Color.accentColor)
-                            }
-                        }
+            ScrollView {
+                LazyVStack(spacing: 0) {
+                    if challenges.isEmpty {
+                        Text(L("Keine Challenge.", "No challenge."))
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding()
                     }
-                    .buttonStyle(.plain)
+                    ForEach(challenges) { challenge in
+                        linkChoiceRow(
+                            title: challenge.title,
+                            subtitle: challenge.category.label,
+                            isSelected: selected.contains(challenge.id)
+                        ) {
+                            toggle($selected, challenge.id)
+                        }
+                        Divider().padding(.leading, 56)
+                    }
                 }
+                .padding(.vertical, 8)
             }
+            .background(AppSurface.canvas)
             .navigationTitle(L("Challenges", "Challenges"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -183,48 +195,32 @@ private struct WorkoutEventPicker: View {
     let planID: UUID
     let challenges: [ChallengeItem]
     let events: [ChallengeCalendarEvent]
-    @State private var selected: Set<UUID>
-
-    init(planID: UUID, challenges: [ChallengeItem], events: [ChallengeCalendarEvent]) {
-        self.planID = planID
-        self.challenges = challenges
-        self.events = events
-        _selected = State(initialValue: Set(WorkoutLinkStore.eventIDs(for: planID)))
-    }
+    @Binding var selected: Set<UUID>
 
     var body: some View {
         NavigationStack {
-            List {
-                if events.isEmpty {
-                    Text(L("Keine Kalendereinträge.", "No calendar events."))
-                        .foregroundStyle(.secondary)
-                }
-                ForEach(events) { event in
-                    Button {
-                        if selected.contains(event.id) {
-                            selected.remove(event.id)
-                        } else {
-                            selected.insert(event.id)
-                        }
-                    } label: {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(event.title)
-                                    .foregroundStyle(.primary)
-                                Text(eventPickerSubtitle(event))
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            if selected.contains(event.id) {
-                                Image(systemName: "checkmark")
-                                    .foregroundStyle(Color.accentColor)
-                            }
-                        }
+            ScrollView {
+                LazyVStack(spacing: 0) {
+                    if events.isEmpty {
+                        Text(L("Keine Kalendereinträge.", "No calendar events."))
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding()
                     }
-                    .buttonStyle(.plain)
+                    ForEach(events) { event in
+                        linkChoiceRow(
+                            title: event.title,
+                            subtitle: eventPickerSubtitle(event),
+                            isSelected: selected.contains(event.id)
+                        ) {
+                            toggle($selected, event.id)
+                        }
+                        Divider().padding(.leading, 56)
+                    }
                 }
+                .padding(.vertical, 8)
             }
+            .background(AppSurface.canvas)
             .navigationTitle(L("Kalender", "Calendar"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -255,4 +251,38 @@ private struct WorkoutEventPicker: View {
         }
         return "\(when) · \(LinkCaption.challenge(title))"
     }
+}
+
+private func toggle(_ selected: Binding<Set<UUID>>, _ id: UUID) {
+    var next = selected.wrappedValue
+    if next.contains(id) {
+        next.remove(id)
+    } else {
+        next.insert(id)
+    }
+    selected.wrappedValue = next
+}
+
+private func linkChoiceRow(title: String, subtitle: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
+    Button(action: action) {
+        HStack(spacing: 12) {
+            Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                .font(.title3)
+                .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
+                .frame(width: 28, height: 28)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .foregroundStyle(.primary)
+                Text(subtitle)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 0)
+        }
+        .contentShape(Rectangle())
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+    }
+    .buttonStyle(.plain)
 }

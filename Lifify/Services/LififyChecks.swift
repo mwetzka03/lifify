@@ -115,13 +115,17 @@ enum LififyChecks {
             WorkoutLinkRules.CalendarLink(eventID: wednesday, challengeID: gym),
             WorkoutLinkRules.CalendarLink(eventID: manual, challengeID: nil)
         ]
-        let next = WorkoutLinkRules.applyChallenges(
-            [],
-            previous: .init(challenges: [gym, other], events: [monday, wednesday, manual]),
-            calendar: calendar
+        let previous = WorkoutLinkRules.Snapshot(challenges: [gym, other], events: [monday, wednesday, manual])
+        let kept = WorkoutLinkRules.applyChallenges([other], previous: previous, calendar: calendar)
+        let cleared = WorkoutLinkRules.applyChallenges([], previous: previous, calendar: calendar)
+        let passed = kept.challenges == [other] && kept.events == [manual]
+            && cleared.challenges.isEmpty && cleared.events == [manual]
+        return result(
+            "Challenge lösen entfernt nur ihre Termine",
+            .unit,
+            passed,
+            "Bleibt \(kept.challenges.count)/\(kept.events.count), leer \(cleared.challenges.count)/\(cleared.events.count)"
         )
-        let passed = next.challenges == [other] && next.events == [manual]
-        return result("Challenge lösen entfernt nur ihre Termine", .unit, passed, "Termine \(next.events.count)")
     }
 
     private static func weeklyQuotaWhileOpen() -> LififyCheckResult {
