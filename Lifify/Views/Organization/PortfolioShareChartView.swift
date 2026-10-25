@@ -183,7 +183,7 @@ private struct PortfolioShare: Identifiable, Equatable {
 }
 
 /// The pie itself ignores the selection, so a tap only updates the callout.
-private struct SharePieChart: View, Equatable {
+private struct SharePieChart: View, @MainActor Equatable {
     let shares: [PortfolioShare]
     @Binding var selectedID: UUID?
 
