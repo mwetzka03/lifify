@@ -11,6 +11,11 @@
 			path = Lifify;
 			sourceTree = "<group>";
 		};
+		A20000000000000000000001 = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = LififyTests;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXGroup section */
@@ -18,6 +23,7 @@
 			isa = PBXGroup;
 			children = (
 				A10000000000000000000001,
+				A20000000000000000000001,
 				A10000000000000000000003,
 			);
 			sourceTree = "<group>";
@@ -26,6 +32,7 @@
 			isa = PBXGroup;
 			children = (
 				A10000000000000000000004,
+				A20000000000000000000004,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -40,7 +47,32 @@
 			path = Lifify.app;
 			sourceTree = BUILT_PRODUCTS_DIR;
 		};
+		A20000000000000000000004 = {
+			isa = PBXFileReference;
+			explicitFileType = wrapper.cfbundle;
+			includeInIndex = 0;
+			path = LififyTests.xctest;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
 /* End PBXFileReference section */
+
+/* Begin PBXContainerItemProxy section */
+		A20000000000000000000002 = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A1000000000000000000000A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A10000000000000000000008;
+			remoteInfo = Lifify;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXTargetDependency section */
+		A20000000000000000000003 = {
+			isa = PBXTargetDependency;
+			target = A10000000000000000000008 /* Lifify */;
+			targetProxy = A20000000000000000000002 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin PBXSourcesBuildPhase section */
 		A10000000000000000000005 = {
@@ -62,6 +94,24 @@
 
 /* Begin PBXResourcesBuildPhase section */
 		A10000000000000000000007 = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = ();
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A20000000000000000000005 = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = ();
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A20000000000000000000006 = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = ();
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A20000000000000000000007 = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = ();
@@ -89,6 +139,27 @@
 			productReference = A10000000000000000000004;
 			productType = "com.apple.product-type.application";
 		};
+		A20000000000000000000008 = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A20000000000000000000009;
+			buildPhases = (
+				A20000000000000000000005,
+				A20000000000000000000006,
+				A20000000000000000000007,
+			);
+			buildRules = ();
+			dependencies = (
+				A20000000000000000000003,
+			);
+			fileSystemSynchronizedGroups = (
+				A20000000000000000000001,
+			);
+			name = LififyTests;
+			packageProductDependencies = ();
+			productName = LififyTests;
+			productReference = A20000000000000000000004;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -100,6 +171,7 @@
 				LastUpgradeCheck = 2600;
 				TargetAttributes = {
 					A10000000000000000000008 = { CreatedOnToolsVersion = 26.0; };
+					A20000000000000000000008 = { CreatedOnToolsVersion = 26.0; };
 				};
 			};
 			buildConfigurationList = A1000000000000000000000B;
@@ -119,6 +191,7 @@
 			projectRoot = "";
 			targets = (
 				A10000000000000000000008,
+				A20000000000000000000008,
 			);
 		};
 /* End PBXProject section */
@@ -216,6 +289,56 @@
 			};
 			name = Release;
 		};
+		A2000000000000000000000E = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.3.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.mwetzka03.lifify.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Lifify.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Lifify";
+			};
+			name = Debug;
+		};
+		A2000000000000000000000F = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.3.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.mwetzka03.lifify.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Lifify.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Lifify";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -233,6 +356,15 @@
 			buildConfigurations = (
 				A1000000000000000000000C,
 				A1000000000000000000000D,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A20000000000000000000009 = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A2000000000000000000000E,
+				A2000000000000000000000F,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

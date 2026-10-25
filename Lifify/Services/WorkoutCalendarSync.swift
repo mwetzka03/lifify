@@ -68,6 +68,10 @@ enum WorkoutCalendarSync {
             }
         }
         try? context.save()
+        let stored = (try? context.fetch(FetchDescriptor<ChallengeCalendarEvent>())) ?? []
+        WorkoutLinkStore.reconcile(calendar: stored.filter { !$0.isReminderSuggestion }.map {
+            WorkoutLinkRules.CalendarLink(eventID: $0.id, challengeID: $0.linkedChallengeID)
+        })
         await cleanup(context: context, sessions: sessions)
     }
 

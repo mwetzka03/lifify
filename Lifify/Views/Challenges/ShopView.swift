@@ -11,6 +11,8 @@ struct ShopView: View {
     @Query private var completions: [ChallengeCompletion]
     @Query private var calendarEvents: [ChallengeCalendarEvent]
     @AppStorage(StreakSettings.revisionKey) private var streakRevision = 0
+    @AppStorage(AppClock.modeKey) private var developerMode = false
+    @AppStorage(AppClock.dayKey) private var developerDay = 0.0
     @State private var showingNew = false
     @State private var edited: RewardItem?
     @State private var message: String?
@@ -89,14 +91,18 @@ struct ShopView: View {
     }
 
     private func freezeRow(_ challenge: ChallengeItem) -> some View {
+        let _ = developerMode
+        let _ = developerDay
+        let today = AppClock.now
         let balance = ChallengeService.freezeBalance(
             for: challenge,
             completions: completions,
-            events: calendarEvents
+            events: calendarEvents,
+            on: today
         )
         let streak = ChallengeService.status(
             for: challenge,
-            endingOn: .now,
+            endingOn: today,
             completions: completions,
             events: calendarEvents
         ).count

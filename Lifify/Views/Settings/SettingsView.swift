@@ -58,6 +58,29 @@ private struct SettingsCategoryLabel: View {
 private struct GeneralSettingsView: View {
     @AppStorage("appLanguage") private var language = "de"
     @AppStorage("appTheme") private var theme = AppTheme.system.rawValue
+    @AppStorage(AppClock.modeKey) private var developerMode = false
+    @AppStorage(AppClock.dayKey) private var developerDay = 0.0
+
+    private var developerModeBinding: Binding<Bool> {
+        Binding(
+            get: { developerMode },
+            set: { enabled in
+                developerMode = enabled
+                if enabled, developerDay <= 0 {
+                    developerDay = Calendar.current.startOfDay(for: Date()).timeIntervalSince1970
+                }
+            }
+        )
+    }
+
+    private var simulatedDay: Binding<Date> {
+        Binding(
+            get: {
+                developerDay > 0 ? Date(timeIntervalSince1970: developerDay) : Calendar.current.startOfDay(for: Date())
+            },
+            set: { developerDay = Calendar.current.startOfDay(for: $0).timeIntervalSince1970 }
+        )
+    }
 
     var body: some View {
         Form {
@@ -78,11 +101,74 @@ private struct GeneralSettingsView: View {
                 ))
             }
             Section {
+                Toggle(L("Entwicklermodus", "Developer mode"), isOn: developerModeBinding)
+                if developerMode {
+                    DatePicker(L("Aktueller Tag", "Current day"), selection: simulatedDay, displayedComponents: .date)
+                    NavigationLink {
+                        DeveloperTestsView()
+                    } label: {
+                        Label(L("Tests ausführen", "Run tests"), systemImage: "checkmark.seal")
+                    }
+                }
+            } footer: {
+                Text(L(
+                    "Der Tag gilt für Home, Challenges und den Kalender. Finanzen bleiben beim echten Datum.",
+                    "The day applies to Home, challenges, and the calendar. Finance stays on the real date."
+                ))
+            }
+            Section {
                 LabeledContent(L("Version", "Version"), value: "0.3.0")
             }
         }
         .navigationTitle(L("Allgemein", "General"))
         .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+private struct DeveloperTestsView: View {
+    @State private var results: [LififyCheckResult] = []
+
+    var body: some View {
+        List {
+            Section {
+                let passed = results.filter(\.passed).count
+                LabeledContent(L("Bestanden", "Passed"), value: "\(passed)/\(results.count)")
+            } footer: {
+                Text(L(
+                    "Dieselben Prüfungen laufen in Xcode als LififyChecksTests. Sie schreiben keine Daten.",
+                    "The same checks run in Xcode as LififyChecksTests. They do not write any data."
+                ))
+            }
+            checkSection(L("Unit-Tests", "Unit tests"), kind: .unit)
+            checkSection(L("Integrationstests", "Integration tests"), kind: .integration)
+        }
+        .navigationTitle(L("Tests", "Tests"))
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button(L("Nochmal", "Again")) { results = LififyChecks.run() }
+            }
+        }
+        .onAppear { results = LififyChecks.run() }
+    }
+
+    private func checkSection(_ title: String, kind: LififyCheckKind) -> some View {
+        Section(title) {
+            ForEach(results.filter { $0.kind == kind }) { result in
+                HStack(alignment: .top, spacing: 10) {
+                    Image(systemName: result.passed ? "checkmark.circle.fill" : "xmark.circle.fill")
+                        .foregroundStyle(result.passed ? .green : .red)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(result.name)
+                        if let detail = result.detail {
+                            Text(detail)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 

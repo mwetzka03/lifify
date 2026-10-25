@@ -92,6 +92,38 @@ enum WorkoutLinkStore {
         saveEvents(eventLinks().filter { $0.planID != planID })
     }
 
+    static func replace(challenges: Set<UUID>, events: Set<UUID>, for planID: UUID) {
+        var challengeRows = challengeLinks().filter { $0.planID != planID }
+        challengeRows.append(contentsOf: challenges.map { WorkoutChallengeLink(planID: planID, challengeID: $0) })
+        let existingEvents = eventLinks()
+        let managedIDs = Set(existingEvents.filter(\.managed).map(\.eventID))
+        var eventRows = existingEvents.filter { $0.planID != planID }
+        eventRows.append(contentsOf: events.map {
+            WorkoutEventLink(planID: planID, eventID: $0, managed: managedIDs.contains($0))
+        })
+        encode(challengeRows, key: challengeKey, bumpRevision: false)
+        encode(eventRows, key: eventKey, bumpRevision: false)
+        bump()
+    }
+
+    static func reconcile(calendar: [WorkoutLinkRules.CalendarLink]) {
+        let planIDs = Set(challengeLinks().map(\.planID) + eventLinks().map(\.planID))
+        for planID in planIDs {
+            let snapshot = WorkoutLinkRules.Snapshot(
+                challenges: Set(challengeIDs(for: planID)),
+                events: Set(eventIDs(for: planID))
+            )
+            let closed = WorkoutLinkRules.close(
+                challenges: snapshot.challenges,
+                events: snapshot.events,
+                calendar: calendar
+            )
+            if closed != snapshot {
+                replace(challenges: closed.challenges, events: closed.events, for: planID)
+            }
+        }
+    }
+
     static func reset() {
         UserDefaults.standard.removeObject(forKey: challengeKey)
         UserDefaults.standard.removeObject(forKey: eventKey)
@@ -121,10 +153,10 @@ enum WorkoutLinkStore {
         return rows
     }
 
-    private static func encode<T: Encodable>(_ rows: [T], key: String) {
+    private static func encode<T: Encodable>(_ rows: [T], key: String, bumpRevision: Bool = true) {
         guard let data = try? JSONEncoder().encode(rows) else { return }
         UserDefaults.standard.set(data, forKey: key)
-        bump()
+        if bumpRevision { bump() }
     }
 
     private static func bump() {

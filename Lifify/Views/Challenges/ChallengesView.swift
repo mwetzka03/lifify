@@ -17,6 +17,8 @@ struct ChallengesView: View {
     @State private var showingShop = false
     @State private var showingWallet = false
     @AppStorage(StreakSettings.revisionKey) private var streakRevision = 0
+    @AppStorage(AppClock.modeKey) private var developerMode = false
+    @AppStorage(AppClock.dayKey) private var developerDay = 0.0
 
     var body: some View {
         List {
@@ -97,7 +99,7 @@ struct ChallengesView: View {
                     Button {
                         ChallengeService.toggleCompletion(
                             challenge: challenge,
-                            date: .now,
+                            date: AppClock.now,
                             completions: completions,
                             transactions: transactions,
                             events: calendarEvents,
@@ -112,7 +114,7 @@ struct ChallengesView: View {
                                 challengeMeta(challenge)
                             }
                             Spacer()
-                            Image(systemName: ChallengeService.isCompleted(challenge, on: .now, completions: completions) ? "checkmark.circle.fill" : "circle")
+                            Image(systemName: ChallengeService.isCompleted(challenge, on: AppClock.now, completions: completions) ? "checkmark.circle.fill" : "circle")
                                 .foregroundStyle(.green)
                         }
                     }
@@ -165,9 +167,13 @@ struct ChallengesView: View {
         }
         .navigationDestination(isPresented: $showingShop) { ShopView() }
         .navigationDestination(isPresented: $showingWallet) { WalletView() }
-        .onAppear {
-            ChallengeService.commitFreezes(for: challenges, completions: completions, events: calendarEvents)
-        }
+        .onAppear { commitSimulatedDay() }
+        .onChange(of: developerDay) { commitSimulatedDay() }
+        .onChange(of: developerMode) { commitSimulatedDay() }
+    }
+
+    private func commitSimulatedDay() {
+        ChallengeService.commitFreezes(for: challenges, completions: completions, events: calendarEvents, on: AppClock.now)
     }
 
     @ToolbarContentBuilder
@@ -246,7 +252,7 @@ struct ChallengesView: View {
     private var filteredChallenges: [ChallengeItem] {
         challenges.filter { challenge in
             let done = challenge.isArchived ||
-                ChallengeService.isCompleted(challenge, on: .now, completions: completions)
+                ChallengeService.isCompleted(challenge, on: AppClock.now, completions: completions)
             return done == completedTab && challenge.groupID == nil
         }
     }
@@ -273,37 +279,49 @@ struct ChallengesView: View {
 
     private func challengeMeta(_ challenge: ChallengeItem) -> some View {
         let _ = streakRevision
+        let _ = developerMode
+        let _ = developerDay
         let enabled = StreakSettings.isEnabled(for: challenge.id)
         let streak = ChallengeService.status(
             for: challenge,
-            endingOn: .now,
+            endingOn: AppClock.now,
             completions: completions,
             events: calendarEvents
         ).count
-        return HStack(spacing: 6) {
-            Text(challenge.recurrence.label)
-            CoinAmountView(
-                amount: ChallengeService.projectedCoins(
-                    challenge: challenge,
-                    on: .now,
-                    completions: completions,
-                    events: calendarEvents
-                ),
-                showsPlus: true
-            )
-            if enabled {
-                HStack(spacing: 2) {
-                    Image(systemName: "flame.fill")
-                    Text("\(streak)")
-                        .monospacedDigit()
+        let linked = calendarEvents.filter { !$0.isReminderSuggestion && $0.linkedChallengeID == challenge.id }
+        return VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 6) {
+                Text(challenge.recurrence.label)
+                CoinAmountView(
+                    amount: ChallengeService.projectedCoins(
+                        challenge: challenge,
+                        on: AppClock.now,
+                        completions: completions,
+                        events: calendarEvents
+                    ),
+                    showsPlus: true
+                )
+                if enabled {
+                    HStack(spacing: 2) {
+                        Image(systemName: "flame.fill")
+                        Text("\(streak)")
+                            .monospacedDigit()
+                    }
+                    .foregroundStyle(.orange)
                 }
-                .foregroundStyle(.orange)
+            }
+            if let caption = LinkCaption.calendar(
+                titles: linked.map(\.title),
+                count: linked.count,
+                singleDate: linked.count == 1 ? linked.first?.startDate : nil
+            ) {
+                Text(caption)
+                    .foregroundStyle(.green)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
         .font(.caption)
         .foregroundStyle(.secondary)
-        .lineLimit(1)
-        .fixedSize(horizontal: true, vertical: false)
     }
 }
 
@@ -546,6 +564,8 @@ private struct ChallengeGroupDetailView: View {
     @Query private var completions: [ChallengeCompletion]
     @Query private var transactions: [CoinTransaction]
     @Query private var calendarEvents: [ChallengeCalendarEvent]
+    @AppStorage(AppClock.modeKey) private var developerMode = false
+    @AppStorage(AppClock.dayKey) private var developerDay = 0.0
     @State private var edited: ChallengeItem?
     let group: ChallengeGroup
 
@@ -553,10 +573,12 @@ private struct ChallengeGroupDetailView: View {
         List {
             if !group.details.isEmpty { Section { Text(group.details) } }
             ForEach(challenges.filter { $0.groupID == group.id }) { challenge in
+                let _ = developerMode
+                let _ = developerDay
                 Button {
                     ChallengeService.toggleCompletion(
                         challenge: challenge,
-                        date: .now,
+                        date: AppClock.now,
                         completions: completions,
                         transactions: transactions,
                         events: calendarEvents,
@@ -565,9 +587,16 @@ private struct ChallengeGroupDetailView: View {
                 } label: {
                     HStack {
                         Image(systemName: IconPreferenceStore.icon(for: challenge.id, fallback: "target"))
-                        Text(challenge.title)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(challenge.title)
+                            if let caption = groupCalendarCaption(challenge) {
+                                Text(caption)
+                                    .font(.caption2)
+                                    .foregroundStyle(.green)
+                            }
+                        }
                         Spacer()
-                        Image(systemName: ChallengeService.isCompleted(challenge, on: .now, completions: completions) ? "checkmark.circle.fill" : "circle")
+                        Image(systemName: ChallengeService.isCompleted(challenge, on: AppClock.now, completions: completions) ? "checkmark.circle.fill" : "circle")
                             .foregroundStyle(.green)
                     }
                 }
@@ -591,6 +620,15 @@ private struct ChallengeGroupDetailView: View {
         }
         .navigationTitle(group.title)
         .sheet(item: $edited) { ChallengeForm(challenge: $0) }
+    }
+
+    private func groupCalendarCaption(_ challenge: ChallengeItem) -> String? {
+        let linked = calendarEvents.filter { !$0.isReminderSuggestion && $0.linkedChallengeID == challenge.id }
+        return LinkCaption.calendar(
+            titles: linked.map(\.title),
+            count: linked.count,
+            singleDate: linked.count == 1 ? linked.first?.startDate : nil
+        )
     }
 
     private func deleteChallenge(_ challenge: ChallengeItem) {

@@ -16,7 +16,9 @@ struct HomeView: View {
     @Query private var transactions: [CoinTransaction]
     @Query private var rewards: [RewardItem]
     @State private var mode = ChallengeCalendarViewMode.day
-    @State private var selectedDate = Date.now
+    @State private var selectedDate = AppClock.now
+    @AppStorage(AppClock.modeKey) private var developerMode = false
+    @AppStorage(AppClock.dayKey) private var developerDay = 0.0
     @State private var expandedWeekday: Date?
     @AppStorage("userName") private var userName = ""
     @AppStorage("dashboardPeriodMode") private var dashboardPeriod = DashboardPeriodMode.calendarMonth.rawValue
@@ -25,9 +27,17 @@ struct HomeView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 16) {
+                let _ = developerMode
+                let _ = developerDay
                 if !userName.isEmpty {
                     Text("\(L("Willkommen zurück", "Welcome back")), \(userName)")
                         .font(.title2.bold())
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                if developerMode {
+                    Text("\(L("Simulierter Tag", "Simulated day")): \(AppDate.numeric(AppClock.now))")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.orange)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 noticeSection
@@ -53,7 +63,7 @@ struct HomeView: View {
                     Button { move(by: -1) } label: { Image(systemName: "chevron.left") }
                     Spacer()
                     Button {
-                        withAnimation { selectedDate = .now }
+                        withAnimation { selectedDate = AppClock.now }
                     } label: {
                         Text(periodTitle)
                             .font(.headline)
@@ -80,7 +90,16 @@ struct HomeView: View {
         }
         .appCanvas()
         .onAppear {
-            ChallengeService.commitFreezes(for: challenges, completions: completions, events: calendarEvents)
+            ChallengeService.commitFreezes(for: challenges, completions: completions, events: calendarEvents, on: AppClock.now)
+        }
+        .onChange(of: developerDay) {
+            guard developerMode else { return }
+            selectedDate = AppClock.now
+            ChallengeService.commitFreezes(for: challenges, completions: completions, events: calendarEvents, on: AppClock.now)
+        }
+        .onChange(of: developerMode) {
+            selectedDate = AppClock.now
+            ChallengeService.commitFreezes(for: challenges, completions: completions, events: calendarEvents, on: AppClock.now)
         }
     }
 
@@ -93,7 +112,7 @@ struct HomeView: View {
                     Text(AppDate.weekdayAndNumeric(selectedDate))
                         .font(.title3.bold())
                     Spacer()
-                    if Calendar.current.isDateInToday(selectedDate) {
+                    if AppClock.isToday(selectedDate) {
                         Text(L("Heute", "Today"))
                             .font(.caption.bold())
                             .foregroundStyle(.red)
@@ -116,11 +135,16 @@ struct HomeView: View {
                                     .font(.caption.monospacedDigit())
                                     .foregroundStyle(.secondary)
                                     .frame(width: 58, alignment: .leading)
-                                Label(event.title, systemImage: event.icon)
-                                Spacer()
-                                if event.linkedChallengeID != nil {
-                                    Image(systemName: "target").foregroundStyle(.green)
+                                VStack(alignment: .leading, spacing: 1) {
+                                    Label(event.title, systemImage: event.icon)
+                                    if let id = event.linkedChallengeID,
+                                       let title = challenges.first(where: { $0.id == id })?.title {
+                                        Text(LinkCaption.challenge(title))
+                                            .font(.caption2)
+                                            .foregroundStyle(.green)
+                                    }
                                 }
+                                Spacer()
                             }
                         }
                     }
@@ -128,7 +152,14 @@ struct HomeView: View {
                         ForEach(dayChallenges.prefix(5)) { challenge in
                             HStack {
                                 Image(systemName: IconPreferenceStore.icon(for: challenge.id, fallback: "target"))
-                                Text(challenge.title)
+                                VStack(alignment: .leading, spacing: 1) {
+                                    Text(challenge.title)
+                                    if let caption = homeCalendarCaption(challenge) {
+                                        Text(caption)
+                                            .font(.caption2)
+                                            .foregroundStyle(.green)
+                                    }
+                                }
                                 Spacer()
                                 CoinAmountView(amount: challenge.rewardCoins, showsPlus: true)
                                     .font(.caption)
@@ -234,9 +265,9 @@ struct HomeView: View {
                             VStack(spacing: 3) {
                                 Text(AppDate.day(date))
                                     .font(.subheadline)
-                                    .foregroundStyle(Calendar.current.isDateInToday(date) ? .white : .primary)
+                                    .foregroundStyle(AppClock.isToday(date) ? .white : .primary)
                                     .frame(width: 28, height: 28)
-                                    .background(Calendar.current.isDateInToday(date) ? Color.red : .clear, in: Circle())
+                                    .background(AppClock.isToday(date) ? Color.red : .clear, in: Circle())
                                 HStack(spacing: 2) {
                                     if !events(on: date).isEmpty {
                                         Circle().fill(.blue).frame(width: 4, height: 4)
@@ -317,7 +348,7 @@ struct HomeView: View {
                 Button {
                     ChallengeService.toggleCompletion(
                         challenge: item.challenge,
-                        date: .now,
+                        date: AppClock.now,
                         completions: completions,
                         transactions: transactions,
                         events: calendarEvents,
@@ -335,7 +366,7 @@ struct HomeView: View {
                         CoinAmountView(
                             amount: ChallengeService.projectedCoins(
                                 challenge: item.challenge,
-                                on: .now,
+                                on: AppClock.now,
                                 completions: completions,
                                 events: calendarEvents
                             ),
@@ -345,7 +376,7 @@ struct HomeView: View {
                         if StreakSettings.isEnabled(for: item.challenge.id) {
                             let streak = ChallengeService.status(
                                 for: item.challenge,
-                                endingOn: .now,
+                                endingOn: AppClock.now,
                                 completions: completions,
                                 events: calendarEvents
                             ).count
@@ -407,6 +438,15 @@ struct HomeView: View {
         return "\(done)/\(required) \(when). \(L("Keine Streak-Freeze mehr. Kauf eine im Shop, sonst fällt die Serie am Ende auf 0.", "No streak freeze left. Buy one in the shop, or the streak drops to 0 at the end."))"
     }
 
+    private func homeCalendarCaption(_ challenge: ChallengeItem) -> String? {
+        let linked = calendarEvents.filter { !$0.isReminderSuggestion && $0.linkedChallengeID == challenge.id }
+        return LinkCaption.calendar(
+            titles: linked.map(\.title),
+            count: linked.count,
+            singleDate: linked.count == 1 ? linked.first?.startDate : nil
+        )
+    }
+
     private func rewardDaysText(_ days: Int) -> String {
         if days == 0 { return L("Heute", "Today") }
         if days == 1 { return L("in 1 Tag", "in 1 day") }
@@ -438,7 +478,7 @@ struct HomeView: View {
             guard !challenge.isArchived else { return nil }
             let status = ChallengeService.status(
                 for: challenge,
-                endingOn: .now,
+                endingOn: AppClock.now,
                 completions: completions,
                 events: calendarEvents
             )
@@ -449,7 +489,7 @@ struct HomeView: View {
 
     private var rewardReminders: [(event: ChallengeCalendarEvent, reward: RewardItem, days: Int)] {
         let calendar = Calendar.current
-        let today = calendar.startOfDay(for: .now)
+        let today = calendar.startOfDay(for: AppClock.now)
         return calendarEvents.compactMap { event in
             guard !event.isReminderSuggestion,
                   let rewardID = event.linkedRewardID,
@@ -469,10 +509,10 @@ struct HomeView: View {
     }
 
     private var morningChecks: [(event: ChallengeCalendarEvent, challenge: ChallengeItem)] {
-        events(on: .now).compactMap { event in
+        events(on: AppClock.now).compactMap { event in
             guard let challengeID = event.linkedChallengeID,
                   let challenge = challenges.first(where: { $0.id == challengeID }),
-                  !ChallengeService.isCompleted(challenge, on: .now, completions: completions)
+                  !ChallengeService.isCompleted(challenge, on: AppClock.now, completions: completions)
             else {
                 return nil
             }
@@ -795,7 +835,7 @@ private struct WeekDayCard<Details: View>: View {
                             .font(.caption)
                         Text(AppDate.day(day))
                             .font(.title3.bold())
-                            .foregroundStyle(Calendar.current.isDateInToday(day) ? .red : .primary)
+                            .foregroundStyle(AppClock.isToday(day) ? .red : .primary)
                     }
                     .frame(width: 44)
                     Divider()

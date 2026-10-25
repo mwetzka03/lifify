@@ -6,8 +6,7 @@ struct WorkoutLinkSection: View {
     @Query(sort: \ChallengeItem.title) private var challenges: [ChallengeItem]
     @Query(sort: \ChallengeCalendarEvent.startDate, order: .reverse) private var events: [ChallengeCalendarEvent]
     @AppStorage(WorkoutLinkStore.revisionKey) private var revision = 0
-    @State private var showingChallenges = false
-    @State private var showingEvents = false
+    @State private var picker: LinkPicker?
 
     private var linkableChallenges: [ChallengeItem] {
         challenges.filter { !$0.isArchived }
@@ -28,7 +27,7 @@ struct WorkoutLinkSection: View {
             ))
             .font(.caption)
             .foregroundStyle(.secondary)
-            Button { showingChallenges = true } label: {
+            Button { picker = .challenges } label: {
                 linkRow(
                     title: L("Challenges", "Challenges"),
                     systemImage: "target",
@@ -36,7 +35,7 @@ struct WorkoutLinkSection: View {
                 )
             }
             .buttonStyle(.plain)
-            Button { showingEvents = true } label: {
+            Button { picker = .events } label: {
                 linkRow(
                     title: L("Kalender", "Calendar"),
                     systemImage: "calendar",
@@ -48,12 +47,26 @@ struct WorkoutLinkSection: View {
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(AppSurface.card, in: RoundedRectangle(cornerRadius: 16))
-        .sheet(isPresented: $showingChallenges) {
-            WorkoutChallengePicker(planID: planID, challenges: linkableChallenges)
+        .sheet(item: $picker) { kind in
+            switch kind {
+            case .challenges:
+                WorkoutChallengePicker(planID: planID, challenges: linkableChallenges, events: calendarEvents)
+            case .events:
+                WorkoutEventPicker(planID: planID, challenges: linkableChallenges, events: calendarEvents)
+            }
         }
-        .sheet(isPresented: $showingEvents) {
-            WorkoutEventPicker(planID: planID, events: calendarEvents)
-        }
+        .onAppear { closeWorkoutLinks() }
+        .onChange(of: calendarSignature) { closeWorkoutLinks() }
+    }
+
+    private var calendarSignature: String {
+        calendarEvents.map { "\($0.id.uuidString):\($0.linkedChallengeID?.uuidString ?? "-")" }.joined(separator: "|")
+    }
+
+    private func closeWorkoutLinks() {
+        WorkoutLinkStore.reconcile(calendar: calendarEvents.map {
+            WorkoutLinkRules.CalendarLink(eventID: $0.id, challengeID: $0.linkedChallengeID)
+        })
     }
 
     private var challengeSummary: String {
@@ -86,18 +99,27 @@ struct WorkoutLinkSection: View {
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.tertiary)
         }
+        .contentShape(Rectangle())
     }
+}
+
+private enum LinkPicker: String, Identifiable {
+    case challenges
+    case events
+    var id: String { rawValue }
 }
 
 private struct WorkoutChallengePicker: View {
     @Environment(\.dismiss) private var dismiss
     let planID: UUID
     let challenges: [ChallengeItem]
+    let events: [ChallengeCalendarEvent]
     @State private var selected: Set<UUID>
 
-    init(planID: UUID, challenges: [ChallengeItem]) {
+    init(planID: UUID, challenges: [ChallengeItem], events: [ChallengeCalendarEvent]) {
         self.planID = planID
         self.challenges = challenges
+        self.events = events
         _selected = State(initialValue: Set(WorkoutLinkStore.challengeIDs(for: planID)))
     }
 
@@ -139,7 +161,15 @@ private struct WorkoutChallengePicker: View {
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button(L("Fertig", "Done")) {
-                        WorkoutLinkStore.setChallenges(selected, for: planID)
+                        let calendar = events.map {
+                            WorkoutLinkRules.CalendarLink(eventID: $0.id, challengeID: $0.linkedChallengeID)
+                        }
+                        let previous = WorkoutLinkRules.Snapshot(
+                            challenges: Set(WorkoutLinkStore.challengeIDs(for: planID)),
+                            events: Set(WorkoutLinkStore.eventIDs(for: planID))
+                        )
+                        let next = WorkoutLinkRules.applyChallenges(selected, previous: previous, calendar: calendar)
+                        WorkoutLinkStore.replace(challenges: next.challenges, events: next.events, for: planID)
                         dismiss()
                     }
                 }
@@ -151,11 +181,13 @@ private struct WorkoutChallengePicker: View {
 private struct WorkoutEventPicker: View {
     @Environment(\.dismiss) private var dismiss
     let planID: UUID
+    let challenges: [ChallengeItem]
     let events: [ChallengeCalendarEvent]
     @State private var selected: Set<UUID>
 
-    init(planID: UUID, events: [ChallengeCalendarEvent]) {
+    init(planID: UUID, challenges: [ChallengeItem], events: [ChallengeCalendarEvent]) {
         self.planID = planID
+        self.challenges = challenges
         self.events = events
         _selected = State(initialValue: Set(WorkoutLinkStore.eventIDs(for: planID)))
     }
@@ -179,7 +211,7 @@ private struct WorkoutEventPicker: View {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(event.title)
                                     .foregroundStyle(.primary)
-                                Text("\(AppDate.numeric(event.startDate)) · \(AppDate.time(event.startDate))")
+                                Text(eventPickerSubtitle(event))
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }
@@ -198,11 +230,29 @@ private struct WorkoutEventPicker: View {
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button(L("Fertig", "Done")) {
-                        WorkoutLinkStore.setEvents(selected, for: planID)
+                        let calendar = events.map {
+                            WorkoutLinkRules.CalendarLink(eventID: $0.id, challengeID: $0.linkedChallengeID)
+                        }
+                        let previous = WorkoutLinkRules.Snapshot(
+                            challenges: Set(WorkoutLinkStore.challengeIDs(for: planID)),
+                            events: Set(WorkoutLinkStore.eventIDs(for: planID))
+                        )
+                        let next = WorkoutLinkRules.applyEvents(selected, previous: previous, calendar: calendar)
+                        WorkoutLinkStore.replace(challenges: next.challenges, events: next.events, for: planID)
                         dismiss()
                     }
                 }
             }
         }
+    }
+
+    private func eventPickerSubtitle(_ event: ChallengeCalendarEvent) -> String {
+        let when = "\(AppDate.numeric(event.startDate)) · \(AppDate.time(event.startDate))"
+        guard let challengeID = event.linkedChallengeID,
+              let title = challenges.first(where: { $0.id == challengeID })?.title
+        else {
+            return when
+        }
+        return "\(when) · \(LinkCaption.challenge(title))"
     }
 }

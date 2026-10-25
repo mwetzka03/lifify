@@ -87,11 +87,14 @@ enum ChallengeService {
         for challenge: ChallengeItem,
         endingOn date: Date,
         completions: [ChallengeCompletion],
-        events: [ChallengeCalendarEvent]
+        events: [ChallengeCalendarEvent],
+        streakState: StreakSettings.State? = nil,
+        usesStoredState: Bool = true
     ) -> StreakStatus {
-        guard StreakSettings.isEnabled(for: challenge.id),
-              let state = StreakSettings.state(for: challenge.id)
-        else {
+        let state = usesStoredState
+            ? (StreakSettings.isEnabled(for: challenge.id) ? StreakSettings.state(for: challenge.id) : nil)
+            : streakState
+        guard let state, state.enabled else {
             return StreakStatus(count: 0, required: 0, done: 0, freezeKeys: [], needsFreezeWarning: false)
         }
         let calendar = Calendar.current

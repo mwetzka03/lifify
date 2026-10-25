@@ -66,7 +66,10 @@ enum StreakSettings {
     }
 
     static func multiplier(forStreak streak: Int) -> Double {
-        let configured = multipliers()
+        factor(forStreak: streak, configured: multipliers())
+    }
+
+    static func factor(forStreak streak: Int, configured: [Int: Double]) -> Double {
         guard let threshold = thresholds.last(where: { $0 <= streak && configured[$0] != nil }) else { return 1 }
         let value = configured[threshold] ?? 1
         return value >= 0 ? value : 1
