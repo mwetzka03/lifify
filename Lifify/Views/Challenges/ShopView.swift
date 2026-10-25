@@ -7,6 +7,10 @@ struct ShopView: View {
     @Query(sort: \RewardItem.title) private var rewards: [RewardItem]
     @Query(sort: \CoinTransaction.date, order: .reverse) private var transactions: [CoinTransaction]
     @Query private var purchases: [RewardPurchase]
+    @Query(sort: \ChallengeItem.title) private var challenges: [ChallengeItem]
+    @Query private var completions: [ChallengeCompletion]
+    @Query private var calendarEvents: [ChallengeCalendarEvent]
+    @AppStorage(StreakSettings.revisionKey) private var streakRevision = 0
     @State private var showingNew = false
     @State private var edited: RewardItem?
     @State private var message: String?
@@ -20,18 +24,35 @@ struct ShopView: View {
         rewards.filter(\.isActive)
     }
 
+    private var streakChallenges: [ChallengeItem] {
+        let _ = streakRevision
+        return challenges
+            .filter { !$0.isArchived && StreakSettings.isEnabled(for: $0.id) }
+            .sorted { $0.title.localizedStandardCompare($1.title) == .orderedAscending }
+    }
+
     var body: some View {
         ScrollView {
-            if activeRewards.isEmpty {
+            if activeRewards.isEmpty && streakChallenges.isEmpty {
                 ContentUnavailableView(L("Der Shop ist leer", "The shop is empty"), systemImage: "gift")
                     .padding(.top, 48)
             } else {
-                LazyVGrid(columns: columns, spacing: 12) {
-                    ForEach(activeRewards) { reward in
-                        rewardTile(reward)
+                VStack(alignment: .leading, spacing: 8) {
+                    if !streakChallenges.isEmpty {
+                        freezeSection
+                    }
+                    if activeRewards.isEmpty {
+                        ContentUnavailableView(L("Keine Belohnungen", "No rewards"), systemImage: "gift")
+                            .padding(.top, 12)
+                    } else {
+                        LazyVGrid(columns: columns, spacing: 12) {
+                            ForEach(activeRewards) { reward in
+                                rewardTile(reward)
+                            }
+                        }
+                        .padding(16)
                     }
                 }
-                .padding(16)
             }
         }
         .appCanvas()
@@ -49,47 +70,116 @@ struct ShopView: View {
         }
     }
 
+    private var freezeSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(L("Streak-Freezes", "Streak freezes"))
+                .font(.headline)
+            Text(L(
+                "Jede Challenge mit Streaks startet mit zwei Freezes. Eine weitere kostet das Zehnfache der Belohnung und gilt nur für diese Challenge.",
+                "Each challenge with streaks starts with two freezes. Another one costs ten times the reward and applies only to that challenge."
+            ))
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            ForEach(streakChallenges) { challenge in
+                freezeRow(challenge)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 16)
+    }
+
+    private func freezeRow(_ challenge: ChallengeItem) -> some View {
+        let balance = ChallengeService.freezeBalance(
+            for: challenge,
+            completions: completions,
+            events: calendarEvents
+        )
+        let streak = ChallengeService.status(
+            for: challenge,
+            endingOn: .now,
+            completions: completions,
+            events: calendarEvents
+        ).count
+        let price = StreakSettings.price(for: challenge)
+        return HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(challenge.title)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.primary)
+                Text("\(L("Serie", "Streak")) \(streak) · \(L("Freezes", "Freezes")) \(balance)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 8)
+            Button {
+                message = ChallengeService.purchaseFreeze(challenge: challenge, transactions: transactions, context: context)
+                    ? L("Streak-Freeze gekauft.", "Streak freeze purchased.")
+                    : L("Nicht genug Coins.", "Not enough coins.")
+            } label: {
+                HStack(spacing: 4) {
+                    Text(L("Kaufen", "Buy"))
+                    CoinAmountView(amount: price)
+                }
+                .font(.caption.weight(.semibold))
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+        }
+        .padding(12)
+        .background(AppSurface.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+
     private func rewardTile(_ reward: RewardItem) -> some View {
         let accent = rewardAccent(reward)
         return VStack(alignment: .leading, spacing: 0) {
             Button { edited = reward } label: {
-                VStack(alignment: .leading, spacing: 0) {
+                VStack(alignment: .leading, spacing: 8) {
                     HStack(alignment: .top, spacing: 10) {
                         Image(systemName: reward.icon)
-                            .font(.title2.weight(.semibold))
+                            .font(.title3.weight(.semibold))
                             .foregroundStyle(.white)
-                            .frame(width: 44, height: 44)
-                            .background(.white.opacity(0.22), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                            .frame(width: 36, height: 36)
+                            .background(.white.opacity(0.22), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                         Text(reward.title)
-                            .font(.headline)
+                            .font(.title3.weight(.semibold))
                             .foregroundStyle(.white)
                             .lineLimit(3)
                             .multilineTextAlignment(.leading)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
-                    .padding(14)
-                    .frame(maxWidth: .infinity, minHeight: 104, alignment: .topLeading)
-                    .background(accent)
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text(redemptionLabel(purchases.filter { $0.rewardID == reward.id }.count))
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.secondary)
-                        if !reward.details.isEmpty {
-                            Text(reward.details)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                                .lineLimit(3)
-                                .multilineTextAlignment(.leading)
-                        }
-                        Spacer(minLength: 0)
-                        CoinAmountView(amount: reward.price)
-                    }
-                    .padding(12)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    CoinAmountView(amount: reward.price, tint: .white)
+                        .font(.subheadline.weight(.semibold))
                 }
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(accent)
             }
             .buttonStyle(.plain)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            VStack(alignment: .leading, spacing: 6) {
+                if let url = rewardURL(reward) {
+                    Button { openURL(url) } label: {
+                        Label(reward.urlString, systemImage: "link")
+                            .font(.caption)
+                            .foregroundStyle(.blue)
+                            .lineLimit(2)
+                            .multilineTextAlignment(.leading)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .buttonStyle(.plain)
+                }
+                Text(redemptionLabel(purchases.filter { $0.rewardID == reward.id }.count))
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                if !reward.details.isEmpty {
+                    Text(reward.details)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.top, 10)
             Button {
                 message = ChallengeService.purchase(reward: reward, transactions: transactions, context: context)
                     ? L("Belohnung gekauft.", "Reward purchased.")
@@ -104,9 +194,10 @@ struct ShopView: View {
             }
             .buttonStyle(.plain)
             .padding(.horizontal, 12)
+            .padding(.top, 10)
             .padding(.bottom, 12)
         }
-        .frame(maxWidth: .infinity, minHeight: 276, maxHeight: 276, alignment: .top)
+        .frame(maxWidth: .infinity, alignment: .top)
         .background(AppSurface.card)
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
         .overlay(
@@ -117,7 +208,7 @@ struct ShopView: View {
             Button { edited = reward } label: {
                 Label(L("Bearbeiten", "Edit"), systemImage: "pencil")
             }
-            if let url = URL(string: reward.urlString), !reward.urlString.isEmpty {
+            if let url = rewardURL(reward) {
                 Button { openURL(url) } label: {
                     Label("Link", systemImage: "safari")
                 }
@@ -134,6 +225,13 @@ struct ShopView: View {
         RewardPolicyStore.remove(for: reward.id)
         context.delete(reward)
         try? context.save()
+    }
+
+    private func rewardURL(_ reward: RewardItem) -> URL? {
+        let raw = reward.urlString.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !raw.isEmpty else { return nil }
+        if let url = URL(string: raw), url.scheme != nil { return url }
+        return URL(string: "https://\(raw)")
     }
 
     private func redemptionLabel(_ count: Int) -> String {

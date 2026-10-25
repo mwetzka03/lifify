@@ -16,6 +16,7 @@ struct ChallengesView: View {
     @State private var acceptedRecommendation: ChallengeCalendarEvent?
     @State private var showingShop = false
     @State private var showingWallet = false
+    @AppStorage(StreakSettings.revisionKey) private var streakRevision = 0
 
     var body: some View {
         List {
@@ -99,6 +100,7 @@ struct ChallengesView: View {
                             date: .now,
                             completions: completions,
                             transactions: transactions,
+                            events: calendarEvents,
                             context: context
                         )
                     } label: {
@@ -163,6 +165,9 @@ struct ChallengesView: View {
         }
         .navigationDestination(isPresented: $showingShop) { ShopView() }
         .navigationDestination(isPresented: $showingWallet) { WalletView() }
+        .onAppear {
+            ChallengeService.commitFreezes(for: challenges, completions: completions, events: calendarEvents)
+        }
     }
 
     @ToolbarContentBuilder
@@ -261,20 +266,35 @@ struct ChallengesView: View {
         }
         IconPreferenceStore.remove(for: challenge.id)
         ReminderLinkStore.remove(for: challenge.externalIdentifier)
+        StreakSettings.remove(for: challenge.id)
         context.delete(challenge)
         try? context.save()
     }
 
     private func challengeMeta(_ challenge: ChallengeItem) -> some View {
-        let streak = ChallengeService.streak(for: challenge, endingOn: .now, completions: completions)
-        let target = challenge.streakTarget > 0 ? "/\(challenge.streakTarget)" : ""
+        let _ = streakRevision
+        let enabled = StreakSettings.isEnabled(for: challenge.id)
+        let streak = ChallengeService.status(
+            for: challenge,
+            endingOn: .now,
+            completions: completions,
+            events: calendarEvents
+        ).count
         return HStack(spacing: 6) {
             Text(challenge.recurrence.label)
-            CoinAmountView(amount: challenge.rewardCoins, showsPlus: true)
-            if challenge.recurrence != .none {
+            CoinAmountView(
+                amount: ChallengeService.projectedCoins(
+                    challenge: challenge,
+                    on: .now,
+                    completions: completions,
+                    events: calendarEvents
+                ),
+                showsPlus: true
+            )
+            if enabled {
                 HStack(spacing: 2) {
                     Image(systemName: "flame.fill")
-                    Text("\(streak)\(target)")
+                    Text("\(streak)")
                         .monospacedDigit()
                 }
                 .foregroundStyle(.orange)
@@ -311,13 +331,12 @@ private struct ChallengeForm: View {
     @State private var details: String
     @State private var category: ChallengeCategory
     @State private var recurrence: ChallengeRecurrence
-    @State private var recurrenceInterval: Int
     @State private var startDate: Date
     @State private var hasEndDate: Bool
     @State private var endDate: Date
     @State private var weekdays: Set<Int>
     @State private var rewardCoins: Int
-    @State private var streakTarget: Int
+    @State private var streaksEnabled: Bool
     @State private var groupID: UUID?
     @State private var icon: String
     @State private var syncToReminders: Bool
@@ -336,13 +355,12 @@ private struct ChallengeForm: View {
         _details = State(initialValue: challenge?.details ?? recommendation?.details ?? "")
         _category = State(initialValue: challenge?.category ?? (recommendation == nil ? .habit : .todo))
         _recurrence = State(initialValue: challenge?.recurrence ?? reminderMetadata?.recurrence ?? .none)
-        _recurrenceInterval = State(initialValue: reminderMetadata?.interval ?? 1)
         _startDate = State(initialValue: challenge?.startDate ?? recommendation?.startDate ?? .now)
         _hasEndDate = State(initialValue: challenge?.endDate != nil || reminderMetadata?.endDate != nil)
         _endDate = State(initialValue: challenge?.endDate ?? reminderMetadata?.endDate ?? Calendar.current.date(byAdding: .month, value: 1, to: .now)!)
         _weekdays = State(initialValue: challenge?.weekdaySet ?? reminderMetadata?.weekdays ?? [])
         _rewardCoins = State(initialValue: challenge?.rewardCoins ?? 10)
-        _streakTarget = State(initialValue: challenge?.streakTarget ?? 0)
+        _streaksEnabled = State(initialValue: challenge.map { StreakSettings.isEnabled(for: $0.id) } ?? false)
         _groupID = State(initialValue: challenge?.groupID)
         _icon = State(initialValue: challenge.map { IconPreferenceStore.icon(for: $0.id, fallback: "target") } ?? (recommendation == nil ? "target" : "lightbulb"))
         _syncToReminders = State(initialValue: challenge.map { ReminderSyncPreference.isEnabled(for: $0.id) } ?? true)
@@ -366,13 +384,6 @@ private struct ChallengeForm: View {
                 }
                 if recurrence != .none {
                     AppDateField(title: L("Start", "Start"), selection: $startDate)
-                    if recurrence != .irregular {
-                        Stepper(
-                            "\(L("Wiederholungsintervall", "Repeat interval")): \(recurrenceInterval)",
-                            value: $recurrenceInterval,
-                            in: 1...99
-                        )
-                    }
                     Toggle(L("Enddatum", "End date"), isOn: $hasEndDate)
                     if hasEndDate {
                         AppDateField(title: L("Ende", "End"), selection: $endDate, minimum: startDate)
@@ -386,12 +397,16 @@ private struct ChallengeForm: View {
                         .keyboardType(.numberPad)
                         .multilineTextAlignment(.trailing)
                 }
+                Toggle(L("Streaks aktivieren", "Enable streaks"), isOn: $streaksEnabled)
+                Text(L(
+                    "Die Serie zählt jede Erledigung. Die Quote folgt der Frequenz, zum Beispiel dreimal in der Woche oder einmal im Monat, an beliebigen Tagen. Fehlt sie am Ende, fällt die Serie auf 0, außer eine Freeze schützt sie.",
+                    "The streak counts every completion. The quota follows the frequency, for example three times a week or once a month, on any days. If it is missed at the end, the streak drops to 0 unless a freeze protects it."
+                ))
+                .font(.caption)
+                .foregroundStyle(.secondary)
                 if existing?.isReadOnly != true,
                    existing?.externalIdentifier?.hasPrefix("event-challenge:") != true {
                     Toggle(L("In Apple Erinnerungen sichern", "Save to Apple Reminders"), isOn: $syncToReminders)
-                }
-                if recurrence != .none {
-                    Stepper("\(L("Streak-Ziel", "Streak target")): \(streakTarget)", value: $streakTarget, in: 0...365)
                 }
                 Picker(L("Gruppe", "Group"), selection: $groupID) {
                     Text(L("Keine", "None")).tag(Optional<UUID>.none)
@@ -444,8 +459,9 @@ private struct ChallengeForm: View {
         challenge.endDate = recurrence != .none && hasEndDate ? endDate : nil
         challenge.weekdaySet = recurrence == .weekly ? weekdays : []
         challenge.rewardCoins = max(rewardCoins, 0)
-        challenge.streakTarget = recurrence == .none ? 0 : streakTarget
+        challenge.streakTarget = 0
         challenge.groupID = groupID
+        StreakSettings.setEnabled(streaksEnabled, for: challenge.id)
         if existing == nil, savedChallenge == nil {
             context.insert(challenge)
             savedChallenge = challenge
@@ -465,7 +481,7 @@ private struct ChallengeForm: View {
                 ReminderLinkStore.set(
                     ReminderRecurrenceMetadata(
                         recurrence: challenge.recurrence,
-                        interval: max(recurrenceInterval, 1),
+                        interval: 1,
                         weekdays: challenge.weekdaySet,
                         endDate: challenge.endDate
                     ),
@@ -487,7 +503,7 @@ private struct ChallengeForm: View {
             startDate: challenge.startDate ?? .now,
             endDate: challenge.endDate,
             recurrence: challenge.recurrence,
-            recurrenceInterval: recurrenceInterval,
+            recurrenceInterval: 1,
             weekdays: challenge.weekdaySet
         ) else {
             saveMessage = L(
@@ -529,6 +545,7 @@ private struct ChallengeGroupDetailView: View {
     @Query private var challenges: [ChallengeItem]
     @Query private var completions: [ChallengeCompletion]
     @Query private var transactions: [CoinTransaction]
+    @Query private var calendarEvents: [ChallengeCalendarEvent]
     @State private var edited: ChallengeItem?
     let group: ChallengeGroup
 
@@ -537,7 +554,14 @@ private struct ChallengeGroupDetailView: View {
             if !group.details.isEmpty { Section { Text(group.details) } }
             ForEach(challenges.filter { $0.groupID == group.id }) { challenge in
                 Button {
-                    ChallengeService.toggleCompletion(challenge: challenge, date: .now, completions: completions, transactions: transactions, context: context)
+                    ChallengeService.toggleCompletion(
+                        challenge: challenge,
+                        date: .now,
+                        completions: completions,
+                        transactions: transactions,
+                        events: calendarEvents,
+                        context: context
+                    )
                 } label: {
                     HStack {
                         Image(systemName: IconPreferenceStore.icon(for: challenge.id, fallback: "target"))
@@ -576,6 +600,7 @@ private struct ChallengeGroupDetailView: View {
         }
         IconPreferenceStore.remove(for: challenge.id)
         ReminderLinkStore.remove(for: challenge.externalIdentifier)
+        StreakSettings.remove(for: challenge.id)
         context.delete(challenge)
         try? context.save()
     }

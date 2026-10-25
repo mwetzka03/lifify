@@ -40,6 +40,7 @@ struct ChallengeCalendarView: View {
                         DayAgendaCard(
                             day: day,
                             events: eventsForDay(day),
+                            scheduleEvents: events,
                             challenges: challengesForDay(day),
                             completions: completions,
                             onEvent: { editedEvent = $0 },
@@ -49,6 +50,7 @@ struct ChallengeCalendarView: View {
                                     date: day,
                                     completions: completions,
                                     transactions: transactions,
+                                    events: events,
                                     context: context
                                 )
                             }
@@ -106,6 +108,7 @@ struct ChallengeCalendarView: View {
 private struct DayAgendaCard: View {
     let day: Date
     let events: [ChallengeCalendarEvent]
+    let scheduleEvents: [ChallengeCalendarEvent]
     let challenges: [ChallengeItem]
     let completions: [ChallengeCompletion]
     let onEvent: (ChallengeCalendarEvent) -> Void
@@ -174,8 +177,31 @@ private struct DayAgendaCard: View {
                         Image(systemName: IconPreferenceStore.icon(for: challenge.id, fallback: "target"))
                         Text(challenge.title)
                         Spacer()
-                        CoinAmountView(amount: challenge.rewardCoins, showsPlus: true)
+                        CoinAmountView(
+                            amount: ChallengeService.projectedCoins(
+                                challenge: challenge,
+                                on: day,
+                                completions: completions,
+                                events: scheduleEvents
+                            ),
+                            showsPlus: true
+                        )
+                        .font(.caption)
+                        if StreakSettings.isEnabled(for: challenge.id) {
+                            let streak = ChallengeService.status(
+                                for: challenge,
+                                endingOn: day,
+                                completions: completions,
+                                events: scheduleEvents
+                            ).count
+                            HStack(spacing: 2) {
+                                Image(systemName: "flame.fill")
+                                Text("\(streak)")
+                                    .monospacedDigit()
+                            }
                             .font(.caption)
+                            .foregroundStyle(.orange)
+                        }
                         Image(systemName: completed ? "checkmark.circle.fill" : "circle")
                             .foregroundStyle(completed ? .green : .secondary)
                     }

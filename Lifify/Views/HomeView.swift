@@ -20,6 +20,7 @@ struct HomeView: View {
     @State private var expandedWeekday: Date?
     @AppStorage("userName") private var userName = ""
     @AppStorage("dashboardPeriodMode") private var dashboardPeriod = DashboardPeriodMode.calendarMonth.rawValue
+    @AppStorage(StreakSettings.revisionKey) private var streakRevision = 0
 
     var body: some View {
         ScrollView {
@@ -78,6 +79,9 @@ struct HomeView: View {
             .padding()
         }
         .appCanvas()
+        .onAppear {
+            ChallengeService.commitFreezes(for: challenges, completions: completions, events: calendarEvents)
+        }
     }
 
     private var dayView: some View {
@@ -294,6 +298,9 @@ struct HomeView: View {
             case .reward:
                 Label(L("Belohnung", "Reward"), systemImage: "gift.fill")
                     .font(.headline)
+            case .freeze:
+                Label(L("Streak-Freeze", "Streak freeze"), systemImage: "snowflake")
+                    .font(.headline)
             }
             popupRows(popup)
         }
@@ -313,6 +320,7 @@ struct HomeView: View {
                         date: .now,
                         completions: completions,
                         transactions: transactions,
+                        events: calendarEvents,
                         context: context
                     )
                 } label: {
@@ -324,14 +332,23 @@ struct HomeView: View {
                                 .foregroundStyle(.secondary)
                         }
                         Spacer(minLength: 8)
-                        CoinAmountView(amount: item.challenge.rewardCoins, showsPlus: true)
-                            .font(.caption)
-                        if item.challenge.recurrence != .none {
-                            let streak = ChallengeService.streak(
+                        CoinAmountView(
+                            amount: ChallengeService.projectedCoins(
+                                challenge: item.challenge,
+                                on: .now,
+                                completions: completions,
+                                events: calendarEvents
+                            ),
+                            showsPlus: true
+                        )
+                        .font(.caption)
+                        if StreakSettings.isEnabled(for: item.challenge.id) {
+                            let streak = ChallengeService.status(
                                 for: item.challenge,
                                 endingOn: .now,
-                                completions: completions
-                            )
+                                completions: completions,
+                                events: calendarEvents
+                            ).count
                             HStack(spacing: 2) {
                                 Image(systemName: "flame.fill")
                                 Text("\(streak)")
@@ -358,7 +375,36 @@ struct HomeView: View {
                 CoinAmountView(amount: reward.price)
                     .font(.caption)
             }
+        case .freeze(let items):
+            VStack(alignment: .leading, spacing: 8) {
+                ForEach(items, id: \.challenge.id) { item in
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(item.challenge.title)
+                        Text(freezeWarning(done: item.done, required: item.required, recurrence: item.challenge.recurrence))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                NavigationLink {
+                    ShopView()
+                } label: {
+                    Text(L("Im Shop kaufen", "Buy in the shop"))
+                        .font(.subheadline.weight(.semibold))
+                }
+            }
         }
+    }
+
+    private func freezeWarning(done: Int, required: Int, recurrence: ChallengeRecurrence) -> String {
+        let when: String
+        switch recurrence {
+        case .daily: when = L("heute", "today")
+        case .weekly: when = L("diese Woche", "this week")
+        case .monthly: when = L("diesen Monat", "this month")
+        case .yearly: when = L("dieses Jahr", "this year")
+        case .none, .irregular: when = L("in diesem Zeitraum", "this period")
+        }
+        return "\(done)/\(required) \(when). \(L("Keine Streak-Freeze mehr. Kauf eine im Shop, sonst fällt die Serie am Ende auf 0.", "No streak freeze left. Buy one in the shop, or the streak drops to 0 at the end."))"
     }
 
     private func rewardDaysText(_ days: Int) -> String {
@@ -380,7 +426,25 @@ struct HomeView: View {
                 )
             )
         }
+        if !freezeWarnings.isEmpty {
+            popups.append(HomePopup(id: "freeze", kind: .freeze(freezeWarnings)))
+        }
         return popups
+    }
+
+    private var freezeWarnings: [(challenge: ChallengeItem, done: Int, required: Int)] {
+        let _ = streakRevision
+        return challenges.compactMap { challenge in
+            guard !challenge.isArchived else { return nil }
+            let status = ChallengeService.status(
+                for: challenge,
+                endingOn: .now,
+                completions: completions,
+                events: calendarEvents
+            )
+            guard status.needsFreezeWarning else { return nil }
+            return (challenge, status.done, status.required)
+        }
     }
 
     private var rewardReminders: [(event: ChallengeCalendarEvent, reward: RewardItem, days: Int)] {
@@ -637,6 +701,7 @@ private struct HomePopup: Identifiable {
     enum Kind {
         case morning([(event: ChallengeCalendarEvent, challenge: ChallengeItem)])
         case reward(ChallengeCalendarEvent, RewardItem, Int)
+        case freeze([(challenge: ChallengeItem, done: Int, required: Int)])
     }
 
     let id: String

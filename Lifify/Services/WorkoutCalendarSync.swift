@@ -62,6 +62,7 @@ enum WorkoutCalendarSync {
                     challenge: challenge,
                     date: session.finishedAt,
                     completions: completions,
+                    events: events,
                     context: context
                 )
             }

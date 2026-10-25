@@ -85,11 +85,11 @@ enum BackupService {
     private static let challengeTypes: Set<String> = [
         "challengeEvent", "challenge", "reminderRecurrence", "eventRecurrence", "completion",
         "challengeGroup", "coin", "reward", "rewardPolicy", "reminderSync", "purchase", "bucket",
-        "workoutChallengeLink", "workoutEventLink"
+        "workoutChallengeLink", "workoutEventLink", "streakState", "streakMultiplier"
     ]
     private static let sideTypes: Set<String> = [
         "iconPreference", "reminderRecurrence", "eventRecurrence", "marketSymbol", "previousClose", "purchaseDate",
-        "rewardPolicy", "reminderSync",
+        "rewardPolicy", "reminderSync", "streakState", "streakMultiplier",
         "primaryIncome", "secondaryIncome", "incomeAssignment", "expenseGroupAssignment",
         "workoutChallengeLink", "workoutEventLink", "appPreferences", "backupScope", "workoutSnapshot"
     ]
@@ -233,6 +233,8 @@ enum BackupService {
                 booleans: [ReminderSyncPreference.isEnabled(for: $0.id)]
             )
         }
+        records += StreakSettings.exportStateRecords()
+        records += StreakSettings.exportMultiplierRecords()
         records += purchases.map {
             BackupRecord(type: "purchase", id: $0.id, strings: [$0.title], integers: [$0.price], dates: [$0.date], uuids: [$0.rewardID])
         }
@@ -333,6 +335,7 @@ enum BackupService {
         clearSideStores(sideStores)
         resetFinanceSideStores()
         WorkoutLinkStore.reset()
+        StreakSettings.removeAllChallenges()
     }
 
     static func deleteFinanceData(from context: ModelContext) throws {
@@ -352,6 +355,7 @@ enum BackupService {
         try context.save()
         clearSideStores(sideStores)
         WorkoutLinkStore.reset()
+        StreakSettings.removeAllChallenges()
     }
 
     static func deleteTrainingData() throws {
@@ -370,6 +374,7 @@ enum BackupService {
         HoldingLotStore.reset()
         SavingsPlanStore.reset()
         ClosedPositionStore.reset()
+        StreakSettings.reset()
     }
 
     @MainActor
@@ -383,6 +388,7 @@ enum BackupService {
         clearSideStores(oldSideStores)
         resetFinanceSideStores()
         WorkoutLinkStore.reset()
+        StreakSettings.reset()
         for record in backup.records where sideTypes.contains(record.type) {
             insert(record, into: context)
         }
@@ -429,6 +435,7 @@ enum BackupService {
         try context.save()
         clearSideStores(oldSideStores)
         WorkoutLinkStore.reset()
+        StreakSettings.reset()
         for record in backup.records where challengeTypes.contains(record.type) && !sideTypes.contains(record.type) {
             insert(record, into: context)
         }
@@ -730,6 +737,10 @@ enum BackupService {
             UserDefaults.standard.set(string(1), forKey: "dashboardPeriodMode")
             UserDefaults.standard.set(string(2), forKey: "appLanguage")
             UserDefaults.standard.set(string(3), forKey: "appTheme")
+        case "streakState":
+            StreakSettings.restoreState(r)
+        case "streakMultiplier":
+            StreakSettings.restoreMultiplier(r)
         default:
             break
         }

@@ -32,6 +32,17 @@ struct DataManagementView: View {
     @State private var exportingBackup = false
     @State private var backupDocument = BackupDocument()
     @State private var exportFilename = "Lifify"
+    @State private var destructiveAction: DestructiveAction?
+    @State private var resetError: String?
+    @AppStorage("appLanguage") private var language = "de"
+    @AppStorage("appTheme") private var theme = AppTheme.system.rawValue
+    @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
+    @AppStorage("onboardingInProgress") private var onboardingInProgress = false
+    @AppStorage("userName") private var userName = ""
+    @AppStorage("dashboardPeriodMode") private var dashboardPeriod = DashboardPeriodMode.calendarMonth.rawValue
+    @AppStorage("onboardingStep") private var onboardingStep = 0
+    @AppStorage(TradeFeePreference.storageKey) private var defaultTradeFeeCents = TradeFeePreference.defaultCents
+    @AppStorage(TradeAccountPreference.storageKey) private var defaultCheckingAccountID = ""
 
     var body: some View {
         Form {
@@ -107,8 +118,62 @@ struct DataManagementView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
             }
+
+            Section {
+                Button(role: .destructive) {
+                    destructiveAction = .deleteFinance
+                } label: {
+                    Label(L("Finanzen löschen", "Delete finance"), systemImage: "eurosign.circle")
+                }
+                Button(role: .destructive) {
+                    destructiveAction = .deleteTraining
+                } label: {
+                    Label(L("Training löschen", "Delete training"), systemImage: "figure.strengthtraining.traditional")
+                }
+                Button(role: .destructive) {
+                    destructiveAction = .deleteChallenges
+                } label: {
+                    Label(L("Challenges löschen", "Delete challenges"), systemImage: "target")
+                }
+                Button(role: .destructive) {
+                    destructiveAction = .deleteData
+                } label: {
+                    Label(L("Alle Daten löschen", "Delete all data"), systemImage: "trash")
+                }
+                Button(role: .destructive) {
+                    destructiveAction = .resetApp
+                } label: {
+                    Label(L("App zurücksetzen", "Reset app"), systemImage: "arrow.counterclockwise")
+                }
+            } header: {
+                Text(L("Zurücksetzen", "Reset"))
+            }
         }
-        .navigationTitle(L("Import & Sicherung", "Import & backup"))
+        .navigationTitle(L("Daten", "Data"))
+        .navigationBarTitleDisplayMode(.inline)
+        .confirmationDialog(
+            destructiveAction?.title ?? "",
+            isPresented: Binding(
+                get: { destructiveAction != nil },
+                set: { if !$0 { destructiveAction = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button(L("Abbrechen", "Cancel"), role: .cancel) {}
+            Button(L("Endgültig löschen", "Delete permanently"), role: .destructive) {
+                runDestructiveAction()
+            }
+        } message: {
+            Text(destructiveAction?.message ?? "")
+        }
+        .alert(L("Zurücksetzen fehlgeschlagen", "Reset failed"), isPresented: Binding(
+            get: { resetError != nil },
+            set: { if !$0 { resetError = nil } }
+        )) {
+            Button("OK") { resetError = nil }
+        } message: {
+            Text(resetError ?? "")
+        }
         .fileImporter(
             isPresented: $importingBank,
             allowedContentTypes: [.commaSeparatedText, .xml, .plainText],
@@ -203,12 +268,94 @@ struct DataManagementView: View {
         }
     }
 
+    private func runDestructiveAction() {
+        do {
+            switch destructiveAction {
+            case .deleteData:
+                try BackupService.deleteUserData(from: context)
+            case .deleteFinance:
+                try BackupService.deleteFinanceData(from: context)
+            case .deleteTraining:
+                try BackupService.deleteTrainingData()
+                workouts.reset()
+            case .deleteChallenges:
+                try BackupService.deleteChallengeData(from: context)
+            case .resetApp:
+                try BackupService.resetApp(from: context)
+                workouts.reset()
+                ExerciseImageStore.removeAll()
+                defaultTradeFeeCents = TradeFeePreference.defaultCents
+                defaultCheckingAccountID = ""
+                language = "de"
+                theme = AppTheme.system.rawValue
+                userName = ""
+                dashboardPeriod = DashboardPeriodMode.calendarMonth.rawValue
+                onboardingStep = 0
+                onboardingInProgress = false
+                hasCompletedOnboarding = false
+            case nil:
+                break
+            }
+            destructiveAction = nil
+        } catch {
+            resetError = error.localizedDescription
+        }
+    }
+
     private func exportPrefix(_ scope: BackupScope) -> String {
         switch scope {
         case .all: "Lifify"
         case .finance: "Lifify-Finanzen"
         case .challenges: "Lifify-Challenges"
         case .training: "Lifify-Training"
+        }
+    }
+}
+
+private enum DestructiveAction {
+    case deleteFinance
+    case deleteTraining
+    case deleteChallenges
+    case deleteData
+    case resetApp
+
+    var title: String {
+        switch self {
+        case .deleteFinance: L("Finanzen löschen?", "Delete finance?")
+        case .deleteTraining: L("Training löschen?", "Delete training?")
+        case .deleteChallenges: L("Challenges löschen?", "Delete challenges?")
+        case .deleteData: L("Alle Daten löschen?", "Delete all data?")
+        case .resetApp: L("App vollständig zurücksetzen?", "Reset the entire app?")
+        }
+    }
+
+    var message: String {
+        switch self {
+        case .deleteFinance:
+            L(
+                "Buchungen, Budgets, Prognosen, Einkäufe, Schulden, Depot und Pools werden gelöscht. Konten, Challenges, Kalender und Trainings bleiben.",
+                "Transactions, budgets, forecasts, shopping, debts, holdings, and pools will be deleted. Accounts, challenges, calendar, and training remain."
+            )
+        case .deleteTraining:
+            L(
+                "Trainingspläne, Einheiten, Mahlzeiten und die Verknüpfungen zu Challenges werden gelöscht. Challenges, Kalender und Finanzen bleiben.",
+                "Workout plans, sessions, meals, and the links to challenges will be deleted. Challenges, calendar, and finance remain."
+            )
+        case .deleteChallenges:
+            L(
+                "Challenges, Kalender, Shop, Coins und die Verknüpfungen zu Trainings werden gelöscht. Trainingspläne und Finanzen bleiben.",
+                "Challenges, calendar, shop, coins, and the links to workouts will be deleted. Workout plans and finance remain."
+            )
+        case .deleteData:
+            L(
+                "Buchungen, Budgets, Challenges und weitere Inhalte werden gelöscht. Deine Konten und App-Einstellungen bleiben erhalten.",
+                "Transactions, budgets, challenges, and other content will be deleted. Accounts and app settings remain."
+            )
+        case .resetApp:
+            L(
+                "Auch Konten, Trainingsdaten und Einstellungen werden gelöscht. Danach beginnt die Ersteinrichtung erneut.",
+                "Accounts, workout data, and settings will also be deleted. Initial setup starts again afterward."
+            )
         }
     }
 }
