@@ -5,7 +5,21 @@ import Foundation
 @MainActor
 enum StreakSettings {
     static let revisionKey = "lifify.streakRevision"
+    static let freezeFactorKey = "lifify.streakFreezeFactor"
     static let thresholds = [5, 10, 15, 20, 25, 50, 100, 200, 250, 500, 1000]
+    static let defaultMultipliers: [Int: Double] = [
+        5: 1.1,
+        10: 1.2,
+        15: 1.3,
+        20: 1.4,
+        25: 1.5,
+        50: 1.75,
+        100: 2,
+        200: 2.25,
+        250: 2.5,
+        500: 2.75,
+        1000: 3
+    ]
 
     struct State: Codable, Equatable {
         var enabled: Bool
@@ -39,8 +53,34 @@ enum StreakSettings {
         return max(0, 2 + state.purchased - state.usedPeriodKeys.count)
     }
 
+    static var freezeFactor: Int {
+        guard let stored = UserDefaults.standard.object(forKey: freezeFactorKey) as? Int else { return 10 }
+        return max(stored, 1)
+    }
+
+    static func setFreezeFactor(_ value: Int) {
+        UserDefaults.standard.set(max(value, 1), forKey: freezeFactorKey)
+        bump()
+    }
+
+    static func resetFreezeFactor() {
+        UserDefaults.standard.removeObject(forKey: freezeFactorKey)
+        bump()
+    }
+
+    static func price(rewardCoins: Int, factor: Int) -> Int {
+        max(rewardCoins, 0) * max(factor, 1)
+    }
+
+    /// Whole numbers from 1 up. A comma or a dot is not a factor.
+    static func wholeFactor(from text: String) -> Int? {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, trimmed.allSatisfy(\.isNumber), let value = Int(trimmed), value >= 1 else { return nil }
+        return value
+    }
+
     static func price(for challenge: ChallengeItem) -> Int {
-        max(challenge.rewardCoins, 0) * 10
+        price(rewardCoins: challenge.rewardCoins, factor: freezeFactor)
     }
 
     static func addPurchasedFreeze(for challengeID: UUID) {
@@ -66,7 +106,19 @@ enum StreakSettings {
     }
 
     static func multiplier(forStreak streak: Int) -> Double {
-        factor(forStreak: streak, configured: multipliers())
+        factor(forStreak: streak, configured: effectiveMultipliers())
+    }
+
+    static func merging(_ stored: [Int: Double]) -> [Int: Double] {
+        var map = defaultMultipliers
+        for (key, value) in stored where thresholds.contains(key) {
+            map[key] = value
+        }
+        return map
+    }
+
+    static func effectiveMultipliers() -> [Int: Double] {
+        merging(multipliers())
     }
 
     static func factor(forStreak streak: Int, configured: [Int: Double]) -> Double {
@@ -76,7 +128,7 @@ enum StreakSettings {
     }
 
     static func storedMultiplier(for threshold: Int) -> Double {
-        let value = multipliers()[threshold] ?? 1
+        let value = effectiveMultipliers()[threshold] ?? 1
         return value >= 0 ? value : 1
     }
 
@@ -127,6 +179,7 @@ enum StreakSettings {
         cachedMultipliers = [:]
         UserDefaults.standard.removeObject(forKey: stateKey)
         UserDefaults.standard.removeObject(forKey: multiplierKey)
+        UserDefaults.standard.removeObject(forKey: freezeFactorKey)
         bump()
     }
 
@@ -144,8 +197,16 @@ enum StreakSettings {
         }
     }
 
+    static func exportFreezeFactorRecord() -> BackupRecord {
+        BackupRecord(type: "streakFreezeFactor", id: UUID(), integers: [freezeFactor])
+    }
+
+    static func restoreFreezeFactor(_ record: BackupRecord) {
+        setFreezeFactor(record.integers.first ?? 10)
+    }
+
     static func exportMultiplierRecords() -> [BackupRecord] {
-        multipliers().map { threshold, value in
+        effectiveMultipliers().map { threshold, value in
             BackupRecord(
                 type: "streakMultiplier",
                 id: UUID(),

@@ -343,13 +343,13 @@ private enum DestructiveAction {
             )
         case .deleteChallenges:
             L(
-                "Challenges, Kalender, Shop, Coins und die Verknüpfungen zu Trainings werden gelöscht. Trainingspläne und Finanzen bleiben.",
-                "Challenges, calendar, shop, coins, and the links to workouts will be deleted. Workout plans and finance remain."
+                "Challenges, Kalender, Shop, Coins und die Verknüpfungen zu Trainings werden gelöscht. Streak-Multiplikatoren und der Freeze-Faktor gehen auf die Standardwerte zurück. Trainingspläne und Finanzen bleiben.",
+                "Challenges, calendar, shop, coins, and the links to workouts will be deleted. Streak multipliers and the freeze factor return to their defaults. Workout plans and finance remain."
             )
         case .deleteData:
             L(
-                "Buchungen, Budgets, Challenges und weitere Inhalte werden gelöscht. Deine Konten und App-Einstellungen bleiben erhalten.",
-                "Transactions, budgets, challenges, and other content will be deleted. Accounts and app settings remain."
+                "Buchungen, Budgets, Challenges und weitere Inhalte werden gelöscht. Streak-Multiplikatoren und der Freeze-Faktor gehen auf die Standardwerte zurück. Konten, Sprache und Erscheinungsbild bleiben.",
+                "Transactions, budgets, challenges, and other content will be deleted. Streak multipliers and the freeze factor return to their defaults. Accounts, language, and appearance remain."
             )
         case .resetApp:
             L(

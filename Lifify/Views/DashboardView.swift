@@ -30,7 +30,7 @@ struct DashboardView: View {
     @State private var showingNewFixedCost = false
     @State private var showingNewBudget = false
     @State private var showingNewSavingsPlan = false
-    @State private var savingsForecastsExpanded = true
+    @State private var savingsForecastsExpanded = false
     @State private var summary: PreparedSummary?
     @State private var summarySelection: Int?
     @AppStorage(ForecastSkipStore.revisionKey) private var forecastSkipRevision = 0

@@ -11,6 +11,7 @@ struct ShopView: View {
     @Query private var completions: [ChallengeCompletion]
     @Query private var calendarEvents: [ChallengeCalendarEvent]
     @AppStorage(StreakSettings.revisionKey) private var streakRevision = 0
+    @AppStorage(StreakSettings.freezeFactorKey) private var freezeFactor = 10
     @AppStorage(AppClock.modeKey) private var developerMode = false
     @AppStorage(AppClock.dayKey) private var developerDay = 0.0
     @State private var showingNew = false
@@ -73,12 +74,13 @@ struct ShopView: View {
     }
 
     private var freezeSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        let _ = freezeFactor
+        return VStack(alignment: .leading, spacing: 10) {
             Text(L("Streak-Freezes", "Streak freezes"))
                 .font(.headline)
             Text(L(
-                "Jede Challenge mit Streaks startet mit zwei Freezes. Eine weitere kostet das Zehnfache der Belohnung und gilt nur für diese Challenge.",
-                "Each challenge with streaks starts with two freezes. Another one costs ten times the reward and applies only to that challenge."
+                "Jede Challenge mit Streaks startet mit zwei Freezes. Eine weitere kostet das \(StreakSettings.freezeFactor)-Fache der Belohnung und gilt nur für diese Challenge.",
+                "Each challenge with streaks starts with two freezes. Another one costs \(StreakSettings.freezeFactor) times the reward and applies only to that challenge."
             ))
             .font(.caption)
             .foregroundStyle(.secondary)
@@ -93,6 +95,7 @@ struct ShopView: View {
     private func freezeRow(_ challenge: ChallengeItem) -> some View {
         let _ = developerMode
         let _ = developerDay
+        let _ = freezeFactor
         let today = AppClock.now
         let balance = ChallengeService.freezeBalance(
             for: challenge,

@@ -26,4 +26,16 @@ enum LinkCaption {
         let names = unique.prefix(3).joined(separator: ", ")
         return L("Mit Kalender \(names) verknüpft", "Linked to calendar \(names)")
     }
+
+    /// Collapses repeated titles. Twelve events named Gym become "Gym · 12".
+    static func countedTitles(_ titles: [String]) -> String {
+        var counts: [String: Int] = [:]
+        for title in titles where !title.isEmpty {
+            counts[title, default: 0] += 1
+        }
+        return counts.keys.sorted().map { title in
+            let count = counts[title] ?? 0
+            return count > 1 ? "\(title) · \(count)" : title
+        }.joined(separator: ", ")
+    }
 }

@@ -66,7 +66,17 @@ struct ChallengesView: View {
                 .pickerStyle(.segmented)
             }
 
-            if filter != .single {
+            if completedTab {
+                ForEach(historyDays) { day in
+                    Section(AppDate.weekdayAndNumeric(day.day)) {
+                        ForEach(day.entries) { entry in
+                            historyRow(entry)
+                        }
+                    }
+                }
+            }
+
+            if !completedTab && filter != .single {
                 ForEach(groups) { group in
                     NavigationLink {
                         ChallengeGroupDetailView(group: group)
@@ -76,16 +86,16 @@ struct ChallengesView: View {
                                 Text(group.title).font(.headline)
                                 Spacer()
                                 CoinAmountView(
-                                    amount: groupMembers(group).reduce(0) { $0 + $1.rewardCoins }
+                                    amount: activeGroupMembers(group).reduce(0) { $0 + $1.rewardCoins }
                                 )
                             }
-                            ForEach(groupMembers(group).prefix(3)) { challenge in
+                            ForEach(activeGroupMembers(group).prefix(3)) { challenge in
                                 Label(challenge.title, systemImage: "arrow.turn.down.right")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }
-                            if groupMembers(group).count > 3 {
-                                Text("+\(groupMembers(group).count - 3)")
+                            if activeGroupMembers(group).count > 3 {
+                                Text("+\(activeGroupMembers(group).count - 3)")
                                     .font(.caption2)
                                     .foregroundStyle(.secondary)
                             }
@@ -94,8 +104,10 @@ struct ChallengesView: View {
                 }
             }
 
-            if filter != .groups {
+            if !completedTab && filter != .groups {
                 ForEach(filteredChallenges) { challenge in
+                    let doneToday = ChallengeService.isCompleted(challenge, on: AppClock.now, completions: completions)
+                    let gray = ChallengeActivity.dimsActiveRow(recurrence: challenge.recurrence, completedToday: doneToday)
                     Button {
                         ChallengeService.toggleCompletion(
                             challenge: challenge,
@@ -110,13 +122,19 @@ struct ChallengesView: View {
                             Image(systemName: IconPreferenceStore.icon(for: challenge.id, fallback: "target"))
                                 .frame(width: 24)
                             VStack(alignment: .leading) {
-                                Text(challenge.title).foregroundStyle(.primary)
+                                Text(challenge.title).foregroundStyle(gray ? .secondary : .primary)
                                 challengeMeta(challenge)
+                                if gray {
+                                    Text(L("Heute erledigt", "Done today"))
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                }
                             }
                             Spacer()
-                            Image(systemName: ChallengeService.isCompleted(challenge, on: AppClock.now, completions: completions) ? "checkmark.circle.fill" : "circle")
-                                .foregroundStyle(.green)
+                            Image(systemName: doneToday ? "checkmark.circle.fill" : "circle")
+                                .foregroundStyle(gray ? .secondary : .green)
                         }
+                        .opacity(gray ? 0.55 : 1)
                     }
                     .buttonStyle(.plain)
                     .disabled(challenge.isReadOnly)
@@ -239,6 +257,7 @@ struct ChallengesView: View {
     }
 
     private var visibleChallengesEmpty: Bool {
+        if completedTab { return historyDays.isEmpty }
         switch filter {
         case .groups:
             return groups.isEmpty
@@ -251,9 +270,77 @@ struct ChallengesView: View {
 
     private var filteredChallenges: [ChallengeItem] {
         challenges.filter { challenge in
-            let done = challenge.isArchived ||
-                ChallengeService.isCompleted(challenge, on: AppClock.now, completions: completions)
-            return done == completedTab && challenge.groupID == nil
+            guard challenge.groupID == nil, !challenge.isArchived else { return false }
+            return ChallengeActivity.staysOnActiveList(
+                recurrence: challenge.recurrence,
+                hasCompletion: completions.contains { $0.challengeID == challenge.id }
+            )
+        }
+    }
+
+    private var historyDays: [ChallengeHistoryDay] {
+        let _ = developerMode
+        let _ = developerDay
+        let allowed = challenges.filter { challenge in
+            switch filter {
+            case .all: return true
+            case .groups: return challenge.groupID != nil
+            case .single: return challenge.groupID == nil
+            }
+        }
+        let titles = Dictionary(uniqueKeysWithValues: allowed.map { ($0.id, $0.title) })
+        let rows = completions.compactMap { completion -> ChallengeHistoryCompletion? in
+            guard let title = titles[completion.challengeID] else { return nil }
+            return ChallengeHistoryCompletion(challengeID: completion.challengeID, title: title, date: completion.date)
+        }
+        return ChallengeHistory.grouped(completions: rows)
+    }
+
+    private func historyRow(_ entry: ChallengeHistoryEntry) -> some View {
+        let challenge = challenges.first { $0.id == entry.challengeID }
+        return Button {
+            guard let challenge, !challenge.isReadOnly else { return }
+            ChallengeService.toggleCompletion(
+                challenge: challenge,
+                date: entry.date,
+                completions: completions,
+                transactions: transactions,
+                events: calendarEvents,
+                context: context
+            )
+        } label: {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(entry.title)
+                    Text(L("Erledigt am \(AppDate.numeric(entry.date))", "Done on \(AppDate.numeric(entry.date))"))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .buttonStyle(.plain)
+        .disabled(challenge?.isReadOnly == true)
+        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+            if let challenge {
+                Button(role: .destructive) {
+                    deleteChallenge(challenge)
+                } label: {
+                    Label(L("Löschen", "Delete"), systemImage: "trash")
+                }
+            }
+        }
+        .swipeActions(edge: .leading, allowsFullSwipe: false) {
+            if let challenge {
+                Button {
+                    edited = challenge
+                } label: {
+                    Label(L("Bearbeiten", "Edit"), systemImage: "pencil")
+                }
+                .tint(.blue)
+            }
         }
     }
 
@@ -263,6 +350,15 @@ struct ChallengesView: View {
 
     private func groupMembers(_ group: ChallengeGroup) -> [ChallengeItem] {
         challenges.filter { $0.groupID == group.id }
+    }
+
+    private func activeGroupMembers(_ group: ChallengeGroup) -> [ChallengeItem] {
+        groupMembers(group).filter { challenge in
+            !challenge.isArchived && ChallengeActivity.staysOnActiveList(
+                recurrence: challenge.recurrence,
+                hasCompletion: completions.contains { $0.challengeID == challenge.id }
+            )
+        }
     }
 
     private func deleteChallenge(_ challenge: ChallengeItem) {
@@ -572,9 +668,17 @@ private struct ChallengeGroupDetailView: View {
     var body: some View {
         List {
             if !group.details.isEmpty { Section { Text(group.details) } }
-            ForEach(challenges.filter { $0.groupID == group.id }) { challenge in
+            ForEach(challenges.filter { challenge in
+                guard challenge.groupID == group.id, !challenge.isArchived else { return false }
+                return ChallengeActivity.staysOnActiveList(
+                    recurrence: challenge.recurrence,
+                    hasCompletion: completions.contains { $0.challengeID == challenge.id }
+                )
+            }) { challenge in
                 let _ = developerMode
                 let _ = developerDay
+                let doneToday = ChallengeService.isCompleted(challenge, on: AppClock.now, completions: completions)
+                let gray = ChallengeActivity.dimsActiveRow(recurrence: challenge.recurrence, completedToday: doneToday)
                 Button {
                     ChallengeService.toggleCompletion(
                         challenge: challenge,
@@ -589,17 +693,25 @@ private struct ChallengeGroupDetailView: View {
                         Image(systemName: IconPreferenceStore.icon(for: challenge.id, fallback: "target"))
                         VStack(alignment: .leading, spacing: 2) {
                             Text(challenge.title)
+                                .foregroundStyle(gray ? .secondary : .primary)
                             if let caption = groupCalendarCaption(challenge) {
                                 Text(caption)
                                     .font(.caption2)
                                     .foregroundStyle(.green)
                             }
+                            if gray {
+                                Text(L("Heute erledigt", "Done today"))
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            }
                         }
                         Spacer()
-                        Image(systemName: ChallengeService.isCompleted(challenge, on: AppClock.now, completions: completions) ? "checkmark.circle.fill" : "circle")
-                            .foregroundStyle(.green)
+                        Image(systemName: doneToday ? "checkmark.circle.fill" : "circle")
+                            .foregroundStyle(gray ? .secondary : .green)
                     }
+                    .opacity(gray ? 0.55 : 1)
                 }
+                .buttonStyle(.plain)
                 .disabled(challenge.isReadOnly)
                 .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                     Button(role: .destructive) {

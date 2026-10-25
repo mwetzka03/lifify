@@ -289,8 +289,8 @@ reserved remainder, and the row stays until that remainder is zero. Swiping
 right edits the series. Swiping left deletes only that date. In the portfolio
 the section is omitted. The rows do not sit between the transactions.
 
-All savings plans in this section sit in one pot. The pot starts expanded, so
-the individual dates are visible. The header shows the total, what is already
+All savings plans in this section sit in one pot. The pot starts collapsed.
+Searching expands it so the matching dates are visible. The header shows the total, what is already
 booked, and what is still open. The total is the sum of the selected period:
 booked plus still open. Booked is what has already been debited. Open is the
 remainder. The previous per-week and period caption is not shown there.
@@ -823,7 +823,8 @@ links löscht nur diesen Termin. Im Depot entfällt der Bereich. Die Zeilen
 stehen nicht zwischen den Buchungen.
 
 Alle Sparpläne in diesem Bereich stehen in einem Topf. Der Topf ist zuerst
-aufgeklappt, die einzelnen Termine sind sichtbar. Die Überschrift zeigt
+eingeklappt. Eine Suche klappt ihn auf, damit die passenden Termine sichtbar
+sind. Die Überschrift zeigt
 Gesamt, gebucht und offen. Gesamt ist die Summe des gewählten Zeitraums, also
 gebucht plus noch offen. Gebucht ist, was schon abgebucht wurde. Offen ist der
 Rest. Die bisherige Angabe pro Woche und Zeitraum steht dort nicht mehr.

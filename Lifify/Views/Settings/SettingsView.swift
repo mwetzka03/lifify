@@ -139,8 +139,30 @@ private struct DeveloperTestsView: View {
                     "The same checks run in Xcode as LififyChecksTests. They do not write any data."
                 ))
             }
-            checkSection(L("Unit-Tests", "Unit tests"), kind: .unit)
-            checkSection(L("Integrationstests", "Integration tests"), kind: .integration)
+            ForEach(LififyCheckTopic.allCases, id: \.self) { topic in
+                let rows = results.filter { $0.topic == topic }
+                if !rows.isEmpty {
+                    Section(topic.title) {
+                        ForEach(rows) { result in
+                            HStack(alignment: .top, spacing: 10) {
+                                Image(systemName: result.passed ? "checkmark.circle.fill" : "xmark.circle.fill")
+                                    .foregroundStyle(result.passed ? .green : .red)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(result.kind.label)
+                                        .font(.caption2.weight(.semibold))
+                                        .foregroundStyle(.secondary)
+                                    Text(result.name)
+                                    if let detail = result.detail {
+                                        Text(detail)
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
         .navigationTitle(L("Tests", "Tests"))
         .navigationBarTitleDisplayMode(.inline)
@@ -150,25 +172,6 @@ private struct DeveloperTestsView: View {
             }
         }
         .onAppear { results = LififyChecks.run() }
-    }
-
-    private func checkSection(_ title: String, kind: LififyCheckKind) -> some View {
-        Section(title) {
-            ForEach(results.filter { $0.kind == kind }) { result in
-                HStack(alignment: .top, spacing: 10) {
-                    Image(systemName: result.passed ? "checkmark.circle.fill" : "xmark.circle.fill")
-                        .foregroundStyle(result.passed ? .green : .red)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(result.name)
-                        if let detail = result.detail {
-                            Text(detail)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                }
-            }
-        }
     }
 }
 
@@ -228,6 +231,9 @@ private struct FinanceSettingsView: View {
 }
 
 private struct ChallengeSettingsView: View {
+    @AppStorage(StreakSettings.freezeFactorKey) private var freezeFactor = 10
+    @State private var factorText = ""
+
     var body: some View {
         Form {
             Section {
@@ -238,6 +244,17 @@ private struct ChallengeSettingsView: View {
                 }
             }
             Section {
+                TextField(L("Faktor", "Factor"), text: $factorText)
+                    .keyboardType(.numberPad)
+            } header: {
+                Text(L("Streak-Freeze", "Streak freeze"))
+            } footer: {
+                Text(L(
+                    "Ein zusätzlicher Freeze kostet diesen ganzzahligen Faktor mal die Basis-Belohnung. Standard ist 10.",
+                    "An extra freeze costs this whole-number factor times the base reward. The default is 10."
+                ))
+            }
+            Section {
                 ForEach(StreakSettings.thresholds, id: \.self) { threshold in
                     MultiplierRow(threshold: threshold)
                 }
@@ -245,13 +262,26 @@ private struct ChallengeSettingsView: View {
                 Text(L("Streak-Multiplikator", "Streak multiplier"))
             } footer: {
                 Text(L(
-                    "Der Faktor gilt auf die Basis-Belohnung. Erreicht die Serie mehrere Stufen, zählt nur die höchste, nicht das Produkt. Die Quote folgt der Frequenz, zum Beispiel dreimal pro Woche oder einmal im Monat.",
-                    "The factor applies to the base reward. When a streak reaches several steps, only the highest one counts, not the product. The quota follows the frequency, for example three times a week or once a month."
+                    "Ohne eigene Änderung gelten diese Standardwerte. Der Faktor gilt auf die Basis-Belohnung. Erreicht die Serie mehrere Stufen, zählt nur die höchste, nicht das Produkt.",
+                    "These defaults apply until you change them. The factor applies to the base reward. When a streak reaches several steps, only the highest one counts, not the product."
                 ))
             }
         }
         .navigationTitle(L("Herausforderung", "Challenges"))
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear {
+            if factorText.isEmpty {
+                factorText = String(max(freezeFactor, 1))
+            }
+        }
+        .onChange(of: factorText) {
+            if factorText.isEmpty { return }
+            guard let value = StreakSettings.wholeFactor(from: factorText) else {
+                factorText = String(max(freezeFactor, 1))
+                return
+            }
+            freezeFactor = value
+        }
     }
 }
 

@@ -85,11 +85,11 @@ enum BackupService {
     private static let challengeTypes: Set<String> = [
         "challengeEvent", "challenge", "reminderRecurrence", "eventRecurrence", "completion",
         "challengeGroup", "coin", "reward", "rewardPolicy", "reminderSync", "purchase", "bucket",
-        "workoutChallengeLink", "workoutEventLink", "streakState", "streakMultiplier"
+        "workoutChallengeLink", "workoutEventLink", "streakState", "streakMultiplier", "streakFreezeFactor"
     ]
     private static let sideTypes: Set<String> = [
         "iconPreference", "reminderRecurrence", "eventRecurrence", "marketSymbol", "previousClose", "purchaseDate",
-        "rewardPolicy", "reminderSync", "streakState", "streakMultiplier",
+        "rewardPolicy", "reminderSync", "streakState", "streakMultiplier", "streakFreezeFactor",
         "primaryIncome", "secondaryIncome", "incomeAssignment", "expenseGroupAssignment",
         "workoutChallengeLink", "workoutEventLink", "appPreferences", "backupScope", "workoutSnapshot"
     ]
@@ -235,6 +235,7 @@ enum BackupService {
         }
         records += StreakSettings.exportStateRecords()
         records += StreakSettings.exportMultiplierRecords()
+        records.append(StreakSettings.exportFreezeFactorRecord())
         records += purchases.map {
             BackupRecord(type: "purchase", id: $0.id, strings: [$0.title], integers: [$0.price], dates: [$0.date], uuids: [$0.rewardID])
         }
@@ -336,6 +337,8 @@ enum BackupService {
         resetFinanceSideStores()
         WorkoutLinkStore.reset()
         StreakSettings.removeAllChallenges()
+        StreakSettings.resetMultipliers()
+        StreakSettings.resetFreezeFactor()
     }
 
     static func deleteFinanceData(from context: ModelContext) throws {
@@ -356,6 +359,8 @@ enum BackupService {
         clearSideStores(sideStores)
         WorkoutLinkStore.reset()
         StreakSettings.removeAllChallenges()
+        StreakSettings.resetMultipliers()
+        StreakSettings.resetFreezeFactor()
     }
 
     static func deleteTrainingData() throws {
@@ -741,6 +746,8 @@ enum BackupService {
             StreakSettings.restoreState(r)
         case "streakMultiplier":
             StreakSettings.restoreMultiplier(r)
+        case "streakFreezeFactor":
+            StreakSettings.restoreFreezeFactor(r)
         default:
             break
         }

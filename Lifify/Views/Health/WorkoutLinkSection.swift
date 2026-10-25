@@ -88,7 +88,8 @@ struct WorkoutLinkSection: View {
     private var eventSummary: String {
         let ids = Set(WorkoutLinkStore.eventIDs(for: planID))
         let names = calendarEvents.filter { ids.contains($0.id) }.map(\.title)
-        return names.isEmpty ? L("Keine", "None") : names.joined(separator: ", ")
+        let summary = LinkCaption.countedTitles(names)
+        return summary.isEmpty ? L("Keine", "None") : summary
     }
 
     private func linkRow(title: String, systemImage: String, value: String) -> some View {
