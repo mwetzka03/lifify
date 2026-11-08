@@ -39,17 +39,36 @@ enum LififyNotifications {
     nonisolated static let briefingRevisionKey = "lifify.briefingRevision"
 
     nonisolated static func clock(for weekday: Int) -> BriefingClock {
-        BriefingSchedule.clock(
+        let stored = storedWeek()[weekday]
+        let overrides = stored.map { [weekday: BriefingClock(hour: $0.hour, minute: $0.minute)] } ?? [:]
+        return BriefingSchedule.clock(
             weekday: weekday,
-            overrides: weekdayMap(),
+            overrides: overrides,
             fallback: BriefingClock(hour: briefingHour, minute: briefingMinute)
         )
     }
 
+    nonisolated static func dayEnabled(_ weekday: Int) -> Bool {
+        storedWeek()[weekday]?.enabled ?? true
+    }
+
+    nonisolated static func setDayEnabled(_ weekday: Int, _ enabled: Bool) {
+        var map = storedWeek()
+        let clock = clock(for: weekday)
+        let current = map[weekday]
+        map[weekday] = StoredBriefingDay(
+            hour: current?.hour ?? clock.hour,
+            minute: current?.minute ?? clock.minute,
+            enabled: enabled
+        )
+        saveWeek(map)
+    }
+
     nonisolated static func setClock(weekday: Int, hour: Int, minute: Int) {
-        var map = weekdayMap()
-        map[weekday] = BriefingClock(hour: hour, minute: minute)
-        saveWeekdayMap(map)
+        var map = storedWeek()
+        let enabled = map[weekday]?.enabled ?? true
+        map[weekday] = StoredBriefingDay(hour: hour, minute: minute, enabled: enabled)
+        saveWeek(map)
     }
 
     static func resetWeekdayClocks() {
@@ -58,32 +77,43 @@ enum LififyNotifications {
     }
 
     static func exportWeekdayRecords() -> [BackupRecord] {
-        weekdayMap().compactMap { weekday, clock in
+        storedWeek().compactMap { weekday, day in
             guard let id = UUID(uuidString: String(format: "00000000-0000-0000-0000-%012d", weekday)) else { return nil }
-            return BackupRecord(type: "briefingWeekday", id: id, integers: [weekday, clock.hour, clock.minute])
+            return BackupRecord(
+                type: "briefingWeekday",
+                id: id,
+                integers: [weekday, day.hour, day.minute, day.enabled ? 1 : 0]
+            )
         }
     }
 
     static func restoreWeekday(_ record: BackupRecord) {
         guard record.integers.count >= 3 else { return }
         setClock(weekday: record.integers[0], hour: record.integers[1], minute: record.integers[2])
+        if record.integers.count >= 4 {
+            setDayEnabled(record.integers[0], record.integers[3] != 0)
+        }
     }
 
-    nonisolated private static func weekdayMap() -> [Int: BriefingClock] {
+    nonisolated private static func storedWeek() -> [Int: StoredBriefingDay] {
         guard let data = UserDefaults.standard.data(forKey: briefingWeekKey),
               let raw = try? JSONDecoder().decode([String: [Int]].self, from: data)
         else { return [:] }
-        var map: [Int: BriefingClock] = [:]
+        var map: [Int: StoredBriefingDay] = [:]
         for (key, value) in raw {
             guard let weekday = Int(key), value.count >= 2 else { continue }
-            map[weekday] = BriefingClock(hour: value[0], minute: value[1])
+            map[weekday] = StoredBriefingDay(
+                hour: value[0],
+                minute: value[1],
+                enabled: value.count >= 3 ? value[2] != 0 : true
+            )
         }
         return map
     }
 
-    nonisolated private static func saveWeekdayMap(_ map: [Int: BriefingClock]) {
-        let raw = Dictionary(uniqueKeysWithValues: map.map { key, clock in
-            (String(key), [clock.hour, clock.minute])
+    nonisolated private static func saveWeek(_ map: [Int: StoredBriefingDay]) {
+        let raw = Dictionary(uniqueKeysWithValues: map.map { key, day in
+            (String(key), [day.hour, day.minute, day.enabled ? 1 : 0])
         })
         if let data = try? JSONEncoder().encode(raw) {
             UserDefaults.standard.set(data, forKey: briefingWeekKey)

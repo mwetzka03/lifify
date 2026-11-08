@@ -26,6 +26,7 @@ struct CustomCategoryEditor: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
             }
+            .appGlassList()
             .navigationTitle(L("Kategorie", "Category"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

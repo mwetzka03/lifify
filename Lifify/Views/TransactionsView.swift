@@ -41,7 +41,7 @@ struct TransactionsView: View {
                 .padding(.top, 8)
             transactionList
         }
-        .appCanvas()
+        .appGlassCanvas()
         .navigationTitle(L("Buchungen", "Transactions"))
         .navigationBarTitleDisplayMode(.inline)
         .searchable(text: $search, prompt: L("Titel oder Notiz", "Title or note"))
@@ -98,7 +98,8 @@ struct TransactionsView: View {
                 }
             }
         }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .scrollContentBackground(.hidden)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .overlay {
             if filtered.isEmpty {
                 ContentUnavailableView(

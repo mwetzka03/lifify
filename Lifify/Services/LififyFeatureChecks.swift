@@ -11,7 +11,10 @@ enum LififyFeatureChecks {
             symbolChoicesIncludeLeafAndCigarette(),
             glassScreensMatchTheVisiblePages(),
             lightAndDarkPaintsDiffer(),
-            testCategoriesStartCollapsed()
+            testCategoriesStartCollapsed(),
+            briefingDaysSitInOneRow(),
+            versionStaysUnderDeveloperMode(),
+            advancedEditorSettingsStartClosed()
         ]
     }
 
@@ -83,8 +86,8 @@ enum LififyFeatureChecks {
                 L("Gesundheit", "Health"),
                 L("Daten", "Data")
             ]
-            && AppChrome.glassScreens == ["home", "challenges", "health", "settings", "onboarding"]
-            && !AppChrome.glassScreens.contains("finance")
+            && AppChrome.glassScreens == ["home", "challenges", "health", "settings", "onboarding", "finance"]
+            && AppChrome.glassScreens.contains("finance")
             && AppChrome.version == "0.4.0"
             && HealthScreen.nutritionNote == L("Noch nicht verfügbar", "Not available yet")
         return LififyCheckResult(
@@ -125,6 +128,54 @@ enum LififyFeatureChecks {
             name: "Testkategorien starten eingeklappt",
             passed: passed,
             detail: passed ? nil : groups.map { "\($0.topic.rawValue) \($0.summary)" }.joined(separator: ", "),
+            kind: .integration,
+            topic: .screen
+        )
+    }
+
+    private static func briefingDaysSitInOneRow() -> LififyCheckResult {
+        let flags = [2: false]
+        let labels = BriefingSchedule.weekdays.map(BriefingWeek.abbreviation)
+        let expected = [
+            L("Mo", "Mo"), L("Di", "Tu"), L("Mi", "We"), L("Do", "Th"),
+            L("Fr", "Fr"), L("Sa", "Sa"), L("So", "Su")
+        ]
+        let passed = labels == expected
+            && BriefingWeek.delivers(master: true, weekday: 2, flags: flags) == false
+            && BriefingWeek.delivers(master: true, weekday: 3, flags: flags)
+            && BriefingWeek.delivers(master: false, weekday: 3, flags: flags) == false
+            && BriefingWeek.isSelected(weekday: 5, flags: [:])
+        return LififyCheckResult(
+            name: "Die Briefingtage stehen nebeneinander",
+            passed: passed,
+            detail: passed ? nil : labels.joined(separator: " "),
+            kind: .unit,
+            topic: .challenge
+        )
+    }
+
+    private static func versionStaysUnderDeveloperMode() -> LififyCheckResult {
+        let order = GeneralSettingsOrder.sections
+        let passed = order == ["profile", "appearance", "briefing", "developer", "version"]
+            && order.last == "version"
+            && order.dropLast().last == "developer"
+        return LififyCheckResult(
+            name: "Die Version steht unter dem Entwicklermodus",
+            passed: passed,
+            detail: passed ? nil : order.joined(separator: ", "),
+            kind: .unit,
+            topic: .developer
+        )
+    }
+
+    private static func advancedEditorSettingsStartClosed() -> LififyCheckResult {
+        let passed = EditorCopy.moreStartsClosed
+            && (EditorCopy.moreSettings == "Weitere Einstellungen" || EditorCopy.moreSettings == "More settings")
+            && ReminderSyncPreference.isEnabled(for: UUID())
+        return LififyCheckResult(
+            name: "Weitere Einstellungen starten geschlossen",
+            passed: passed,
+            detail: passed ? nil : EditorCopy.moreSettings,
             kind: .integration,
             topic: .screen
         )

@@ -630,7 +630,17 @@ struct ChallengeForm: View {
         let presetIcon = presetCategory == .abstinence ? "lungs.fill" : "target"
         _icon = State(initialValue: challenge.map { IconPreferenceStore.icon(for: $0.id, fallback: presetIcon) } ?? (recommendation == nil ? presetIcon : "lightbulb"))
         _syncToReminders = State(initialValue: challenge.map { ReminderSyncPreference.isEnabled(for: $0.id) } ?? true)
+        let configured = challenge.map { item in
+            item.groupID != nil
+                || StreakSettings.isEnabled(for: item.id)
+                || ChallengeTimeStore.minutes(for: item.id) != nil
+                || ChallengeTimeStore.eventID(containing: item.id) != nil
+                || !ReminderSyncPreference.isEnabled(for: item.id)
+        } ?? false
+        _showsMoreSettings = State(initialValue: EditorCopy.moreStartsClosed ? configured : true)
     }
+
+    @State private var showsMoreSettings: Bool
 
     var body: some View {
         NavigationStack {
@@ -685,7 +695,9 @@ struct ChallengeForm: View {
                             .keyboardType(.numberPad)
                             .multilineTextAlignment(.trailing)
                     }
-                    if categoryKey != ChallengeCategory.sport.rawValue {
+                }
+                DisclosureGroup(EditorCopy.moreSettings, isExpanded: $showsMoreSettings) {
+                    if categoryKey != ChallengeCategory.abstinence.rawValue && categoryKey != ChallengeCategory.sport.rawValue {
                         LabeledContent(L("Dauer in Minuten", "Duration in minutes")) {
                             TextField(L("Optional", "Optional"), text: $durationText)
                                 .keyboardType(.numberPad)
@@ -697,27 +709,29 @@ struct ChallengeForm: View {
                             LabeledContent(L("Termin", "Event"), value: linkedEventTitle)
                         }
                         Text(L(
-                            "Leer lassen, wenn die Challenge keine Dauer hat. In einem Termin zählen nur Challenges mit Dauer zur Zeit. Sport und Abstinenz haben eigene Regeln.",
-                            "Leave this empty when the challenge has no duration. In an event, only challenges with a duration count toward the time. Sport and abstinence have their own rules."
+                            "Leer lassen, wenn die Challenge keine Dauer hat. In einem Termin zählen nur Challenges mit Dauer zur Zeit.",
+                            "Leave this empty when the challenge has no duration. In an event, only challenges with a duration count toward the time."
                         ))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     }
-                    Toggle(L("Streaks aktivieren", "Enable streaks"), isOn: $streaksEnabled)
-                    Text(L(
-                        "Die Serie zählt jede Erledigung. Die Quote folgt der Frequenz, zum Beispiel dreimal in der Woche oder einmal im Monat, an beliebigen Tagen. Fehlt sie am Ende, fällt die Serie auf 0, außer eine Freeze schützt sie.",
-                        "The streak counts every completion. The quota follows the frequency, for example three times a week or once a month, on any days. If it is missed at the end, the streak drops to 0 unless a freeze protects it."
-                    ))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    if existing?.isReadOnly != true,
-                       existing?.externalIdentifier?.hasPrefix("event-challenge:") != true {
-                        Toggle(L("In Apple Erinnerungen sichern", "Save to Apple Reminders"), isOn: $syncToReminders)
+                    if categoryKey != ChallengeCategory.abstinence.rawValue {
+                        Toggle(L("Streaks aktivieren", "Enable streaks"), isOn: $streaksEnabled)
+                        Text(L(
+                            "Die Serie zählt jede Erledigung. Die Quote folgt der Frequenz, zum Beispiel dreimal in der Woche oder einmal im Monat, an beliebigen Tagen.",
+                            "The streak counts every completion. The quota follows the frequency, for example three times a week or once a month, on any days."
+                        ))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        if existing?.isReadOnly != true,
+                           existing?.externalIdentifier?.hasPrefix("event-challenge:") != true {
+                            Toggle(L("In Apple Erinnerungen sichern", "Save to Apple Reminders"), isOn: $syncToReminders)
+                        }
                     }
-                }
-                Picker(L("Gruppe", "Group"), selection: $groupID) {
-                    Text(L("Keine", "None")).tag(Optional<UUID>.none)
-                    ForEach(groups) { Text($0.title).tag(Optional($0.id)) }
+                    Picker(L("Gruppe", "Group"), selection: $groupID) {
+                        Text(L("Keine", "None")).tag(Optional<UUID>.none)
+                        ForEach(groups) { Text($0.title).tag(Optional($0.id)) }
+                    }
                 }
                 if let saveMessage {
                     Text(saveMessage)
@@ -726,7 +740,8 @@ struct ChallengeForm: View {
                 }
             }
             .disabled(existing?.isReadOnly == true)
-            .navigationTitle(L("Challenge", "Challenge"))
+            .appGlassList()
+            .navigationTitle(existing == nil ? L("Neue Challenge", "New challenge") : L("Challenge", "Challenge"))
             .sheet(isPresented: $showingNewCategory) {
                 CustomCategoryEditor(existing: nil) { created in
                     categoryKey = ChallengeCategoryStore.raw(created.id)

@@ -220,11 +220,12 @@ struct FilteredLedgerView: View {
                 }
                 }
             }
+            .scrollContentBackground(.hidden)
         }
         .task(id: ledgerToken) {
             await refreshRows()
         }
-        .appCanvas()
+        .appGlassCanvas()
         .navigationTitle(kind == .income ? L("Einnahmen", "Income") : L("Ausgaben", "Expenses"))
         .navigationBarTitleDisplayMode(.inline)
         .sheet(item: $selected) { TransactionDetailView(entry: $0) }

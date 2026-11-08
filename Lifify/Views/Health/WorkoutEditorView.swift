@@ -72,10 +72,8 @@ struct WorkoutEditorView: View {
                     }
                 }
             }
-            .listStyle(.insetGrouped)
-            .scrollContentBackground(.hidden)
+            .appGlassList()
             .scrollDismissesKeyboard(.interactively)
-            .appGlassCanvas()
             .navigationTitle(L("Routine bearbeiten", "Edit routine"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

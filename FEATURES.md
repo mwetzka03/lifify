@@ -6,8 +6,8 @@ Lifify is version **0.4.0**. Finance, portfolio, and budget calculations are in
 [FINANZEN.md](FINANZEN.md) and are unchanged. The German list below is the
 feature set. In 0.4.0, Home, Challenges, Health, Settings, and setup sit on
 a mint wash in light mode and a deep green wash in dark mode, with cards
-that keep their own fill. The finance view keeps its surface. The
-links under More use the same type as the tiles. The symbol picker adds a
+that keep their own fill. Finance uses the same wash and keeps its tile arrangement. The
+links under More are a step larger than the tile titles. The symbol picker adds a
 hemp leaf and a cigarette. Nutrition still shows
 “Not available yet”.
 
@@ -19,8 +19,8 @@ Die App ist Version **0.4.0**. Wie Finanzen, Depot und Budget rechnen, steht
 in [FINANZEN.md](FINANZEN.md) und ist unverändert. Der Gesundheit-Tab ist kein
 Platzhalter mehr: Training ist umgesetzt, Ernährung zeigt „Noch nicht verfügbar“.
 Home, Challenges, Gesundheit, Einstellungen und die Einrichtung liegen im
-Hellen auf einem Minzgrund und im Dunkeln auf einem tiefen Grün. Die Finanzansicht behält ihre Fläche. Die
-Links unter Weitere Bereiche nutzen dieselbe Schrift wie die Kacheln. Die
+Hellen auf einem Minzgrund und im Dunkeln auf einem tiefen Grün. Finanzen nutzt dieselbe Fläche und behält die Anordnung der Kacheln. Die
+Links unter Weitere Bereiche sind eine Stufe größer als die Kacheltitel. Die
 Symbolauswahl enthält ein Hanfblatt und eine Zigarette.
 
 ## Umgesetzter Umfang

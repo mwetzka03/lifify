@@ -12,8 +12,8 @@ enum AppTextRole: String, Equatable, CaseIterable {
 enum AppChrome {
     static let version = "0.4.0"
 
-    /// Screens that use Liquid Glass. Finance stays on its own surface.
-    static let glassScreens = ["home", "challenges", "health", "settings", "onboarding"]
+    /// Screens that use the painted canvas. Finance keeps its own card arrangement.
+    static let glassScreens = ["home", "challenges", "health", "settings", "onboarding", "finance"]
 
     static func font(_ role: AppTextRole) -> Font {
         switch role {

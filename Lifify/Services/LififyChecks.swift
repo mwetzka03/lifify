@@ -89,7 +89,7 @@ enum CheckResultList {
 @MainActor
 enum LififyChecks {
     static func run() -> [LififyCheckResult] {
-        [
+        let results = [
             multiplierReplacesLowerStep(),
             defaultMultipliersMatchSettings(),
             defaultMultiplierScalesTheBaseReward(),
@@ -137,6 +137,19 @@ enum LififyChecks {
             birthdayFollowsTheYear(),
             developerDayKeepsClockTime()
         ] + LififyFeatureChecks.run() + LififyCoverageChecks.run()
+        return results + [storiesExplainEveryCheck(results)]
+    }
+
+    private static func storiesExplainEveryCheck(_ results: [LififyCheckResult]) -> LififyCheckResult {
+        let missing = results.filter { !CheckStories.isComplete($0.name) }.map(\.name)
+        let passed = missing.isEmpty && CheckStories.isComplete("Jede Prüfung erklärt ihre Schritte")
+        return result(
+            "Jede Prüfung erklärt ihre Schritte",
+            .screen,
+            .integration,
+            passed,
+            missing.joined(separator: ", ")
+        )
     }
 
     private static func multiplierReplacesLowerStep() -> LififyCheckResult {

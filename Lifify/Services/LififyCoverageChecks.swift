@@ -419,7 +419,7 @@ enum LififyCoverageChecks {
             ]
             && shows(tabs[1].title, "Finanzen", "Finance")
             && !tabs.contains { $0.title == "Bucketlist" || $0.symbol == "vision" }
-            && !AppChrome.glassScreens.contains("finance")
+            && AppChrome.glassScreens.contains("finance")
             && shows(OnboardingSteps.title, "Lifify einrichten", "Set up Lifify")
             && shows(OnboardingSteps.newSetup, "Neu einrichten", "Set up as new")
             && shows(OnboardingSteps.restore, "JSON-Sicherung laden", "Restore JSON backup")
@@ -428,9 +428,11 @@ enum LififyCoverageChecks {
             && more.map(\.route) == [.budgetPools, .expenseGroups, .debts]
             && shows(more[0].title, "Budgetpools", "Budget pools")
             && shows(more[2].title, "Schulden", "Debts")
-            && FinanceMoreDirectory.rowFontName == "subheadline"
-            && FinanceMoreDirectory.sectionFontName == "subheadline"
+            && FinanceMoreDirectory.rowFontName == "body"
+            && FinanceMoreDirectory.sectionFontName == "headline"
+            && FinanceMoreDirectory.rowVerticalPadding == 14
             && FinanceMoreDirectory.rowVerticalPadding < 18
+            && FinanceMoreDirectory.sectionSpacing <= 8
             && reminder.isReminderSuggestion
             && !event.isReminderSuggestion
             && shows(RecommendationCopy.empty, "Keine importierten Empfehlungen", "No imported recommendations")

@@ -35,6 +35,16 @@ enum DeveloperCopy {
     static var toggle: String { L("Entwicklermodus", "Developer mode") }
 }
 
+/// Profile, appearance, briefing, developer mode, then version last.
+enum GeneralSettingsOrder {
+    static let sections = ["profile", "appearance", "briefing", "developer", "version"]
+}
+
+enum EditorCopy {
+    static var moreSettings: String { L("Weitere Einstellungen", "More settings") }
+    static let moreStartsClosed = true
+}
+
 private func settingsColor(_ symbol: String) -> Color {
     switch symbol {
     case "eurosign": Color(red: 0.18, green: 0.72, blue: 0.38)
@@ -163,6 +173,21 @@ private struct GeneralSettingsView: View {
                 ))
             }
             Section {
+                Toggle(L("Tägliches Briefing", "Daily briefing"), isOn: $briefingEnabled)
+                BriefingWeekBoard(
+                    master: briefingEnabled,
+                    revision: briefingRevision,
+                    time: briefingBinding
+                ) {
+                    briefingRevision += 1
+                }
+            } footer: {
+                Text(L(
+                    "Tippe einen Tag an, um das Briefing an diesem Wochentag ein- oder auszuschalten. Die Uhrzeit steht darunter. Die Mitteilung nennt Termine, fällige Challenges und ihre Coins, nahende Belohnungen, das nächste Gehalt und die Ausgaben dieses Tags. Abstinenz-Boni kommen zusätzlich und bleiben in der Mitteilungszentrale.",
+                    "Tap a day to turn the briefing on or off for that weekday. The time sits underneath. The notification names events, due challenges and their coins, upcoming rewards, the next salary, and that day's expenses. Abstinence bonuses arrive as well and stay in Notification Center."
+                ))
+            }
+            Section {
                 Toggle(DeveloperCopy.toggle, isOn: developerModeBinding)
                 if developerMode {
                     DatePicker(L("Aktueller Tag", "Current day"), selection: simulatedDay, displayedComponents: .date)
@@ -179,22 +204,6 @@ private struct GeneralSettingsView: View {
                 ))
             }
             Section {
-                Toggle(L("Tägliches Briefing", "Daily briefing"), isOn: $briefingEnabled)
-                ForEach(BriefingSchedule.weekdays, id: \.self) { weekday in
-                    DatePicker(
-                        BriefingSchedule.weekdayLabel(weekday),
-                        selection: briefingBinding(weekday),
-                        displayedComponents: .hourAndMinute
-                    )
-                    .disabled(!briefingEnabled)
-                }
-            } footer: {
-                Text(L(
-                    "Eine Mitteilung am Tag, mit einer eigenen Uhrzeit von Montag bis Sonntag. Sie nennt Termine, fällige Challenges und ihre Coins, nahende Belohnungen, das nächste Gehalt und die Ausgaben dieses Tags. Abstinenz-Boni kommen zusätzlich und bleiben in der Mitteilungszentrale.",
-                    "One notification a day, with its own time from Monday through Sunday. It names events, due challenges and their coins, upcoming rewards, the next salary, and that day's expenses. Abstinence bonuses arrive as well and stay in Notification Center."
-                ))
-            }
-            Section {
                 LabeledContent(L("Version", "Version"), value: AppChrome.version)
             }
         }
@@ -202,6 +211,117 @@ private struct GeneralSettingsView: View {
         .onChange(of: briefingRevision) { Task { await DailyBriefingService.refresh(context: context) } }
         .appGlassList()
         .navigationTitle(L("Allgemein", "General"))
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+private struct BriefingWeekBoard: View {
+    @Environment(\.colorScheme) private var scheme
+    var master: Bool
+    var revision: Int
+    var time: (Int) -> Binding<Date>
+    var changed: () -> Void
+    @State private var editing: Int?
+
+    var body: some View {
+        let _ = revision
+        let accent = AppLook.accent(AppAppearance(scheme)).color()
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 4) {
+                ForEach(BriefingSchedule.weekdays, id: \.self) { weekday in
+                    let on = LififyNotifications.dayEnabled(weekday)
+                    Button {
+                        LififyNotifications.setDayEnabled(weekday, !on)
+                        changed()
+                    } label: {
+                        Text(BriefingWeek.abbreviation(weekday))
+                            .font(.caption.weight(.bold))
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 36)
+                            .background(on && master ? accent : Color.secondary.opacity(0.16), in: Circle())
+                            .foregroundStyle(on && master ? Color.white : Color.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(!master)
+                }
+            }
+            HStack(spacing: 4) {
+                ForEach(BriefingSchedule.weekdays, id: \.self) { weekday in
+                    let on = master && LififyNotifications.dayEnabled(weekday)
+                    Button {
+                        editing = editing == weekday ? nil : weekday
+                    } label: {
+                        Text(timeLabel(weekday))
+                            .font(.caption2.monospacedDigit().weight(.semibold))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 6)
+                            .background(
+                                editing == weekday ? accent.opacity(0.18) : Color.secondary.opacity(0.08),
+                                in: Capsule()
+                            )
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(!on)
+                    .opacity(on ? 1 : 0.35)
+                }
+            }
+            if let editing {
+                DatePicker(
+                    BriefingSchedule.weekdayLabel(editing),
+                    selection: time(editing),
+                    displayedComponents: .hourAndMinute
+                )
+                .disabled(!master)
+            }
+        }
+        .padding(.vertical, 4)
+    }
+
+    private func timeLabel(_ weekday: Int) -> String {
+        let clock = LififyNotifications.clock(for: weekday)
+        return String(format: "%02d:%02d", clock.hour, clock.minute)
+    }
+}
+
+private struct CheckDetailView: View {
+    let result: LififyCheckResult
+
+    var body: some View {
+        let story = CheckStories.story(named: result.name)
+        List {
+            Section {
+                Text(story.summary)
+                if let detail = result.detail, !result.passed {
+                    Text(detail)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                }
+            } header: {
+                Text(result.kind.label)
+            }
+            .appGlassRow()
+            Section {
+                ForEach(Array(story.steps.enumerated()), id: \.offset) { index, step in
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(CheckStories.stepTitle(index + 1))
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                        Text(step.text)
+                        Text(CheckStories.sourceLine(step.source))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.vertical, 4)
+                }
+            } header: {
+                Text(L("Schritte", "Steps"))
+            }
+            .appGlassRow()
+        }
+        .appGlassList()
+        .navigationTitle(result.name)
         .navigationBarTitleDisplayMode(.inline)
     }
 }
@@ -239,18 +359,22 @@ private struct DeveloperTestsView: View {
             ForEach(CheckResultList.groups(from: results)) { group in
                 DisclosureGroup(isExpanded: expanded(group.topic)) {
                     ForEach(group.rows) { result in
-                        HStack(alignment: .top, spacing: 10) {
-                            Image(systemName: result.passed ? "checkmark.circle.fill" : "xmark.circle.fill")
-                                .foregroundStyle(result.passed ? .green : .red)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(result.kind.label)
-                                    .font(.caption2.weight(.semibold))
-                                    .foregroundStyle(.secondary)
-                                Text(result.name)
-                                if let detail = result.detail {
-                                    Text(detail)
-                                        .font(.caption)
+                        NavigationLink {
+                            CheckDetailView(result: result)
+                        } label: {
+                            HStack(alignment: .top, spacing: 10) {
+                                Image(systemName: result.passed ? "checkmark.circle.fill" : "xmark.circle.fill")
+                                    .foregroundStyle(result.passed ? .green : .red)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(result.kind.label)
+                                        .font(.caption2.weight(.semibold))
                                         .foregroundStyle(.secondary)
+                                    Text(result.name)
+                                    if let detail = result.detail {
+                                        Text(detail)
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
                                 }
                             }
                         }

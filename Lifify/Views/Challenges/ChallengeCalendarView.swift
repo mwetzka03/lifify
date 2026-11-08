@@ -290,6 +290,7 @@ private struct ChallengeEventForm: View {
     @State private var adoptedChallengeID: UUID?
     @State private var isSaving = false
     @State private var statusMessage: String?
+    @State private var showsMoreSettings: Bool
 
     @MainActor
     init(event: ChallengeCalendarEvent?, initialDate: Date) {
@@ -312,6 +313,11 @@ private struct ChallengeEventForm: View {
         _memberIDs = State(initialValue: storedMembers)
         _linkedGroupID = State(initialValue: event?.linkedChallengeGroupID)
         _linkedRewardID = State(initialValue: event?.linkedRewardID)
+        let linked = event?.linkedChallengeID != nil
+            || event?.linkedChallengeGroupID != nil
+            || event?.linkedRewardID != nil
+            || !storedMembers.isEmpty
+        _showsMoreSettings = State(initialValue: EditorCopy.moreStartsClosed ? linked : true)
     }
 
     var body: some View {
@@ -328,18 +334,20 @@ private struct ChallengeEventForm: View {
                 Toggle(L("Ganztägig", "All day"), isOn: $allDay)
                 AppDateField(title: L("Beginn", "Start"), selection: $start, includesTime: !allDay)
                 AppDateField(title: L("Ende", "End"), selection: $end, minimum: start, includesTime: !allDay)
-                optionalPicker(
-                    L("Sport-Challenge", "Sport challenge"),
-                    selection: $linkedChallengeID,
-                    values: challenges.filter { $0.category == .sport && !$0.isArchived }.map { ($0.id, $0.title) }
-                )
-                EventChallengeTimeSection(
-                    memberIDs: $memberIDs,
-                    slotMinutes: max(ChallengeTimeRules.minutes(from: start, to: end), 1),
-                    challenges: challenges
-                )
-                optionalPicker(L("Gruppe", "Group"), selection: $linkedGroupID, values: groups.map { ($0.id, $0.title) })
-                optionalPicker(L("Belohnung", "Reward"), selection: $linkedRewardID, values: rewards.map { ($0.id, $0.title) })
+                DisclosureGroup(EditorCopy.moreSettings, isExpanded: $showsMoreSettings) {
+                    optionalPicker(
+                        L("Sport-Challenge", "Sport challenge"),
+                        selection: $linkedChallengeID,
+                        values: challenges.filter { $0.category == .sport && !$0.isArchived }.map { ($0.id, $0.title) }
+                    )
+                    EventChallengeTimeSection(
+                        memberIDs: $memberIDs,
+                        slotMinutes: max(ChallengeTimeRules.minutes(from: start, to: end), 1),
+                        challenges: challenges
+                    )
+                    optionalPicker(L("Gruppe", "Group"), selection: $linkedGroupID, values: groups.map { ($0.id, $0.title) })
+                    optionalPicker(L("Belohnung", "Reward"), selection: $linkedRewardID, values: rewards.map { ($0.id, $0.title) })
+                }
                 Button(L("Als Challenge übernehmen", "Adopt as challenge")) {
                     Task { await adoptAsChallenge() }
                 }
@@ -356,7 +364,8 @@ private struct ChallengeEventForm: View {
                     .disabled(isSaving)
                 }
             }
-            .navigationTitle(L("Termin", "Event"))
+            .appGlassList()
+            .navigationTitle(existing == nil ? L("Neuer Termin", "New event") : L("Termin", "Event"))
             .onAppear {
                 guard let linked = linkedChallengeID,
                       let challenge = challenges.first(where: { $0.id == linked }),

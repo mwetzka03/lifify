@@ -140,6 +140,7 @@ struct DashboardView: View {
                     }
                     .listStyle(.plain)
                     .scrollContentBackground(.hidden)
+                    .listSectionSpacing(FinanceMoreDirectory.sectionSpacing)
                 }
                 .task(id: filters.showsDepot ? 0 : forecastToken) {
                     if filters.showsDepot {
@@ -166,7 +167,7 @@ struct DashboardView: View {
                 .padding(12)
             }
         }
-        .appCanvas()
+        .appGlassCanvas()
         .toolbar(isMainTab ? .hidden : .automatic, for: .navigationBar)
         .navigationTitle(isMainTab ? "" : L("Finanzen", "Finance"))
         .navigationBarTitleDisplayMode(.inline)
@@ -1167,7 +1168,7 @@ private struct FinanceMoreSection: View {
             VStack(alignment: .leading, spacing: 0) {
                 ForEach(Array(FinanceMoreDirectory.rows.enumerated()), id: \.element.id) { index, link in
                     if index > 0 {
-                        Divider().padding(.leading, 40)
+                        Divider().padding(.leading, 48)
                     }
                     sectionLink(link)
                 }
@@ -1196,7 +1197,7 @@ private struct FinanceMoreSection: View {
     private func row(_ link: FinanceMoreLink) -> some View {
         HStack(spacing: 12) {
             Image(systemName: link.symbol)
-                .frame(width: 28)
+                .frame(width: 32)
                 .foregroundStyle(.secondary)
             Text(link.title)
                 .font(FinanceMoreDirectory.font(FinanceMoreDirectory.rowFontName))

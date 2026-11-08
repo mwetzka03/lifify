@@ -15,7 +15,9 @@ enum DailyBriefingService {
         var items: [(id: String, title: String, body: String, date: Date)] = []
         for offset in 0..<7 {
             guard let day = calendar.date(byAdding: .day, value: offset, to: today) else { continue }
-            let clock = LififyNotifications.clock(for: calendar.component(.weekday, from: day))
+            let weekday = calendar.component(.weekday, from: day)
+            guard LififyNotifications.dayEnabled(weekday) else { continue }
+            let clock = LififyNotifications.clock(for: weekday)
             guard let fire = calendar.date(bySettingHour: clock.hour, minute: clock.minute, second: 0, of: day),
                   fire > Date()
             else { continue }

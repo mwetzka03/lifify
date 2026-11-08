@@ -82,3 +82,34 @@ enum BriefingSchedule {
         }
     }
 }
+
+struct StoredBriefingDay: Equatable {
+    var hour: Int
+    var minute: Int
+    var enabled: Bool
+}
+
+/// One column per day: a short name, then that day's clock.
+enum BriefingWeek {
+    static func abbreviation(_ weekday: Int) -> String {
+        switch weekday {
+        case 2: L("Mo", "Mo")
+        case 3: L("Di", "Tu")
+        case 4: L("Mi", "We")
+        case 5: L("Do", "Th")
+        case 6: L("Fr", "Fr")
+        case 7: L("Sa", "Sa")
+        case 1: L("So", "Su")
+        default: ""
+        }
+    }
+
+    /// A day without a stored flag stays on, as the old week of clocks did.
+    static func isSelected(weekday: Int, flags: [Int: Bool]) -> Bool {
+        flags[weekday] ?? true
+    }
+
+    static func delivers(master: Bool, weekday: Int, flags: [Int: Bool]) -> Bool {
+        master && isSelected(weekday: weekday, flags: flags)
+    }
+}

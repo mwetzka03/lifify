@@ -27,11 +27,13 @@ struct FinanceMoreLink: Identifiable, Equatable {
 /// Titles and type for Weitere Bereiche. The row type matches the finance tiles.
 enum FinanceMoreDirectory {
     static let title = L("Weitere Bereiche", "More")
-    static let sectionFontName = "subheadline"
-    static let rowFontName = "subheadline"
+    static let sectionFontName = "headline"
+    static let rowFontName = "body"
     static let chevronFontName = "footnote"
-    static let rowVerticalPadding: CGFloat = 10
-    static let rowHorizontalPadding: CGFloat = 12
+    static let rowVerticalPadding: CGFloat = 14
+    static let rowHorizontalPadding: CGFloat = 16
+    /// Space between Weitere Bereiche and the next finance section.
+    static let sectionSpacing: CGFloat = 4
 
     static var rows: [FinanceMoreLink] {
         [
@@ -44,7 +46,10 @@ enum FinanceMoreDirectory {
     static func font(_ name: String) -> Font {
         switch name {
         case "footnote": .footnote
-        default: .subheadline
+        case "headline": .headline
+        case "body": .body
+        case "subheadline": .subheadline
+        default: .body
         }
     }
 }

@@ -27,7 +27,7 @@ struct AppColor: Equatable {
     }
 }
 
-/// Colors for every screen except Finance. Light and dark are different paints.
+/// Light and dark each have their own paint. Finance uses the same wash.
 enum AppLook {
     static func canvasTop(_ appearance: AppAppearance) -> AppColor {
         switch appearance {
