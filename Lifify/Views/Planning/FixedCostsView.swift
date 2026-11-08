@@ -58,8 +58,8 @@ struct FixedCostsView: View {
             }
             ForEach(regularCosts) { cost in
                 costRow(cost)
+                    .appGlassRow()
             }
-            .appGlassRow()
             .onDelete { offsets in
                 offsets.map { regularCosts[$0] }.forEach(delete)
             }
