@@ -46,10 +46,15 @@ enum AppTabs {
 
 enum HealthScreen {
     static func sectionTitles() -> [String] {
-        [L("Training", "Training"), L("Abstinenz", "Abstinence"), L("Ernährung", "Nutrition")]
+        [L("Training", "Training"), L("Ernährung", "Nutrition")]
     }
 
     static var nutritionNote: String { L("Noch nicht verfügbar", "Not available yet") }
+}
+
+enum ChallengeCreateCopy {
+    static var abstinence: String { L("Abstinenz anlegen", "Create abstinence") }
+    static var sport: String { L("Sport anlegen", "Create sport") }
 }
 
 /// Card layout for Challenges and Health. One challenge in a section uses the full width.
@@ -57,8 +62,11 @@ enum CardBoard {
     static let challengeColumnCount = 2
     static let groupUsesFullWidth = true
     static let singleCardUsesFullWidth = true
-    static let healthTileCount = 3
+    static let healthTileCount = 2
     static let healthFiltersShareOneRow = true
+    /// Midpoint of the old capsule (about 28, no extra padding) and the tall one (44 and 6).
+    static let toolbarMinHeight: CGFloat = 36
+    static let toolbarVerticalPadding: CGFloat = 3
 
     static func challengeColumns() -> [GridItem] {
         Array(
@@ -69,8 +77,7 @@ enum CardBoard {
 
     static func healthSymbol(matching title: String) -> String {
         let titles = HealthScreen.sectionTitles()
-        if titles.count > 1, title == titles[1] { return "lungs.fill" }
-        if titles.count > 2, title == titles[2] { return "fork.knife" }
+        if titles.count > 1, title == titles[1] { return "fork.knife" }
         return "figure.run"
     }
 }
@@ -99,15 +106,20 @@ enum FactorBoard {
 struct ChoiceBubble: View {
     let title: String
     let selected: Bool
+    @Environment(\.colorScheme) private var scheme
+    @AppStorage(AppPalette.storageKey) private var paletteRaw = AppPalette.green.rawValue
 
     var body: some View {
+        let palette = AppPalette.resolved(paletteRaw)
+        let fill = AppLook.cardFill(AppAppearance(scheme), palette: palette).color()
+        let accent = AppLook.accent(AppAppearance(scheme), palette: palette).color()
         Text(title)
             .font(.subheadline.weight(.semibold))
             .lineLimit(1)
             .padding(.horizontal, 14)
             .padding(.vertical, 8)
-            .foregroundStyle(selected ? Color.white : Color.primary)
-            .background(selected ? Color.accentColor : AppSurface.card, in: Capsule())
+            .foregroundStyle(selected ? (scheme == .dark ? Color.black : Color.white) : Color.primary)
+            .background(selected ? accent : fill, in: Capsule())
     }
 }
 

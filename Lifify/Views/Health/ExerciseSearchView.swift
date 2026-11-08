@@ -63,6 +63,7 @@ struct ExerciseSearchView: View {
                     Text(L("Datenbank", "Database"))
                 }
             }
+            .appGlassList()
             .navigationTitle(L("Übung suchen", "Search exercise"))
             .navigationBarTitleDisplayMode(.inline)
             .searchable(text: $query, prompt: L("Name, z. B. Bench Press", "Name, for example Bench Press"))

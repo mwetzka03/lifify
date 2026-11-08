@@ -25,6 +25,7 @@ struct ShoppingListView: View {
             summary
             itemList
         }
+        .appGlassList()
         .navigationTitle(L("Einkaufszettel", "Shopping list"))
         .toolbar { Button { showingNew = true } label: { Image(systemName: "plus") } }
         .sheet(isPresented: $showingNew) { ShoppingItemForm(item: nil) }
@@ -201,6 +202,7 @@ struct ShoppingItemDetailView: View {
                     }
                 }
             }
+            .appGlassList()
             .navigationTitle(item.name)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -249,6 +251,7 @@ struct ShoppingItemForm: View {
                     AppDateField(title: L("Geplant am", "Planned on"), selection: $plannedDate)
                 }
             }
+            .appGlassList()
             .navigationTitle(existing == nil ? L("Neuer Artikel", "New item") : L("Artikel", "Item"))
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button(L("Abbrechen", "Cancel")) { dismiss() } }

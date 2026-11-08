@@ -32,6 +32,7 @@ struct ForecastDetailView: View {
                     singleAssignmentSection
                 }
             }
+            .appGlassList()
             .navigationTitle(item.title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

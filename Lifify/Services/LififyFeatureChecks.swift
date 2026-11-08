@@ -11,6 +11,7 @@ enum LififyFeatureChecks {
             symbolChoicesIncludeLeafAndCigarette(),
             glassScreensMatchTheVisiblePages(),
             lightAndDarkPaintsDiffer(),
+            fourPalettesKeepLightAndDark(),
             testCategoriesStartCollapsed(),
             briefingDaysSitInOneRow(),
             versionStaysUnderDeveloperMode(),
@@ -81,7 +82,7 @@ enum LififyFeatureChecks {
         let health = HealthScreen.sectionTitles()
         let settings = SettingsDirectory.rows()
         let expectedSettings = ["gearshape.fill", "eurosign", "flame.fill", "heart.fill", "externaldrive.fill"]
-        let passed = health == [L("Training", "Training"), L("Abstinenz", "Abstinence"), L("Ernährung", "Nutrition")]
+        let passed = health == [L("Training", "Training"), L("Ernährung", "Nutrition")]
             && settings.map(\.symbol) == expectedSettings
             && settings.map(\.title) == [
                 L("Allgemein", "General"),
@@ -113,6 +114,36 @@ enum LififyFeatureChecks {
             passed: passed,
             detail: passed ? nil : "hell \(light.brightness), dunkel \(dark.brightness)",
             reading: "hell \(light.brightness), dunkel \(dark.brightness)",
+            kind: .unit,
+            topic: .screen
+        )
+    }
+
+    private static func fourPalettesKeepLightAndDark() -> LififyCheckResult {
+        let labels = AppPalette.allCases.map(\.label)
+        let green = AppLook.accent(.light, palette: .green)
+        let blue = AppLook.accent(.light, palette: .blue)
+        let bordeaux = AppLook.accent(.light, palette: .bordeaux)
+        let violet = AppLook.accent(.light, palette: .violet)
+        let passed = AppPalette.allCases.allSatisfy(AppLook.modesDiffer(palette:))
+            && labels.count == 4
+            && (labels[0] == "Grün" || labels[0] == "Green")
+            && (labels[1] == "Blau" || labels[1] == "Blue")
+            && labels[2] == "Bordeaux"
+            && (labels[3] == "Violett" || labels[3] == "Violet")
+            && blue.blue > green.blue
+            && blue.blue > blue.red
+            && bordeaux.red > green.red
+            && violet.red > green.red
+            && violet.blue > green.blue
+            && violet.green < green.green
+            && AppLook.canvasTop(.light, palette: .blue) != AppLook.canvasTop(.light, palette: .green)
+            && AppLook.canvasTop(.dark, palette: .violet) != AppLook.canvasTop(.dark, palette: .bordeaux)
+        return LififyCheckResult(
+            name: "Vier Stile haben je eine helle und eine dunkle Fläche",
+            passed: passed,
+            detail: passed ? nil : labels.joined(separator: ", "),
+            reading: labels.joined(separator: ", "),
             kind: .unit,
             topic: .screen
         )
@@ -204,10 +235,14 @@ enum LififyFeatureChecks {
             && CardBoard.challengeColumns().count == 2
             && CardBoard.groupUsesFullWidth
             && CardBoard.singleCardUsesFullWidth
-            && CardBoard.healthTileCount == 3
+            && CardBoard.healthTileCount == 2
             && CardBoard.healthFiltersShareOneRow
             && titles.count == CardBoard.healthTileCount
-            && symbols == ["figure.run", "lungs.fill", "fork.knife"]
+            && symbols == ["figure.run", "fork.knife"]
+            && CardBoard.toolbarMinHeight == 36
+            && CardBoard.toolbarVerticalPadding == 3
+            && (ChallengeCreateCopy.abstinence == "Abstinenz anlegen" || ChallengeCreateCopy.abstinence == "Create abstinence")
+            && (ChallengeCreateCopy.sport == "Sport anlegen" || ChallengeCreateCopy.sport == "Create sport")
             && (duration == "Dauer 30 min" || duration == "Duration 30 min")
             && bubbles.first == L("Alle Konten", "All accounts")
             && bubbles.last == L("Depot", "Portfolio")

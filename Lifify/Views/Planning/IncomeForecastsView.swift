@@ -56,6 +56,7 @@ struct IncomeOverviewView: View {
                 }
             }
         }
+        .appGlassList()
         .navigationTitle(L("Einnahmen", "Income"))
         .sheet(isPresented: $showingNew) { IncomeForecastForm(forecast: nil) }
         .sheet(item: $edited) { IncomeForecastForm(forecast: $0) }
@@ -118,6 +119,7 @@ struct IncomeForecastsView: View {
                 ContentUnavailableView(L("Keine Einnahmeprognosen", "No income forecasts"), systemImage: "calendar.badge.plus")
             }
         }
+        .appGlassList()
         .navigationTitle(L("Einnahmeprognosen", "Income forecasts"))
         .toolbar { Button { showingNew = true } label: { Image(systemName: "plus") } }
         .sheet(isPresented: $showingNew) { IncomeForecastForm(forecast: nil) }
@@ -171,6 +173,7 @@ struct IncomeForecastForm: View {
                     Stepper("\(L("Tag", "Day")): \(day)", value: $day, in: 1...31)
                 }
             }
+            .appGlassList()
             .navigationTitle(existing == nil ? L("Neue Einnahmenprognose", "New income forecast") : L("Einnahmenprognose bearbeiten", "Edit income forecast"))
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button(L("Abbrechen", "Cancel")) { dismiss() } }

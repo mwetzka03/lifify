@@ -68,6 +68,7 @@ struct RootView: View {
             Task {
                 await DailyBriefingService.refresh(context: context)
                 await DailyBriefingService.scheduleAbstinence(context: context)
+                await DailyBriefingService.scheduleFollowUps(context: context)
             }
         }
         .task(id: scenePhase) {
@@ -82,6 +83,7 @@ struct RootView: View {
             BirthdayBonusService.settle(context: context)
             await DailyBriefingService.refresh(context: context)
             await DailyBriefingService.scheduleAbstinence(context: context)
+            await DailyBriefingService.scheduleFollowUps(context: context)
         }
     }
 }

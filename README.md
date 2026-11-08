@@ -7,10 +7,11 @@
 Lifify 0.4.0 is a local iPhone app for finance, challenges, and training. It
 is built with SwiftUI and SwiftData, and it needs neither a backend nor a user
 account. German and English, and light, dark, and system appearance, can be
-switched in Settings. Home, Challenges, Health, Settings, and setup use
-a mint wash in light mode and a deep green wash in dark mode. Cards keep
-their own fill. Finance uses the same wash and keeps its tile arrangement.
-The links under More are a step larger than the tile titles.
+switched in Settings. Style adds Green, Blue, Bordeaux, and Violet, each with
+its own light and dark wash. Cards keep their own fill. Finance uses the same
+wash and the same card fill, and it keeps its tile arrangement. Positive
+amounts stay green and negative amounts stay red. The links under More are
+a step larger than the tile titles.
 
 The finance rules are in [FINANZEN.md](FINANZEN.md). What changed in 0.4.0 is in [CHANGES-0.4.0.md](CHANGES-0.4.0.md). What changed in 0.3.0 is in [CHANGES-0.3.0.md](CHANGES-0.3.0.md). Both are in English and German.
 
@@ -35,9 +36,10 @@ and reminders from the iPhone can be imported after you explicitly allow access.
 
 **Health** holds workout plans. Starting a workout runs a timer. Exercises come
 from a local database, including exercises you add yourself when they are not
-in that database. Nutrition is not available yet.
+in that database. Nutrition is not available yet. Abstinence lives with the
+challenges.
 
-**Settings** hold the name and date of birth, language, appearance, a daily
+**Settings** hold the name and date of birth, language, appearance, style, a daily
 briefing with its own time for each weekday, the workout chime, the default
 account and fee for the portfolio, accounts, import, backup, and calendar and
 reminders. The birthday pays 500 coins once that year. The version shown there
@@ -103,9 +105,11 @@ through the system. It does not store passwords for that.
 Lifify 0.4.0 ist eine lokale iPhone-App für Finanzen, Challenges und Training.
 Sie ist mit SwiftUI und SwiftData gebaut, braucht kein Backend und kein
 Benutzerkonto. Deutsch und Englisch sowie Hell, Dunkel und System lassen sich
-in den Einstellungen umschalten. Home, Challenges, Gesundheit, Einstellungen
-und die Einrichtung liegen im Hellen auf einem Minzgrund und im Dunkeln auf einem tiefen Grün. Finanzen nutzt dieselbe Fläche und behält die Anordnung der Kacheln.
-Die Links unter Weitere Bereiche sind eine Stufe größer als die Kacheltitel.
+in den Einstellungen umschalten. Der Stil ergänzt Grün, Blau, Bordeaux und
+Violett, jeweils mit eigener heller und dunkler Fläche. Die Karten behalten
+eine eigene Füllung. Finanzen nutzt dieselbe Fläche und dieselbe Kartenfarbe
+und behält die Anordnung der Kacheln. Positive Beträge bleiben grün, negative
+rot. Die Links unter Weitere Bereiche sind eine Stufe größer als die Kacheltitel.
 Was sich in 0.4.0 geändert hat, steht in [CHANGES-0.4.0.md](CHANGES-0.4.0.md),
 was sich in 0.3.0 geändert hat in [CHANGES-0.3.0.md](CHANGES-0.3.0.md). Beides auf Englisch und Deutsch.
 
@@ -133,9 +137,10 @@ sich nach ausdrücklicher Freigabe übernehmen.
 
 **Gesundheit** enthält Trainingspläne. Ein Training startet einen Timer.
 Übungen kommen aus einer lokalen Datenbank, inklusive eigener Übungen, die
-nicht in der Datenbank stehen. Ernährung ist noch nicht verfügbar.
+nicht in der Datenbank stehen. Ernährung ist noch nicht verfügbar. Abstinenz
+liegt bei den Challenges.
 
-**Einstellungen** halten Name und Geburtsdatum, Sprache, Erscheinungsbild, das
+**Einstellungen** halten Name und Geburtsdatum, Sprache, Erscheinungsbild, den Stil, das
 tägliche Briefing mit einer eigenen Uhrzeit je Wochentag, den
 Trainingsklingelton, Standardkonto und Gebühr fürs Depot, Konten, Import,
 Sicherung sowie Kalender und Erinnerungen. Am Geburtstag gibt es einmal im

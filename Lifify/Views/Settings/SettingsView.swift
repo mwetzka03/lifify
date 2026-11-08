@@ -78,6 +78,7 @@ private struct GeneralSettingsView: View {
     @Environment(\.modelContext) private var context
     @AppStorage("appLanguage") private var language = "de"
     @AppStorage("appTheme") private var theme = AppTheme.system.rawValue
+    @AppStorage(AppPalette.storageKey) private var palette = AppPalette.green.rawValue
     @AppStorage(AppClock.modeKey) private var developerMode = false
     @AppStorage(AppClock.dayKey) private var developerDay = 0.0
     @AppStorage("userName") private var userName = ""
@@ -165,6 +166,9 @@ private struct GeneralSettingsView: View {
                 Picker(L("Erscheinungsbild", "Appearance"), selection: $theme) {
                     ForEach(AppTheme.allCases) { Text($0.label).tag($0.rawValue) }
                 }
+                Picker(L("Stil", "Style"), selection: $palette) {
+                    ForEach(AppPalette.allCases) { Text($0.label).tag($0.rawValue) }
+                }
             } header: {
                 Text(L("Darstellung", "Appearance"))
             } footer: {
@@ -218,6 +222,7 @@ private struct GeneralSettingsView: View {
 
 private struct BriefingWeekBoard: View {
     @Environment(\.colorScheme) private var scheme
+    @AppStorage(AppPalette.storageKey) private var paletteRaw = AppPalette.green.rawValue
     var master: Bool
     var revision: Int
     var time: (Int) -> Binding<Date>
@@ -226,7 +231,7 @@ private struct BriefingWeekBoard: View {
 
     var body: some View {
         let _ = revision
-        let accent = AppLook.accent(AppAppearance(scheme)).color()
+        let accent = AppLook.accent(AppAppearance(scheme), palette: AppPalette.resolved(paletteRaw)).color()
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 4) {
                 ForEach(BriefingSchedule.weekdays, id: \.self) { weekday in
@@ -240,7 +245,7 @@ private struct BriefingWeekBoard: View {
                             .frame(maxWidth: .infinity)
                             .frame(height: 36)
                             .background(on && master ? accent : Color.secondary.opacity(0.16), in: Circle())
-                            .foregroundStyle(on && master ? Color.white : Color.secondary)
+                            .foregroundStyle(on && master ? (scheme == .dark ? Color.black : Color.white) : Color.secondary)
                     }
                     .buttonStyle(.plain)
                     .disabled(!master)

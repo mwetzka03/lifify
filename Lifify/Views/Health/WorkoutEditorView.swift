@@ -160,7 +160,7 @@ struct WorkoutEditorView: View {
             Text("\(index + 1)")
                 .font(.body.weight(.semibold))
                 .frame(width: 36, height: 36)
-                .background(AppSurface.canvas, in: RoundedRectangle(cornerRadius: 8))
+                .appTintedPlate(radius: 8)
             VStack(alignment: .leading, spacing: 2) {
                 if let previous = WorkoutProgress.previousPerformance(
                     sessions: store.sessions,
@@ -189,14 +189,14 @@ struct WorkoutEditorView: View {
                 .multilineTextAlignment(.center)
                 .font(.body.weight(.semibold))
                 .frame(width: 64, height: 36)
-                .background(AppSurface.canvas, in: RoundedRectangle(cornerRadius: 8))
+                .appTintedPlate(radius: 8)
             TextField("0", text: repsBinding(set.id))
                 .keyboardType(.numberPad)
                 .textFieldStyle(.plain)
                 .multilineTextAlignment(.center)
                 .font(.body.weight(.semibold))
                 .frame(width: 52, height: 36)
-                .background(AppSurface.canvas, in: RoundedRectangle(cornerRadius: 8))
+                .appTintedPlate(radius: 8)
         }
     }
 

@@ -56,7 +56,7 @@ struct FinanceFilterControls: View {
         }
         .padding(.horizontal, 6)
         .padding(.vertical, 4)
-        .background(AppSurface.card, in: RoundedRectangle(cornerRadius: 14))
+        .appTintedPlate(radius: 14)
     }
 
     private var accountFilterBar: some View {

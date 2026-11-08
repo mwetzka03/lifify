@@ -41,7 +41,7 @@ Symbolauswahl enthält ein Hanfblatt und eine Zigarette.
 - Einkaufszettel, Schulden und Depotpositionen mit ISIN,
   automatischem Kursabruf, Tages- und Kaufveränderung in Euro und Prozent
   sowie manuellem Fallback
-- Deutsch und Englisch, Erscheinungsbild Hell/Dunkel/System
+- Deutsch und Englisch, Erscheinungsbild Hell/Dunkel/System, Stil Grün, Blau, Bordeaux und Violett
 - Vollständige lokale JSON-Sicherung und Wiederherstellung
 - CSV-Import und Import einer einzelnen CAMT-XML-Datei
 - Gemeinsamer Home-Bildschirm mit Budgetring, Restbudget inklusive

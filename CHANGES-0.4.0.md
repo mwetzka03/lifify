@@ -11,14 +11,20 @@ This file is in English and in German. The finance calculations stay in
 ### Look
 
 - Challenges use a card grid: two cards in a row. A section with one card, or
-  a leftover card, uses the full width. The title sits to the right of the
-  symbol and lines up with its middle. Coins and the streak sit on the right.
-  A duration shows in the same green caption as a linked event. A group is one
-  wide card above those. Health is one framed row of three switches, Training,
-  Abstinence, and Nutrition. The chosen switch changes the board underneath.
-  Long-press a card to edit or delete it.
-- The shop and coin capsules in the Challenges bar are as tall as the plus
-  button. In the shop, the reward title lines up with the middle of its symbol.
+  a leftover card, uses the full width. Two cards in one row share the height
+  of the taller card. The title sits to the right of the symbol and lines up
+  with its middle. Coins and the streak sit on the right. A duration shows in
+  the same green caption as a linked event. An abstinence card also shows the
+  difficulty, the elapsed time, and the next bonus. Under the abstinence cards
+  and the sport cards there is a button that creates a challenge of that
+  category. A group is one wide card above those. Health is one framed row of
+  two switches, Training and Nutrition. The chosen switch changes the board
+  underneath. Create workout sits directly under the filter, and the plans sit
+  under that button. Workout history opens and closes on the same page. One
+  session still opens its detail. Long-press a card to edit or delete it.
+- The shop and coin capsules sit between the earlier slim capsule and the tall
+  one: 36 points high, with a little vertical padding. In the shop, the reward
+  title lines up with the middle of its symbol.
 - Recommendations leave more room around each Accept button.
 - Finance keeps the account choice pinned at the top. The choices are bubbles
   in a row. A long name wraps to the next row, and that row shares the space
@@ -26,14 +32,16 @@ This file is in English and in German. The finance calculations stay in
 - In Challenge settings, the streak multiplier and the abstinence bonus are
   bubbles. Tap a step, then type the factor underneath. More settings on a new
   challenge or event starts closed.
-- Home, Challenges, Health, Settings, and setup sit on a mint-and-peach wash
-  in light mode and on a deep green wash in dark mode. Cards and list rows
-  keep their own fill, so light mode is not an empty white page and dark mode
-  is not the old flat black.
+- Home, Challenges, Health, Settings, setup, Finance, and the detail pages sit
+  on a tinted wash. Cards and list rows keep their own fill, so light mode is
+  not an empty white page and dark mode is not the old flat black. In General,
+  Style offers Green, Blue, Bordeaux, and Violet. Each style has a light and a
+  dark wash, and Appearance still chooses System, Light, or Dark. Positive
+  amounts stay green and negative amounts stay red.
 - Finance keeps the same arrangement of tiles, forecasts, and transactions.
-  It now uses the same light and dark wash as the other screens. The links
-  under More are a step larger than the tile titles, and the gap above
-  Forecasts is tighter.
+  Its cards use the same tinted fill as the other screens. The links under
+  More are a step larger than the tile titles, and the gap above Forecasts is
+  tighter.
 - In General, the daily briefing is a row of day circles, Mo through Su.
   Tap a circle to include that day. The time sits in the row underneath.
   Developer mode sits above the version, and the version stays last.
@@ -43,7 +51,13 @@ This file is in English and in German. The finance calculations stay in
   An abstinence bonus stays the same instant, and developer mode still uses
   the real clock for those pushes.
 - An abstinence bonus opens with a short cheer. The message still names the
-  challenge, the step, and the coins.
+  challenge, the step, and the coins. Home shows the last step already reached
+  today, not a later step that is still ahead.
+- An open challenge gets an evening nudge at 20:00, and also at the time of a
+  linked event when that time is different. A streak with no freeze left is
+  warned on the last day of its period. The birthday pays 500 coins and sends
+  a note at 9:00. These times follow the real clock, so developer mode does
+  not move Notification Center.
 - A new challenge or event starts with the fields you need first. Reminders,
   the linked event, streaks, and the group sit under More settings, which
   starts closed. Saving to Apple Reminders stays on unless you turn it off.
@@ -72,24 +86,30 @@ This file is in English and in German. The finance calculations stay in
 - There is no snapshot test, because this environment has no Xcode.
 - Possible later work: abstinence templates, an iPad layout, widgets, and one
   shared calendar for Home and Challenges.
-- Further notifications are not built yet: a nudge for an open challenge, a
-  streak that is about to break, a streak milestone, the birthday bonus, a
-  savings-plan debit, and a budget that is nearly spent.
+- Further notifications are not built yet: a streak milestone, a savings-plan
+  debit, and a budget that is nearly spent.
 
 ## Deutsch
 
 ### Aussehen
 
 - Challenges nutzen ein Kartenraster: zwei Karten in einer Reihe. Eine einzelne
-  Karte oder eine übrige Karte nutzt die volle Breite. Der Titel steht rechts
-  neben dem Symbol und auf dessen Mitte. Coins und die Serie stehen rechts.
-  Eine Dauer erscheint in derselben grünen Zeile wie ein verknüpfter Termin.
-  Eine Gruppe ist eine breite Karte darüber. Gesundheit ist eine umrahmte
-  Reihe aus drei Schaltern, Training, Abstinenz und Ernährung. Der gewählte
-  Schalter wechselt die Ansicht darunter. Ein langes Drücken bearbeitet oder
-  löscht eine Karte.
-- Die Shop- und Coin-Kapseln in der Challenge-Leiste sind so hoch wie das
-  Plus. Im Shop steht der Titel der Belohnung auf der Mitte des Symbols.
+  Karte oder eine übrige Karte nutzt die volle Breite. Zwei Karten in einer
+  Reihe sind so hoch wie die höhere Karte. Der Titel steht rechts neben dem
+  Symbol und auf dessen Mitte. Coins und die Serie stehen rechts. Eine Dauer
+  erscheint in derselben grünen Zeile wie ein verknüpfter Termin. Eine
+  Abstinenzkarte zeigt zusätzlich Schwierigkeit, vergangene Zeit und den
+  nächsten Bonus. Unter den Abstinenzkarten und den Sportkarten liegt ein
+  Knopf, der eine Challenge dieser Kategorie anlegt. Eine Gruppe ist eine
+  breite Karte darüber. Gesundheit ist eine umrahmte Reihe aus zwei Schaltern,
+  Training und Ernährung. Der gewählte Schalter wechselt die Ansicht darunter.
+  Training anlegen steht direkt unter dem Filter, die Pläne darunter. Der
+  Trainingsverlauf klappt auf derselben Seite auf und zu. Ein einzelnes
+  Training öffnet weiter seine Detailansicht. Ein langes Drücken bearbeitet
+  oder löscht eine Karte.
+- Die Shop- und Coin-Kapseln liegen zwischen der früheren schmalen Kapsel und
+  der hohen: 36 Punkt hoch, mit etwas Abstand nach oben und unten. Im Shop
+  steht der Titel der Belohnung auf der Mitte des Symbols.
 - Die Vorschläge lassen mehr Abstand um jeden Übernehmen-Knopf.
 - Finanzen behält die Kontoauswahl oben fest. Die Auswahl sind Blasen in einer
   Reihe. Ein langer Name bricht in die nächste Reihe, und diese Reihe teilt
@@ -98,15 +118,17 @@ This file is in English and in German. The finance calculations stay in
 - Unter Herausforderung sind Streak-Multiplikator und Abstinenz-Bonus Blasen.
   Ein Tipp wählt die Stufe, danach setzt man den Faktor. Weitere Einstellungen
   bei einer neuen Challenge oder einem neuen Termin starten geschlossen.
-- Home, Challenges, Gesundheit, Einstellungen und die Einrichtung liegen im
-  Hellen auf einem Minz- und Pfirsichgrund und im Dunkeln auf einem tiefen
-  Grünton. Karten und Listen behalten eine eigene Füllung, damit der helle
-  Modus keine leere weiße Seite ist und der dunkle Modus nicht das alte flache
-  Schwarz.
+- Home, Challenges, Gesundheit, Einstellungen, die Einrichtung, Finanzen und
+  die Detailseiten liegen auf einem gefärbten Grund. Karten und Listen
+  behalten eine eigene Füllung, damit der helle Modus keine leere weiße Seite
+  ist und der dunkle Modus nicht das alte flache Schwarz. Unter Allgemein
+  bietet Stil Grün, Blau, Bordeaux und Violett. Jeder Stil hat eine helle und
+  eine dunkle Fläche, und Erscheinungsbild wählt weiter System, Hell oder
+  Dunkel. Positive Beträge bleiben grün, negative rot.
 - Finanzen behält die Anordnung von Kacheln, Prognosen und Buchungen. Die
-  Ansicht nutzt jetzt dieselbe helle und dunkle Fläche wie die anderen
-  Bildschirme. Die Links unter Weitere Bereiche sind eine Stufe größer als die
-  Kacheltitel, und der Abstand über den Prognosen ist enger.
+  Kacheln nutzen dieselbe gefärbte Füllung wie die anderen Bildschirme. Die
+  Links unter Weitere Bereiche sind eine Stufe größer als die Kacheltitel, und
+  der Abstand über den Prognosen ist enger.
 - Unter Allgemein ist das tägliche Briefing eine Reihe Kreise von Mo bis So.
   Ein Tipp nimmt den Tag auf oder heraus. Die Uhrzeit steht in der Reihe
   darunter. Der Entwicklermodus steht über der Version, und die Version bleibt
@@ -117,7 +139,14 @@ This file is in English and in German. The finance calculations stay in
   Ortszeit. Ein Abstinenz-Bonus bleibt derselbe Augenblick, und der
   Entwicklermodus nutzt für diese Mitteilungen weiter die echte Uhr.
 - Ein Abstinenz-Bonus beginnt mit einem kurzen Jubel. Die Meldung nennt
-  weiter die Challenge, die Stufe und die Coins.
+  weiter die Challenge, die Stufe und die Coins. Die Startseite zeigt die
+  zuletzt erreichte Stufe von heute, nicht eine spätere Stufe, die noch kommt.
+- Eine offene Challenge bekommt um 20:00 einen Stups und zusätzlich zur Uhrzeit
+  eines verknüpften Termins, wenn die Uhrzeit eine andere ist. Eine Serie ohne
+  verbleibenden Freeze wird am letzten Tag ihrer Periode gewarnt. Der
+  Geburtstag zahlt 500 Coins und schickt um 9:00 eine Meldung. Diese Zeiten
+  folgen der echten Uhr, damit der Entwicklermodus die Mitteilungszentrale
+  nicht verschiebt.
 - Eine neue Challenge oder ein neuer Termin beginnt mit den Feldern, die man
   zuerst braucht. Erinnerungen, der verknüpfte Termin, Streaks und die Gruppe
   liegen unter Weitere Einstellungen, und die Gruppe startet zu. In Apple
@@ -149,6 +178,5 @@ This file is in English and in German. The finance calculations stay in
 - Es gibt keinen Snapshot-Test, weil diese Umgebung kein Xcode hat.
 - Möglich später: Abstinenz-Vorlagen, ein iPad-Layout, Widgets und ein
   gemeinsamer Kalender für Home und Challenges.
-- Weitere Mitteilungen sind noch nicht gebaut: ein Stups für eine offene
-  Challenge, eine Serie, die abreißt, eine Streak-Stufe, der Geburtstagsbonus,
-  eine Sparplan-Abbuchung und ein Budget, das fast aufgebraucht ist.
+- Weitere Mitteilungen sind noch nicht gebaut: eine Streak-Stufe, eine
+  Sparplan-Abbuchung und ein Budget, das fast aufgebraucht ist.

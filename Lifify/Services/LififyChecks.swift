@@ -131,6 +131,8 @@ enum LififyChecks {
             oldChallengesAreSuggested(),
             briefingNamesTheDay(),
             todaysAbstinenceNoticeOnly(),
+            openChallengesGetEveningAndClock(),
+            streakWarningAndBirthdayFollowTheClock(),
             recentEventsCanBeAssigned(),
             categoriesSplitTheActiveList(),
             briefingClockFollowsTheWeekday(),
@@ -850,7 +852,7 @@ enum LififyChecks {
         let cheer = AbstinenceCheer.body(challenge: "Rauchfrei", milestone: .hour24, coins: 20)
         let quiet = AbstinenceCheer.body(challenge: "Rauchfrei", milestone: .hour1, coins: 0)
         let cheerTitle = AbstinenceCheer.title(for: .hour24)
-        let passed = shown.map(\.id) == ["year", "other"]
+        let passed = shown.map(\.id) == ["early", "other"]
             && cheer.contains("Rauchfrei")
             && (cheer.contains("24 Stunden") || cheer.contains("24 hours"))
             && cheer.contains("20")
@@ -862,6 +864,120 @@ enum LififyChecks {
             .unit,
             passed,
             "\(shown.map(\.id).joined(separator: ",")), \(cheerTitle)"
+        )
+    }
+
+    private static func openChallengesGetEveningAndClock() -> LififyCheckResult {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .gmt
+        let day = calendar.date(from: DateComponents(year: 2026, month: 11, day: 8)) ?? .distantFuture
+        let now = calendar.date(from: DateComponents(year: 2026, month: 11, day: 8, hour: 16)) ?? .distantFuture
+        let id = UUID(uuidString: "00000000-0000-0000-0000-000000000021")!
+        let clocks = ChallengeNudgePlan.clocks(
+            from: [
+                calendar.date(from: DateComponents(year: 2026, month: 11, day: 8, hour: 18, minute: 30)) ?? .distantPast,
+                calendar.date(from: DateComponents(year: 2026, month: 11, day: 9, hour: 20, minute: 0)) ?? .distantPast
+            ],
+            calendar: calendar
+        )
+        let requests = ChallengeNudgePlan.requests(
+            days: [ChallengeNudgeDay(day: day, items: [ChallengeNudgeItem(id: id, title: "Lesen", clocks: clocks)])],
+            now: now,
+            calendar: calendar
+        )
+        let evening = requests.first { $0.id.contains("evening") }
+        let clock = requests.first { $0.id.contains("clock") }
+        let eveningParts = evening.map { calendar.dateComponents([.hour, .minute], from: $0.fire) }
+        let clockParts = clock.map { calendar.dateComponents([.hour, .minute], from: $0.fire) }
+        let passed = clocks == [NudgeClock(hour: 18, minute: 30), NudgeClock(hour: 20, minute: 0)]
+            && requests.count == 2
+            && eveningParts?.hour == 20
+            && eveningParts?.minute == 0
+            && clockParts?.hour == 18
+            && clockParts?.minute == 30
+            && (evening?.title == "Noch offen" || evening?.title == "Still open")
+            && (clock?.body.contains("18:30") == true)
+            && !requests.contains { $0.id.contains("clock") && $0.id.hasSuffix(".20.0") }
+        return result(
+            "Offene Challenges bekommen einen Abendstups und die Uhrzeit",
+            .challenge,
+            .unit,
+            passed,
+            requests.map(\.id).joined(separator: ", ")
+        )
+    }
+
+    private static func streakWarningAndBirthdayFollowTheClock() -> LififyCheckResult {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .gmt
+        let sunday = calendar.date(from: DateComponents(year: 2026, month: 11, day: 8, hour: 12)) ?? .distantFuture
+        let monday = calendar.date(from: DateComponents(year: 2026, month: 11, day: 9, hour: 12)) ?? .distantFuture
+        let monthEnd = calendar.date(from: DateComponents(year: 2026, month: 11, day: 30, hour: 10)) ?? .distantFuture
+        let id = UUID(uuidString: "00000000-0000-0000-0000-000000000022")!
+        let warning = ChallengeNudgePlan.streakWarning(
+            id: id,
+            title: "Lesen",
+            streak: 4,
+            atRisk: true,
+            recurrence: .weekly,
+            on: sunday,
+            now: sunday,
+            calendar: calendar
+        )
+        let tooEarly = ChallengeNudgePlan.streakWarning(
+            id: id,
+            title: "Lesen",
+            streak: 4,
+            atRisk: true,
+            recurrence: .weekly,
+            on: monday,
+            now: monday,
+            calendar: calendar
+        )
+        let quiet = ChallengeNudgePlan.streakWarning(
+            id: id,
+            title: "Lesen",
+            streak: 4,
+            atRisk: false,
+            recurrence: .daily,
+            on: sunday,
+            now: sunday,
+            calendar: calendar
+        )
+        let birth = Birthday(year: 1990, month: 11, day: 20)
+        let before = calendar.date(from: DateComponents(year: 2026, month: 11, day: 20, hour: 8)) ?? .distantPast
+        let after = calendar.date(from: DateComponents(year: 2026, month: 11, day: 20, hour: 10)) ?? .distantFuture
+        let next = BirthdayCheer.nextFire(birth: birth, awardedYear: nil, now: before, calendar: calendar)
+        let following = BirthdayCheer.nextFire(birth: birth, awardedYear: 2026, now: after, calendar: calendar)
+        let nextParts = next.map { calendar.dateComponents([.year, .month, .day, .hour, .minute], from: $0) }
+        let followingParts = following.map { calendar.dateComponents([.year, .month, .day, .hour, .minute], from: $0) }
+        let cheer = BirthdayCheer.body()
+        let passed = ChallengeNudgePlan.endsToday(recurrence: .daily, on: monday, calendar: calendar)
+            && ChallengeNudgePlan.endsToday(recurrence: .weekly, on: sunday, calendar: calendar)
+            && !ChallengeNudgePlan.endsToday(recurrence: .weekly, on: monday, calendar: calendar)
+            && ChallengeNudgePlan.endsToday(recurrence: .monthly, on: monthEnd, calendar: calendar)
+            && warning != nil
+            && tooEarly == nil
+            && quiet == nil
+            && (warning?.body.contains("4") == true)
+            && (warning?.title == "Serie in Gefahr" || warning?.title == "Streak at risk")
+            && nextParts?.year == 2026
+            && nextParts?.month == 11
+            && nextParts?.day == 20
+            && nextParts?.hour == 9
+            && nextParts?.minute == 0
+            && followingParts?.year == 2027
+            && followingParts?.month == 11
+            && followingParts?.day == 20
+            && followingParts?.hour == 9
+            && cheer.contains("500")
+            && (BirthdayCheer.title() == "Alles Gute!" || BirthdayCheer.title() == "Happy birthday!")
+        return result(
+            "Eine Serie wird nur am letzten Tag gewarnt",
+            .challenge,
+            .integration,
+            passed,
+            "\(warning?.title ?? "keine"), \(cheer)"
         )
     }
 

@@ -28,7 +28,7 @@ struct ExerciseArtwork: View {
     private var framed: some View {
         artwork
             .frame(width: side, height: side)
-            .background(AppSurface.canvas, in: RoundedRectangle(cornerRadius: 12))
+            .appTintedPlate(radius: 12)
             .overlay {
                 if isLoadingVideo {
                     ProgressView()
@@ -129,7 +129,7 @@ private struct ExerciseVideoSheet: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(AppSurface.canvas)
+            .background(AppPlayfulCanvas())
             .navigationTitle(name.isEmpty ? L("Übung", "Exercise") : name)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

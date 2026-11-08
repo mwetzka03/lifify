@@ -100,6 +100,7 @@ struct FixedCostDetailView: View {
                     Text(L("Nächste Prognosen", "Next forecasts"))
                 }
             }
+            .appGlassList()
             .navigationTitle(cost.name)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

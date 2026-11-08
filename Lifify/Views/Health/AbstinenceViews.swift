@@ -95,6 +95,7 @@ struct AbstinenceDetailView: View {
                             AbstinenceService.settle(context: context)
                         }
                 }
+                .appGlassList()
                 .navigationTitle(challenge.title)
                 .toolbar {
                     Button(L("Bearbeiten", "Edit")) { edited = challenge }

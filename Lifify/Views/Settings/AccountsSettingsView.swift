@@ -125,6 +125,7 @@ private struct AccountForm: View {
                     Text(validationMessage).foregroundStyle(.red)
                 }
             }
+            .appGlassList()
             .navigationTitle(L("Konto", "Account"))
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button(L("Abbrechen", "Cancel")) { dismiss() } }

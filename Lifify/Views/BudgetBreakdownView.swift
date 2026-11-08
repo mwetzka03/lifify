@@ -106,6 +106,7 @@ struct BudgetBreakdownView: View {
                 totalRow(snapshot.purchaseLines.reduce(0) { $0 + $1.cents }, expense: true)
             }
         }
+        .appGlassList()
         .navigationTitle(L("Budget", "Budget"))
         .navigationBarTitleDisplayMode(.inline)
         .sheet(item: $selected) { TransactionDetailView(entry: $0) }

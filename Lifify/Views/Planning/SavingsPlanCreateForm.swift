@@ -52,6 +52,7 @@ struct SavingsPlanCreateForm: View {
                         .foregroundStyle(.secondary)
                 }
             }
+            .appGlassList()
             .navigationTitle(L("Neuer Sparplan", "New savings plan"))
             .navigationBarTitleDisplayMode(.inline)
             .onChange(of: holdingID) { _, newValue in

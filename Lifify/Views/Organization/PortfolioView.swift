@@ -108,6 +108,7 @@ struct PortfolioView: View {
                 ContentUnavailableView(L("Keine Depotpositionen", "No holdings"), systemImage: "chart.line.uptrend.xyaxis")
             }
         }
+        .appGlassList()
         .navigationTitle(L("Depot", "Portfolio"))
         .toolbar {
             ToolbarItemGroup(placement: .topBarTrailing) {
@@ -259,7 +260,7 @@ struct PortfolioElementsView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(12)
-                .background(AppSurface.card, in: RoundedRectangle(cornerRadius: 14))
+                .appTintedPlate(radius: 14)
             }
             savingsPlanCard
             shareChartCard
@@ -282,7 +283,7 @@ struct PortfolioElementsView: View {
                 .labelsHidden()
             }
             .padding(12)
-            .background(AppSurface.card, in: RoundedRectangle(cornerRadius: 14))
+            .appTintedPlate(radius: 14)
 
             HStack(spacing: 16) {
                 Button {
@@ -329,7 +330,7 @@ struct PortfolioElementsView: View {
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(12)
-                    .background(AppSurface.card, in: RoundedRectangle(cornerRadius: 14))
+                    .appTintedPlate(radius: 14)
             } else {
                 ForEach(sortedHoldings) { holding in
                     holdingRow(holding)
@@ -359,7 +360,7 @@ struct PortfolioElementsView: View {
             savingsPlanLink
                 .buttonStyle(.plain)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(AppSurface.card, in: RoundedRectangle(cornerRadius: 14))
+                .appTintedPlate(radius: 14)
         }
     }
 
@@ -399,7 +400,7 @@ struct PortfolioElementsView: View {
             shareChartLink
                 .buttonStyle(.plain)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(AppSurface.card, in: RoundedRectangle(cornerRadius: 14))
+                .appTintedPlate(radius: 14)
         }
     }
 
@@ -460,7 +461,7 @@ struct PortfolioElementsView: View {
             }
             .padding(12)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(AppSurface.card, in: RoundedRectangle(cornerRadius: 14))
+            .appTintedPlate(radius: 14)
         }
         .buttonStyle(.plain)
         .contextMenu {
@@ -696,6 +697,7 @@ struct SavingsPlansView: View {
                 Text(L("Gebuchte Sparpläne", "Booked savings plans"))
             }
         }
+        .appGlassList()
         .navigationTitle(L("Sparpläne", "Savings plans"))
         .navigationBarTitleDisplayMode(.inline)
         .onAppear(perform: reload)
@@ -825,6 +827,7 @@ private struct SavingsPlanEditor: View {
                 }
                 DatePicker(L("Letzte Ausführung", "Last execution"), selection: $lastExecution, displayedComponents: .date)
             }
+            .appGlassList()
             .navigationTitle(L("Sparplan bearbeiten", "Edit savings plan"))
             .navigationBarTitleDisplayMode(.inline)
             .onAppear(perform: fillDefaultAccount)
@@ -905,6 +908,7 @@ private struct LotEditor: View {
                     ForEach(LotKind.allCases) { Text($0.label).tag($0) }
                 }
             }
+            .appGlassList()
             .navigationTitle(L("Einzelposition", "Individual position"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -1040,6 +1044,7 @@ private struct HoldingDetailView: View {
                     }
                 }
             }
+            .appGlassList()
             .navigationTitle(holding.name)
             .navigationBarTitleDisplayMode(.inline)
             .onAppear(perform: reloadLots)
@@ -1226,6 +1231,7 @@ private struct HoldingForm: View {
                     Text(validationMessage).foregroundStyle(.red)
                 }
             }
+            .appGlassList()
             .navigationTitle(L("Depotposition", "Holding"))
             .onAppear {
                 if accountID == nil { accountID = portfolioAccounts.first?.id }
@@ -1505,6 +1511,7 @@ private struct HoldingTradeSheet: View {
                     Text(validationMessage).foregroundStyle(.red)
                 }
             }
+            .appGlassList()
             .navigationTitle(isSale ? L("Verkaufen", "Sell") : L("Nachkaufen", "Buy more"))
             .navigationBarTitleDisplayMode(.inline)
             .onAppear {

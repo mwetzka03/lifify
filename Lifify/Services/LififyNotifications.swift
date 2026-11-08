@@ -176,12 +176,26 @@ enum LififyNotifications {
     }
 
     static func replaceBriefings(_ items: [(id: String, title: String, body: String, date: Date)]) async {
+        await replace(prefix: briefingPrefix, items: items, followsDeviceTimeZone: true)
+    }
+
+    static func replace(
+        prefix: String,
+        items: [(id: String, title: String, body: String, date: Date)],
+        followsDeviceTimeZone: Bool
+    ) async {
         let center = UNUserNotificationCenter.current()
         let pending = await center.pendingNotificationRequests()
-        let old = pending.map(\.identifier).filter { $0.hasPrefix(briefingPrefix) }
+        let old = pending.map(\.identifier).filter { $0.hasPrefix(prefix) }
         center.removePendingNotificationRequests(withIdentifiers: old)
         for item in items {
-            schedule(id: item.id, title: item.title, body: item.body, at: item.date, followsDeviceTimeZone: true)
+            schedule(
+                id: item.id,
+                title: item.title,
+                body: item.body,
+                at: item.date,
+                followsDeviceTimeZone: followsDeviceTimeZone
+            )
         }
     }
 

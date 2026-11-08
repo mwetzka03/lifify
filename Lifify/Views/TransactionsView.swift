@@ -356,6 +356,7 @@ struct TransactionDetailView: View {
                     }
                 }
             }
+            .appGlassList()
             .navigationTitle(entry.title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -639,6 +640,7 @@ struct TransactionFormView: View {
                     Section { Text(error).foregroundStyle(.red) }
                 }
             }
+            .appGlassList()
             .navigationTitle(viewModel.formTitle)
             .navigationBarTitleDisplayMode(.inline)
             .onAppear {

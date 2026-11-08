@@ -44,6 +44,7 @@ struct ExpenseGroupsView: View {
         .overlay {
             if groups.isEmpty { ContentUnavailableView(L("Keine Ausgabengruppen", "No expense groups"), systemImage: "square.stack.3d.up") }
         }
+        .appGlassList()
         .navigationTitle(L("Ausgabengruppen", "Expense groups"))
         .toolbar { Button { showingNew = true } label: { Image(systemName: "plus") } }
         .sheet(isPresented: $showingNew) { ExpenseGroupForm(group: nil) }
@@ -113,6 +114,7 @@ private struct ExpenseGroupDetailView: View {
                 ))
             }
         }
+        .appGlassList()
         .navigationTitle(group.name)
         .toolbar { Button { showingAssign = true } label: { Image(systemName: "plus") } }
         .sheet(isPresented: $showingAssign) { ExpenseBookingPicker(groupID: group.id) }
@@ -141,6 +143,7 @@ private struct ExpenseGroupForm: View {
                 AppDateField(title: L("Datum", "Date"), selection: $date)
                 TextField(L("Notiz", "Note"), text: $notes, axis: .vertical)
             }
+            .appGlassList()
             .navigationTitle(existing == nil ? L("Neue Gruppe", "New group") : L("Gruppe bearbeiten", "Edit group"))
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button(L("Abbrechen", "Cancel")) { dismiss() } }
@@ -198,6 +201,7 @@ private struct ExpenseBookingPicker: View {
                 .buttonStyle(.plain)
             }
             .searchable(text: $query, prompt: L("Buchung suchen", "Search transactions"))
+            .appGlassList()
             .navigationTitle(L("Buchungen zuweisen", "Assign transactions"))
             .navigationBarTitleDisplayMode(.inline)
             .onAppear {

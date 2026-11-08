@@ -132,6 +132,7 @@ struct SymbolPicker: View {
                     }
                     .padding()
                 }
+                .appGlassCanvas()
                 .navigationTitle(title)
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {

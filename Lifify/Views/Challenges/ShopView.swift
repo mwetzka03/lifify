@@ -377,6 +377,7 @@ private struct RewardForm: View {
                     }
                 }
             }
+            .appGlassList()
             .navigationTitle(L("Belohnung", "Reward"))
             .confirmationDialog(
                 L("Belohnung löschen?", "Delete reward?"),

@@ -26,6 +26,7 @@ struct HomeView: View {
     @AppStorage(StreakSettings.revisionKey) private var streakRevision = 0
     @AppStorage(AbstinenceSettings.revisionKey) private var abstinenceRevision = 0
     @Environment(\.colorScheme) private var scheme
+    @AppStorage(AppPalette.storageKey) private var paletteRaw = AppPalette.green.rawValue
 
     var body: some View {
         ScrollView {
@@ -36,7 +37,7 @@ struct HomeView: View {
                 if !userName.isEmpty {
                     HStack(spacing: 10) {
                         Image(systemName: "hand.wave.fill")
-                            .foregroundStyle(AppLook.accent(AppAppearance(scheme)).color())
+                            .foregroundStyle(AppLook.accent(AppAppearance(scheme), palette: AppPalette.resolved(paletteRaw)).color())
                         Text("\(L("Willkommen zurück", "Welcome back")), \(userName)")
                             .appText(.screenTitle)
                         Spacer(minLength: 0)
@@ -755,9 +756,10 @@ private struct BudgetSummaryCard: View {
     let daysUntilSalary: Int?
     let dailyAllowance: Int?
     @Environment(\.colorScheme) private var scheme
+    @AppStorage(AppPalette.storageKey) private var paletteRaw = AppPalette.green.rawValue
 
     private var remaining: Int { planned - spent }
-    private var accent: Color { AppLook.accent(AppAppearance(scheme)).color() }
+    private var accent: Color { AppLook.accent(AppAppearance(scheme), palette: AppPalette.resolved(paletteRaw)).color() }
 
     var body: some View {
         HStack(spacing: 20) {
@@ -882,6 +884,7 @@ private struct PeriodTransactionsView: View {
         List(entries) { entry in
             HomeTransactionRow(entry: entry, accounts: accounts, holdings: holdings, ledgerEntries: ledgerEntries)
         }
+        .appGlassList()
         .navigationTitle(title)
         .navigationBarTitleDisplayMode(.inline)
     }

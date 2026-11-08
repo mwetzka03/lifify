@@ -55,6 +55,7 @@ struct BudgetPoolsView: View {
                 ContentUnavailableView(L("Keine Budgetpools", "No budget pools"), systemImage: "tray.full")
             }
         }
+        .appGlassList()
         .navigationTitle(L("Budgetpools", "Budget pools"))
         .toolbar { Button { showingNew = true } label: { Image(systemName: "plus") } }
         .sheet(isPresented: $showingNew) { BudgetPoolForm(pool: nil) }
@@ -124,6 +125,7 @@ private struct BudgetPoolDetailView: View {
                 .foregroundStyle(.secondary)
             }
         }
+        .appGlassList()
         .navigationTitle(pool.name)
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $showingBooking) {
@@ -190,6 +192,7 @@ private struct BudgetPoolForm: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
             }
+            .appGlassList()
             .navigationTitle(existing == nil ? L("Neuer Pool", "New pool") : L("Pool bearbeiten", "Edit pool"))
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button(L("Abbrechen", "Cancel")) { dismiss() } }
@@ -249,6 +252,7 @@ private struct PoolBookingPicker: View {
                 }
             }
             .searchable(text: $query, prompt: L("Buchung suchen", "Search transactions"))
+            .appGlassList()
             .navigationTitle(L("Buchung zuordnen", "Assign transaction"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

@@ -101,6 +101,7 @@ struct PortfolioShareChartView: View {
                 }
             }
         }
+        .appGlassList()
         .navigationTitle(L("Anteile", "Shares"))
         .navigationBarTitleDisplayMode(.inline)
     }

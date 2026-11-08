@@ -354,7 +354,7 @@ struct DashboardView: View {
             }
             .padding(.horizontal, 14)
             .frame(height: 52)
-            .background(AppSurface.card, in: Capsule())
+            .appTintedCapsule()
             .overlay(Capsule().strokeBorder(Color.primary.opacity(0.08)))
             .clipShape(Capsule())
             Menu {
@@ -583,7 +583,7 @@ struct DashboardView: View {
             }
             .padding(.horizontal, 14)
             .frame(height: 52)
-            .background(AppSurface.card, in: Capsule())
+            .appTintedCapsule()
             .overlay(Capsule().strokeBorder(Color.primary.opacity(0.08)))
             .clipShape(Capsule())
             Menu {
@@ -1173,7 +1173,7 @@ private struct FinanceMoreSection: View {
                     sectionLink(link)
                 }
             }
-            .background(AppSurface.card, in: RoundedRectangle(cornerRadius: 14))
+            .appTintedPlate(radius: 14)
         }
     }
 
@@ -1279,8 +1279,13 @@ private struct FinanceCardModifier: ViewModifier {
     var padding: CGFloat
     var fillsRow: Bool
     @Environment(\.tileRowHeight) private var rowHeight
+    @Environment(\.colorScheme) private var scheme
+    @AppStorage(AppPalette.storageKey) private var paletteRaw = AppPalette.green.rawValue
 
     func body(content: Content) -> some View {
+        let palette = AppPalette.resolved(paletteRaw)
+        let appearance = AppAppearance(scheme)
+        let shape = RoundedRectangle(cornerRadius: 14, style: .continuous)
         content
             .padding(padding)
             .frame(maxWidth: .infinity, alignment: .topLeading)
@@ -1292,7 +1297,8 @@ private struct FinanceCardModifier: ViewModifier {
                 }
             }
             .frame(maxWidth: .infinity, minHeight: fillsRow && rowHeight > 0 ? rowHeight : 0, alignment: .topLeading)
-            .background(AppSurface.card, in: RoundedRectangle(cornerRadius: 14))
+            .background(AppLook.cardFill(appearance, palette: palette).color(), in: shape)
+            .overlay(shape.strokeBorder(AppLook.cardStroke(appearance, palette: palette).color(), lineWidth: 1))
     }
 }
 

@@ -32,6 +32,86 @@ enum DailyBriefingService {
         await LififyNotifications.replaceBriefings(items)
     }
 
+    /// Evening nudges, clock-time nudges, streak warnings, and the birthday note.
+    /// These follow the real clock, so a developer day does not move Notification Center.
+    static func scheduleFollowUps(context: ModelContext) async {
+        guard await LififyNotifications.requestAccess() else { return }
+        let calendar = Calendar.autoupdatingCurrent
+        let now = Date()
+        let today = calendar.startOfDay(for: now)
+        let days = (0..<7).compactMap { calendar.date(byAdding: .day, value: $0, to: today) }
+        let challenges = (try? context.fetch(FetchDescriptor<ChallengeItem>())) ?? []
+        let completions = (try? context.fetch(FetchDescriptor<ChallengeCompletion>())) ?? []
+        let events = (try? context.fetch(FetchDescriptor<ChallengeCalendarEvent>())) ?? []
+        var plans: [ChallengeNudgeDay] = []
+        var streaks: [ChallengeNudgeRequest] = []
+        for day in days {
+            var items: [ChallengeNudgeItem] = []
+            for challenge in challenges where !challenge.isArchived {
+                if challenge.category != .abstinence {
+                    let due = ChallengeService.isDue(challenge, on: day)
+                    let done = ChallengeService.isCompleted(challenge, on: day, completions: completions)
+                    if due && !done {
+                        let linked = ChallengeTimeStore.linkedEvents(for: challenge.id, in: events)
+                        items.append(ChallengeNudgeItem(
+                            id: challenge.id,
+                            title: challenge.title,
+                            clocks: ChallengeNudgePlan.clocks(from: linked.map(\.startDate), calendar: calendar)
+                        ))
+                    }
+                }
+                let status = ChallengeService.status(
+                    for: challenge,
+                    endingOn: day,
+                    completions: completions,
+                    events: events
+                )
+                if let warning = ChallengeNudgePlan.streakWarning(
+                    id: challenge.id,
+                    title: challenge.title,
+                    streak: status.count,
+                    atRisk: status.needsFreezeWarning,
+                    recurrence: challenge.recurrence,
+                    on: day,
+                    now: now,
+                    calendar: calendar
+                ) {
+                    streaks.append(warning)
+                }
+            }
+            if !items.isEmpty {
+                plans.append(ChallengeNudgeDay(day: day, items: items))
+            }
+        }
+        let nudges = ChallengeNudgePlan.requests(days: plans, now: now, calendar: calendar) + streaks
+        await LififyNotifications.replace(
+            prefix: ChallengeNudgePlan.nudgePrefix,
+            items: nudges.map { ($0.id, $0.title, $0.body, $0.fire) },
+            followsDeviceTimeZone: true
+        )
+        var birthday: [(id: String, title: String, body: String, date: Date)] = []
+        if let birth = UserProfile.birth(),
+           let fire = BirthdayCheer.nextFire(
+               birth: birth,
+               awardedYear: UserProfile.awardedYear(),
+               now: now,
+               calendar: calendar
+           ) {
+            let year = calendar.component(.year, from: fire)
+            birthday.append((
+                "\(ChallengeNudgePlan.birthdayPrefix)\(year)",
+                BirthdayCheer.title(),
+                BirthdayCheer.body(),
+                fire
+            ))
+        }
+        await LififyNotifications.replace(
+            prefix: ChallengeNudgePlan.birthdayPrefix,
+            items: birthday,
+            followsDeviceTimeZone: true
+        )
+    }
+
     static func scheduleAbstinence(context: ModelContext) async {
         guard await LififyNotifications.requestAccess() else { return }
         let challenges = (try? context.fetch(FetchDescriptor<ChallengeItem>())) ?? []

@@ -11,6 +11,7 @@ struct ChallengesView: View {
     @State private var completedTab = false
     @State private var filter = ChallengeFilter.all
     @State private var showingNewChallenge = false
+    @State private var createCategory: ChallengeCategory?
     @State private var showingNewGroup = false
     @State private var edited: ChallengeItem?
     @State private var acceptedRecommendation: ChallengeCalendarEvent?
@@ -38,6 +39,12 @@ struct ChallengesView: View {
                         ForEach(activeSections) { section in
                             challengeSection(section)
                         }
+                        if !activeSections.contains(where: { $0.id == "abstinence" }) {
+                            createChallengeButton(.abstinence)
+                        }
+                        if !activeSections.contains(where: { $0.id == "sport" }) {
+                            createChallengeButton(.sport)
+                        }
                     }
                 }
                 if visibleChallengesEmpty && !recommendations.isEmpty {
@@ -49,7 +56,7 @@ struct ChallengesView: View {
             .padding(16)
         }
         .overlay {
-            if visibleChallengesEmpty && recommendations.isEmpty {
+            if visibleChallengesEmpty && recommendations.isEmpty && (completedTab || filter == .groups) {
                 ContentUnavailableView(L("Keine Challenges", "No challenges"), systemImage: "target")
             }
         }
@@ -65,6 +72,9 @@ struct ChallengesView: View {
             }
         }
         .sheet(isPresented: $showingNewChallenge) { ChallengeForm(challenge: nil) }
+        .sheet(item: $createCategory) { category in
+            ChallengeForm(challenge: nil, presetCategory: category)
+        }
         .sheet(isPresented: $showingNewGroup) { ChallengeGroupForm() }
         .sheet(item: $edited) { ChallengeForm(challenge: $0) }
         .sheet(item: $acceptedRecommendation) {
@@ -130,8 +140,8 @@ struct ChallengesView: View {
         let content = label()
             .font(.subheadline.weight(.semibold))
             .lineLimit(1)
-            .padding(.vertical, 6)
-            .frame(minHeight: 44)
+            .padding(.vertical, CardBoard.toolbarVerticalPadding)
+            .frame(minHeight: CardBoard.toolbarMinHeight)
             .fixedSize(horizontal: true, vertical: false)
         if #available(iOS 26.0, *) {
             Button(action: action) { content }
@@ -340,7 +350,7 @@ struct ChallengesView: View {
             let pairCount = cards.count - cards.count % 2
             VStack(spacing: 10) {
                 ForEach(Array(stride(from: 0, to: pairCount, by: 2)), id: \.self) { start in
-                    HStack(alignment: .top, spacing: 10) {
+                    EqualHeightPair {
                         challengeCard(cards[start])
                         challengeCard(cards[start + 1])
                     }
@@ -348,8 +358,29 @@ struct ChallengesView: View {
                 if cards.count % 2 == 1, CardBoard.singleCardUsesFullWidth, let last = cards.last {
                     challengeCard(last)
                 }
+                if section.id == "abstinence" {
+                    createChallengeButton(.abstinence)
+                }
+                if section.id == "sport" {
+                    createChallengeButton(.sport)
+                }
             }
         }
+    }
+
+    private func createChallengeButton(_ category: ChallengeCategory) -> some View {
+        Button {
+            createCategory = category
+        } label: {
+            Label(
+                category == .abstinence ? ChallengeCreateCopy.abstinence : ChallengeCreateCopy.sport,
+                systemImage: "plus"
+            )
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(14)
+            .appGlassCard(radius: 18)
+        }
+        .buttonStyle(.plain)
     }
 
     @ViewBuilder
@@ -462,19 +493,9 @@ struct ChallengesView: View {
         NavigationLink {
             AbstinenceDetailView(challengeID: challenge.id)
         } label: {
-            HStack(alignment: .center, spacing: 10) {
-                AppSymbolImage(name: IconPreferenceStore.icon(for: challenge.id, fallback: "lungs.fill"))
-                    .frame(width: 28, height: 28)
-                Text(challenge.title)
-                    .foregroundStyle(.primary)
-                    .lineLimit(2)
-                Spacer(minLength: 8)
-                CoinAmountView(amount: challenge.rewardCoins, showsPlus: true)
-                    .font(.caption)
-            }
-            .padding(12)
-            .frame(maxWidth: .infinity, minHeight: 72, alignment: .leading)
-            .appGlassCard(radius: 18)
+            AbstinenceSummary(challenge: challenge)
+                .padding(12)
+                .equalPairCard(radius: 18)
         }
         .buttonStyle(.plain)
         .contextMenu {
@@ -523,8 +544,7 @@ struct ChallengesView: View {
                 }
             }
             .padding(12)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .appGlassCard(radius: 18)
+            .equalPairCard(radius: 18)
             .opacity(gray ? 0.55 : 1)
         }
         .buttonStyle(.plain)
@@ -1152,6 +1172,7 @@ private struct ChallengeGroupForm: View {
                 TextField(L("Titel", "Title"), text: $title)
                 TextField(L("Beschreibung", "Description"), text: $details, axis: .vertical)
             }
+            .appGlassList()
             .navigationTitle(L("Neue Gruppe", "New group"))
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button(L("Abbrechen", "Cancel")) { dismiss() } }

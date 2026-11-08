@@ -67,6 +67,7 @@ struct ImportReviewSheet: View {
                     }
                 }
             }
+            .appGlassList()
             .navigationTitle(L("Import prüfen", "Review import"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

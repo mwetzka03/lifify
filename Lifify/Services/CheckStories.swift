@@ -286,11 +286,23 @@ enum CheckStories {
             ("Der Text enthält die übergebenen Beispiele und bleibt kürzer als 500 Zeichen.", "The text contains the given examples and stays shorter than 500 characters.", "LififyChecks.swift"),
         ),
         "Auf der Startseite steht nur der Abstinenz-Bonus von heute": make(
-            "Die Startseite zeigt nur den Abstinenz-Bonus, der heute fällig ist.",
-            "Home shows only the abstinence bonus that is due today.",
-            ("Mehrere Boni liegen an verschiedenen Tagen.", "Several bonuses fall on different days.", "AbstinenceRules.swift"),
-            ("Angezeigt wird nur der Bonus des heutigen Tages.", "Only today’s bonus is shown.", "LififyChecks.swift"),
+            "Die Startseite zeigt den zuletzt erreichten Abstinenz-Bonus von heute. Eine spätere Stufe desselben Tages bleibt verborgen.",
+            "Home shows the last abstinence bonus already reached today. A later step on the same day stays hidden.",
+            ("Mehrere Boni liegen an verschiedenen Tagen, einer davon noch später am selben Tag.", "Several bonuses fall on different days, and one is still later on the same day.", "AbstinenceRules.swift"),
+            ("Angezeigt werden der schon erreichte Bonus und der Bonus der anderen Challenge.", "The bonus already reached and the other challenge’s bonus are shown.", "LififyChecks.swift"),
             ("Die Mitteilung zum ganzen Tag nennt Rauchfrei, 24 Stunden und 20 Coins, und ihr Titel ist kein reiner Hinweis.", "The whole-day notification names Rauchfrei, 24 hours, and 20 coins, and its title is not a plain notice.", "DailyBriefing.swift"),
+        ),
+        "Offene Challenges bekommen einen Abendstups und die Uhrzeit": make(
+            "Eine offene Challenge bekommt um 20:00 einen Stups und zusätzlich die Uhrzeit eines verknüpften Termins. 20:00 wird nicht doppelt gesetzt.",
+            "An open challenge gets a nudge at 20:00 and also the time of a linked event. 20:00 is not scheduled twice.",
+            ("Ein Termin liegt um 18:30, ein anderer um 20:00. Es ist 16:00.", "One event is at 18:30, another at 20:00. It is 16:00.", "ChallengeNudge.swift"),
+            ("Es bleiben der Abendstups um 20:00 und die Uhrzeit 18:30.", "The evening nudge at 20:00 and the 18:30 time remain.", "LififyChecks.swift"),
+        ),
+        "Eine Serie wird nur am letzten Tag gewarnt": make(
+            "Die Serienwarnung kommt nur am letzten Tag der offenen Periode. Der Geburtstagsbonus nennt 500 Coins um 9:00.",
+            "The streak warning arrives only on the last day of the open period. The birthday bonus names 500 coins at 9:00.",
+            ("Sonntag ist der letzte Tag einer Woche, Montag nicht. Ein Geburtstag liegt noch vor 9:00.", "Sunday is the last day of a week, Monday is not. A birthday is still before 9:00.", "ChallengeNudge.swift"),
+            ("Die Warnung gibt es nur am Sonntag, und der nächste Bonus liegt um 9:00.", "The warning exists only on Sunday, and the next bonus is at 9:00.", "LififyChecks.swift"),
         ),
         "Ein Termin darf höchstens eine Woche in der Vergangenheit liegen": make(
             "Ein Termin lässt sich nur zuordnen, wenn er nicht älter als eine Woche ist.",
@@ -497,10 +509,16 @@ enum CheckStories {
             ("Der Schaltertext ist Entwicklermodus, und der Speicherschlüssel ist lifify.developerMode.", "The switch text is Developer mode, and the storage key is lifify.developerMode.", "SettingsView.swift"),
         ),
         "Challenges und Gesundheit nutzen ein Kartenraster": make(
-            "Aktive Challenges stehen zu zweit in einer Reihe. Eine einzelne Karte ist breit. Gesundheit schaltet Training, Abstinenz und Ernährung in einer Reihe um.",
-            "Active challenges sit two in a row. A single card is wide. Health switches Training, Abstinence, and Nutrition in one row.",
-            ("Das Raster liest zwei Spalten für Challenges. Eine einzelne Karte nutzt die volle Breite.", "The grid reads two columns for challenges. A single card uses the full width.", "AppChrome.swift"),
-            ("Training, Abstinenz und Ernährung stehen als Schalter in einer Reihe.", "Training, Abstinence, and Nutrition sit as switches in one row.", "HealthView.swift"),
+            "Aktive Challenges stehen zu zweit in einer Reihe und teilen sich die Höhe der höheren Karte. Gesundheit schaltet Training und Ernährung in einer Reihe um.",
+            "Active challenges sit two in a row and share the height of the taller card. Health switches Training and Nutrition in one row.",
+            ("Das Raster liest zwei Spalten. Die Shop-Kapsel ist 36 Punkt hoch, dazwischen von der alten und der hohen Kapsel.", "The grid reads two columns. The shop capsule is 36 points tall, midway between the old one and the tall one.", "AppChrome.swift"),
+            ("Training und Ernährung stehen als Schalter. Darunter lassen sich Abstinenz und Sport anlegen.", "Training and Nutrition sit as switches. Abstinence and sport can be created underneath.", "AppChrome.swift"),
+        ),
+        "Vier Stile haben je eine helle und eine dunkle Fläche": make(
+            "Grün, Blau, Bordeaux und Violett haben je eine helle und eine dunkle Fläche. Die Akzente bleiben unterscheidbar.",
+            "Green, blue, bordeaux, and violet each have a light and a dark surface. The accents stay distinct.",
+            ("Jeder Stil prüft Helligkeit von Grund und Karte in Hell und Dunkel.", "Each style checks the brightness of the wash and the card in light and dark.", "AppSurface.swift"),
+            ("Blau ist blauer, Bordeaux röter und Violett tiefer als Grün.", "Blue is bluer, bordeaux is redder, and violet is deeper than green.", "LififyFeatureChecks.swift"),
         ),
         "Jede Prüfung erklärt ihre Schritte": make(
             "Jede Prüfung in der Liste hat eine Erklärung und mindestens zwei Schritte mit einer Quelldatei.",

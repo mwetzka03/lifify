@@ -168,7 +168,7 @@ private struct WorkoutChallengePicker: View {
                 }
                 .padding(.vertical, 8)
             }
-            .background(AppSurface.canvas)
+            .background(AppPlayfulCanvas())
             .navigationTitle(L("Challenges", "Challenges"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -221,7 +221,7 @@ private struct WorkoutEventPicker: View {
                 }
                 .padding(.vertical, 8)
             }
-            .background(AppSurface.canvas)
+            .background(AppPlayfulCanvas())
             .navigationTitle(L("Kalender", "Calendar"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

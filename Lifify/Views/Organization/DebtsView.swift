@@ -33,6 +33,7 @@ struct DebtsView: View {
                 try? context.save()
             }
         }
+        .appGlassList()
         .navigationTitle(L("Schulden", "Debts"))
         .toolbar { Button { showingNew = true } label: { Image(systemName: "plus") } }
         .sheet(isPresented: $showingNew) { DebtForm() }
@@ -63,6 +64,7 @@ private struct DebtForm: View {
                 }
                 AppDateField(title: L("Datum", "Date"), selection: $date)
             }
+            .appGlassList()
             .navigationTitle(L("Neue Schuld", "New debt"))
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button(L("Abbrechen", "Cancel")) { dismiss() } }

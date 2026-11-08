@@ -309,7 +309,8 @@ enum BackupService {
                 defaults.string(forKey: "appLanguage") ?? "de",
                 defaults.string(forKey: "appTheme") ?? AppTheme.system.rawValue,
                 UserProfile.birthRaw(defaults: defaults),
-                UserProfile.awardedYearRaw(defaults: defaults)
+                UserProfile.awardedYearRaw(defaults: defaults),
+                defaults.string(forKey: AppPalette.storageKey) ?? AppPalette.green.rawValue
             ]
         ))
         records = scopedRecords(
@@ -788,6 +789,9 @@ enum BackupService {
             UserDefaults.standard.set(string(2), forKey: "appLanguage")
             UserDefaults.standard.set(string(3), forKey: "appTheme")
             UserProfile.restore(birthRaw: string(4), awardedYearRaw: string(5))
+            if AppPalette(rawValue: string(6)) != nil {
+                UserDefaults.standard.set(string(6), forKey: AppPalette.storageKey)
+            }
         case "streakState":
             StreakSettings.restoreState(r)
         case "streakMultiplier":

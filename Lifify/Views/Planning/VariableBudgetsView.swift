@@ -93,6 +93,7 @@ struct VariableBudgetsView: View {
                 ContentUnavailableView(L("Keine variablen Kosten", "No variable costs"), systemImage: "gauge.with.dots.needle.67percent")
             }
         }
+        .appGlassList()
         .navigationTitle(L("Variable Kosten", "Variable costs"))
         .toolbar { Button { showingNew = true } label: { Image(systemName: "plus") } }
         .sheet(isPresented: $showingNew) { VariableBudgetForm(budget: nil) }
@@ -215,6 +216,7 @@ private struct VariableBudgetDetailView: View {
                 }
             }
         }
+        .appGlassList()
         .navigationTitle(budget.name)
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -284,6 +286,7 @@ struct VariableBudgetForm: View {
                 }
                 TextField(L("Notiz", "Note"), text: $notes, axis: .vertical)
             }
+            .appGlassList()
             .navigationTitle(existing == nil ? L("Neue variable Kosten", "New variable cost") : L("Variable Kosten bearbeiten", "Edit variable cost"))
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button(L("Abbrechen", "Cancel")) { dismiss() } }
