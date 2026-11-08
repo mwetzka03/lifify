@@ -233,6 +233,7 @@ private struct FinanceSettingsView: View {
 private struct ChallengeSettingsView: View {
     @AppStorage(StreakSettings.freezeFactorKey) private var freezeFactor = 10
     @State private var factorText = ""
+    @State private var bonusDifficulty: AbstinenceDifficulty = .medium
 
     var body: some View {
         Form {
@@ -264,6 +265,22 @@ private struct ChallengeSettingsView: View {
                 Text(L(
                     "Ohne eigene Änderung gelten diese Standardwerte. Der Faktor gilt auf die Basis-Belohnung. Erreicht die Serie mehrere Stufen, zählt nur die höchste, nicht das Produkt.",
                     "These defaults apply until you change them. The factor applies to the base reward. When a streak reaches several steps, only the highest one counts, not the product."
+                ))
+            }
+            Section {
+                Picker(L("Schwierigkeit", "Difficulty"), selection: $bonusDifficulty) {
+                    ForEach(AbstinenceDifficulty.allCases) { Text($0.label).tag($0) }
+                }
+                ForEach(AbstinenceMilestone.allCases) { milestone in
+                    AbstinenceMultiplierRow(difficulty: bonusDifficulty, milestone: milestone)
+                        .id("\(bonusDifficulty.rawValue)-\(milestone.rawValue)")
+                }
+            } header: {
+                Text(L("Abstinenz-Bonus", "Abstinence bonus"))
+            } footer: {
+                Text(L(
+                    "Der Bonus ist dieser Faktor mal die Coins pro Tag. Leicht, mittel und schwer haben eigene Faktoren. Ohne Änderung gilt die Standardtabelle. Jede erreichte Stufe zahlt ihren Bonus.",
+                    "The bonus is this factor times the coins per day. Easy, medium, and hard each have their own factors. The default table applies until you change it. Every reached step pays its bonus."
                 ))
             }
         }
@@ -306,6 +323,33 @@ private struct MultiplierRow: View {
         .onChange(of: text) {
             guard let value = StreakSettings.parseMultiplier(text) else { return }
             StreakSettings.setMultiplier(value, for: threshold)
+        }
+    }
+}
+
+private struct AbstinenceMultiplierRow: View {
+    let difficulty: AbstinenceDifficulty
+    let milestone: AbstinenceMilestone
+    @State private var text: String
+
+    init(difficulty: AbstinenceDifficulty, milestone: AbstinenceMilestone) {
+        self.difficulty = difficulty
+        self.milestone = milestone
+        _text = State(initialValue: AbstinenceSettings.editString(difficulty: difficulty, milestone: milestone))
+    }
+
+    var body: some View {
+        HStack {
+            Text(milestone.label)
+            Spacer()
+            TextField("1", text: $text)
+                .keyboardType(.decimalPad)
+                .multilineTextAlignment(.trailing)
+                .frame(width: 72)
+        }
+        .onChange(of: text) {
+            guard let value = StreakSettings.parseMultiplier(text) else { return }
+            AbstinenceSettings.setMultiplier(value, difficulty: difficulty, milestone: milestone)
         }
     }
 }

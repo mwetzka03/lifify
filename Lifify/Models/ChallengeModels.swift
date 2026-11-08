@@ -38,6 +38,7 @@ enum ChallengeRecurrence: String, Codable, CaseIterable, Identifiable, Sendable 
 }
 enum ChallengeCategory: String, Codable, CaseIterable, Identifiable {
     case health
+    case abstinence
     case habit
     case sport
     case todo
@@ -47,6 +48,7 @@ enum ChallengeCategory: String, Codable, CaseIterable, Identifiable {
     var label: String {
         switch self {
         case .health: L("Gesundheit", "Health")
+        case .abstinence: L("Abstinenz", "Abstinence")
         case .habit: L("Gewohnheit", "Habit")
         case .sport: L("Sport", "Sport")
         case .todo: L("Aufgabe", "To-do")

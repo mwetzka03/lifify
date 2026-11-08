@@ -60,6 +60,7 @@ struct RootView: View {
                 existingChallenges: challenges,
                 promptForAccess: false
             )
+            AbstinenceService.settle(context: context)
         }
     }
 }

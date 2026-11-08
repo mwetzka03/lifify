@@ -85,11 +85,13 @@ enum BackupService {
     private static let challengeTypes: Set<String> = [
         "challengeEvent", "challenge", "reminderRecurrence", "eventRecurrence", "completion",
         "challengeGroup", "coin", "reward", "rewardPolicy", "reminderSync", "purchase", "bucket",
-        "workoutChallengeLink", "workoutEventLink", "streakState", "streakMultiplier", "streakFreezeFactor"
+        "workoutChallengeLink", "workoutEventLink", "streakState", "streakMultiplier", "streakFreezeFactor",
+        "abstinenceDifficulty", "abstinenceAwarded", "abstinenceMultiplier"
     ]
     private static let sideTypes: Set<String> = [
         "iconPreference", "reminderRecurrence", "eventRecurrence", "marketSymbol", "previousClose", "purchaseDate",
         "rewardPolicy", "reminderSync", "streakState", "streakMultiplier", "streakFreezeFactor",
+        "abstinenceDifficulty", "abstinenceAwarded", "abstinenceMultiplier",
         "primaryIncome", "secondaryIncome", "incomeAssignment", "expenseGroupAssignment",
         "workoutChallengeLink", "workoutEventLink", "appPreferences", "backupScope", "workoutSnapshot"
     ]
@@ -236,6 +238,7 @@ enum BackupService {
         records += StreakSettings.exportStateRecords()
         records += StreakSettings.exportMultiplierRecords()
         records.append(StreakSettings.exportFreezeFactorRecord())
+        records += AbstinenceSettings.exportRecords()
         records += purchases.map {
             BackupRecord(type: "purchase", id: $0.id, strings: [$0.title], integers: [$0.price], dates: [$0.date], uuids: [$0.rewardID])
         }
@@ -339,6 +342,7 @@ enum BackupService {
         StreakSettings.removeAllChallenges()
         StreakSettings.resetMultipliers()
         StreakSettings.resetFreezeFactor()
+        AbstinenceSettings.reset()
     }
 
     static func deleteFinanceData(from context: ModelContext) throws {
@@ -361,6 +365,7 @@ enum BackupService {
         StreakSettings.removeAllChallenges()
         StreakSettings.resetMultipliers()
         StreakSettings.resetFreezeFactor()
+        AbstinenceSettings.reset()
     }
 
     static func deleteTrainingData() throws {
@@ -380,6 +385,7 @@ enum BackupService {
         SavingsPlanStore.reset()
         ClosedPositionStore.reset()
         StreakSettings.reset()
+        AbstinenceSettings.reset()
     }
 
     @MainActor
@@ -394,6 +400,7 @@ enum BackupService {
         resetFinanceSideStores()
         WorkoutLinkStore.reset()
         StreakSettings.reset()
+        AbstinenceSettings.reset()
         for record in backup.records where sideTypes.contains(record.type) {
             insert(record, into: context)
         }
@@ -441,6 +448,7 @@ enum BackupService {
         clearSideStores(oldSideStores)
         WorkoutLinkStore.reset()
         StreakSettings.reset()
+        AbstinenceSettings.reset()
         for record in backup.records where challengeTypes.contains(record.type) && !sideTypes.contains(record.type) {
             insert(record, into: context)
         }
@@ -748,6 +756,12 @@ enum BackupService {
             StreakSettings.restoreMultiplier(r)
         case "streakFreezeFactor":
             StreakSettings.restoreFreezeFactor(r)
+        case "abstinenceDifficulty":
+            AbstinenceSettings.restoreDifficulty(r)
+        case "abstinenceAwarded":
+            AbstinenceSettings.restoreAwarded(r)
+        case "abstinenceMultiplier":
+            AbstinenceSettings.restoreMultiplier(r)
         default:
             break
         }

@@ -18,6 +18,7 @@ enum LififyCheckTopic: String, CaseIterable, Equatable {
     case challenge
     case calendar
     case training
+    case abstinence
     case developer
 
     var title: String {
@@ -27,6 +28,7 @@ enum LififyCheckTopic: String, CaseIterable, Equatable {
         case .challenge: L("Challenge", "Challenge")
         case .calendar: L("Kalender", "Calendar")
         case .training: L("Training", "Training")
+        case .abstinence: L("Abstinenz", "Abstinence")
         case .developer: L("Entwicklermodus", "Developer mode")
         }
     }
@@ -75,6 +77,10 @@ enum LififyChecks {
             manualEventStaysOffTheChallenge(),
             nextOccurrenceJoinsWorkout(),
             workoutClockUsesFiveMinutes(),
+            abstinenceClockCountsUp(),
+            abstinenceBonusUsesDifficulty(),
+            abstinenceMilestonesStayInOrder(),
+            abstinenceRunPaysDaysAndStepsOnce(),
             developerDayKeepsClockTime()
         ]
     }
@@ -328,7 +334,7 @@ enum LififyChecks {
     }
 
     private static func defaultMultiplierScalesTheBaseReward() -> LififyCheckResult {
-        let challenge = ChallengeItem(title: "Gym", rewardCoins: 10, recurrence: .daily, startDate: day(2026, 10, 1))
+        let challenge = ChallengeItem(title: "Gym", recurrence: .daily, startDate: day(2026, 10, 1), rewardCoins: 10)
         let completions = (1...12).map {
             ChallengeCompletion(challengeID: challenge.id, date: day(2026, 10, $0), earnedCoins: 0)
         }
@@ -563,6 +569,83 @@ enum LififyChecks {
         components.day = day
         components.hour = 12
         return calendar.date(from: components) ?? Date(timeIntervalSince1970: 0)
+    }
+
+    private static func abstinenceClockCountsUp() -> LififyCheckResult {
+        let zero = AbstinenceRules.clock(-5)
+        let minute = AbstinenceRules.clock(3_661)
+        let day = AbstinenceRules.clock(86_400 + 3_661)
+        let passed = zero == AbstinenceClock(days: 0, hours: 0, minutes: 0, seconds: 0)
+            && minute == AbstinenceClock(days: 0, hours: 1, minutes: 1, seconds: 1)
+            && day == AbstinenceClock(days: 1, hours: 1, minutes: 1, seconds: 1)
+        return result("Timer zählt Tage, Stunden, Minuten und Sekunden", .abstinence, .unit, passed, "\(minute.hours):\(minute.minutes):\(minute.seconds)")
+    }
+
+    private static func abstinenceBonusUsesDifficulty() -> LififyCheckResult {
+        let easy = AbstinenceRules.defaultMultipliers[.easy] ?? [:]
+        let medium = AbstinenceRules.defaultMultipliers[.medium] ?? [:]
+        let hard = AbstinenceRules.defaultMultipliers[.hard] ?? [:]
+        let ordered = AbstinenceMilestone.allCases.allSatisfy { milestone in
+            let key = milestone.rawValue
+            return (easy[key] ?? 0) < (medium[key] ?? 0) && (medium[key] ?? 0) < (hard[key] ?? 0)
+        }
+        let merged = AbstinenceRules.merging(["1h": 9], defaults: medium)
+        let half = AbstinenceRules.bonusCoins(base: 10, multiplier: 0.5)
+        let fraction = AbstinenceRules.bonusCoins(base: 10, multiplier: 1.5)
+        let empty = AbstinenceRules.bonusCoins(base: 0, multiplier: 5)
+        let passed = ordered && merged["1h"] == 9 && merged["2h"] == medium["2h"]
+            && half == 5 && fraction == 15 && empty == 0
+        return result("Schwer zahlt mehr als leicht, ein Faktor bleibt editierbar", .abstinence, .unit, passed, "halb \(half), anderthalb \(fraction)")
+    }
+
+    private static func abstinenceMilestonesStayInOrder() -> LififyCheckResult {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .gmt
+        let start = calendar.date(from: DateComponents(year: 2026, month: 10, day: 25, hour: 12)) ?? .distantPast
+        let almostHour = start.addingTimeInterval(3_599)
+        let hour = start.addingTimeInterval(3_600)
+        let almost78 = start.addingTimeInterval(78 * 3_600 - 1)
+        let at78 = start.addingTimeInterval(78 * 3_600)
+        let week = AbstinenceMilestone.day7.due(from: start, calendar: calendar)
+        let year = AbstinenceMilestone.year1.due(from: start, calendar: calendar)
+        let beforeHour = AbstinenceRules.reached(start: start, now: almostHour, calendar: calendar)
+        let atHour = AbstinenceRules.reached(start: start, now: hour, calendar: calendar)
+        let before78 = AbstinenceRules.reached(start: start, now: almost78, calendar: calendar)
+        let reached78 = AbstinenceRules.reached(start: start, now: at78, calendar: calendar)
+        let atWeek = AbstinenceRules.reached(start: start, now: week, calendar: calendar)
+        let beforeYear = AbstinenceRules.reached(start: start, now: year.addingTimeInterval(-1), calendar: calendar)
+        let atYear = AbstinenceRules.reached(start: start, now: year, calendar: calendar)
+        let passed = beforeHour.isEmpty
+            && atHour == [.hour1]
+            && !before78.contains(.hour78) && before78.contains(.hour24)
+            && reached78.contains(.hour78) && !reached78.contains(.day7)
+            && atWeek.contains(.day7) && !atWeek.contains(.day14)
+            && !beforeYear.contains(.year1) && atYear.contains(.year1)
+        return result("Boni sitzen auf 1, 2, 4, 8, 24 und 78 Stunden, dann 7, 14, 30 Tage und 1 Jahr", .abstinence, .unit, passed, "78h \(reached78.contains(.hour78))")
+    }
+
+    private static func abstinenceRunPaysDaysAndStepsOnce() -> LififyCheckResult {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .gmt
+        let start = calendar.date(from: DateComponents(year: 2026, month: 10, day: 1, hour: 12)) ?? .distantPast
+        let now = calendar.date(from: DateComponents(year: 2026, month: 10, day: 11, hour: 12)) ?? .distantFuture
+        let first = AbstinenceRules.plan(start: start, now: now, completedDays: [], awarded: [], calendar: calendar)
+        let days = Set(AbstinenceRules.dayStarts(from: start, through: now, calendar: calendar))
+        let again = AbstinenceRules.plan(start: start, now: now, completedDays: days, awarded: Set(first.milestones.map(\.rawValue)), calendar: calendar)
+        let relapseStart = now.addingTimeInterval(-2 * 3_600)
+        let relapsed = AbstinenceRules.plan(start: relapseStart, now: now, completedDays: days, awarded: [], calendar: calendar)
+        let future = AbstinenceRules.plan(start: now.addingTimeInterval(3_600), now: now, completedDays: [], awarded: [], calendar: calendar)
+        let base = 10
+        let dayBonus = AbstinenceRules.bonusCoins(base: base, multiplier: AbstinenceRules.defaultMultipliers[.medium]?["24h"] ?? 0)
+        let passed = first.days.count == 11
+            && first.milestones.contains(.day7)
+            && !first.milestones.contains(.day14)
+            && first.milestones.contains(.hour78)
+            && again.days.isEmpty && again.milestones.isEmpty
+            && relapsed.milestones == [.hour1, .hour2]
+            && future.days.isEmpty && future.milestones.isEmpty
+            && dayBonus == 30
+        return result("Ein Lauf zahlt jeden Tag und jede Stufe einmal, ein Rückfall startet die Boni neu", .abstinence, .integration, passed, "Tage \(first.days.count), Stufen \(first.milestones.count), neu \(relapsed.milestones.count)")
     }
 
     private static func result(

@@ -238,7 +238,7 @@ enum ChallengeService {
         events: [ChallengeCalendarEvent] = [],
         context: ModelContext
     ) {
-        guard !challenge.isReadOnly else { return }
+        guard !challenge.isReadOnly, challenge.category != .abstinence else { return }
         let isNowCompleted: Bool
         let tracked: [ChallengeCompletion]
         if let completion = completions.first(where: {
@@ -277,7 +277,7 @@ enum ChallengeService {
         events: [ChallengeCalendarEvent] = [],
         context: ModelContext
     ) -> Bool {
-        guard !challenge.isArchived else { return false }
+        guard !challenge.isArchived, challenge.category != .abstinence else { return false }
         guard !isCompleted(challenge, on: date, completions: completions) else { return false }
         let earned = projectedCoins(challenge: challenge, on: date, completions: completions, events: events)
         let completion = ChallengeCompletion(challengeID: challenge.id, date: date, earnedCoins: earned)

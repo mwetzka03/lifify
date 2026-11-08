@@ -28,6 +28,11 @@ final class LififyChecksTests: XCTestCase {
     }
 
     @MainActor
+    func testAbstinence() {
+        assertPassed(.abstinence)
+    }
+
+    @MainActor
     func testDeveloperMode() {
         assertPassed(.developer)
     }
@@ -35,7 +40,7 @@ final class LififyChecksTests: XCTestCase {
     @MainActor
     func testTopicsCoverChallengesTrainingAndCalendar() {
         let results = LififyChecks.run()
-        for topic in [LififyCheckTopic.challenge, .calendar, .training, .streak, .multiplier] {
+        for topic in [LififyCheckTopic.challenge, .calendar, .training, .streak, .multiplier, .abstinence] {
             let rows = results.filter { $0.topic == topic }
             XCTAssertTrue(rows.contains { $0.kind == .unit }, "\(topic.rawValue) unit")
             XCTAssertTrue(rows.contains { $0.kind == .integration }, "\(topic.rawValue) integration")

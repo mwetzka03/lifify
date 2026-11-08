@@ -106,52 +106,10 @@ struct ChallengesView: View {
 
             if !completedTab && filter != .groups {
                 ForEach(filteredChallenges) { challenge in
-                    let doneToday = ChallengeService.isCompleted(challenge, on: AppClock.now, completions: completions)
-                    let gray = ChallengeActivity.dimsActiveRow(recurrence: challenge.recurrence, completedToday: doneToday)
-                    Button {
-                        ChallengeService.toggleCompletion(
-                            challenge: challenge,
-                            date: AppClock.now,
-                            completions: completions,
-                            transactions: transactions,
-                            events: calendarEvents,
-                            context: context
-                        )
-                    } label: {
-                        HStack {
-                            Image(systemName: IconPreferenceStore.icon(for: challenge.id, fallback: "target"))
-                                .frame(width: 24)
-                            VStack(alignment: .leading) {
-                                Text(challenge.title).foregroundStyle(gray ? .secondary : .primary)
-                                challengeMeta(challenge)
-                                if gray {
-                                    Text(L("Heute erledigt", "Done today"))
-                                        .font(.caption2)
-                                        .foregroundStyle(.secondary)
-                                }
-                            }
-                            Spacer()
-                            Image(systemName: doneToday ? "checkmark.circle.fill" : "circle")
-                                .foregroundStyle(gray ? .secondary : .green)
-                        }
-                        .opacity(gray ? 0.55 : 1)
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(challenge.isReadOnly)
-                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                        Button(role: .destructive) {
-                            deleteChallenge(challenge)
-                        } label: {
-                            Label(L("Löschen", "Delete"), systemImage: "trash")
-                        }
-                    }
-                    .swipeActions(edge: .leading, allowsFullSwipe: false) {
-                        Button {
-                            edited = challenge
-                        } label: {
-                            Label(L("Bearbeiten", "Edit"), systemImage: "pencil")
-                        }
-                        .tint(.blue)
+                    if challenge.category == .abstinence {
+                        abstinenceLink(challenge)
+                    } else {
+                        regularChallengeRow(challenge)
                     }
                 }
             }
@@ -192,6 +150,7 @@ struct ChallengesView: View {
 
     private func commitSimulatedDay() {
         ChallengeService.commitFreezes(for: challenges, completions: completions, events: calendarEvents, on: AppClock.now)
+        AbstinenceService.settle(context: context)
     }
 
     @ToolbarContentBuilder
@@ -361,6 +320,79 @@ struct ChallengesView: View {
         }
     }
 
+    private func abstinenceLink(_ challenge: ChallengeItem) -> some View {
+        NavigationLink {
+            AbstinenceDetailView(challengeID: challenge.id)
+        } label: {
+            AbstinenceSummary(challenge: challenge)
+        }
+        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+            Button(role: .destructive) {
+                deleteChallenge(challenge)
+            } label: {
+                Label(L("Löschen", "Delete"), systemImage: "trash")
+            }
+        }
+        .swipeActions(edge: .leading, allowsFullSwipe: false) {
+            Button {
+                edited = challenge
+            } label: {
+                Label(L("Bearbeiten", "Edit"), systemImage: "pencil")
+            }
+            .tint(.blue)
+        }
+    }
+
+    private func regularChallengeRow(_ challenge: ChallengeItem) -> some View {
+        let doneToday = ChallengeService.isCompleted(challenge, on: AppClock.now, completions: completions)
+        let gray = ChallengeActivity.dimsActiveRow(recurrence: challenge.recurrence, completedToday: doneToday)
+        return Button {
+            ChallengeService.toggleCompletion(
+                challenge: challenge,
+                date: AppClock.now,
+                completions: completions,
+                transactions: transactions,
+                events: calendarEvents,
+                context: context
+            )
+        } label: {
+            HStack {
+                Image(systemName: IconPreferenceStore.icon(for: challenge.id, fallback: "target"))
+                    .frame(width: 24)
+                VStack(alignment: .leading) {
+                    Text(challenge.title).foregroundStyle(gray ? .secondary : .primary)
+                    challengeMeta(challenge)
+                    if gray {
+                        Text(L("Heute erledigt", "Done today"))
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                Spacer()
+                Image(systemName: doneToday ? "checkmark.circle.fill" : "circle")
+                    .foregroundStyle(gray ? .secondary : .green)
+            }
+            .opacity(gray ? 0.55 : 1)
+        }
+        .buttonStyle(.plain)
+        .disabled(challenge.isReadOnly)
+        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+            Button(role: .destructive) {
+                deleteChallenge(challenge)
+            } label: {
+                Label(L("Löschen", "Delete"), systemImage: "trash")
+            }
+        }
+        .swipeActions(edge: .leading, allowsFullSwipe: false) {
+            Button {
+                edited = challenge
+            } label: {
+                Label(L("Bearbeiten", "Edit"), systemImage: "pencil")
+            }
+            .tint(.blue)
+        }
+    }
+
     private func deleteChallenge(_ challenge: ChallengeItem) {
         for completion in completions.filter({ $0.challengeID == challenge.id }) {
             transactions.filter { $0.referenceID == completion.id }.forEach(context.delete)
@@ -369,6 +401,7 @@ struct ChallengesView: View {
         IconPreferenceStore.remove(for: challenge.id)
         ReminderLinkStore.remove(for: challenge.externalIdentifier)
         StreakSettings.remove(for: challenge.id)
+        AbstinenceSettings.remove(for: challenge.id)
         context.delete(challenge)
         try? context.save()
     }
@@ -435,7 +468,7 @@ private enum ChallengeFilter: String, CaseIterable, Identifiable {
     }
 }
 
-private struct ChallengeForm: View {
+struct ChallengeForm: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
     @Query(sort: \ChallengeGroup.title) private var groups: [ChallengeGroup]
@@ -451,6 +484,7 @@ private struct ChallengeForm: View {
     @State private var weekdays: Set<Int>
     @State private var rewardCoins: Int
     @State private var streaksEnabled: Bool
+    @State private var difficulty: AbstinenceDifficulty
     @State private var groupID: UUID?
     @State private var icon: String
     @State private var syncToReminders: Bool
@@ -459,7 +493,7 @@ private struct ChallengeForm: View {
     @State private var saveMessage: String?
 
     @MainActor
-    init(challenge: ChallengeItem?, recommendation: ChallengeCalendarEvent? = nil) {
+    init(challenge: ChallengeItem?, recommendation: ChallengeCalendarEvent? = nil, presetCategory: ChallengeCategory? = nil) {
         let reminderMetadata = ReminderLinkStore.metadata(
             for: challenge?.externalIdentifier ?? recommendation?.externalIdentifier
         )
@@ -467,7 +501,7 @@ private struct ChallengeForm: View {
         sourceRecommendation = recommendation
         _title = State(initialValue: challenge?.title ?? recommendation?.title ?? "")
         _details = State(initialValue: challenge?.details ?? recommendation?.details ?? "")
-        _category = State(initialValue: challenge?.category ?? (recommendation == nil ? .habit : .todo))
+        _category = State(initialValue: challenge?.category ?? presetCategory ?? (recommendation == nil ? .habit : .todo))
         _recurrence = State(initialValue: challenge?.recurrence ?? reminderMetadata?.recurrence ?? .none)
         _startDate = State(initialValue: challenge?.startDate ?? recommendation?.startDate ?? .now)
         _hasEndDate = State(initialValue: challenge?.endDate != nil || reminderMetadata?.endDate != nil)
@@ -475,8 +509,10 @@ private struct ChallengeForm: View {
         _weekdays = State(initialValue: challenge?.weekdaySet ?? reminderMetadata?.weekdays ?? [])
         _rewardCoins = State(initialValue: challenge?.rewardCoins ?? 10)
         _streaksEnabled = State(initialValue: challenge.map { StreakSettings.isEnabled(for: $0.id) } ?? false)
+        _difficulty = State(initialValue: challenge.map { AbstinenceSettings.difficulty(for: $0.id) } ?? .medium)
         _groupID = State(initialValue: challenge?.groupID)
-        _icon = State(initialValue: challenge.map { IconPreferenceStore.icon(for: $0.id, fallback: "target") } ?? (recommendation == nil ? "target" : "lightbulb"))
+        let presetIcon = presetCategory == .abstinence ? "lungs.fill" : "target"
+        _icon = State(initialValue: challenge.map { IconPreferenceStore.icon(for: $0.id, fallback: presetIcon) } ?? (recommendation == nil ? presetIcon : "lightbulb"))
         _syncToReminders = State(initialValue: challenge.map { ReminderSyncPreference.isEnabled(for: $0.id) } ?? true)
     }
 
@@ -493,34 +529,52 @@ private struct ChallengeForm: View {
                 Picker(L("Kategorie", "Category"), selection: $category) {
                     ForEach(ChallengeCategory.allCases) { Text($0.label).tag($0) }
                 }
-                Picker(L("Wiederholung", "Recurrence"), selection: $recurrence) {
-                    ForEach(ChallengeRecurrence.allCases) { Text($0.label).tag($0) }
-                }
-                if recurrence != .none {
-                    AppDateField(title: L("Start", "Start"), selection: $startDate)
-                    Toggle(L("Enddatum", "End date"), isOn: $hasEndDate)
-                    if hasEndDate {
-                        AppDateField(title: L("Ende", "End"), selection: $endDate, minimum: startDate)
+                if category == .abstinence {
+                    AppDateField(title: L("Abstinent seit", "Abstinent since"), selection: $startDate, includesTime: true)
+                    Picker(L("Schwierigkeit", "Difficulty"), selection: $difficulty) {
+                        ForEach(AbstinenceDifficulty.allCases) { Text($0.label).tag($0) }
                     }
-                    if recurrence == .weekly {
-                        WeekdayPicker(selection: $weekdays)
+                    LabeledContent(L("Coins pro Tag", "Coins per day")) {
+                        TextField("0", value: $rewardCoins, format: .number)
+                            .keyboardType(.numberPad)
+                            .multilineTextAlignment(.trailing)
                     }
-                }
-                LabeledContent(L("Belohnung", "Reward")) {
-                    TextField("0", value: $rewardCoins, format: .number)
-                        .keyboardType(.numberPad)
-                        .multilineTextAlignment(.trailing)
-                }
-                Toggle(L("Streaks aktivieren", "Enable streaks"), isOn: $streaksEnabled)
-                Text(L(
-                    "Die Serie zählt jede Erledigung. Die Quote folgt der Frequenz, zum Beispiel dreimal in der Woche oder einmal im Monat, an beliebigen Tagen. Fehlt sie am Ende, fällt die Serie auf 0, außer eine Freeze schützt sie.",
-                    "The streak counts every completion. The quota follows the frequency, for example three times a week or once a month, on any days. If it is missed at the end, the streak drops to 0 unless a freeze protects it."
-                ))
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                if existing?.isReadOnly != true,
-                   existing?.externalIdentifier?.hasPrefix("event-challenge:") != true {
-                    Toggle(L("In Apple Erinnerungen sichern", "Save to Apple Reminders"), isOn: $syncToReminders)
+                    Text(L(
+                        "Der Timer läuft ab diesem Zeitpunkt. Jeder Tag zahlt diese Coins. Boni an den Zeitstufen sind ein Faktor mal diese Coins und hängen an leicht, mittel oder schwer. Die Faktoren stehen unter Einstellungen, Herausforderung.",
+                        "The timer runs from this moment. Each day pays these coins. Bonuses at the time steps are a factor times these coins and depend on easy, medium, or hard. The factors are in Settings, Challenges."
+                    ))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                } else {
+                    Picker(L("Wiederholung", "Recurrence"), selection: $recurrence) {
+                        ForEach(ChallengeRecurrence.allCases) { Text($0.label).tag($0) }
+                    }
+                    if recurrence != .none {
+                        AppDateField(title: L("Start", "Start"), selection: $startDate)
+                        Toggle(L("Enddatum", "End date"), isOn: $hasEndDate)
+                        if hasEndDate {
+                            AppDateField(title: L("Ende", "End"), selection: $endDate, minimum: startDate)
+                        }
+                        if recurrence == .weekly {
+                            WeekdayPicker(selection: $weekdays)
+                        }
+                    }
+                    LabeledContent(L("Belohnung", "Reward")) {
+                        TextField("0", value: $rewardCoins, format: .number)
+                            .keyboardType(.numberPad)
+                            .multilineTextAlignment(.trailing)
+                    }
+                    Toggle(L("Streaks aktivieren", "Enable streaks"), isOn: $streaksEnabled)
+                    Text(L(
+                        "Die Serie zählt jede Erledigung. Die Quote folgt der Frequenz, zum Beispiel dreimal in der Woche oder einmal im Monat, an beliebigen Tagen. Fehlt sie am Ende, fällt die Serie auf 0, außer eine Freeze schützt sie.",
+                        "The streak counts every completion. The quota follows the frequency, for example three times a week or once a month, on any days. If it is missed at the end, the streak drops to 0 unless a freeze protects it."
+                    ))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    if existing?.isReadOnly != true,
+                       existing?.externalIdentifier?.hasPrefix("event-challenge:") != true {
+                        Toggle(L("In Apple Erinnerungen sichern", "Save to Apple Reminders"), isOn: $syncToReminders)
+                    }
                 }
                 Picker(L("Gruppe", "Group"), selection: $groupID) {
                     Text(L("Keine", "None")).tag(Optional<UUID>.none)
@@ -567,15 +621,22 @@ private struct ChallengeForm: View {
         )
         challenge.title = title
         challenge.details = details
+        let abstinence = category == .abstinence
         challenge.category = category
-        challenge.recurrence = recurrence
+        challenge.recurrence = abstinence ? .daily : recurrence
         challenge.startDate = startDate
-        challenge.endDate = recurrence != .none && hasEndDate ? endDate : nil
-        challenge.weekdaySet = recurrence == .weekly ? weekdays : []
+        challenge.endDate = abstinence ? nil : (recurrence != .none && hasEndDate ? endDate : nil)
+        challenge.weekdaySet = !abstinence && recurrence == .weekly ? weekdays : []
         challenge.rewardCoins = max(rewardCoins, 0)
         challenge.streakTarget = 0
         challenge.groupID = groupID
-        StreakSettings.setEnabled(streaksEnabled, for: challenge.id)
+        if abstinence {
+            StreakSettings.setEnabled(false, for: challenge.id)
+            AbstinenceSettings.setDifficulty(difficulty, for: challenge.id)
+        } else {
+            StreakSettings.setEnabled(streaksEnabled, for: challenge.id)
+            AbstinenceSettings.remove(for: challenge.id)
+        }
         if existing == nil, savedChallenge == nil {
             context.insert(challenge)
             savedChallenge = challenge
@@ -583,9 +644,11 @@ private struct ChallengeForm: View {
         if let sourceRecommendation, sourceRecommendation.modelContext != nil {
             context.delete(sourceRecommendation)
         }
+        if abstinence { syncToReminders = false }
         IconPreferenceStore.set(icon, for: challenge.id)
         ReminderSyncPreference.set(syncToReminders, for: challenge.id)
         try? context.save()
+        if abstinence { AbstinenceService.settle(context: context) }
 
         if let externalIdentifier = challenge.externalIdentifier,
            externalIdentifier.hasPrefix("event-challenge:") {
@@ -677,6 +740,28 @@ private struct ChallengeGroupDetailView: View {
             }) { challenge in
                 let _ = developerMode
                 let _ = developerDay
+                if challenge.category == .abstinence {
+                    NavigationLink {
+                        AbstinenceDetailView(challengeID: challenge.id)
+                    } label: {
+                        AbstinenceSummary(challenge: challenge)
+                    }
+                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                        Button(role: .destructive) {
+                            deleteChallenge(challenge)
+                        } label: {
+                            Label(L("Löschen", "Delete"), systemImage: "trash")
+                        }
+                    }
+                    .swipeActions(edge: .leading, allowsFullSwipe: false) {
+                        Button {
+                            edited = challenge
+                        } label: {
+                            Label(L("Bearbeiten", "Edit"), systemImage: "pencil")
+                        }
+                        .tint(.blue)
+                    }
+                } else {
                 let doneToday = ChallengeService.isCompleted(challenge, on: AppClock.now, completions: completions)
                 let gray = ChallengeActivity.dimsActiveRow(recurrence: challenge.recurrence, completedToday: doneToday)
                 Button {
@@ -728,6 +813,7 @@ private struct ChallengeGroupDetailView: View {
                     }
                     .tint(.blue)
                 }
+                }
             }
         }
         .navigationTitle(group.title)
@@ -751,6 +837,7 @@ private struct ChallengeGroupDetailView: View {
         IconPreferenceStore.remove(for: challenge.id)
         ReminderLinkStore.remove(for: challenge.externalIdentifier)
         StreakSettings.remove(for: challenge.id)
+        AbstinenceSettings.remove(for: challenge.id)
         context.delete(challenge)
         try? context.save()
     }

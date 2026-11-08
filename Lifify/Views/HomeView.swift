@@ -91,15 +91,18 @@ struct HomeView: View {
         .appCanvas()
         .onAppear {
             ChallengeService.commitFreezes(for: challenges, completions: completions, events: calendarEvents, on: AppClock.now)
+            AbstinenceService.settle(context: context)
         }
         .onChange(of: developerDay) {
             guard developerMode else { return }
             selectedDate = AppClock.now
             ChallengeService.commitFreezes(for: challenges, completions: completions, events: calendarEvents, on: AppClock.now)
+            AbstinenceService.settle(context: context)
         }
         .onChange(of: developerMode) {
             selectedDate = AppClock.now
             ChallengeService.commitFreezes(for: challenges, completions: completions, events: calendarEvents, on: AppClock.now)
+            AbstinenceService.settle(context: context)
         }
     }
 
@@ -660,7 +663,7 @@ struct HomeView: View {
     }
 
     private func dueChallenges(on day: Date) -> [ChallengeItem] {
-        challenges.filter { ChallengeService.isDue($0, on: day) }
+        challenges.filter { $0.category != .abstinence && ChallengeService.isDue($0, on: day) }
     }
 
     private func move(by value: Int) {
