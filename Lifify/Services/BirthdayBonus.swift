@@ -13,13 +13,11 @@ enum BirthdayBonus {
 
     /// A 29 February birthday is observed on 28 February when that year has no 29 February.
     static func observed(birth: Birthday, in year: Int, calendar: Calendar) -> Date? {
-        let calendar = strict(calendar)
-        var parts = DateComponents(year: year, month: birth.month, day: birth.day)
-        if calendar.date(from: parts) == nil {
-            guard birth.month == 2, birth.day == 29 else { return nil }
-            parts.day = 28
+        if let exact = exactDay(year: year, month: birth.month, day: birth.day, calendar: calendar) {
+            return exact
         }
-        return calendar.date(from: parts).map { calendar.startOfDay(for: $0) }
+        guard birth.month == 2, birth.day == 29 else { return nil }
+        return exactDay(year: year, month: 2, day: 28, calendar: calendar)
     }
 
     static func isBirthday(_ birth: Birthday, on day: Date, calendar: Calendar = .current) -> Bool {
@@ -28,22 +26,29 @@ enum BirthdayBonus {
 
     /// True only on the observed birthday, not before the actual date of birth, and once per year.
     static func isDue(birth: Birthday, on day: Date, awardedYear: Int?, calendar: Calendar = .current) -> Bool {
-        let calendar = strict(calendar)
-        guard let born = calendar.date(from: DateComponents(year: birth.year, month: birth.month, day: birth.day)) else {
+        guard let born = exactDay(year: birth.year, month: birth.month, day: birth.day, calendar: calendar) else {
             return false
         }
         let today = calendar.startOfDay(for: day)
-        guard today >= calendar.startOfDay(for: born) else { return false }
+        guard today >= born else { return false }
         let year = calendar.component(.year, from: today)
         guard awardedYear != year else { return false }
         guard let observed = observed(birth: birth, in: year, calendar: calendar) else { return false }
         return calendar.isDate(observed, inSameDayAs: today)
     }
 
-    private static func strict(_ calendar: Calendar) -> Calendar {
-        var calendar = calendar
-        calendar.isLenient = false
-        return calendar
+    /// A real calendar day. A lenient calendar that rolls 29 February into March does not count.
+    private static func exactDay(year: Int, month: Int, day: Int, calendar: Calendar) -> Date? {
+        var parts = DateComponents()
+        parts.calendar = calendar
+        parts.year = year
+        parts.month = month
+        parts.day = day
+        parts.hour = 12
+        guard let date = calendar.date(from: parts) else { return nil }
+        let back = calendar.dateComponents([.year, .month, .day], from: date)
+        guard back.year == year, back.month == month, back.day == day else { return nil }
+        return calendar.startOfDay(for: date)
     }
 
     static func referenceID(year: Int) -> UUID {

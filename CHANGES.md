@@ -141,6 +141,12 @@ calculations stay in [FINANZEN.md](FINANZEN.md). The displayed version is 0.3.0.
 - The name, the date of birth, and the year already paid travel with a full
   backup. Resetting the app clears the date and asks again during setup.
 
+### Icon
+
+- The home-screen icon is a Liquid Glass icon. In Clear and Tinted, the plate
+  takes the same system tint as the other icons. The green mark stays in the
+  normal and the dark appearance.
+
 ### Health and calendar
 
 - Starting a workout runs a timer. The duration is shown in the history and in
@@ -341,6 +347,12 @@ Stand gegenüber `main`. Die Rechenregeln der Finanzen bleiben in
 - Name, Geburtsdatum und das schon ausgezahlte Jahr reisen mit der
   vollständigen Sicherung. Die App zurücksetzen löscht das Datum, und die
   Einrichtung fragt wieder danach.
+
+### Symbol
+
+- Das Symbol auf dem Home-Bildschirm ist ein Liquid-Glass-Icon. In Klar und
+  Getönt übernimmt die Fläche dieselbe Systemtönung wie die übrigen Icons.
+  Grün bleibt in der normalen und der dunklen Darstellung.
 
 ### Gesundheit und Kalender
 
