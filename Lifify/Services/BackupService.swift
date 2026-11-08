@@ -298,7 +298,9 @@ enum BackupService {
                 defaults.string(forKey: "userName") ?? "",
                 defaults.string(forKey: "dashboardPeriodMode") ?? DashboardPeriodMode.calendarMonth.rawValue,
                 defaults.string(forKey: "appLanguage") ?? "de",
-                defaults.string(forKey: "appTheme") ?? AppTheme.system.rawValue
+                defaults.string(forKey: "appTheme") ?? AppTheme.system.rawValue,
+                UserProfile.birthRaw(defaults: defaults),
+                UserProfile.awardedYearRaw(defaults: defaults)
             ]
         ))
         records = scopedRecords(
@@ -403,6 +405,7 @@ enum BackupService {
         ChallengeTimeStore.reset()
         ChallengeCategoryStore.reset()
         LififyNotifications.resetWeekdayClocks()
+        UserProfile.reset()
     }
 
     @MainActor
@@ -775,6 +778,7 @@ enum BackupService {
             UserDefaults.standard.set(string(1), forKey: "dashboardPeriodMode")
             UserDefaults.standard.set(string(2), forKey: "appLanguage")
             UserDefaults.standard.set(string(3), forKey: "appTheme")
+            UserProfile.restore(birthRaw: string(4), awardedYearRaw: string(5))
         case "streakState":
             StreakSettings.restoreState(r)
         case "streakMultiplier":

@@ -92,6 +92,8 @@ enum LififyChecks {
             briefingClockFollowsTheWeekday(),
             shopTilesShareARow(),
             abstinenceHistoryStaysOneRow(),
+            birthdayPaysFiveHundredOnce(),
+            birthdayFollowsTheYear(),
             developerDayKeepsClockTime()
         ]
     }
@@ -845,6 +847,44 @@ enum LififyChecks {
             && days.count == 1
             && days[0].entries.map(\.title) == ["Lesen"]
         return result("Eine Abstinenz steht unter Abgeschlossen als ein Eintrag", .abstinence, .integration, passed, "\(spans.count)")
+    }
+
+    private static func birthdayPaysFiveHundredOnce() -> LififyCheckResult {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .gmt
+        let birth = Birthday(year: 1990, month: 11, day: 8)
+        let today = calendar.date(from: DateComponents(year: 2026, month: 11, day: 8, hour: 15)) ?? .distantPast
+        let tomorrow = calendar.date(from: DateComponents(year: 2026, month: 11, day: 9, hour: 15)) ?? .distantPast
+        let leapBirth = Birthday(year: 2000, month: 2, day: 29)
+        let ordinaryFebruary = calendar.date(from: DateComponents(year: 2027, month: 2, day: 28, hour: 12)) ?? .distantPast
+        let leapEve = calendar.date(from: DateComponents(year: 2028, month: 2, day: 28, hour: 12)) ?? .distantPast
+        let leapDay = calendar.date(from: DateComponents(year: 2028, month: 2, day: 29, hour: 12)) ?? .distantPast
+        let beforeBirth = calendar.date(from: DateComponents(year: 1989, month: 11, day: 8, hour: 12)) ?? .distantPast
+        let passed = BirthdayBonus.coins == 500
+            && BirthdayBonus.isDue(birth: birth, on: today, awardedYear: nil, calendar: calendar)
+            && !BirthdayBonus.isDue(birth: birth, on: today, awardedYear: 2026, calendar: calendar)
+            && !BirthdayBonus.isDue(birth: birth, on: tomorrow, awardedYear: nil, calendar: calendar)
+            && BirthdayBonus.isDue(birth: leapBirth, on: ordinaryFebruary, awardedYear: nil, calendar: calendar)
+            && !BirthdayBonus.isDue(birth: leapBirth, on: leapEve, awardedYear: nil, calendar: calendar)
+            && BirthdayBonus.isDue(birth: leapBirth, on: leapDay, awardedYear: nil, calendar: calendar)
+            && !BirthdayBonus.isDue(birth: birth, on: beforeBirth, awardedYear: nil, calendar: calendar)
+            && BirthdayBonus.referenceID(year: 2026) == BirthdayBonus.referenceID(year: 2026)
+        return result("Geburtstag zahlt 500 Coins einmal an diesem Tag", .challenge, .unit, passed, "heute \(BirthdayBonus.isDue(birth: birth, on: today, awardedYear: nil, calendar: calendar))")
+    }
+
+    private static func birthdayFollowsTheYear() -> LififyCheckResult {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .gmt
+        let birth = Birthday(year: 1990, month: 11, day: 8)
+        let before = calendar.date(from: DateComponents(year: 2026, month: 11, day: 7, hour: 9)) ?? .distantPast
+        let onDay = calendar.date(from: DateComponents(year: 2026, month: 11, day: 8, hour: 9)) ?? .distantPast
+        let nextYear = calendar.date(from: DateComponents(year: 2027, month: 11, day: 8, hour: 9)) ?? .distantPast
+        let passed = !BirthdayBonus.isDue(birth: birth, on: before, awardedYear: nil, calendar: calendar)
+            && BirthdayBonus.isDue(birth: birth, on: onDay, awardedYear: nil, calendar: calendar)
+            && !BirthdayBonus.isDue(birth: birth, on: onDay, awardedYear: 2026, calendar: calendar)
+            && BirthdayBonus.isDue(birth: birth, on: nextYear, awardedYear: 2026, calendar: calendar)
+            && BirthdayBonus.isBirthday(birth, on: onDay, calendar: calendar)
+        return result("Der Geburtstagsbonus gilt im nächsten Jahr wieder", .challenge, .integration, passed, "nächstes Jahr \(BirthdayBonus.isDue(birth: birth, on: nextYear, awardedYear: 2026, calendar: calendar))")
     }
 
     private static func result(

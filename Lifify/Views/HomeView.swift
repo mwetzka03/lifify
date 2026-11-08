@@ -21,6 +21,7 @@ struct HomeView: View {
     @AppStorage(AppClock.dayKey) private var developerDay = 0.0
     @State private var expandedWeekday: Date?
     @AppStorage("userName") private var userName = ""
+    @AppStorage(UserProfile.birthKey) private var birthRaw = ""
     @AppStorage("dashboardPeriodMode") private var dashboardPeriod = DashboardPeriodMode.calendarMonth.rawValue
     @AppStorage(StreakSettings.revisionKey) private var streakRevision = 0
     @AppStorage(AbstinenceSettings.revisionKey) private var abstinenceRevision = 0
@@ -30,10 +31,20 @@ struct HomeView: View {
             VStack(spacing: 16) {
                 let _ = developerMode
                 let _ = developerDay
+                let _ = birthRaw
                 if !userName.isEmpty {
                     Text("\(L("Willkommen zurück", "Welcome back")), \(userName)")
                         .font(.title2.bold())
                         .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                if let birth = UserProfile.birth(), BirthdayBonus.isBirthday(birth, on: AppClock.now) {
+                    Text(L(
+                        "Alles Gute zum Geburtstag. 500 Coins liegen in der Wallet.",
+                        "Happy birthday. 500 coins are in the wallet."
+                    ))
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 if developerMode {
                     Text("\(L("Simulierter Tag", "Simulated day")): \(AppDate.numeric(AppClock.now))")

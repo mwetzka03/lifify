@@ -9,7 +9,7 @@ is built with SwiftUI and SwiftData, and it needs neither a backend nor a user
 account. German and English, and light, dark, and system appearance, can be
 switched in Settings.
 
-The finance rules are in [FINANZEN.md](FINANZEN.md). What changed in 0.3.0 is in [AENDERUNGEN-0.3.0.md](AENDERUNGEN-0.3.0.md).
+The finance rules are in [FINANZEN.md](FINANZEN.md). What changed in 0.3.0 is in [CHANGES.md](CHANGES.md), in English and German.
 
 ### Areas
 
@@ -24,16 +24,21 @@ at the bottom, forecasts above them. Further lists lead to fixed costs,
 variable costs, the shopping list, savings plans, and budget pools.
 
 **Challenges** combine a calendar, repeats, streaks, and a reward shop with a
-coin wallet. Events and reminders from the iPhone can be imported after you
-explicitly allow access.
+coin wallet. Built-in categories are sport, abstinence, and other. More
+categories can be added, and a category can have its own heading. An abstinence
+runs a timer, pays coins each day, and pays a bonus when a time step falls on
+the current day. A challenge can carry a duration and share an event. Events
+and reminders from the iPhone can be imported after you explicitly allow access.
 
-**Health** holds workout plans. Exercises come from a local database, including
-exercises you add yourself when they are not in that database. Nutrition is
-not available yet.
+**Health** holds workout plans. Starting a workout runs a timer. Exercises come
+from a local database, including exercises you add yourself when they are not
+in that database. Nutrition is not available yet.
 
-**Settings** hold language, appearance, the workout chime, the default account
-and fee for the portfolio, accounts, import, backup, and calendar and
-reminders. The version shown there is 0.3.0.
+**Settings** hold the name and date of birth, language, appearance, a daily
+briefing with its own time for each weekday, the workout chime, the default
+account and fee for the portfolio, accounts, import, backup, and calendar and
+reminders. The birthday pays 500 coins once that year. The version shown there
+is 0.3.0.
 
 ### First launch
 
@@ -41,7 +46,7 @@ On the first launch Lifify asks, in order:
 
 1. Language
 2. Set up as new, or restore a JSON backup
-3. Greeting name
+3. Greeting name and date of birth. The birthday pays 500 coins once a year.
 4. Budget period, calendar month or payday
 5. Main account, including its IBAN. The account is required and cannot be
    deleted later.
@@ -95,7 +100,7 @@ through the system. It does not store passwords for that.
 Lifify 0.3.0 ist eine lokale iPhone-App für Finanzen, Challenges und Training.
 Sie ist mit SwiftUI und SwiftData gebaut, braucht kein Backend und kein
 Benutzerkonto. Deutsch und Englisch sowie Hell, Dunkel und System lassen sich
-in den Einstellungen umschalten. Was sich in 0.3.0 geändert hat, steht in [AENDERUNGEN-0.3.0.md](AENDERUNGEN-0.3.0.md).
+in den Einstellungen umschalten. Was sich in 0.3.0 geändert hat, steht auf Englisch und Deutsch in [CHANGES.md](CHANGES.md).
 
 Die Finanzregeln stehen in [FINANZEN.md](FINANZEN.md).
 
@@ -112,16 +117,22 @@ stehen die Buchungen, darüber die Prognosen. Weitere Listen führen zu
 Fixkosten, variablen Kosten, Einkaufszettel, Sparplänen und Budgetpools.
 
 **Challenges** verbinden Kalender, Wiederholungen, Streaks und einen
-Belohnungsshop mit Coin-Wallet. Termine und Erinnerungen vom iPhone lassen
+Belohnungsshop mit Coin-Wallet. Fest dabei sind Sport, Abstinenz und Sonstiges.
+Weitere Kategorien lassen sich anlegen, auch mit eigener Überschrift. Eine
+Abstinenz läuft über einen Timer, zahlt jeden Tag Coins und einen Bonus, wenn
+eine Zeitstufe auf den aktuellen Tag fällt. Eine Challenge kann eine Dauer
+haben und sich einen Termin teilen. Termine und Erinnerungen vom iPhone lassen
 sich nach ausdrücklicher Freigabe übernehmen.
 
-**Gesundheit** enthält Trainingspläne. Übungen kommen aus einer lokalen
-Datenbank, inklusive eigener Übungen, die nicht in der Datenbank stehen.
-Ernährung ist noch nicht verfügbar.
+**Gesundheit** enthält Trainingspläne. Ein Training startet einen Timer.
+Übungen kommen aus einer lokalen Datenbank, inklusive eigener Übungen, die
+nicht in der Datenbank stehen. Ernährung ist noch nicht verfügbar.
 
-**Einstellungen** halten Sprache, Erscheinungsbild, Trainingsklingelton,
-Standardkonto und Gebühr fürs Depot, Konten, Import, Sicherung sowie Kalender
-und Erinnerungen. Die angezeigte Version ist 0.3.0.
+**Einstellungen** halten Name und Geburtsdatum, Sprache, Erscheinungsbild, das
+tägliche Briefing mit einer eigenen Uhrzeit je Wochentag, den
+Trainingsklingelton, Standardkonto und Gebühr fürs Depot, Konten, Import,
+Sicherung sowie Kalender und Erinnerungen. Am Geburtstag gibt es einmal im
+Jahr 500 Coins. Die angezeigte Version ist 0.3.0.
 
 ### Ersteinrichtung
 
@@ -129,7 +140,7 @@ Beim ersten Start fragt Lifify nacheinander:
 
 1. Sprache
 2. Neue Einrichtung oder JSON-Sicherung
-3. Begrüßungsname
+3. Begrüßungsname und Geburtsdatum. Am Geburtstag gibt es einmal im Jahr 500 Coins.
 4. Budgetzeitraum, Kalendermonat oder Gehalt
 5. Hauptkonto mit IBAN. Das Konto ist verpflichtend und lässt sich später
    nicht löschen.

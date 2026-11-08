@@ -26,6 +26,9 @@ struct OnboardingView: View {
     @AppStorage("onboardingStep") private var step = 0
 
     @State private var userName = ""
+    @State private var birthDate = UserProfile.birthDate() ?? UserProfile.suggestedDate()
+    @State private var initialBirth = UserProfile.birthDate() ?? UserProfile.suggestedDate()
+    @State private var birthConfirmed = UserProfile.birth() != nil
     @State private var periodMode = DashboardPeriodMode.calendarMonth
     @State private var accountName = ""
     @State private var accountIBAN = ""
@@ -112,7 +115,15 @@ struct OnboardingView: View {
                     }
                 }
             }
-            .onAppear { onboardingInProgress = true }
+            .onAppear {
+                onboardingInProgress = true
+                if userName.isEmpty { userName = storedName }
+                if let stored = UserProfile.birthDate() {
+                    birthDate = stored
+                    initialBirth = stored
+                    birthConfirmed = true
+                }
+            }
         }
     }
 
@@ -153,17 +164,32 @@ struct OnboardingView: View {
     private var nameStep: some View {
         Section {
             TextField(L("Dein Name", "Your name"), text: $userName)
+            DatePicker(
+                L("Geburtsdatum", "Date of birth"),
+                selection: $birthDate,
+                in: ...Date(),
+                displayedComponents: .date
+            )
+            .onChange(of: birthDate) {
+                if UserProfile.birth() != nil || !Calendar.current.isDate(birthDate, inSameDayAs: initialBirth) {
+                    birthConfirmed = true
+                }
+            }
         } header: {
             Text(L("Willkommen", "Welcome"))
         } footer: {
-            Text(L("Der Name wird nur lokal für deine Begrüßung verwendet.", "The name is stored locally only for your greeting."))
+            Text(L(
+                "Der Name wird nur lokal für deine Begrüßung verwendet. Stell das Geburtsdatum auf deinen Tag, dann geht es weiter. Am Geburtstag gibt es einmal im Jahr 500 Coins. Der 29. Februar fällt in einem Jahr ohne diesen Tag auf den 28. Februar.",
+                "The name is stored locally only for your greeting. Set the date of birth to your day, then you can continue. Your birthday pays 500 coins once each year. In a year without 29 February, that birthday falls on 28 February."
+            ))
         }
         Section {
             nextButton {
                 storedName = userName.trimmingCharacters(in: .whitespacesAndNewlines)
+                UserProfile.setBirthDate(birthDate)
                 step = 3
             }
-            .disabled(userName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            .disabled(userName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !birthConfirmed)
         }
     }
 
@@ -721,6 +747,7 @@ struct OnboardingView: View {
         isFinishing = false
         onboardingInProgress = false
         hasCompletedOnboarding = true
+        BirthdayBonusService.settle(context: context)
     }
 
     private func restoreBackup(_ result: Result<[URL], Error>) {
@@ -744,6 +771,7 @@ struct OnboardingView: View {
             step = 0
             onboardingInProgress = false
             hasCompletedOnboarding = true
+            BirthdayBonusService.settle(context: context)
         } catch {
             message = error.localizedDescription
         }

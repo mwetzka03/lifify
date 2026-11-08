@@ -61,8 +61,21 @@ private struct GeneralSettingsView: View {
     @AppStorage("appTheme") private var theme = AppTheme.system.rawValue
     @AppStorage(AppClock.modeKey) private var developerMode = false
     @AppStorage(AppClock.dayKey) private var developerDay = 0.0
+    @AppStorage("userName") private var userName = ""
+    @AppStorage(UserProfile.birthKey) private var birthRaw = ""
     @AppStorage(LififyNotifications.briefingEnabledKey) private var briefingEnabled = true
     @AppStorage(LififyNotifications.briefingRevisionKey) private var briefingRevision = 0
+
+    private var birthSelection: Binding<Date> {
+        Binding(
+            get: { UserProfile.birthDate() ?? UserProfile.suggestedDate() },
+            set: { newValue in
+                UserProfile.setBirthDate(newValue)
+                birthRaw = UserProfile.birthRaw()
+                BirthdayBonusService.settle(context: context)
+            }
+        )
+    }
 
     private var developerModeBinding: Binding<Bool> {
         Binding(
@@ -103,6 +116,27 @@ private struct GeneralSettingsView: View {
 
     var body: some View {
         Form {
+            Section {
+                TextField(L("Name", "Name"), text: $userName)
+                DatePicker(
+                    L("Geburtsdatum", "Date of birth"),
+                    selection: birthSelection,
+                    in: ...Date(),
+                    displayedComponents: .date
+                )
+            } header: {
+                Text(L("Profil", "Profile"))
+            } footer: {
+                Text(birthRaw.isEmpty
+                    ? L(
+                        "Wähle dein Geburtsdatum. Das angezeigte Datum gilt erst, wenn du es änderst. Am Geburtstag gibt es einmal im Jahr 500 Coins. Der 29. Februar fällt in einem Jahr ohne diesen Tag auf den 28. Februar.",
+                        "Choose your date of birth. The date shown is saved once you change it. Your birthday pays 500 coins once each year. In a year without 29 February, that birthday falls on 28 February."
+                    )
+                    : L(
+                        "Am Geburtstag gibt es einmal im Jahr 500 Coins. Der 29. Februar fällt in einem Jahr ohne diesen Tag auf den 28. Februar.",
+                        "Your birthday pays 500 coins once each year. In a year without 29 February, that birthday falls on 28 February."
+                    ))
+            }
             Section {
                 Picker(L("Sprache", "Language"), selection: $language) {
                     Text("Deutsch").tag("de")

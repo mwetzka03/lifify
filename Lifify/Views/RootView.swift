@@ -9,6 +9,8 @@ struct RootView: View {
     @Query private var challenges: [ChallengeItem]
     @AppStorage("appLanguage") private var language = "de"
     @AppStorage("appTheme") private var theme = AppTheme.system.rawValue
+    @AppStorage(AppClock.modeKey) private var developerMode = false
+    @AppStorage(AppClock.dayKey) private var developerDay = 0.0
     @StateObject private var workouts = WorkoutStore()
     @StateObject private var financeFilters = FinanceFilterStore()
     @State private var selectedTab = 0
@@ -52,6 +54,9 @@ struct RootView: View {
             SavingsPlanFixedCosts.sync(context: context)
             await MarketDataService.refresh(holdings: holdings, context: context)
         }
+        .onAppear { BirthdayBonusService.settle(context: context) }
+        .onChange(of: developerMode) { BirthdayBonusService.settle(context: context) }
+        .onChange(of: developerDay) { BirthdayBonusService.settle(context: context) }
         .task(id: scenePhase) {
             guard scenePhase == .active else { return }
             await EventKitSyncService().sync(
@@ -61,6 +66,7 @@ struct RootView: View {
                 promptForAccess: false
             )
             AbstinenceService.settle(context: context)
+            BirthdayBonusService.settle(context: context)
             await DailyBriefingService.refresh(context: context)
             await DailyBriefingService.scheduleAbstinence(context: context)
         }
