@@ -587,6 +587,10 @@ struct HomeView: View {
             ChallengeTimeStore.challengeIDs(on: event.id, legacy: event.linkedChallengeID).compactMap { challengeID in
                 guard seen.insert(challengeID).inserted,
                       let challenge = challenges.first(where: { $0.id == challengeID }),
+                      ChallengeCheckoff.allowsHand(
+                          category: challenge.category,
+                          linkedWorkouts: WorkoutLinkStore.planIDs(forChallenge: challenge.id).count
+                      ),
                       !ChallengeService.isCompleted(challenge, on: AppClock.now, completions: completions)
                 else { return nil }
                 return (event, challenge)

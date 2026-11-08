@@ -202,6 +202,47 @@ enum Nutrient: String, CaseIterable, Identifiable {
     }
 }
 
+/// How a meal sits on the plate. Fast food is the shop purchase. Whole and balanced earn the clean-day bonus.
+enum MealKind: String, Codable, CaseIterable, Identifiable {
+    case whole
+    case balanced
+    case hearty
+    case sweet
+    case fastFood
+    case alcohol
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .whole: L("Unverarbeitet", "Whole food")
+        case .balanced: L("Ausgewogen", "Balanced")
+        case .hearty: L("Deftig", "Hearty")
+        case .sweet: L("Süß", "Sweet")
+        case .fastFood: L("Fast Food", "Fast food")
+        case .alcohol: L("Alkohol", "Alcohol")
+        }
+    }
+
+    static func resolved(_ raw: String) -> MealKind {
+        let cleaned = raw
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: " ", with: "")
+            .replacingOccurrences(of: "_", with: "")
+            .replacingOccurrences(of: "-", with: "")
+            .lowercased()
+        switch cleaned {
+        case "whole", "wholefood", "unverarbeitet": return .whole
+        case "balanced", "ausgewogen": return .balanced
+        case "hearty", "deftig": return .hearty
+        case "sweet", "suess", "süß": return .sweet
+        case "fastfood": return .fastFood
+        case "alcohol", "alkohol": return .alcohol
+        default: return .balanced
+        }
+    }
+}
+
 enum MealSource: String, Codable {
     case manual
     case photo
@@ -223,6 +264,13 @@ struct MealRecord: Codable, Identifiable, Equatable {
     var status: MealStatus
     var photoName: String?
     var nutrients: [String: Double]
+    var kindRaw: String
+    var chargeID: UUID?
+
+    var kind: MealKind {
+        get { MealKind.resolved(kindRaw) }
+        set { kindRaw = newValue.rawValue }
+    }
 
     init(
         id: UUID = UUID(),
@@ -234,7 +282,9 @@ struct MealRecord: Codable, Identifiable, Equatable {
         source: MealSource,
         status: MealStatus,
         photoName: String? = nil,
-        nutrients: [String: Double] = [:]
+        nutrients: [String: Double] = [:],
+        kind: MealKind = .balanced,
+        chargeID: UUID? = nil
     ) {
         self.id = id
         self.dayKey = dayKey
@@ -246,16 +296,62 @@ struct MealRecord: Codable, Identifiable, Equatable {
         self.status = status
         self.photoName = photoName
         self.nutrients = nutrients
+        self.kindRaw = kind.rawValue
+        self.chargeID = chargeID
     }
 
     func amount(_ nutrient: Nutrient) -> Double {
         nutrients[nutrient.rawValue] ?? 0
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, dayKey, title, note, correction, createdAt, source, status, photoName, nutrients, kindRaw, chargeID
+    }
+
+    init(from decoder: Decoder) throws {
+        let box = try decoder.container(keyedBy: CodingKeys.self)
+        id = try box.decode(UUID.self, forKey: .id)
+        dayKey = try box.decode(String.self, forKey: .dayKey)
+        title = try box.decode(String.self, forKey: .title)
+        note = try box.decodeIfPresent(String.self, forKey: .note) ?? ""
+        correction = try box.decodeIfPresent(String.self, forKey: .correction) ?? ""
+        createdAt = try box.decodeIfPresent(Date.self, forKey: .createdAt) ?? .now
+        source = try box.decode(MealSource.self, forKey: .source)
+        status = try box.decode(MealStatus.self, forKey: .status)
+        photoName = try box.decodeIfPresent(String.self, forKey: .photoName)
+        nutrients = try box.decodeIfPresent([String: Double].self, forKey: .nutrients) ?? [:]
+        kindRaw = try box.decodeIfPresent(String.self, forKey: .kindRaw) ?? MealKind.balanced.rawValue
+        chargeID = try box.decodeIfPresent(UUID.self, forKey: .chargeID)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var box = encoder.container(keyedBy: CodingKeys.self)
+        try box.encode(id, forKey: .id)
+        try box.encode(dayKey, forKey: .dayKey)
+        try box.encode(title, forKey: .title)
+        try box.encode(note, forKey: .note)
+        try box.encode(correction, forKey: .correction)
+        try box.encode(createdAt, forKey: .createdAt)
+        try box.encode(source, forKey: .source)
+        try box.encode(status, forKey: .status)
+        try box.encodeIfPresent(photoName, forKey: .photoName)
+        try box.encode(nutrients, forKey: .nutrients)
+        try box.encode(kindRaw, forKey: .kindRaw)
+        try box.encodeIfPresent(chargeID, forKey: .chargeID)
     }
 }
 
 enum NutritionCopy {
     static var recognitionPending: String {
         L("Die Erkennung ist noch nicht verbunden.", "Recognition is not connected yet.")
+    }
+
+    static var recognitionFailed: String {
+        L("Die Erkennung hat nicht geantwortet. Die Werte kannst du selbst setzen.", "Recognition did not answer. You can set the values yourself.")
+    }
+
+    static var recognizing: String {
+        L("Das Foto wird gelesen.", "The photo is being read.")
     }
 
     static var emptyDay: String {
@@ -267,9 +363,46 @@ enum NutritionCopy {
     }
 }
 
-/// Photo recognition stays off until an API key is connected. See ERNAEHRUNG.md.
+/// Photo recognition follows the Gemini key stored under Health. See ERNAEHRUNG.md.
 enum MealRecognition {
-    static let isConnected = false
+    static let keyAccount = "gemini.api.key"
+    static let model = "gemini-2.5-flash"
+
+    static var isConnected: Bool {
+        connected(hasKey: !(KeychainStore.string(account: keyAccount) ?? "").isEmpty)
+    }
+
+    static func connected(hasKey: Bool) -> Bool { hasKey }
+}
+
+/// Coins for a day at or under the calorie target, and the shop price of fast food.
+enum MealScore {
+    static let baseCoins = 20
+    static let cleanBonus = 10
+    static let fastFoodPrice = 25
+
+    static func points(for kind: MealKind) -> Int {
+        switch kind {
+        case .whole: 2
+        case .balanced: 1
+        case .hearty: 0
+        case .sweet: -1
+        case .alcohol: -1
+        case .fastFood: -2
+        }
+    }
+
+    static func buysFastFood(_ kinds: [MealKind]) -> Bool {
+        kinds.contains(.fastFood)
+    }
+
+    /// Zero when the day has no confirmed food, no target, or sits over the target.
+    /// A day of only whole and balanced meals adds the clean bonus.
+    static func coins(eaten: Int, target: Int?, kinds: [MealKind]) -> Int {
+        guard let target, target > 0, eaten > 0, eaten <= target else { return 0 }
+        let clean = !kinds.isEmpty && kinds.allSatisfy { points(for: $0) > 0 }
+        return baseCoins + (clean ? cleanBonus : 0)
+    }
 }
 
 enum NutritionPlan {
@@ -283,6 +416,13 @@ enum NutritionPlan {
             .replacingOccurrences(of: " ", with: "")
             .replacingOccurrences(of: ",", with: ".")
         return Double(cleaned) ?? 0
+    }
+
+    static func date(from key: String, calendar: Calendar = .current) -> Date? {
+        let parts = key.split(separator: "-").compactMap { Int($0) }
+        guard parts.count == 3 else { return nil }
+        return calendar.date(from: DateComponents(year: parts[0], month: parts[1], day: parts[2]))
+            .map { calendar.startOfDay(for: $0) }
     }
 
     static func dayKey(_ date: Date, calendar: Calendar = .current) -> String {

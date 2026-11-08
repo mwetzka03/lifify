@@ -21,12 +21,17 @@ struct ChallengesView: View {
     @AppStorage(ChallengeCategoryStore.revisionKey) private var categoryRevision = 0
     @AppStorage(AppClock.modeKey) private var developerMode = false
     @AppStorage(AppClock.dayKey) private var developerDay = 0.0
+    @AppStorage(ChallengePinStore.revisionKey) private var pinRevision = 0
+    @AppStorage(WorkoutLinkStore.revisionKey) private var workoutLinkRevision = 0
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 recommendationsCard
                 filterCard
+                if !completedTab, !pinnedChallenges.isEmpty {
+                    pinnedBoard
+                }
                 if completedTab {
                     completedBoard
                 } else {
@@ -267,6 +272,39 @@ struct ChallengesView: View {
         .appGlassCard(radius: 18)
     }
 
+    private var pinnedChallenges: [ChallengeItem] {
+        let _ = pinRevision
+        let _ = workoutLinkRevision
+        let active = challenges.filter { challenge in
+            !challenge.isArchived && ChallengeActivity.staysOnActiveList(
+                recurrence: challenge.recurrence,
+                hasCompletion: completions.contains { $0.challengeID == challenge.id }
+            )
+        }
+        let byID = Dictionary(uniqueKeysWithValues: active.map { ($0.id, $0) })
+        return ChallengePinStore.ids().compactMap { byID[$0] }
+    }
+
+    private var pinnedBoard: some View {
+        let cards = pinnedChallenges
+        let pairCount = cards.count - cards.count % 2
+        return VStack(alignment: .leading, spacing: 8) {
+            Text(L("Angepinnt", "Pinned"))
+                .appText(.section)
+            VStack(spacing: 10) {
+                ForEach(Array(stride(from: 0, to: pairCount, by: 2)), id: \.self) { start in
+                    EqualHeightPair {
+                        challengeCard(cards[start])
+                        challengeCard(cards[start + 1])
+                    }
+                }
+                if cards.count % 2 == 1, let last = cards.last {
+                    challengeCard(last)
+                }
+            }
+        }
+    }
+
     private var filterCard: some View {
         VStack(spacing: 10) {
             Picker(L("Status", "Status"), selection: $completedTab) {
@@ -339,11 +377,22 @@ struct ChallengesView: View {
     }
 
     private func challengeSection(_ section: ChallengeSections.Section) -> some View {
+        let pinned = Set(ChallengePinStore.ids())
         let cards = section.challengeIDs.compactMap { id in
-            filteredChallenges.first { $0.id == id }
+            filteredChallenges.first { $0.id == id && !pinned.contains($0.id) }
         }
-        return VStack(alignment: .leading, spacing: 8) {
-            if section.showsTitle {
+        return Group {
+            if cards.isEmpty, section.id != "abstinence", section.id != "sport" {
+                EmptyView()
+            } else {
+                sectionStack(section, cards: cards)
+            }
+        }
+    }
+
+    private func sectionStack(_ section: ChallengeSections.Section, cards: [ChallengeItem]) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if section.showsTitle, !cards.isEmpty {
                 Text(sectionTitle(section))
                     .appText(.section)
             }
@@ -509,13 +558,44 @@ struct ChallengesView: View {
             } label: {
                 Label(L("Löschen", "Delete"), systemImage: "trash")
             }
+            pinButton(challenge)
+        }
+        .overlay(alignment: .topTrailing) {
+            if ChallengePinStore.contains(challenge.id) {
+                Image(systemName: "pin.fill")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .padding(8)
+            }
         }
     }
 
+    private func pinButton(_ challenge: ChallengeItem) -> some View {
+        let pinned = ChallengePinStore.contains(challenge.id)
+        let full = ChallengePinStore.ids().count >= ChallengePinStore.limit
+        return Button {
+            ChallengePinStore.toggle(challenge.id)
+        } label: {
+            Label(
+                pinned ? L("Lösen", "Unpin") : L("Anpinnen", "Pin"),
+                systemImage: pinned ? "pin.slash" : "pin"
+            )
+        }
+        .disabled(!pinned && full)
+    }
+
     private func regularChallengeRow(_ challenge: ChallengeItem) -> some View {
+        let _ = pinRevision
+        let _ = workoutLinkRevision
         let doneToday = ChallengeService.isCompleted(challenge, on: AppClock.now, completions: completions)
         let gray = ChallengeActivity.dimsActiveRow(recurrence: challenge.recurrence, completedToday: doneToday)
+        let handLocked = !ChallengeCheckoff.allowsHand(
+            category: challenge.category,
+            linkedWorkouts: WorkoutLinkStore.planIDs(forChallenge: challenge.id).count
+        )
+        let pinned = ChallengePinStore.contains(challenge.id)
         return Button {
+            guard !handLocked else { return }
             ChallengeService.toggleCompletion(
                 challenge: challenge,
                 date: AppClock.now,
@@ -532,11 +612,21 @@ struct ChallengesView: View {
                     Text(challenge.title)
                         .foregroundStyle(gray ? Color.secondary : Color.primary)
                         .lineLimit(2)
+                    if pinned {
+                        Image(systemName: "pin.fill")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
                     Spacer(minLength: 8)
                     Image(systemName: doneToday ? "checkmark.circle.fill" : "circle")
                         .foregroundStyle(gray ? Color.secondary : Color.green)
                 }
                 challengeMeta(challenge)
+                if handLocked {
+                    Text(L("Zählt, wenn das Training beendet ist.", "Counts when the workout is finished."))
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
                 if gray {
                     Text(L("Heute erledigt", "Done today"))
                         .font(.caption2)
@@ -560,6 +650,7 @@ struct ChallengesView: View {
             } label: {
                 Label(L("Löschen", "Delete"), systemImage: "trash")
             }
+            pinButton(challenge)
         }
     }
 
@@ -569,6 +660,7 @@ struct ChallengesView: View {
             context.delete(completion)
         }
         IconPreferenceStore.remove(for: challenge.id)
+        ChallengePinStore.unpin(challenge.id)
         ReminderLinkStore.remove(for: challenge.externalIdentifier)
         StreakSettings.remove(for: challenge.id)
         AbstinenceSettings.remove(for: challenge.id)
@@ -1032,6 +1124,7 @@ private struct ChallengeGroupDetailView: View {
     @AppStorage(AppClock.modeKey) private var developerMode = false
     @AppStorage(AppClock.dayKey) private var developerDay = 0.0
     @State private var edited: ChallengeItem?
+    @AppStorage(ChallengePinStore.revisionKey) private var pinRevision = 0
     let group: ChallengeGroup
 
     var body: some View {
@@ -1082,12 +1175,20 @@ private struct ChallengeGroupDetailView: View {
             }
             .appAccentTint()
         }
+        .contextMenu { groupPinButton(challenge) }
     }
 
     private func groupRegularRow(_ challenge: ChallengeItem) -> some View {
+        let _ = pinRevision
         let doneToday = ChallengeService.isCompleted(challenge, on: AppClock.now, completions: completions)
         let gray = ChallengeActivity.dimsActiveRow(recurrence: challenge.recurrence, completedToday: doneToday)
+        let handLocked = !ChallengeCheckoff.allowsHand(
+            category: challenge.category,
+            linkedWorkouts: WorkoutLinkStore.planIDs(forChallenge: challenge.id).count
+        )
+        let pinned = ChallengePinStore.contains(challenge.id)
         return Button {
+            guard !handLocked else { return }
             ChallengeService.toggleCompletion(
                 challenge: challenge,
                 date: AppClock.now,
@@ -1100,12 +1201,24 @@ private struct ChallengeGroupDetailView: View {
             HStack {
                 AppSymbolImage(name: IconPreferenceStore.icon(for: challenge.id, fallback: "target"))
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(challenge.title)
-                        .foregroundStyle(gray ? Color.secondary : Color.primary)
+                    HStack(spacing: 4) {
+                        Text(challenge.title)
+                            .foregroundStyle(gray ? Color.secondary : Color.primary)
+                        if pinned {
+                            Image(systemName: "pin.fill")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
                     if let caption = groupCalendarCaption(challenge) {
                         Text(caption)
                             .font(.caption2)
                             .foregroundStyle(Color.green)
+                    }
+                    if handLocked {
+                        Text(L("Zählt, wenn das Training beendet ist.", "Counts when the workout is finished."))
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
                     }
                     if gray {
                         Text(L("Heute erledigt", "Done today"))
@@ -1136,6 +1249,22 @@ private struct ChallengeGroupDetailView: View {
             }
             .appAccentTint()
         }
+        .contextMenu { groupPinButton(challenge) }
+    }
+
+    private func groupPinButton(_ challenge: ChallengeItem) -> some View {
+        let _ = pinRevision
+        let pinned = ChallengePinStore.contains(challenge.id)
+        let full = ChallengePinStore.ids().count >= ChallengePinStore.limit
+        return Button {
+            ChallengePinStore.toggle(challenge.id)
+        } label: {
+            Label(
+                pinned ? L("Lösen", "Unpin") : L("Anpinnen", "Pin"),
+                systemImage: pinned ? "pin.slash" : "pin"
+            )
+        }
+        .disabled(!pinned && full)
     }
 
     private func groupCalendarCaption(_ challenge: ChallengeItem) -> String? {
@@ -1153,6 +1282,7 @@ private struct ChallengeGroupDetailView: View {
             context.delete(completion)
         }
         IconPreferenceStore.remove(for: challenge.id)
+        ChallengePinStore.unpin(challenge.id)
         ReminderLinkStore.remove(for: challenge.externalIdentifier)
         StreakSettings.remove(for: challenge.id)
         AbstinenceSettings.remove(for: challenge.id)

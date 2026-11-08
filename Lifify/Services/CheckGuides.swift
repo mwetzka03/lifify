@@ -270,8 +270,8 @@ enum CheckGuides {
         ),
         "Gesundheit, Einstellungen und Glasflächen zeigen dieselben Titel": g(
             "HealthScreen.sectionTitles(), SettingsDirectory.rows(), AppChrome.glassScreens, AppChrome.version",
-            "Vor dem Schrägstrich stehen die Titel, die Gesundheit zeigt. Dahinter steht die Version 0.4.0. Die Einstellungen beginnen mit Nutzer. Die Essenserkennung ist nicht verbunden.",
-            "Before the slash are the titles Health shows. After it is version 0.4.0. Settings start with User. Food recognition is not connected."
+            "Vor dem Schrägstrich stehen die Titel, die Gesundheit zeigt. Dahinter steht die Version 0.4.0. Die Einstellungen beginnen mit Nutzer. Ohne Schlüssel bleibt der Satz, dass die Erkennung nicht verbunden ist.",
+            "Before the slash are the titles Health shows. After it is version 0.4.0. Settings start with User. Without a key the sentence still says recognition is not connected."
         ),
         "Hell und Dunkel haben eigene Flächen": g(
             "AppLook.modesDiffer(palette:), AppLook.canvasTop(_:palette:), AppLook.cardFill(_:palette:)",
@@ -402,6 +402,26 @@ enum CheckGuides {
             "NutritionPlan.dayTarget(weightKg:heightCm:age:sex:goal:trained:), NutritionPlan.restingCalories(weightKg:heightCm:age:sex:)",
             "Die vier Zahlen sind die Tagesziele in kcal: Frau 30/165/70 beim Fett verlieren, dieselbe Person beim Halten, Mann 25/180/80 beim Muskelaufbau, und dieselbe Frau ohne Geschlechtsangabe beim Halten. Ohne Gewicht gibt es kein Ziel.",
             "The four numbers are the daily targets in kcal: a woman of 30/165/70 losing fat, the same person maintaining, a man of 25/180/80 building muscle, and the same woman with sex unspecified while maintaining. Without a weight there is no target."
+        ),
+        "Fast Food kostet Coins und ein sauberer Tag zahlt": g(
+            "MealScore.coins(eaten:target:kinds:), MealScore.fastFoodPrice, MealScore.buysFastFood(_:)",
+            "Die Messung ist 25, 30, 20, 0. 25 ist der Shop-Preis von Fast Food. 30 sind die Coins eines sauberen Tags unter dem Ziel, 20 die Coins eines Fast-Food-Tags unter dem Ziel, und 0 ein Tag darüber.",
+            "The reading is 25, 30, 20, 0. 25 is the shop price of fast food. 30 is the coins of a clean day under the target, 20 the coins of a fast-food day under the target, and 0 a day over it."
+        ),
+        "Höchstens vier Challenges bleiben angepinnt": g(
+            "ChallengePinStore.kept(_:adding:limit:), ChallengePinStore.removed(_:_:)",
+            "Die Messung ist 4, 3. Vier angepinnte Challenges nehmen keine fünfte auf. Löst man eine, bleiben drei.",
+            "The reading is 4, 3. Four pinned challenges do not take a fifth. Unpinning one leaves three."
+        ),
+        "Eine gekoppelte Sport-Challenge lässt sich nicht abhaken": g(
+            "ChallengeCheckoff.allowsHand(category:linkedWorkouts:)",
+            "Die Messung lautet sport, other. Sport mit einem verknüpften Training lässt sich nicht von Hand abhaken. Sport ohne Training und Sonstiges mit einem Training lassen sich abhaken.",
+            "The reading says sport, other. Sport with one linked workout cannot be checked off by hand. Sport without a workout, and Other with one workout, can."
+        ),
+        "Schlüssel, Depot und Ernährung folgen derselben Regel": g(
+            "MealRecognition.connected(hasKey:), DepotLoad.shouldSpin(ready:opened:), NutritionLedger.challengeMark",
+            "Die Messung ist ready, 25, 4. Ein Schlüssel verbindet die Erkennung, ein fehlender nicht. Eine bereite Depotansicht zeigt die Ladekachel nicht wieder. Fast Food kostet 25 Coins, und höchstens vier Challenges bleiben angepinnt.",
+            "The reading is ready, 25, 4. A key connects recognition, and a missing one does not. A ready portfolio does not show the loading card again. Fast food costs 25 coins, and at most four challenges stay pinned."
         ),
         "Ein Trainingstag hebt das Kalorienziel": g(
             "NutritionPlan.trained(on:sessions:calendar:), NutritionPlan.dayTarget(weightKg:heightCm:age:sex:goal:trained:), NutritionPlan.onDay(_:meals:), SettingsDirectory.rows(), DepotLoad.showsBoard(ready:)",

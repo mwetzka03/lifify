@@ -3,7 +3,8 @@
 [English](#english) · [Deutsch](#deutsch)
 
 This is what the nutrition board is for. The board itself is in the app.
-Photo recognition is not connected, and no photo leaves the device.
+Photo recognition calls Gemini 2.5 Flash when a key is saved under Settings,
+Health. Without that key, the photo stays on the device.
 
 ## English
 
@@ -17,11 +18,28 @@ The goal is lose fat, maintain, or build muscle. A finished workout on that
 day adds 250 kcal. The line under the board says the figure is an estimate,
 not medical advice.
 
-A meal can be added by hand. A photo can be attached too. Until recognition
-is connected, the photo stays on the device and the values start empty. The
-meal stays a draft. The person can type the values and tap Correct, or write
-feedback and keep only that feedback. Confirming stores the meal on that day.
-Deleting removes the meal and its photo.
+A meal can be added by hand. A photo can be attached too. With a Gemini key
+under Health, the photo is sent and the reading fills the meal. Without a
+key, the photo stays on the device and the values start empty. The meal stays
+a draft until Correct. The person can type the values, or write feedback and
+send the same photo again. Confirming stores the meal on that day. Deleting
+removes the meal and its photo.
+
+Tapping the date in the middle of the day bar opens a calendar. The arrows
+still move one day. A future day cannot be selected.
+
+Each meal has a kind: whole food, balanced, hearty, sweet, fast food, or
+alcohol. The model picks one. The person can change it. Fast food buys the
+Fast Food reward in the shop for 25 coins, even if the balance goes negative.
+Changing the kind, or deleting the meal, refunds that purchase.
+
+Staying at or under the calorie target pays the challenge Under the calorie
+target. It lives under More, is daily, uses streaks, and is pinned the first
+time it is created. The day pays 20 coins, or 30 when every confirmed meal
+is whole food or balanced. Over the target, or a day with no confirmed meal,
+pays nothing. The board shows that amount, including the streak multiplier,
+and the fast-food debit in red. Archiving or unpinning the challenge does
+not create a second one. Deleting it does.
 
 Each meal can hold calories, protein, carbohydrates, fat, saturated fat,
 omega-3, omega-6, fiber, vitamin D, vitamin B12, vitamin C, calcium, iron,
@@ -62,37 +80,39 @@ The result does not go under a floor: 1200 for female, 1500 for male, and
 floor. Example: a woman of 30 years, 165 cm, and 70 kg who wants to lose fat
 lands on 1448 kcal, or 1698 kcal if she trained that day.
 
-### What recognition should do later
+### What recognition does
 
-The main path is a photo of the plate. The model names the meal, estimates
-the portion, and fills the nutrients above. The person sees that reading
-before it is stored. If it is right, Correct stores it. If it is wrong, the
-correction goes back with the same photo. Example: the photo is pasta, the
-model says spaghetti bolognese, about one plate, and the person answers that
-it is only pasta with tomato sauce, half a plate. The revised reading is
-shown again before it is stored.
+The main path is a photo of the plate. Gemini names the meal, picks a kind,
+estimates the portion, and fills the nutrients above. The person sees that
+reading before it is stored. If it is right, Correct stores it. If it is
+wrong, the correction goes back with the same photo. Example: the photo is
+pasta, the model says spaghetti bolognese, about one plate, and the person
+answers that it is only pasta with tomato sauce, half a plate. The revised
+reading is shown again before it is stored.
 
 Hand entry stays available. The body profile, the goal, and whether a workout
-was logged that day are part of the request, so the portion and the target
-can use them. Nothing is sent until the person adds their own API key and
-turns recognition on. The key stays on the device. There is no Lifify
-account and no Lifify server for this.
+was logged that day are part of the request, so the portion can use them.
+Nothing is sent until a Gemini key is saved under Health. The key stays in
+the keychain on this device. It is not in backups and it is not logged.
+There is no Lifify account and no Lifify server for this. If the request
+fails, the photo stays, and the person can fill the values by hand.
 
-### Which API fits
+### Which API the app calls
 
-OpenAI **GPT-4.1** through the Responses API is the best fit. It accepts the
-photo, it can be told to answer with a fixed JSON schema, and a second turn
-can take the person's correction without starting over. The request would
-carry the image, the draft nutrients, the correction text, age, height,
-weight, sex, the goal, and whether that day has a workout.
+The app calls Google **Gemini 2.5 Flash** at
+`generativelanguage.googleapis.com`, model `gemini-2.5-flash`, with the
+header `x-goog-api-key`. The photo is a JPEG whose long edge is at most 768
+pixels. The answer is one JSON object. A failed call is tried once more
+without the thinking setting. After 1 December 2026 Google routes that model
+name to Gemini 3.5 Flash-Lite at the same standard paid rate. The free tier
+is $0, and Google may use that content to improve its products. The paid
+rate is $0.30 per million input tokens and $2.50 per million output tokens.
+A personal month of a few meal photos is under $1 on the paid rate.
 
-Google **Gemini 2.5 Flash** is the cheaper alternative with the same shape:
-one image, one JSON object, one follow-up turn. It is the right second
-choice if the cost of GPT-4.1 is too high. Portion sizes are the part to
-compare before switching.
-
-Either way the app should trust only the JSON fields it knows, show them for
-confirmation, and keep the photo local if the request fails.
+OpenAI **GPT-4.1** is not connected. It remains the alternative if the Gemini
+reading is not good enough: $2 per million input tokens and $8 per million
+output tokens, or $0.40 and $1.60 for GPT-4.1 mini. ChatGPT Plus does not
+pay the API.
 
 ## Deutsch
 
@@ -108,11 +128,29 @@ Training an dem Tag gibt 250 kcal dazu. Unter der Ansicht steht, dass die
 Zahl eine Schätzung ist und keine medizinische Beratung.
 
 Eine Mahlzeit lässt sich von Hand anlegen. Ein Foto kann auch angehängt
-werden. Solange die Erkennung nicht verbunden ist, bleibt das Foto auf dem
-Gerät und die Werte starten leer. Die Mahlzeit bleibt ein Entwurf. Die Person
-kann die Werte eintragen und auf Stimmt tippen, oder eine Rückmeldung
-schreiben und nur die behalten. Bestätigen speichert die Mahlzeit an dem Tag.
-Löschen entfernt die Mahlzeit und ihr Foto.
+werden. Mit einem Gemini-Schlüssel unter Gesundheit wird das Foto geschickt
+und die Lesung füllt die Mahlzeit. Ohne Schlüssel bleibt das Foto auf dem
+Gerät und die Werte starten leer. Die Mahlzeit bleibt ein Entwurf, bis Stimmt
+sie speichert. Die Person kann die Werte eintragen oder eine Rückmeldung
+schreiben und dasselbe Foto noch einmal schicken. Bestätigen speichert die
+Mahlzeit an dem Tag. Löschen entfernt die Mahlzeit und ihr Foto.
+
+Ein Tipp auf das Datum in der Mitte der Tagesleiste öffnet einen Kalender.
+Die Pfeile wechseln weiter einen Tag. Ein späterer Tag geht nicht.
+
+Jede Mahlzeit hat eine Art: unverarbeitet, ausgewogen, deftig, süß, Fast Food
+oder Alkohol. Das Modell wählt eine. Die Person kann sie ändern. Fast Food
+kauft die Belohnung Fast Food im Shop für 25 Coins, auch wenn das Guthaben
+dabei negativ wird. Ändert man die Art oder löscht die Mahlzeit, wird der
+Kauf erstattet.
+
+Wer am oder unter dem Kalorienziel bleibt, bekommt die Challenge Unter dem
+Kalorienziel. Sie steht unter Weitere, ist täglich, nutzt Streaks und wird
+beim ersten Anlegen angepinnt. Der Tag zahlt 20 Coins, oder 30, wenn jede
+bestätigte Mahlzeit unverarbeitet oder ausgewogen ist. Über dem Ziel, oder
+ein Tag ohne bestätigte Mahlzeit, zahlt nichts. Die Ansicht zeigt diesen
+Betrag inklusive Streak-Faktor und den Fast-Food-Abzug in Rot. Archivieren
+oder Lösen legt keine zweite Challenge an. Löschen schon.
 
 Jede Mahlzeit kann Kalorien, Eiweiß, Kohlenhydrate, Fett, gesättigte
 Fettsäuren, Omega-3, Omega-6, Ballaststoffe, Vitamin D, Vitamin B12,
@@ -155,36 +193,39 @@ männlich und 1350 ohne Angabe. Ein abgeschlossenes Training gibt danach
 verlieren will, landet bei 1448 kcal, oder bei 1698 kcal, wenn sie an dem
 Tag trainiert hat.
 
-### Was die Erkennung später tun soll
+### Was die Erkennung tut
 
-Der Hauptweg ist ein Foto vom Teller. Das Modell nennt die Mahlzeit, schätzt
-die Portion und füllt die Nährstoffe oben. Die Person sieht diese Lesung,
-bevor sie gespeichert wird. Stimmt sie, speichert Stimmt sie. Stimmt sie
-nicht, geht die Korrektur mit demselben Foto zurück. Beispiel: das Foto zeigt
-Nudeln, das Modell sagt Spaghetti Bolognese, etwa ein Teller, und die Person
-antwortet, es seien nur Nudeln mit Tomatensauce, ein halber Teller. Die neue
-Lesung wird wieder gezeigt, bevor sie gespeichert wird.
+Der Hauptweg ist ein Foto vom Teller. Gemini nennt die Mahlzeit, wählt eine
+Art, schätzt die Portion und füllt die Nährstoffe oben. Die Person sieht
+diese Lesung, bevor sie gespeichert wird. Stimmt sie, speichert Stimmt sie.
+Stimmt sie nicht, geht die Korrektur mit demselben Foto zurück. Beispiel: das
+Foto zeigt Nudeln, das Modell sagt Spaghetti Bolognese, etwa ein Teller, und
+die Person antwortet, es seien nur Nudeln mit Tomatensauce, ein halber
+Teller. Die neue Lesung wird wieder gezeigt, bevor sie gespeichert wird.
 
 Die Eingabe von Hand bleibt. Das Körperprofil, das Ziel und ob an dem Tag ein
-Training gespeichert ist, gehören zur Anfrage, damit Portion und Ziel sie
-nutzen können. Es wird nichts geschickt, bis die Person einen eigenen
-API-Schlüssel einträgt und die Erkennung einschaltet. Der Schlüssel bleibt
-auf dem Gerät. Dafür gibt es kein Lifify-Konto und keinen Lifify-Server.
+Training gespeichert ist, gehören zur Anfrage, damit die Portion sie nutzen
+kann. Es wird nichts geschickt, bis unter Gesundheit ein Gemini-Schlüssel
+steht. Der Schlüssel bleibt im Schlüsselbund auf diesem Gerät. Er steht nicht
+in Sicherungen und nicht in Protokollen. Dafür gibt es kein Lifify-Konto und
+keinen Lifify-Server. Schlägt die Anfrage fehl, bleibt das Foto, und die
+Person kann die Werte von Hand setzen.
 
-### Welche API passt
+### Welche API die App aufruft
 
-OpenAI **GPT-4.1** über die Responses-API passt am besten. Sie nimmt das
-Foto, sie lässt sich auf ein festes JSON-Schema festlegen, und eine zweite
-Runde kann die Korrektur der Person aufnehmen, ohne von vorn zu beginnen. Die
-Anfrage würde das Bild, die Entwurfsnährstoffe, den Korrekturtext, Alter,
-Größe, Gewicht, Geschlecht, das Ziel und ob der Tag ein Training hat,
-mitnehmen.
+Die App ruft Google **Gemini 2.5 Flash** unter
+`generativelanguage.googleapis.com` auf, Modell `gemini-2.5-flash`, mit dem
+Header `x-goog-api-key`. Das Foto ist ein JPEG, dessen lange Kante höchstens
+768 Pixel hat. Die Antwort ist ein JSON-Objekt. Eine fehlgeschlagene Anfrage
+wird einmal ohne die Thinking-Einstellung wiederholt. Ab dem 1. Dezember 2026
+leitet Google diesen Modellnamen auf Gemini 3.5 Flash-Lite um, zum selben
+bezahlten Standardpreis. Die kostenlose Stufe ist 0 $, und Google darf diese
+Inhalte zur Verbesserung seiner Produkte nutzen. Der bezahlte Preis ist
+0,30 $ je Million Eingabe-Tokens und 2,50 $ je Million Ausgabe-Tokens. Ein
+persönlicher Monat mit wenigen Essensfotos liegt auf dem bezahlten Preis
+unter 1 $.
 
-Google **Gemini 2.5 Flash** ist die günstigere Alternative mit derselben
-Form: ein Bild, ein JSON-Objekt, eine Nachrunde. Sie ist die richtige zweite
-Wahl, wenn GPT-4.1 zu teuer ist. Die Portionsgrößen sind der Teil, den man
-vor einem Wechsel vergleichen sollte.
-
-In beiden Fällen sollte die App nur die JSON-Felder glauben, die sie kennt,
-sie zur Bestätigung zeigen und das Foto lokal behalten, wenn die Anfrage
-fehlschlägt.
+OpenAI **GPT-4.1** ist nicht verbunden. Sie bleibt die Alternative, wenn die
+Gemini-Lesung nicht reicht: 2 $ je Million Eingabe-Tokens und 8 $ je Million
+Ausgabe-Tokens, oder 0,40 $ und 1,60 $ für GPT-4.1 mini. ChatGPT Plus zahlt
+die API nicht.

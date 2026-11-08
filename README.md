@@ -36,14 +36,20 @@ and reminders from the iPhone can be imported after you explicitly allow access.
 
 **Health** holds workout plans. Starting a workout runs a timer. Exercises come
 from a local database, including exercises you add yourself when they are not
-in that database. Nutrition is a day board for meals, calories, and the other
-nutrients. A photo can be attached, and the values can be entered or corrected
-by hand. Recognition is not connected yet, so no photo leaves the device.
-The requirements are in [ERNAEHRUNG.md](ERNAEHRUNG.md). Abstinence lives with the
-challenges.
+in that database. Exercise pictures drop a near-white background and sit on a
+tinted rounded tile. Nutrition is a day board for meals, calories, and the other
+nutrients. The arrows move one day, and tapping the date jumps to another day.
+A photo can be attached. With a Gemini key under Settings, Health, the photo
+is read and classified. Without a key it stays on the device. Fast food buys
+the Fast Food reward for 25 coins. Staying at or under the calorie target pays
+the pinned challenge Under the calorie target. The requirements are in
+[ERNAEHRUNG.md](ERNAEHRUNG.md). Abstinence lives with the challenges. A sport
+challenge linked to a workout is completed only by finishing that workout.
+Up to four challenges can be pinned to the top of the challenges page.
 
-**Settings** start with User: name, date of birth, height, weight, sex, and the
-goal. General holds language, appearance, style, a daily
+**Settings** start with User: name, date of birth, height in centimetres, weight
+in kilograms, sex, and the goal. The title sits on one line. Health holds the
+Gemini key. General holds language, appearance, style, a daily
 briefing with its own time for each weekday, the workout chime, the default
 account and fee for the portfolio, accounts, import, backup, and calendar and
 reminders. The birthday pays 500 coins once that year. The version shown there
@@ -98,9 +104,9 @@ read.
 
 Portfolio prices come from Yahoo Finance, at launch and through **Update
 prices**. A German listing is preferred. If the request fails, the manual
-price stays. For this, the ISIN is sent to those public endpoints. No other
-user data leaves the device. Meal photos stay on the device. Recognition is
-not connected, so a photo is not sent anywhere.
+price stays. For this, the ISIN is sent to those public endpoints. A meal photo
+is sent to Gemini only when a key is saved under Health. The key stays in the
+keychain and is not part of a backup. Without a key, no photo leaves the device.
 
 Lifify reads calendars and reminders only after you explicitly allow it,
 through the system. It does not store passwords for that.
@@ -143,14 +149,23 @@ sich nach ausdrücklicher Freigabe übernehmen.
 
 **Gesundheit** enthält Trainingspläne. Ein Training startet einen Timer.
 Übungen kommen aus einer lokalen Datenbank, inklusive eigener Übungen, die
-nicht in der Datenbank stehen. Ernährung ist eine Tagesansicht für Mahlzeiten,
-Kalorien und die übrigen Nährstoffe. Ein Foto kann angehängt werden, die Werte
-lassen sich von Hand eintragen oder korrigieren. Die Erkennung ist noch nicht
-verbunden, deshalb verlässt kein Foto das Gerät. Die Anforderungen stehen in
-[ERNAEHRUNG.md](ERNAEHRUNG.md). Abstinenz liegt bei den Challenges.
+nicht in der Datenbank stehen. Übungsbilder verlieren einen fast weißen Grund
+und liegen auf einer gefärbten, abgerundeten Kachel. Ernährung ist eine
+Tagesansicht für Mahlzeiten, Kalorien und die übrigen Nährstoffe. Die Pfeile
+wechseln einen Tag, ein Tipp auf das Datum springt zu einem anderen Tag. Ein
+Foto kann angehängt werden. Mit einem Gemini-Schlüssel unter Einstellungen,
+Gesundheit, wird das Foto gelesen und eingeordnet. Ohne Schlüssel bleibt es
+auf dem Gerät. Fast Food kauft die Belohnung Fast Food für 25 Coins. Wer am
+oder unter dem Kalorienziel bleibt, bekommt die angepinnte Challenge Unter dem
+Kalorienziel. Die Anforderungen stehen in [ERNAEHRUNG.md](ERNAEHRUNG.md).
+Abstinenz liegt bei den Challenges. Eine Sport-Challenge mit einem verknüpften
+Training gilt nur als erledigt, wenn dieses Training beendet wurde. Bis zu
+vier Challenges lassen sich oben auf der Challenges-Seite anpinnen.
 
-**Einstellungen** beginnen mit Nutzer: Name, Geburtsdatum, Größe, Gewicht,
-Geschlecht und das Ziel. Allgemein hält Sprache, Erscheinungsbild, den Stil, das
+**Einstellungen** beginnen mit Nutzer: Name, Geburtsdatum, Größe in Zentimetern,
+Gewicht in Kilogramm, Geschlecht und das Ziel. Die Überschrift steht in einer
+Zeile. Gesundheit hält den Gemini-Schlüssel. Allgemein hält Sprache,
+Erscheinungsbild, den Stil, das
 tägliche Briefing mit einer eigenen Uhrzeit je Wochentag, den
 Trainingsklingelton, Standardkonto und Gebühr fürs Depot, Konten, Import,
 Sicherung sowie Kalender und Erinnerungen. Am Geburtstag gibt es einmal im
@@ -207,8 +222,9 @@ und MT940 werden nicht gelesen.
 Depotkurse kommen von Yahoo Finance, beim Start und über **Kurse aktualisieren**.
 Eine deutsche Notierung wird bevorzugt. Schlägt der Abruf fehl, bleibt der
 manuelle Kurs. Dafür wird die ISIN an diese öffentlichen Endpunkte geschickt.
-Andere Nutzerdaten verlassen das Gerät nicht. Fotos von Mahlzeiten bleiben auf
-dem Gerät. Die Erkennung ist nicht verbunden, deshalb wird kein Foto verschickt.
+Ein Essensfoto geht nur dann an Gemini, wenn unter Gesundheit ein Schlüssel
+steht. Der Schlüssel bleibt im Schlüsselbund und gehört nicht zur Sicherung.
+Ohne Schlüssel verlässt kein Foto das Gerät.
 
 Kalender und Erinnerungen liest Lifify nur nach ausdrücklicher Freigabe über
 das System. Dafür werden keine Passwörter gespeichert.

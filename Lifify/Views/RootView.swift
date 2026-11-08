@@ -59,6 +59,7 @@ struct RootView: View {
         .task {
             SavingsPlanRunner.bookDue(context: context)
             SavingsPlanFixedCosts.sync(context: context)
+            NutritionLedger.settle(context: context, sessions: workouts.sessions)
             await MarketDataService.refresh(holdings: holdings, context: context)
         }
         .onAppear { BirthdayBonusService.settle(context: context) }

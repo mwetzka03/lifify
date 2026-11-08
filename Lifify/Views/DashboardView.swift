@@ -56,10 +56,10 @@ struct DashboardView: View {
                     List {
                     Section {
                         if filters.showsDepot {
-                            if DepotLoad.showsBoard(ready: depotReady) {
-                                depotContent(period)
-                            } else {
+                            if DepotLoad.shouldSpin(ready: depotReady, opened: true) {
                                 summaryLoading
+                            } else {
+                                depotContent(period)
                             }
                         } else if let summary, summarySelection == selectionToken {
                             financeSummary(
@@ -151,29 +151,26 @@ struct DashboardView: View {
                     .appAccentTint()
                     .listSectionSpacing(FinanceMoreDirectory.sectionSpacing)
                 }
-                .task(id: forecastToken) {
-                    if filters.showsDepot {
+                .task(id: filters.showsDepot) {
+                    guard filters.showsDepot else {
                         depotReady = false
-                        summary = nil
-                        summarySelection = nil
-                        await Task.yield()
-                        try? await Task.sleep(for: .milliseconds(280))
-                        guard !Task.isCancelled else { return }
-                        warmFinanceStores()
-                        await Task.yield()
-                        guard !Task.isCancelled else { return }
-                        SavingsPlanRunner.bookDue(context: context)
-                        await Task.yield()
-                        guard !Task.isCancelled else { return }
-                        SavingsPlanFixedCosts.sync(context: context)
-                        await Task.yield()
-                        guard !Task.isCancelled else { return }
-                        depotReady = true
                         return
                     }
-                    depotReady = false
-                    try? await Task.sleep(for: .milliseconds(400))
-                    guard !Task.isCancelled else { return }
+                    if DepotLoad.shouldSpin(ready: depotReady, opened: true) {
+                        await Task.yield()
+                        try? await Task.sleep(for: .milliseconds(32))
+                        guard !Task.isCancelled else { return }
+                        depotReady = true
+                    }
+                    SavingsPlanRunner.bookDue(context: context)
+                    SavingsPlanFixedCosts.sync(context: context)
+                }
+                .task(id: forecastToken) {
+                    guard !filters.showsDepot else { return }
+                    if summarySelection != selectionToken {
+                        try? await Task.sleep(for: .milliseconds(400))
+                        guard !Task.isCancelled else { return }
+                    }
                     await refreshSummary()
                 }
             } else {
@@ -196,10 +193,6 @@ struct DashboardView: View {
         .navigationTitle(isMainTab ? "" : L("Finanzen", "Finance"))
         .navigationBarTitleDisplayMode(.inline)
         .modifier(FinanceDestinationRegistration(isEnabled: path == nil))
-        .onAppear {
-            SavingsPlanRunner.bookDue(context: context)
-            SavingsPlanFixedCosts.sync(context: context)
-        }
         .sheet(item: $editingBooking) { entry in
             TransactionFormView(entry: entry, splits: splits)
         }

@@ -1,8 +1,13 @@
 import PhotosUI
+import SwiftData
 import SwiftUI
 
 struct NutritionBoard: View {
+    @Environment(\.modelContext) private var context
     @EnvironmentObject private var store: WorkoutStore
+    @Query private var challenges: [ChallengeItem]
+    @Query private var completions: [ChallengeCompletion]
+    @Query private var calendarEvents: [ChallengeCalendarEvent]
     @AppStorage(UserProfile.birthKey) private var birthRaw = ""
     @AppStorage(UserBody.heightKey) private var heightRaw = 0.0
     @AppStorage(UserBody.weightKey) private var weightRaw = 0.0
@@ -13,6 +18,8 @@ struct NutritionBoard: View {
     @State private var edited: MealRecord?
     @State private var photoItem: PhotosPickerItem?
     @State private var showsPhotoPicker = false
+    @State private var showsDayPicker = false
+    @State private var recognizing = false
 
     var body: some View {
         let calendar = Calendar.current
@@ -44,15 +51,46 @@ struct NutritionBoard: View {
                 .foregroundStyle(.secondary)
         }
         .onAppear(perform: reload)
+        .onChange(of: day) {
+            let start = min(calendar.startOfDay(for: day), today)
+            if start != day { day = start }
+        }
+        .sheet(isPresented: $showsDayPicker) {
+            NavigationStack {
+                DatePicker(
+                    L("Tag", "Day"),
+                    selection: $day,
+                    in: ...Date(),
+                    displayedComponents: .date
+                )
+                .datePickerStyle(.graphical)
+                .padding()
+                .navigationTitle(L("Tag", "Day"))
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button(L("Fertig", "Done")) { showsDayPicker = false }
+                    }
+                }
+            }
+            .presentationDetents([.medium])
+        }
         .onChange(of: photoItem) { _, item in
             guard let item else { return }
             Task { await attach(item, on: key) }
         }
         .sheet(item: $edited) { meal in
-            MealEditor(meal: meal) { saved in
+            MealEditor(
+                meal: meal,
+                trained: NutritionPlan.trained(
+                    on: NutritionPlan.date(from: meal.dayKey) ?? day,
+                    sessions: store.sessions
+                )
+            ) { saved in
                 MealLog.upsert(saved)
                 reload()
             } onDelete: { removed in
+                NutritionLedger.forget(removed, context: context)
                 MealPhotoStore.remove(removed.photoName)
                 MealLog.remove(id: removed.id)
                 reload()
@@ -70,13 +108,19 @@ struct NutritionBoard: View {
             }
             .buttonStyle(.plain)
             Spacer()
-            VStack(spacing: 2) {
-                Text(calendar.isDate(day, inSameDayAs: today) ? L("Heute", "Today") : AppDate.weekdayWide(day))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Text(AppDate.numeric(day))
-                    .font(.headline)
+            Button {
+                showsDayPicker = true
+            } label: {
+                VStack(spacing: 2) {
+                    Text(calendar.isDate(day, inSameDayAs: today) ? L("Heute", "Today") : AppDate.weekdayWide(day))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text(AppDate.numeric(day))
+                        .font(.headline)
+                        .foregroundStyle(.primary)
+                }
             }
+            .buttonStyle(.plain)
             Spacer()
             Button {
                 shift(by: 1, calendar: calendar, today: today)
@@ -111,6 +155,7 @@ struct NutritionBoard: View {
                     nutrientLine(L("Übrig", "Left"), "\(target - eaten) kcal")
                 }
                 nutrientLine(Nutrient.protein.label, "\(protein) \(Nutrient.protein.unit)")
+                calorieReward(target: target, meals: meals)
                 if trained {
                     Text(L(
                         "Training an diesem Tag: +\(NutritionPlan.trainingBonus) kcal.",
@@ -126,6 +171,7 @@ struct NutritionBoard: View {
                 ))
                 .foregroundStyle(.secondary)
             }
+            fastFoodCharge(meals)
             Text("\(BodyGoal.resolved(goalRaw).label) · \(BodySex.resolved(sexRaw).label)")
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -150,11 +196,12 @@ struct NutritionBoard: View {
             Button {
                 showsPhotoPicker = true
             } label: {
-                Label(L("Foto", "Photo"), systemImage: "camera")
+                Label(recognizing ? NutritionCopy.recognizing : L("Foto", "Photo"), systemImage: recognizing ? "hourglass" : "camera")
                     .frame(maxWidth: .infinity)
                     .padding(14)
                     .appGlassCard(radius: 18)
             }
+            .disabled(recognizing)
             .buttonStyle(.plain)
             .photosPicker(isPresented: $showsPhotoPicker, selection: $photoItem, matching: .images)
             Button {
@@ -194,6 +241,7 @@ struct NutritionBoard: View {
                 .buttonStyle(.plain)
                 .contextMenu {
                     Button(role: .destructive) {
+                        NutritionLedger.forget(meal, context: context)
                         MealPhotoStore.remove(meal.photoName)
                         MealLog.remove(id: meal.id)
                         reload()
@@ -227,6 +275,7 @@ struct NutritionBoard: View {
     private func mealCaption(_ meal: MealRecord) -> String {
         let protein = NutritionPlan.rounded(.protein, meals: [meal])
         var parts = ["\(protein) \(Nutrient.protein.unit) \(Nutrient.protein.label)"]
+        parts.append(meal.kind.label)
         if meal.status == .draft { parts.append(L("Entwurf", "Draft")) }
         if meal.source == .photo, !MealRecognition.isConnected {
             parts.append(NutritionCopy.recognitionPending)
@@ -239,25 +288,115 @@ struct NutritionBoard: View {
         day = min(calendar.startOfDay(for: next), today)
     }
 
+    private func calorieReward(target: Int?, meals: [MealRecord]) -> some View {
+        let confirmed = meals.filter { $0.status == .confirmed }
+        let eaten = NutritionPlan.rounded(.calories, meals: confirmed)
+        let base = MealScore.coins(eaten: eaten, target: target, kinds: confirmed.map(\.kind))
+        let challenge = challenges.first { $0.externalIdentifier == NutritionLedger.challengeMark }
+        let streak = challenge.map {
+            ChallengeService.status(for: $0, endingOn: day, completions: completions, events: calendarEvents).count
+        } ?? 0
+        let coins: Int
+        if let challenge, base > 0 {
+            coins = ChallengeService.projectedCoins(
+                challenge: challenge,
+                on: day,
+                completions: completions,
+                events: calendarEvents,
+                baseCoins: base
+            )
+        } else {
+            coins = base
+        }
+        return HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(L("Unter dem Kalorienziel", "Under the calorie target"))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                if streak > 0 {
+                    Text("\(L("Serie", "Streak")) \(streak)")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            Spacer()
+            if coins > 0 {
+                CoinAmountView(amount: coins, showsPlus: true)
+            } else {
+                Text(L("0 Coins", "0 coins"))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func fastFoodCharge(_ meals: [MealRecord]) -> some View {
+        let count = meals.filter { $0.kind == .fastFood }.count
+        if count > 0 {
+            HStack {
+                Text(L("Fast Food im Shop", "Fast food in the shop"))
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Text("−\(count * MealScore.fastFoodPrice)")
+                    .foregroundStyle(.red)
+            }
+            .font(.caption)
+        }
+    }
+
     private func reload() {
+        NutritionLedger.settle(context: context, sessions: store.sessions)
         meals = MealLog.all()
+    }
+
+    private func person(on key: String) -> MealPerson {
+        let measures = UserBody.current()
+        let calendar = Calendar.current
+        let date = NutritionPlan.date(from: key, calendar: calendar) ?? day
+        let age = UserProfile.birth().map { NutritionPlan.age(birth: $0, on: date, calendar: calendar) } ?? 30
+        return MealPerson(
+            heightCm: measures.heightCm,
+            weightKg: measures.weightKg,
+            age: age,
+            sex: measures.sex.label,
+            goal: measures.goal.label,
+            trained: NutritionPlan.trained(on: date, sessions: store.sessions, calendar: calendar)
+        )
     }
 
     private func attach(_ item: PhotosPickerItem, on key: String) async {
         let data = try? await item.loadTransferable(type: Data.self)
         let id = UUID()
         let photoName = data.flatMap { MealPhotoStore.save($0, id: id) }
-        let meal = MealRecord(
+        var meal = MealRecord(
             id: id,
             dayKey: key,
             title: L("Mahlzeit", "Meal"),
-            note: NutritionCopy.recognitionPending,
+            note: MealRecognition.isConnected ? NutritionCopy.recognizing : NutritionCopy.recognitionPending,
             source: .photo,
             status: .draft,
             photoName: photoName
         )
         MealLog.upsert(meal)
         photoItem = nil
+        reload()
+        guard MealRecognition.isConnected, let data else {
+            edited = meal
+            return
+        }
+        recognizing = true
+        let reading = await MealRecognition.read(image: data, person: person(on: key), correction: "")
+        recognizing = false
+        if let reading {
+            meal.title = reading.title
+            meal.kind = reading.kind
+            meal.note = reading.note
+            meal.nutrients = reading.nutrients
+        } else {
+            meal.note = NutritionCopy.recognitionFailed
+        }
+        MealLog.upsert(meal)
         reload()
         edited = meal
     }
@@ -268,10 +407,12 @@ private struct MealEditor: View {
     @State private var meal: MealRecord
     @State private var amounts: [String: String]
     @State private var showsMore = false
+    @State private var rereading = false
+    let trained: Bool
     let onSave: (MealRecord) -> Void
     let onDelete: (MealRecord) -> Void
 
-    init(meal: MealRecord, onSave: @escaping (MealRecord) -> Void, onDelete: @escaping (MealRecord) -> Void) {
+    init(meal: MealRecord, trained: Bool, onSave: @escaping (MealRecord) -> Void, onDelete: @escaping (MealRecord) -> Void) {
         _meal = State(initialValue: meal)
         var text: [String: String] = [:]
         for nutrient in Nutrient.allCases {
@@ -279,6 +420,7 @@ private struct MealEditor: View {
             text[nutrient.rawValue] = value > 0 ? MealEditor.amountText(value) : ""
         }
         _amounts = State(initialValue: text)
+        self.trained = trained
         self.onSave = onSave
         self.onDelete = onDelete
     }
@@ -288,8 +430,14 @@ private struct MealEditor: View {
             Form {
                 Section {
                     TextField(L("Name", "Name"), text: $meal.title)
+                    Picker(L("Art", "Kind"), selection: Binding(
+                        get: { meal.kind },
+                        set: { meal.kind = $0 }
+                    )) {
+                        ForEach(MealKind.allCases) { Text($0.label).tag($0) }
+                    }
                     if meal.source == .photo {
-                        Text(NutritionCopy.recognitionPending)
+                        Text(MealRecognition.isConnected ? meal.note : NutritionCopy.recognitionPending)
                             .font(.caption)
                             .foregroundStyle(.secondary)
                         TextField(
@@ -315,14 +463,20 @@ private struct MealEditor: View {
                 .appGlassRow()
                 if meal.source == .photo, meal.status == .draft {
                     Section {
-                        Button(L("Nur Rückmeldung merken", "Keep the feedback only")) {
-                            store(status: .draft)
+                        Button(rereading ? NutritionCopy.recognizing : L("Nur Rückmeldung merken", "Keep the feedback only")) {
+                            Task { await keepFeedback() }
                         }
+                        .disabled(rereading)
                     } footer: {
-                        Text(L(
-                            "Die Rückmeldung bleibt auf dem Gerät. Sie geht erst raus, wenn die Erkennung verbunden ist.",
-                            "The feedback stays on the device. It is sent only once recognition is connected."
-                        ))
+                        Text(MealRecognition.isConnected
+                            ? L(
+                                "Die Rückmeldung geht mit dem Foto noch einmal an die Erkennung. Stimmt übernimmt die Werte.",
+                                "The feedback goes back to recognition with the photo. Correct keeps the values."
+                            )
+                            : L(
+                                "Die Rückmeldung bleibt auf dem Gerät. Sie geht erst raus, wenn unter Gesundheit ein Schlüssel steht.",
+                                "The feedback stays on the device. It is sent only once a key is saved under Health."
+                            ))
                     }
                     .appGlassRow()
                 }
@@ -370,6 +524,41 @@ private struct MealEditor: View {
             get: { amounts[nutrient.rawValue] ?? "" },
             set: { amounts[nutrient.rawValue] = $0 }
         )
+    }
+
+    private func keepFeedback() async {
+        guard MealRecognition.isConnected,
+              let name = meal.photoName,
+              let data = MealPhotoStore.load(name)
+        else {
+            store(status: .draft)
+            return
+        }
+        rereading = true
+        let measures = UserBody.current()
+        let calendar = Calendar.current
+        let date = NutritionPlan.date(from: meal.dayKey, calendar: calendar) ?? .now
+        let person = MealPerson(
+            heightCm: measures.heightCm,
+            weightKg: measures.weightKg,
+            age: UserProfile.birth().map { NutritionPlan.age(birth: $0, on: date, calendar: calendar) } ?? 30,
+            sex: measures.sex.label,
+            goal: measures.goal.label,
+            trained: trained
+        )
+        if let reading = await MealRecognition.read(image: data, person: person, correction: meal.correction) {
+            meal.title = reading.title
+            meal.kind = reading.kind
+            meal.note = reading.note
+            for nutrient in Nutrient.allCases {
+                let value = reading.nutrients[nutrient.rawValue] ?? 0
+                amounts[nutrient.rawValue] = value > 0 ? MealEditor.amountText(value) : ""
+            }
+        } else {
+            meal.note = NutritionCopy.recognitionFailed
+        }
+        rereading = false
+        store(status: .draft)
     }
 
     private func store(status: MealStatus) {

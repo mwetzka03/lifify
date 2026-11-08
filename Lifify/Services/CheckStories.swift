@@ -392,7 +392,7 @@ enum CheckStories {
             "Gesundheit, Einstellungen und die bemalten Flächen zeigen die Titel, die auf dem Bildschirm stehen.",
             "Health, Settings, and the painted screens show the titles that appear on screen.",
             ("Training, Ernährung und die sechs Einstellungszeilen werden gelesen. Nutzer steht über Allgemein.", "Training, Nutrition, and the six settings rows are read. User sits above General.", "AppChrome.swift"),
-            ("Die bemalten Flächen umfassen Home, Challenges, Gesundheit, Einstellungen, Einrichtung und Finanzen. Die Version ist 0.4.0. Die Essenserkennung ist nicht verbunden.", "The painted screens include Home, Challenges, Health, Settings, setup, and Finance. The version is 0.4.0. Food recognition is not connected.", "HealthView.swift"),
+            ("Die bemalten Flächen umfassen Home, Challenges, Gesundheit, Einstellungen, Einrichtung und Finanzen. Die Version ist 0.4.0. Ohne Schlüssel bleibt der Text, dass die Erkennung nicht verbunden ist.", "The painted screens include Home, Challenges, Health, Settings, setup, and Finance. The version is 0.4.0. Without a key the text still says recognition is not connected.", "HealthView.swift"),
         ),
         "Hell und Dunkel haben eigene Flächen": make(
             "Heller und dunkler Modus haben verschiedene Hintergrund- und Kartenfarben.",
@@ -550,11 +550,35 @@ enum CheckStories {
             ("Eine Frau, 30 Jahre, 165 cm und 70 kg, wird für Fett verlieren, Halten und die offene Angabe gelesen. Ein Mann, 25 Jahre, 180 cm und 80 kg, wird für Muskeln aufbauen gelesen.", "A woman, age 30, 165 cm and 70 kg, is read for lose fat, maintain, and unspecified. A man, age 25, 180 cm and 80 kg, is read for build muscle.", "NutritionPlan.swift"),
             ("Die Messung ist 1448, 1704, 2383 und 1804. Fehlendes Gewicht liefert kein Ziel.", "The reading is 1448, 1704, 2383, and 1804. A missing weight gives no target.", "LififyFeatureChecks.swift"),
         ),
+        "Fast Food kostet Coins und ein sauberer Tag zahlt": make(
+            "Fast Food löst einen Kauf im Shop aus. Ein Tag aus unverarbeiteten und ausgewogenen Mahlzeiten unter dem Ziel zahlt mehr als ein Fast-Food-Tag unter dem Ziel. Über dem Ziel gibt es keine Coins.",
+            "Fast food triggers a shop purchase. A day of whole and balanced meals under the target pays more than a fast-food day under the target. Over the target pays nothing.",
+            ("Der Preis und die Punkte der Arten werden gelesen.", "The price and the points of the kinds are read.", "NutritionPlan.swift"),
+            ("1000 von 1400 mit unverarbeitet und ausgewogen sind 30, dasselbe mit Fast Food ist 20, und 2000 von 1400 ist 0.", "1000 of 1400 with whole and balanced is 30, the same with fast food is 20, and 2000 of 1400 is 0.", "LififyFeatureChecks.swift"),
+        ),
+        "Höchstens vier Challenges bleiben angepinnt": make(
+            "Eine fünfte Challenge wird nicht angepinnt. Eine von vieren lässt sich lösen.",
+            "A fifth challenge is not pinned. One of four can be unpinned.",
+            ("Vier Kennungen bleiben vier, wenn eine weitere dazukommt.", "Four identifiers stay four when another is added.", "ChallengePins.swift"),
+            ("Drei werden vier, und das Lösen einer von vieren lässt drei übrig.", "Three become four, and unpinning one of four leaves three.", "LififyFeatureChecks.swift"),
+        ),
+        "Eine gekoppelte Sport-Challenge lässt sich nicht abhaken": make(
+            "Eine Sport-Challenge mit einem verknüpften Training lässt sich nicht von Hand abhaken. Ohne Training oder in einer anderen Kategorie geht das weiter.",
+            "A sport challenge linked to a workout cannot be checked off by hand. Without a workout, or in another category, it still can.",
+            ("Sport mit einem Training, Sport ohne Training und Sonstiges mit einem Training werden gelesen.", "Sport with one workout, sport with none, and Other with one workout are read.", "ChallengePins.swift"),
+            ("Nur die gekoppelte Sport-Challenge bleibt gesperrt.", "Only the linked sport challenge stays locked.", "LififyFeatureChecks.swift"),
+        ),
+        "Schlüssel, Depot und Ernährung folgen derselben Regel": make(
+            "Ein gespeicherter Schlüssel verbindet die Erkennung, ein leerer nicht. Das Depot dreht die Ladekachel nicht wieder auf, wenn es schon bereit ist. Fast Food kostet 25, und es bleiben höchstens vier Pins.",
+            "A stored key connects recognition, and an empty one does not. Portfolio does not bring the loading card back once it is ready. Fast food costs 25, and at most four pins remain.",
+            ("Verbunden wird aus dem Schlüssel gelesen, und die Ladekachel aus dem Bereit-Zustand.", "Connected is read from the key, and the loading card from the ready state.", "MealRecognition.swift"),
+            ("Die Messung ist ready, 25, 4. Das Modell ist gemini-2.5-flash, und die Kalorien-Challenge trägt die Markierung nutrition:calories.", "The reading is ready, 25, 4. The model is gemini-2.5-flash, and the calorie challenge carries the mark nutrition:calories.", "NutritionLedger.swift"),
+        ),
         "Ein Trainingstag hebt das Kalorienziel": make(
             "Ein abgeschlossenes Training an dem Tag hebt das Ziel um 250 kcal. Mahlzeiten eines anderen Tags zählen nicht mit. Nutzer steht in den Einstellungen ganz oben, und das Depot zeigt zuerst die Ladekachel.",
             "A finished workout on that day raises the target by 250 kcal. Meals from another day do not count. User is the first settings row, and Portfolio shows the loading card first.",
             ("Der 8.11.2026 hat ein Training, der 7.11. nicht. Die Mahlzeit vom 8. zählt 600 kcal, die vom 7. bleibt draußen.", "8 Nov 2026 has a workout, and 7 Nov does not. The meal on the 8th counts 600 kcal, and the one on the 7th stays out.", "NutritionPlan.swift"),
-            ("Das Ziel steigt von 1448 auf 1698. Die erste Einstellungszeile ist Nutzer. Die Depotkachel bleibt zu, bis sie bereit ist. Die Erkennung ist nicht verbunden.", "The target rises from 1448 to 1698. The first settings row is User. The portfolio card stays closed until it is ready. Recognition is not connected.", "SettingsView.swift"),
+            ("Das Ziel steigt von 1448 auf 1698. Die erste Einstellungszeile ist Nutzer. Die Depotkachel bleibt zu, bis sie bereit ist.", "The target rises from 1448 to 1698. The first settings row is User. The portfolio card stays closed until it is ready.", "SettingsView.swift"),
         ),
         "Vier Stile haben je eine helle und eine dunkle Fläche": make(
             "Grün, Blau, Bordeaux und Violett haben je eine helle und eine dunkle Fläche. Die Akzente bleiben unterscheidbar.",

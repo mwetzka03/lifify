@@ -19,7 +19,11 @@ enum LififyFeatureChecks {
             cardsUseTwoColumns(),
             sharedCardRoundsTheEnds(),
             caloriesFollowBodyAndGoal(),
-            trainingDayRaisesTheCalorieTarget()
+            trainingDayRaisesTheCalorieTarget(),
+            fastFoodCostsAndACleanDayPays(),
+            pinsStopAtFour(),
+            linkedSportCannotBeCheckedByHand(),
+            nutritionKeyDepotAndMealsFollowOneRule()
         ]
     }
 
@@ -98,7 +102,6 @@ enum LififyFeatureChecks {
             && AppChrome.glassScreens == ["home", "challenges", "health", "settings", "onboarding", "finance"]
             && AppChrome.glassScreens.contains("finance")
             && AppChrome.version == "0.4.0"
-            && !MealRecognition.isConnected
             && NutritionCopy.recognitionPending == L("Die Erkennung ist noch nicht verbunden.", "Recognition is not connected yet.")
         return LififyCheckResult(
             name: "Gesundheit, Einstellungen und Glasflächen zeigen dieselben Titel",
@@ -337,10 +340,94 @@ enum LififyFeatureChecks {
             && rows.dropFirst().first?.symbol == "gearshape.fill"
             && !DepotLoad.showsBoard(ready: false)
             && DepotLoad.showsBoard(ready: true)
-            && !MealRecognition.isConnected
         let reading = "\(active ?? 0), \(eaten), user"
         return LififyCheckResult(
             name: "Ein Trainingstag hebt das Kalorienziel",
+            passed: passed,
+            detail: passed ? nil : reading,
+            reading: reading,
+            kind: .integration,
+            topic: .training
+        )
+    }
+
+    private static func fastFoodCostsAndACleanDayPays() -> LififyCheckResult {
+        let clean = MealScore.coins(eaten: 1000, target: 1400, kinds: [.whole, .balanced])
+        let fast = MealScore.coins(eaten: 1000, target: 1400, kinds: [.fastFood])
+        let over = MealScore.coins(eaten: 2000, target: 1400, kinds: [.whole])
+        let empty = MealScore.coins(eaten: 0, target: 1400, kinds: [])
+        let passed = MealScore.fastFoodPrice == 25
+            && MealScore.buysFastFood([.balanced, .fastFood])
+            && !MealScore.buysFastFood([.whole])
+            && clean == 30
+            && fast == 20
+            && over == 0
+            && empty == 0
+            && MealScore.points(for: .fastFood) < 0
+            && MealScore.points(for: .whole) > 0
+        let reading = "\(MealScore.fastFoodPrice), \(clean), \(fast), \(over)"
+        return LififyCheckResult(
+            name: "Fast Food kostet Coins und ein sauberer Tag zahlt",
+            passed: passed,
+            detail: passed ? nil : reading,
+            reading: reading,
+            kind: .unit,
+            topic: .training
+        )
+    }
+
+    private static func pinsStopAtFour() -> LififyCheckResult {
+        let ids = (0..<4).map { _ in UUID() }
+        let held = ChallengePinStore.kept(ids, adding: UUID())
+        let grew = ChallengePinStore.kept(Array(ids.prefix(3)), adding: UUID())
+        let dropped = ChallengePinStore.removed(ids, ids[0])
+        let passed = held.count == ChallengePinStore.limit
+            && held == ids
+            && grew.count == 4
+            && dropped.count == 3
+            && !dropped.contains(ids[0])
+        let reading = "\(held.count), \(dropped.count)"
+        return LififyCheckResult(
+            name: "Höchstens vier Challenges bleiben angepinnt",
+            passed: passed,
+            detail: passed ? nil : reading,
+            reading: reading,
+            kind: .unit,
+            topic: .training
+        )
+    }
+
+    private static func linkedSportCannotBeCheckedByHand() -> LififyCheckResult {
+        let sport = ChallengeCheckoff.allowsHand(category: .sport, linkedWorkouts: 1)
+        let open = ChallengeCheckoff.allowsHand(category: .sport, linkedWorkouts: 0)
+        let other = ChallengeCheckoff.allowsHand(category: .other, linkedWorkouts: 1)
+        let passed = !sport && open && other
+        let reading = "sport, other"
+        return LififyCheckResult(
+            name: "Eine gekoppelte Sport-Challenge lässt sich nicht abhaken",
+            passed: passed,
+            detail: passed ? nil : "\(sport), \(open), \(other)",
+            reading: reading,
+            kind: .unit,
+            topic: .training
+        )
+    }
+
+    private static func nutritionKeyDepotAndMealsFollowOneRule() -> LififyCheckResult {
+        let passed = !MealRecognition.connected(hasKey: false)
+            && MealRecognition.connected(hasKey: true)
+            && MealRecognition.model == "gemini-2.5-flash"
+            && !DepotLoad.shouldSpin(ready: true, opened: true)
+            && DepotLoad.shouldSpin(ready: false, opened: true)
+            && DepotLoad.showsBoard(ready: true)
+            && MealScore.fastFoodPrice == 25
+            && ChallengePinStore.limit == 4
+            && NutritionLedger.challengeMark == "nutrition:calories"
+            && MealKind.resolved("fast_food") == .fastFood
+            && MealKind.fastFood.label == L("Fast Food", "Fast food")
+        let reading = "ready, 25, 4"
+        return LififyCheckResult(
+            name: "Schlüssel, Depot und Ernährung folgen derselben Regel",
             passed: passed,
             detail: passed ? nil : reading,
             reading: reading,

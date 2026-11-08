@@ -175,9 +175,10 @@ enum ChallengeService {
         challenge: ChallengeItem,
         on date: Date,
         completions: [ChallengeCompletion],
-        events: [ChallengeCalendarEvent]
+        events: [ChallengeCalendarEvent],
+        baseCoins: Int? = nil
     ) -> Int {
-        let base = max(challenge.rewardCoins, 0)
+        let base = max(baseCoins ?? challenge.rewardCoins, 0)
         guard StreakSettings.isEnabled(for: challenge.id) else { return base }
         let already = completions.contains {
             $0.challengeID == challenge.id && Calendar.current.isDate($0.date, inSameDayAs: date)
@@ -239,6 +240,10 @@ enum ChallengeService {
         context: ModelContext
     ) {
         guard !challenge.isReadOnly, challenge.category != .abstinence else { return }
+        guard ChallengeCheckoff.allowsHand(
+            category: challenge.category,
+            linkedWorkouts: WorkoutLinkStore.planIDs(forChallenge: challenge.id).count
+        ) else { return }
         let isNowCompleted: Bool
         let tracked: [ChallengeCompletion]
         if let completion = completions.first(where: {
@@ -278,11 +283,18 @@ enum ChallengeService {
         date: Date,
         completions: [ChallengeCompletion],
         events: [ChallengeCalendarEvent] = [],
-        context: ModelContext
+        context: ModelContext,
+        baseCoins: Int? = nil
     ) -> Bool {
         guard !challenge.isArchived, challenge.category != .abstinence else { return false }
         guard !isCompleted(challenge, on: date, completions: completions) else { return false }
-        let earned = projectedCoins(challenge: challenge, on: date, completions: completions, events: events)
+        let earned = projectedCoins(
+            challenge: challenge,
+            on: date,
+            completions: completions,
+            events: events,
+            baseCoins: baseCoins
+        )
         let completion = ChallengeCompletion(challengeID: challenge.id, date: date, earnedCoins: earned)
         context.insert(completion)
         context.insert(CoinTransaction(title: challenge.title, amount: earned, referenceID: completion.id))

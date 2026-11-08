@@ -51,8 +51,13 @@ enum HealthScreen {
 }
 
 /// The depot board stays behind the loading card until its snapshot is ready.
+/// A later change in the books does not put the card back.
 enum DepotLoad {
     static func showsBoard(ready: Bool) -> Bool { ready }
+
+    static func shouldSpin(ready: Bool, opened: Bool) -> Bool {
+        opened && !ready
+    }
 }
 
 enum ChallengeCreateCopy {

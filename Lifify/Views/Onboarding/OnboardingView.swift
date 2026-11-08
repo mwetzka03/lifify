@@ -196,10 +196,18 @@ struct OnboardingView: View {
                     birthConfirmed = true
                 }
             }
-            TextField(L("Größe in cm", "Height in cm"), text: $heightText)
-                .keyboardType(.decimalPad)
-            TextField(L("Gewicht in kg", "Weight in kg"), text: $weightText)
-                .keyboardType(.decimalPad)
+            HStack {
+                TextField("0", text: $heightText)
+                    .keyboardType(.decimalPad)
+                Text(L("Zentimeter", "Centimetres"))
+                    .foregroundStyle(.secondary)
+            }
+            HStack {
+                TextField("0", text: $weightText)
+                    .keyboardType(.decimalPad)
+                Text(L("Kilogramm", "Kilograms"))
+                    .foregroundStyle(.secondary)
+            }
             Picker(L("Geschlecht", "Sex"), selection: $sex) {
                 ForEach(BodySex.allCases) { Text($0.label).tag($0) }
             }

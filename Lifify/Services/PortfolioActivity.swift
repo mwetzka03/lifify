@@ -222,6 +222,10 @@ enum SavingsPlanStore {
 
     static func save(_ plans: [SavingsPlanRecord]) {
         guard let data = try? JSONEncoder().encode(plans) else { return }
+        if UserDefaults.standard.data(forKey: key) == data {
+            cached = plans
+            return
+        }
         UserDefaults.standard.set(data, forKey: key)
         cached = plans
         cacheRevision += 1

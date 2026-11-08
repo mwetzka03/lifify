@@ -27,7 +27,9 @@ This file is in English and in German. The finance calculations stay in
   one: 36 points high, with a little vertical padding. In the shop, the reward
   title lines up with the middle of its symbol.
 - Recommendations leave more room around each Accept button.
-- Tapping Portfolio shows the loading card before the holdings are built.
+- Tapping Portfolio shows the loading card, then the holdings. Booking due
+  savings plans no longer restarts that load. Finance does not book those
+  plans again every time the tab appears.
   Forecasts share one rounded card, and transactions share another. Search
   stays above that card. The first row rounds the top and the last row rounds
   the bottom. The holding screen puts Buy more and Sell directly under the
@@ -36,12 +38,26 @@ This file is in English and in German. The finance calculations stay in
   that same tinted card instead of a plain black or white list.
 - Nutrition is a day board under Health. It shows the calorie target, what was
   eaten, and protein, and it keeps the other nutrients on the meal. Today is
-  the default, and earlier days can be filled in. A photo can be attached, and
-  the values can be corrected or entered by hand. Confirming a photo stores
-  the meal. Feedback stays on the device until recognition is connected.
-  Settings starts with User: name, date of birth, height, weight, sex, and the
-  goal (lose fat, maintain, build muscle). Setup asks for the same. A finished
-  workout adds 250 kcal that day. The estimate is not medical advice.
+  the default. The arrows move one day, and tapping the date opens a calendar.
+  A future day cannot be selected. A photo can be attached. With a Gemini key
+  under Health, Gemini 2.5 Flash reads the meal and picks a kind: whole food,
+  balanced, hearty, sweet, fast food, or alcohol. Without a key the photo stays
+  on the device. Fast food buys the Fast Food shop reward for 25 coins and
+  refunds it if the kind changes or the meal is deleted. Staying at or under
+  the calorie target pays the daily challenge Under the calorie target, under
+  More, with streaks, pinned the first time it is created. A clean day of whole
+  and balanced meals pays 30 coins before the streak multiplier, any other day
+  under the target pays 20, and a day over the target pays nothing. The board
+  shows that amount. Settings starts with User: name, date of birth, height in
+  centimetres, weight in kilograms, sex, and the goal (lose fat, maintain,
+  build muscle). The settings title is one line. Setup asks for the same body
+  fields. A finished workout adds 250 kcal that day. The estimate is not
+  medical advice.
+- Up to four challenges can be pinned. They sit at the top of the challenges
+  page with a pin icon, and the pin can be removed. A sport challenge linked
+  to a workout cannot be checked off by hand. It counts when that workout is
+  finished. Exercise pictures drop a near-white background and sit on a tinted
+  rounded tile.
 - Finance keeps the account choice pinned at the top. The choices are bubbles
   in a row. A long name wraps to the next row, and that row shares the space
   evenly. All accounts, each account, and Portfolio stay the same views.
@@ -109,9 +125,8 @@ This file is in English and in German. The finance calculations stay in
 - Health data still survives an app reset.
 - An empty challenge list can still overlap the recommendations.
 - The week strip on Home can stop responding after one tap.
-- Food-photo recognition is prepared and not connected. No photo leaves the
-  device. The API choice and the requirements are in
-  [ERNAEHRUNG.md](ERNAEHRUNG.md).
+- OpenAI is not connected. The wired reader is Gemini, and only when a key is
+  saved. The requirements are in [ERNAEHRUNG.md](ERNAEHRUNG.md).
 - There is no snapshot test, because this environment has no Xcode.
 - Possible later work: abstinence templates, an iPad layout, widgets, and one
   shared calendar for Home and Challenges.
@@ -142,6 +157,9 @@ This file is in English and in German. The finance calculations stay in
   steht der Titel der Belohnung auf der Mitte des Symbols.
 - Die Vorschläge lassen mehr Abstand um jeden Übernehmen-Knopf.
 - Ein Tipp auf Depot zeigt zuerst die Ladekachel, danach die Positionen.
+  Ein Tipp aufs Depot zeigt die Ladekachel, danach die Positionen. Das Buchen
+  fälliger Sparpläne startet dieses Laden nicht wieder. Finanzen bucht diese
+  Pläne nicht bei jedem Erscheinen des Tabs erneut.
   Prognosen teilen sich eine abgerundete Kachel, Buchungen eine eigene. Die
   Suche bleibt über der Kachel. Die erste Zeile rundet oben, die letzte unten.
   In der Position sitzen Nachkauf und Verkaufen direkt unter dem Titel, die
@@ -150,14 +168,28 @@ This file is in English and in German. The finance calculations stay in
   nutzen dieselbe Karte statt einer schwarz-weißen Liste.
 - Ernährung ist eine Tagesansicht unter Gesundheit. Sie zeigt das Kalorienziel,
   das Gegessene und das Eiweiß, und sie merkt die übrigen Nährstoffe an der
-  Mahlzeit. Heute ist voreingestellt, frühere Tage lassen sich nachtragen. Ein
-  Foto kann angehängt werden, die Werte lassen sich korrigieren oder von Hand
-  eintragen. Ein bestätigtes Foto speichert die Mahlzeit. Eine Rückmeldung
-  bleibt auf dem Gerät, bis die Erkennung verbunden ist. Die Einstellungen
-  beginnen mit Nutzer: Name, Geburtsdatum, Größe, Gewicht, Geschlecht und das
-  Ziel (Fett verlieren, Halten, Muskeln aufbauen). Die Einrichtung fragt
-  dasselbe. Ein abgeschlossenes Training hebt den Tag um 250 kcal. Die
-  Schätzung ist keine medizinische Beratung.
+  Mahlzeit. Heute ist voreingestellt. Die Pfeile wechseln einen Tag, und ein
+  Tipp auf das Datum öffnet einen Kalender. Ein späterer Tag geht nicht. Ein
+  Foto kann angehängt werden. Mit einem Gemini-Schlüssel unter Gesundheit liest
+  Gemini 2.5 Flash die Mahlzeit und wählt eine Art: unverarbeitet, ausgewogen,
+  deftig, süß, Fast Food oder Alkohol. Ohne Schlüssel bleibt das Foto auf dem
+  Gerät. Fast Food kauft die Shop-Belohnung Fast Food für 25 Coins und erstattet
+  sie, wenn die Art sich ändert oder die Mahlzeit gelöscht wird. Wer am oder
+  unter dem Kalorienziel bleibt, bekommt die tägliche Challenge Unter dem
+  Kalorienziel unter Weitere, mit Streaks, beim ersten Anlegen angepinnt. Ein
+  sauberer Tag aus unverarbeiteten und ausgewogenen Mahlzeiten zahlt 30 Coins
+  vor dem Streak-Faktor, jeder andere Tag unter dem Ziel zahlt 20, und ein Tag
+  darüber zahlt nichts. Die Ansicht zeigt diesen Betrag. Die Einstellungen
+  beginnen mit Nutzer: Name, Geburtsdatum, Größe in Zentimetern, Gewicht in
+  Kilogramm, Geschlecht und das Ziel (Fett verlieren, Halten, Muskeln
+  aufbauen). Die Überschrift der Einstellungen steht in einer Zeile. Die
+  Einrichtung fragt dieselben Körperfelder. Ein abgeschlossenes Training hebt
+  den Tag um 250 kcal. Die Schätzung ist keine medizinische Beratung.
+- Bis zu vier Challenges lassen sich anpinnen. Sie stehen oben auf der
+  Challenges-Seite mit einem Pin-Symbol, und der Pin lässt sich lösen. Eine
+  Sport-Challenge mit einem verknüpften Training lässt sich nicht von Hand
+  abhaken. Sie zählt, wenn dieses Training beendet ist. Übungsbilder verlieren
+  einen fast weißen Grund und liegen auf einer gefärbten, abgerundeten Kachel.
 - Finanzen behält die Kontoauswahl oben fest. Die Auswahl sind Blasen in einer
   Reihe. Ein langer Name bricht in die nächste Reihe, und diese Reihe teilt
   den Platz gleichmäßig. Alle Konten, jedes Konto und das Depot bleiben
@@ -232,8 +264,8 @@ This file is in English and in German. The finance calculations stay in
 - Gesundheitsdaten überstehen ein Zurücksetzen der App weiterhin.
 - Eine leere Challenge-Liste kann die Vorschläge weiterhin überdecken.
 - Die Wochenleiste auf Home kann nach einem Tippen aufhören zu reagieren.
-- Die Erkennung von Essensfotos ist vorbereitet und nicht verbunden. Kein Foto
-  verlässt das Gerät. Die Wahl der API und die Anforderungen stehen in
+- OpenAI ist nicht verbunden. Der angeschlossene Leser ist Gemini, und nur mit
+  einem gespeicherten Schlüssel. Die Anforderungen stehen in
   [ERNAEHRUNG.md](ERNAEHRUNG.md).
 - Es gibt keinen Snapshot-Test, weil diese Umgebung kein Xcode hat.
 - Möglich später: Abstinenz-Vorlagen, ein iPad-Layout, Widgets und ein

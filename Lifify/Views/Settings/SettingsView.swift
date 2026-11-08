@@ -17,6 +17,8 @@ struct SettingsView: View {
         }
         .appGlassList()
         .navigationTitle(L("Einstellungen", "Settings"))
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbarTitleDisplayMode(.inline)
     }
 }
 
@@ -213,10 +215,8 @@ private struct UserSettingsView: View {
                     in: ...Date(),
                     displayedComponents: .date
                 )
-                TextField(L("Größe in cm", "Height in cm"), text: $heightText)
-                    .keyboardType(.decimalPad)
-                TextField(L("Gewicht in kg", "Weight in kg"), text: $weightText)
-                    .keyboardType(.decimalPad)
+                MeasureField(title: L("Zentimeter", "Centimetres"), text: $heightText)
+                MeasureField(title: L("Kilogramm", "Kilograms"), text: $weightText)
                 Picker(L("Geschlecht", "Sex"), selection: $sex) {
                     ForEach(BodySex.allCases) { Text($0.label).tag($0) }
                 }
@@ -226,12 +226,12 @@ private struct UserSettingsView: View {
             } footer: {
                 Text(birthRaw.isEmpty
                     ? L(
-                        "Wähle dein Geburtsdatum. Das angezeigte Datum gilt erst, wenn du es änderst. Am Geburtstag gibt es einmal im Jahr 500 Coins. Größe, Gewicht und Ziel setzen das Kalorienziel. Die Erkennung von Essensfotos ist noch nicht verbunden.",
-                        "Choose your date of birth. The date shown is saved once you change it. Your birthday pays 500 coins once each year. Height, weight, and the goal set the calorie target. Food-photo recognition is not connected yet."
+                        "Wähle dein Geburtsdatum. Das angezeigte Datum gilt erst, wenn du es änderst. Am Geburtstag gibt es einmal im Jahr 500 Coins. Größe, Gewicht und Ziel setzen das Kalorienziel. Den Schlüssel für die Erkennung trägst du unter Gesundheit ein.",
+                        "Choose your date of birth. The date shown is saved once you change it. Your birthday pays 500 coins once each year. Height, weight, and the goal set the calorie target. The recognition key is entered under Health."
                     )
                     : L(
-                        "Am Geburtstag gibt es einmal im Jahr 500 Coins. Größe, Gewicht und Ziel setzen das Kalorienziel. Ein Training an dem Tag hebt es. Die Erkennung von Essensfotos ist noch nicht verbunden.",
-                        "Your birthday pays 500 coins once each year. Height, weight, and the goal set the calorie target. A workout that day raises it. Food-photo recognition is not connected yet."
+                        "Am Geburtstag gibt es einmal im Jahr 500 Coins. Größe, Gewicht und Ziel setzen das Kalorienziel. Ein Training an dem Tag hebt es. Den Schlüssel für die Erkennung trägst du unter Gesundheit ein.",
+                        "Your birthday pays 500 coins once each year. Height, weight, and the goal set the calorie target. A workout that day raises it. The recognition key is entered under Health."
                     ))
             }
             .appGlassRow()
@@ -715,11 +715,39 @@ private struct AbstinenceMultiplierRow: View {
     }
 }
 
+private struct MeasureField: View {
+    let title: String
+    @Binding var text: String
+
+    var body: some View {
+        HStack {
+            TextField("0", text: $text)
+                .keyboardType(.decimalPad)
+            Text(title)
+                .foregroundStyle(.secondary)
+        }
+    }
+}
+
 private struct HealthSettingsView: View {
     @AppStorage(RestChime.storageKey) private var restChimeID = 1005
+    @State private var geminiKey = ""
 
     var body: some View {
         Form {
+            Section {
+                SecureField(L("Gemini-Schlüssel", "Gemini key"), text: $geminiKey)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+            } header: {
+                Text(L("Ernährung", "Nutrition"))
+            } footer: {
+                Text(L(
+                    "Der Schlüssel bleibt auf diesem Gerät. Ein Essensfoto wird nur mit diesem Schlüssel an Gemini geschickt. Ohne Schlüssel bleibt das Foto hier.",
+                    "The key stays on this device. A meal photo is sent to Gemini only with this key. Without a key the photo stays here."
+                ))
+            }
+            .appGlassRow()
             Section {
                 NavigationLink {
                     RestChimePicker(selection: $restChimeID)
@@ -739,6 +767,17 @@ private struct HealthSettingsView: View {
         .appGlassList()
         .navigationTitle(L("Gesundheit", "Health"))
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear {
+            geminiKey = KeychainStore.string(account: MealRecognition.keyAccount) ?? ""
+        }
+        .onChange(of: geminiKey) {
+            let trimmed = geminiKey.trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmed.isEmpty {
+                KeychainStore.remove(account: MealRecognition.keyAccount)
+            } else {
+                KeychainStore.set(trimmed, account: MealRecognition.keyAccount)
+            }
+        }
     }
 }
 

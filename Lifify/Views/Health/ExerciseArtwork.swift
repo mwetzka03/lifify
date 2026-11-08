@@ -28,7 +28,8 @@ struct ExerciseArtwork: View {
     private var framed: some View {
         artwork
             .frame(width: side, height: side)
-            .appTintedPlate(radius: 12)
+            .appTintedPlate(radius: corner)
+            .clipShape(RoundedRectangle(cornerRadius: corner, style: .continuous))
             .overlay {
                 if isLoadingVideo {
                     ProgressView()
@@ -64,8 +65,10 @@ struct ExerciseArtwork: View {
         guard let data,
               let source = CGImageSourceCreateWithData(data as CFData, nil),
               let image = CGImageSourceCreateImageAtIndex(source, 0, nil) else { return nil }
-        return Image(decorative: image, scale: 1, orientation: .up)
+        return Image(decorative: ArtworkMatte.withoutWhite(image), scale: 1, orientation: .up)
     }
+
+    private var corner: CGFloat { min(10, max(6, side * 0.28)) }
 
     private func openVideo() {
         guard !isLoadingVideo, ExerciseMedia.isRemote(code) else { return }
@@ -142,7 +145,44 @@ private struct ExerciseVideoSheet: View {
 
     private func stillFrame(_ data: Data) -> CGImage? {
         guard let source = CGImageSourceCreateWithData(data as CFData, nil) else { return nil }
-        return CGImageSourceCreateImageAtIndex(source, 0, nil)
+        return CGImageSourceCreateImageAtIndex(source, 0, nil).map(ArtworkMatte.withoutWhite)
+    }
+}
+
+enum ArtworkMatte {
+    static func withoutWhite(_ image: CGImage) -> CGImage {
+        let width = image.width
+        let height = image.height
+        guard width > 0, height > 0 else { return image }
+        let bytes = 4
+        let count = width * height * bytes
+        let pixels = UnsafeMutablePointer<UInt8>.allocate(capacity: count)
+        pixels.initialize(repeating: 0, count: count)
+        defer { pixels.deallocate() }
+        guard let context = CGContext(
+            data: pixels,
+            width: width,
+            height: height,
+            bitsPerComponent: 8,
+            bytesPerRow: width * bytes,
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ) else { return image }
+        context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
+        var index = 0
+        while index < count {
+            let red = Int(pixels[index])
+            let green = Int(pixels[index + 1])
+            let blue = Int(pixels[index + 2])
+            if red > 235, green > 235, blue > 235 {
+                pixels[index] = 0
+                pixels[index + 1] = 0
+                pixels[index + 2] = 0
+                pixels[index + 3] = 0
+            }
+            index += bytes
+        }
+        return context.makeImage() ?? image
     }
 }
 
@@ -158,7 +198,7 @@ private enum GIFDecoder {
         var frames: [GIFFrame] = []
         for index in 0..<count {
             guard let image = CGImageSourceCreateImageAtIndex(source, index, nil) else { continue }
-            frames.append(GIFFrame(image: image, duration: delay(source: source, index: index)))
+            frames.append(GIFFrame(image: ArtworkMatte.withoutWhite(image), duration: delay(source: source, index: index)))
         }
         return frames
     }
