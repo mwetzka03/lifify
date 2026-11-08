@@ -54,6 +54,7 @@ struct ChallengesView: View {
                     )
                 }
             }
+            .appGlassRow()
 
             Section {
                 Picker(L("Status", "Status"), selection: $completedTab) {
@@ -66,6 +67,7 @@ struct ChallengesView: View {
                 }
                 .pickerStyle(.segmented)
             }
+            .appGlassRow()
 
             if completedTab {
                 if !abstinenceHistory.isEmpty {
@@ -74,6 +76,7 @@ struct ChallengesView: View {
                             abstinenceHistoryRow(span)
                         }
                     }
+                    .appGlassRow()
                 }
                 ForEach(historyDays) { day in
                     Section(AppDate.weekdayAndNumeric(day.day)) {
@@ -81,6 +84,7 @@ struct ChallengesView: View {
                             historyRow(entry)
                         }
                     }
+                    .appGlassRow()
                 }
             }
 
@@ -109,6 +113,7 @@ struct ChallengesView: View {
                             }
                         }
                     }
+                    .appGlassRow()
                 }
             }
 
@@ -120,10 +125,12 @@ struct ChallengesView: View {
                         } header: {
                             Text(sectionTitle(section))
                         }
+                        .appGlassRow()
                     } else {
                         Section {
                             sectionChallenges(section)
                         }
+                        .appGlassRow()
                     }
                 }
             }

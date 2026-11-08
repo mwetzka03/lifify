@@ -15,6 +15,7 @@ struct HealthView: View {
     @Query(sort: \ChallengeItem.title) private var challenges: [ChallengeItem]
     @State private var editorPlan: WorkoutPlan?
     @State private var showingAbstinence = false
+    @Environment(\.colorScheme) private var scheme
 
     private var abstinences: [ChallengeItem] {
         challenges.filter { $0.category == .abstinence && !$0.isArchived }
@@ -74,6 +75,7 @@ struct HealthView: View {
             } header: {
                 sectionTitle(HealthScreen.sectionTitles()[0])
             }
+            .appGlassRow()
             Section {
                 if abstinences.isEmpty {
                     Text(L("Noch keine Abstinenz.", "No abstinence yet."))
@@ -97,12 +99,14 @@ struct HealthView: View {
                     "The timer counts how long you have gone without something. Each day pays the challenge’s coins, and the time steps pay a bonus."
                 ))
             }
+            .appGlassRow()
             Section {
                 Text(HealthScreen.nutritionNote)
                     .foregroundStyle(.secondary)
             } header: {
                 sectionTitle(HealthScreen.sectionTitles()[2])
             }
+            .appGlassRow()
         }
         .appGlassList()
         .navigationTitle("")
@@ -121,10 +125,22 @@ struct HealthView: View {
     }
 
     private func sectionTitle(_ title: String) -> some View {
-        Text(title)
-            .appText(.section)
-            .foregroundStyle(.primary)
-            .textCase(nil)
+        let symbol: String
+        if title == HealthScreen.sectionTitles()[1] {
+            symbol = "lungs.fill"
+        } else if title == HealthScreen.sectionTitles()[2] {
+            symbol = "fork.knife"
+        } else {
+            symbol = "figure.run"
+        }
+        return HStack(spacing: 8) {
+            Image(systemName: symbol)
+                .foregroundStyle(AppLook.accent(AppAppearance(scheme)).color())
+            Text(title)
+                .appText(.section)
+                .foregroundStyle(.primary)
+        }
+        .textCase(nil)
     }
 
     private func planSummary(_ plan: WorkoutPlan) -> String {

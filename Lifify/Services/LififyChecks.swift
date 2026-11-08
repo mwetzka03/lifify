@@ -63,6 +63,27 @@ struct LififyCheckResult: Identifiable, Equatable {
     var id: String { name }
 }
 
+struct CheckTopicGroup: Identifiable, Equatable {
+    var topic: LififyCheckTopic
+    var rows: [LififyCheckResult]
+    var id: String { topic.rawValue }
+    var passedCount: Int { rows.filter(\.passed).count }
+    var summary: String { "\(passedCount)/\(rows.count)" }
+    var allPassed: Bool { passedCount == rows.count }
+}
+
+enum CheckResultList {
+    /// The test screen opens with every category collapsed.
+    static let startsCollapsed = true
+
+    static func groups(from results: [LififyCheckResult]) -> [CheckTopicGroup] {
+        LififyCheckTopic.allCases.compactMap { topic in
+            let rows = results.filter { $0.topic == topic }
+            return rows.isEmpty ? nil : CheckTopicGroup(topic: topic, rows: rows)
+        }
+    }
+}
+
 /// Regression checks for streaks, link captions, and workout links.
 /// They only read models in memory and do not write the user's data.
 @MainActor

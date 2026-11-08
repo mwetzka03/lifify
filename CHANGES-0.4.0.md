@@ -10,8 +10,10 @@ This file is in English and in German. The finance calculations stay in
 
 ### Look
 
-- Home, Challenges, Health, Settings, and setup use Liquid Glass. On iOS 26 the
-  cards use the system glass. On earlier versions they use a thin material.
+- Home, Challenges, Health, Settings, and setup sit on a mint-and-peach wash
+  in light mode and on a deep green wash in dark mode. Cards and list rows
+  keep their own fill, so light mode is not an empty white page and dark mode
+  is not the old flat black.
 - The finance view keeps its existing surface, type, and colors. Weitere
   Bereiche is the exception: those links use the same type as the tiles and
   less padding.
@@ -25,7 +27,8 @@ This file is in English and in German. The finance calculations stay in
 - Finance and the other screens each have a unit check and an integration
   check. Further checks cover accounts, forecasts, budgets, the portfolio,
   import, backup, the shop, training sets, and the tab bar. Where a check can
-  see a label, it asserts that label. The checks do not write user data.
+  see a label, it asserts that label. The checks do not write user data. In
+  the test list every category stays collapsed until it is opened.
 
 ### Not in this version
 
@@ -41,9 +44,11 @@ This file is in English and in German. The finance calculations stay in
 
 ### Aussehen
 
-- Home, Challenges, Gesundheit, Einstellungen und die Einrichtung nutzen
-  Liquid Glass. Ab iOS 26 verwenden die Karten das Systemglas. Davor nutzen
-  sie ein dünnes Material.
+- Home, Challenges, Gesundheit, Einstellungen und die Einrichtung liegen im
+  Hellen auf einem Minz- und Pfirsichgrund und im Dunkeln auf einem tiefen
+  Grünton. Karten und Listen behalten eine eigene Füllung, damit der helle
+  Modus keine leere weiße Seite ist und der dunkle Modus nicht das alte flache
+  Schwarz.
 - Die Finanzansicht behält Fläche, Schrift und Farben. Ausnahme ist Weitere
   Bereiche: die Links nutzen dieselbe Schrift wie die Kacheln und weniger
   Abstand.
@@ -59,7 +64,8 @@ This file is in English and in German. The finance calculations stay in
   Integrationsprüfung. Weitere Prüfungen decken Konten, Prognosen, Budgets,
   das Depot, den Import, die Sicherung, den Shop, Trainingssätze und die
   Tableiste ab. Wo eine Prüfung eine Beschriftung sehen kann, prüft sie diese.
-  Die Prüfungen schreiben keine Nutzerdaten.
+  Die Prüfungen schreiben keine Nutzerdaten. In den Tests ist jede Kategorie
+  eingeklappt, bis sie geöffnet wird.
 
 ### Nicht in dieser Version
 

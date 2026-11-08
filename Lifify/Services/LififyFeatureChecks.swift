@@ -9,7 +9,9 @@ enum LififyFeatureChecks {
             manualCategoriesStayOutOfThePicker(),
             manualPickerMatchesTheAmountField(),
             symbolChoicesIncludeLeafAndCigarette(),
-            glassScreensMatchTheVisiblePages()
+            glassScreensMatchTheVisiblePages(),
+            lightAndDarkPaintsDiffer(),
+            testCategoriesStartCollapsed()
         ]
     }
 
@@ -89,6 +91,40 @@ enum LififyFeatureChecks {
             name: "Gesundheit, Einstellungen und Glasflächen zeigen dieselben Titel",
             passed: passed,
             detail: passed ? nil : "\(health.joined(separator: ", ")) / \(AppChrome.version)",
+            kind: .integration,
+            topic: .screen
+        )
+    }
+
+    private static func lightAndDarkPaintsDiffer() -> LififyCheckResult {
+        let passed = AppLook.modesDiffer()
+        let light = AppLook.canvasTop(.light)
+        let dark = AppLook.canvasTop(.dark)
+        return LififyCheckResult(
+            name: "Hell und Dunkel haben eigene Flächen",
+            passed: passed,
+            detail: passed ? nil : "hell \(light.brightness), dunkel \(dark.brightness)",
+            kind: .unit,
+            topic: .screen
+        )
+    }
+
+    private static func testCategoriesStartCollapsed() -> LififyCheckResult {
+        let sample = [
+            LififyCheckResult(name: "A", passed: true, detail: nil, kind: .unit, topic: .shop),
+            LififyCheckResult(name: "B", passed: false, detail: "fehlt", kind: .integration, topic: .shop),
+            LififyCheckResult(name: "C", passed: true, detail: nil, kind: .unit, topic: .account)
+        ]
+        let groups = CheckResultList.groups(from: sample)
+        let passed = CheckResultList.startsCollapsed
+            && groups.map(\.topic) == [.account, .shop]
+            && groups[1].summary == "1/2"
+            && groups[1].allPassed == false
+            && groups[0].summary == "1/1"
+        return LififyCheckResult(
+            name: "Testkategorien starten eingeklappt",
+            passed: passed,
+            detail: passed ? nil : groups.map { "\($0.topic.rawValue) \($0.summary)" }.joined(separator: ", "),
             kind: .integration,
             topic: .screen
         )

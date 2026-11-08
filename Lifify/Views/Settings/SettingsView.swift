@@ -13,6 +13,7 @@ struct SettingsView: View {
                     }
                 }
             }
+            .appGlassRow()
         }
         .appGlassList()
         .navigationTitle(L("Einstellungen", "Settings"))
@@ -54,8 +55,8 @@ private struct SettingsCategoryLabel: View {
             Image(systemName: systemImage)
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(.white)
-                .frame(width: 29, height: 29)
-                .background(color, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+                .frame(width: 34, height: 34)
+                .background(color, in: Circle())
             Text(title)
                 .foregroundStyle(.primary)
             Spacer(minLength: 0)
@@ -207,6 +208,22 @@ private struct GeneralSettingsView: View {
 
 private struct DeveloperTestsView: View {
     @State private var results: [LififyCheckResult] = []
+    @State private var expandedTopics: Set<String> = CheckResultList.startsCollapsed
+        ? []
+        : Set(LififyCheckTopic.allCases.map(\.rawValue))
+
+    private func expanded(_ topic: LififyCheckTopic) -> Binding<Bool> {
+        Binding(
+            get: { expandedTopics.contains(topic.rawValue) },
+            set: { isOn in
+                if isOn {
+                    expandedTopics.insert(topic.rawValue)
+                } else {
+                    expandedTopics.remove(topic.rawValue)
+                }
+            }
+        )
+    }
 
     var body: some View {
         List {
@@ -219,29 +236,36 @@ private struct DeveloperTestsView: View {
                     "The same checks run in Xcode as LififyChecksTests. They do not write any data."
                 ))
             }
-            ForEach(LififyCheckTopic.allCases, id: \.self) { topic in
-                let rows = results.filter { $0.topic == topic }
-                if !rows.isEmpty {
-                    Section(topic.title) {
-                        ForEach(rows) { result in
-                            HStack(alignment: .top, spacing: 10) {
-                                Image(systemName: result.passed ? "checkmark.circle.fill" : "xmark.circle.fill")
-                                    .foregroundStyle(result.passed ? .green : .red)
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(result.kind.label)
-                                        .font(.caption2.weight(.semibold))
+            ForEach(CheckResultList.groups(from: results)) { group in
+                DisclosureGroup(isExpanded: expanded(group.topic)) {
+                    ForEach(group.rows) { result in
+                        HStack(alignment: .top, spacing: 10) {
+                            Image(systemName: result.passed ? "checkmark.circle.fill" : "xmark.circle.fill")
+                                .foregroundStyle(result.passed ? .green : .red)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(result.kind.label)
+                                    .font(.caption2.weight(.semibold))
+                                    .foregroundStyle(.secondary)
+                                Text(result.name)
+                                if let detail = result.detail {
+                                    Text(detail)
+                                        .font(.caption)
                                         .foregroundStyle(.secondary)
-                                    Text(result.name)
-                                    if let detail = result.detail {
-                                        Text(detail)
-                                            .font(.caption)
-                                            .foregroundStyle(.secondary)
-                                    }
                                 }
                             }
                         }
                     }
+                } label: {
+                    HStack {
+                        Text(group.topic.title)
+                            .foregroundStyle(group.allPassed ? Color.primary : Color.red)
+                        Spacer()
+                        Text(group.summary)
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                    }
                 }
+                .appGlassRow()
             }
         }
         .appGlassList()

@@ -25,6 +25,7 @@ struct HomeView: View {
     @AppStorage("dashboardPeriodMode") private var dashboardPeriod = DashboardPeriodMode.calendarMonth.rawValue
     @AppStorage(StreakSettings.revisionKey) private var streakRevision = 0
     @AppStorage(AbstinenceSettings.revisionKey) private var abstinenceRevision = 0
+    @Environment(\.colorScheme) private var scheme
 
     var body: some View {
         ScrollView {
@@ -33,23 +34,38 @@ struct HomeView: View {
                 let _ = developerDay
                 let _ = birthRaw
                 if !userName.isEmpty {
-                    Text("\(L("Willkommen zurück", "Welcome back")), \(userName)")
-                        .appText(.screenTitle)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                    HStack(spacing: 10) {
+                        Image(systemName: "hand.wave.fill")
+                            .foregroundStyle(AppLook.accent(AppAppearance(scheme)).color())
+                        Text("\(L("Willkommen zurück", "Welcome back")), \(userName)")
+                            .appText(.screenTitle)
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 12)
+                    .appGlassCard(radius: 20)
                 }
                 if let birth = UserProfile.birth(), BirthdayBonus.isBirthday(birth, on: AppClock.now) {
-                    Text(L(
-                        "Alles Gute zum Geburtstag. 500 Coins liegen in der Wallet.",
-                        "Happy birthday. 500 coins are in the wallet."
-                    ))
+                    Label(
+                        L(
+                            "Alles Gute zum Geburtstag. 500 Coins liegen in der Wallet.",
+                            "Happy birthday. 500 coins are in the wallet."
+                        ),
+                        systemImage: "gift.fill"
+                    )
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.primary)
                     .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(12)
+                    .appGlassCard(radius: 16)
                 }
                 if developerMode {
                     Text("\(L("Simulierter Tag", "Simulated day")): \(AppDate.numeric(AppClock.now))")
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(.orange)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(Color.orange.opacity(0.16), in: Capsule())
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 noticeSection
@@ -130,7 +146,10 @@ struct HomeView: View {
                     if AppClock.isToday(selectedDate) {
                         Text(L("Heute", "Today"))
                             .font(.caption.bold())
-                            .foregroundStyle(.red)
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 3)
+                            .background(Color.red, in: Capsule())
                     }
                 }
                 Divider()
@@ -730,16 +749,18 @@ private struct BudgetSummaryCard: View {
     let nextSalary: Date?
     let daysUntilSalary: Int?
     let dailyAllowance: Int?
+    @Environment(\.colorScheme) private var scheme
 
     private var remaining: Int { planned - spent }
+    private var accent: Color { AppLook.accent(AppAppearance(scheme)).color() }
 
     var body: some View {
         HStack(spacing: 20) {
             ZStack {
-                Circle().stroke(.gray.opacity(0.2), lineWidth: 12)
+                Circle().stroke(accent.opacity(0.22), lineWidth: 12)
                 Circle()
                     .trim(from: 0, to: progress)
-                    .stroke(remaining < 0 ? .red : .blue, style: StrokeStyle(lineWidth: 12, lineCap: .round))
+                    .stroke(remaining < 0 ? Color.red : accent, style: StrokeStyle(lineWidth: 12, lineCap: .round))
                     .rotationEffect(.degrees(-90))
                 VStack(spacing: 1) {
                     Text(Money.string(cents: remaining))
