@@ -39,6 +39,7 @@ struct ExpenseGroupsView: View {
                     }
                     .appAccentTint()
                 }
+                .appGlassRow()
             }
         }
         .overlay {

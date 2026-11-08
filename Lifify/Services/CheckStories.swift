@@ -391,8 +391,8 @@ enum CheckStories {
         "Gesundheit, Einstellungen und Glasflächen zeigen dieselben Titel": make(
             "Gesundheit, Einstellungen und die bemalten Flächen zeigen die Titel, die auf dem Bildschirm stehen.",
             "Health, Settings, and the painted screens show the titles that appear on screen.",
-            ("Die drei Gesundheitsabschnitte und die fünf Einstellungszeilen werden gelesen.", "The three health sections and the five settings rows are read.", "AppChrome.swift"),
-            ("Die bemalten Flächen umfassen Home, Challenges, Gesundheit, Einstellungen, Einrichtung und Finanzen. Die Version ist 0.4.0.", "The painted screens include Home, Challenges, Health, Settings, setup, and Finance. The version is 0.4.0.", "HealthView.swift"),
+            ("Training, Ernährung und die sechs Einstellungszeilen werden gelesen. Nutzer steht über Allgemein.", "Training, Nutrition, and the six settings rows are read. User sits above General.", "AppChrome.swift"),
+            ("Die bemalten Flächen umfassen Home, Challenges, Gesundheit, Einstellungen, Einrichtung und Finanzen. Die Version ist 0.4.0. Die Essenserkennung ist nicht verbunden.", "The painted screens include Home, Challenges, Health, Settings, setup, and Finance. The version is 0.4.0. Food recognition is not connected.", "HealthView.swift"),
         ),
         "Hell und Dunkel haben eigene Flächen": make(
             "Heller und dunkler Modus haben verschiedene Hintergrund- und Kartenfarben.",
@@ -413,10 +413,10 @@ enum CheckStories {
             ("Montag ist aus und liefert nichts. Ein Tag ohne gespeicherten Schalter bleibt an. Der Hauptschalter aus liefert gar nichts.", "Monday is off and delivers nothing. A day without a stored switch stays on. The master switch off delivers nothing.", "DailyBriefing.swift"),
         ),
         "Die Version steht unter dem Entwicklermodus": make(
-            "In Allgemein kommt der Entwicklermodus unten hin, und die Version steht ganz zuletzt.",
-            "In General, developer mode sits near the bottom, and the version is last of all.",
+            "In Allgemein kommt der Entwicklermodus unten hin, und die Version steht ganz zuletzt. Name und Körpermaße liegen unter Nutzer.",
+            "In General, developer mode sits near the bottom, and the version is last of all. Name and body measures live under User.",
             ("Die Reihenfolge der Abschnitte wird gelesen.", "The section order is read.", "SettingsView.swift"),
-            ("Sie lautet Profil, Darstellung, Briefing, Entwicklermodus, Version.", "It reads profile, appearance, briefing, developer mode, version.", "SettingsView.swift"),
+            ("Sie lautet Darstellung, Briefing, Entwicklermodus, Version.", "It reads appearance, briefing, developer mode, version.", "SettingsView.swift"),
         ),
         "Weitere Einstellungen starten geschlossen": make(
             "Beim Anlegen bleiben Erinnerung, Termin und Gruppe unter Weitere Einstellungen, und die Gruppe startet zu.",
@@ -533,10 +533,28 @@ enum CheckStories {
             ("Der Schaltertext ist Entwicklermodus, und der Speicherschlüssel ist lifify.developerMode.", "The switch text is Developer mode, and the storage key is lifify.developerMode.", "SettingsView.swift"),
         ),
         "Challenges und Gesundheit nutzen ein Kartenraster": make(
-            "Aktive Challenges stehen zu zweit in einer Reihe und teilen sich die Höhe der höheren Karte. Gesundheit schaltet Training und Ernährung in einer schmalen Kapsel um.",
-            "Active challenges sit two in a row and share the height of the taller card. Health switches Training and Nutrition in a slim capsule.",
+            "Aktive Challenges stehen zu zweit in einer Reihe und teilen sich die Höhe der höheren Karte. Ein einzelner Plan oder der übrige Plan nimmt die ganze Reihe ein. Gesundheit schaltet Training und Ernährung in einer schmalen Kapsel um.",
+            "Active challenges sit two in a row and share the height of the taller card. One plan, or the leftover plan, takes the whole row. Health switches Training and Nutrition in a slim capsule.",
             ("Das Raster liest zwei Spalten. Die Shop-Kapsel ist 36 Punkt hoch, dazwischen von der alten und der hohen Kapsel.", "The grid reads two columns. The shop capsule is 36 points tall, midway between the old one and the tall one.", "AppChrome.swift"),
             ("Training und Ernährung stehen als schmale Umschaltung in einer Kapsel. Darunter lassen sich Abstinenz und Sport anlegen.", "Training and Nutrition sit as a slim switch in a capsule. Abstinence and sport can be created underneath.", "AppChrome.swift"),
+        ),
+        "Die erste und die letzte Zeile runden die Kachel": make(
+            "Prognosen und Buchungen stehen jeweils in einer Kachel. Die oberste Zeile rundet oben, die unterste unten, eine einzelne Zeile rundet beide Seiten.",
+            "Forecasts and transactions each sit in one card. The first row rounds the top, the last row rounds the bottom, and a single row rounds both.",
+            ("Drei Zeilen werden als oben, Mitte und unten gelesen. Eine einzelne Zeile ist allein.", "Three rows are read as top, middle, and bottom. A single row stands alone.", "AppSurface.swift"),
+            ("Oben ist nur oben rund, die Mitte gar nicht, unten nur unten, und die einzelne Zeile an beiden Enden.", "The top rounds only the top, the middle rounds nothing, the bottom rounds only the bottom, and the single row rounds both ends.", "AppSurface.swift"),
+        ),
+        "Die Kalorien folgen Körper und Ziel": make(
+            "Das Tagesziel rechnet aus Größe, Gewicht, Alter und Geschlecht. Fett verlieren liegt darunter, Halten bleibt, Muskeln aufbauen liegt darüber. Ohne Größe oder Gewicht gibt es kein Ziel.",
+            "The daily target is calculated from height, weight, age, and sex. Lose fat sits below it, maintain stays, and build muscle sits above. Without height or weight there is no target.",
+            ("Eine Frau, 30 Jahre, 165 cm und 70 kg, wird für Fett verlieren, Halten und die offene Angabe gelesen. Ein Mann, 25 Jahre, 180 cm und 80 kg, wird für Muskeln aufbauen gelesen.", "A woman, age 30, 165 cm and 70 kg, is read for lose fat, maintain, and unspecified. A man, age 25, 180 cm and 80 kg, is read for build muscle.", "NutritionPlan.swift"),
+            ("Die Messung ist 1448, 1704, 2383 und 1804. Fehlendes Gewicht liefert kein Ziel.", "The reading is 1448, 1704, 2383, and 1804. A missing weight gives no target.", "LififyFeatureChecks.swift"),
+        ),
+        "Ein Trainingstag hebt das Kalorienziel": make(
+            "Ein abgeschlossenes Training an dem Tag hebt das Ziel um 250 kcal. Mahlzeiten eines anderen Tags zählen nicht mit. Nutzer steht in den Einstellungen ganz oben, und das Depot zeigt zuerst die Ladekachel.",
+            "A finished workout on that day raises the target by 250 kcal. Meals from another day do not count. User is the first settings row, and Portfolio shows the loading card first.",
+            ("Der 8.11.2026 hat ein Training, der 7.11. nicht. Die Mahlzeit vom 8. zählt 600 kcal, die vom 7. bleibt draußen.", "8 Nov 2026 has a workout, and 7 Nov does not. The meal on the 8th counts 600 kcal, and the one on the 7th stays out.", "NutritionPlan.swift"),
+            ("Das Ziel steigt von 1448 auf 1698. Die erste Einstellungszeile ist Nutzer. Die Depotkachel bleibt zu, bis sie bereit ist. Die Erkennung ist nicht verbunden.", "The target rises from 1448 to 1698. The first settings row is User. The portfolio card stays closed until it is ready. Recognition is not connected.", "SettingsView.swift"),
         ),
         "Vier Stile haben je eine helle und eine dunkle Fläche": make(
             "Grün, Blau, Bordeaux und Violett haben je eine helle und eine dunkle Fläche. Die Akzente bleiben unterscheidbar.",

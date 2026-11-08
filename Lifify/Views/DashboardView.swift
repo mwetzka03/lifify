@@ -33,6 +33,7 @@ struct DashboardView: View {
     @State private var savingsForecastsExpanded = false
     @State private var summary: PreparedSummary?
     @State private var summarySelection: Int?
+    @State private var depotReady = false
     @AppStorage(ForecastSkipStore.revisionKey) private var forecastSkipRevision = 0
     @AppStorage(ForecastPeriodLinkStore.revisionKey) private var forecastLinkRevision = 0
     @AppStorage(ForecastMatchRejectionStore.revisionKey) private var forecastRejectionRevision = 0
@@ -55,7 +56,11 @@ struct DashboardView: View {
                     List {
                     Section {
                         if filters.showsDepot {
-                            depotContent(period)
+                            if DepotLoad.showsBoard(ready: depotReady) {
+                                depotContent(period)
+                            } else {
+                                summaryLoading
+                            }
                         } else if let summary, summarySelection == selectionToken {
                             financeSummary(
                                 summary.forecast,
@@ -73,18 +78,17 @@ struct DashboardView: View {
                     if !filters.showsDepot {
                         Section {
                             forecastSearchRow
-                            if visibleForecasts(period).isEmpty {
+                            let lines = visibleForecasts(period)
+                            if lines.isEmpty {
                                 Text(forecastQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                                     ? L("In diesem Zeitraum liegen keine Prognosen.", "There are no forecasts in this period.")
                                     : L("Keine Prognose gefunden.", "No forecast found."))
                                     .foregroundStyle(.secondary)
+                                    .appJoinedCard(.single)
                             }
-                            ForEach(visibleForecasts(period)) { line in
-                                if line.isSavingsHeader {
-                                    savingsForecastHeader(bookedCents: line.bookedCents, openCents: line.openCents)
-                                } else if let item = line.item {
-                                    forecastButton(item)
-                                }
+                            ForEach(Array(lines.enumerated()), id: \.element.id) { index, line in
+                                forecastLine(line)
+                                    .appJoinedCard(ListCardEdge.edge(index: index, count: lines.count))
                             }
                         } header: {
                             Text(L("Prognosen", "Forecasts"))
@@ -92,20 +96,21 @@ struct DashboardView: View {
                                 .foregroundStyle(.primary)
                                 .textCase(nil)
                         }
-                        .appGlassRow()
                     }
                     Section {
                         bookingSearchRow
-                        if filteredBookings.isEmpty {
+                        let rows = filteredBookings
+                        if rows.isEmpty {
                             Text(bookingQuery.isEmpty
                                 ? L("In diesem Zeitraum liegen keine Buchungen.", "There are no transactions in this period.")
                                 : L("Keine Buchung gefunden.", "No transaction found."))
                                 .foregroundStyle(.secondary)
+                                .appJoinedCard(.single)
                         }
-                        ForEach(filteredBookings) { entry in
+                        ForEach(Array(rows.enumerated()), id: \.element.id) { index, entry in
                             Button {
                                 selectedBooking = entry
-                            }                             label: {
+                            } label: {
                                 TransactionRow(
                                     entry: entry,
                                     accounts: accounts,
@@ -131,6 +136,7 @@ struct DashboardView: View {
                                 }
                                 .appAccentTint()
                             }
+                            .appJoinedCard(ListCardEdge.edge(index: index, count: rows.count))
                         }
                     } header: {
                         Text(L("Buchungen", "Transactions"))
@@ -138,19 +144,34 @@ struct DashboardView: View {
                             .foregroundStyle(.primary)
                             .textCase(nil)
                     }
-                    .appGlassRow()
                     }
                     .listStyle(.plain)
+                    .listRowSpacing(0)
                     .scrollContentBackground(.hidden)
                     .appAccentTint()
                     .listSectionSpacing(FinanceMoreDirectory.sectionSpacing)
                 }
-                .task(id: filters.showsDepot ? 0 : forecastToken) {
+                .task(id: forecastToken) {
                     if filters.showsDepot {
+                        depotReady = false
                         summary = nil
                         summarySelection = nil
+                        await Task.yield()
+                        try? await Task.sleep(for: .milliseconds(280))
+                        guard !Task.isCancelled else { return }
+                        warmFinanceStores()
+                        await Task.yield()
+                        guard !Task.isCancelled else { return }
+                        SavingsPlanRunner.bookDue(context: context)
+                        await Task.yield()
+                        guard !Task.isCancelled else { return }
+                        SavingsPlanFixedCosts.sync(context: context)
+                        await Task.yield()
+                        guard !Task.isCancelled else { return }
+                        depotReady = true
                         return
                     }
+                    depotReady = false
                     try? await Task.sleep(for: .milliseconds(400))
                     guard !Task.isCancelled else { return }
                     await refreshSummary()
@@ -308,6 +329,15 @@ struct DashboardView: View {
             }
             .financeCard()
             PortfolioElementsView(accountID: nil, showsValueHeader: false, path: path)
+        }
+    }
+
+    @ViewBuilder
+    private func forecastLine(_ line: ForecastDisplayLine) -> some View {
+        if line.isSavingsHeader {
+            savingsForecastHeader(bookedCents: line.bookedCents, openCents: line.openCents)
+        } else if let item = line.item {
+            forecastButton(item)
         }
     }
 

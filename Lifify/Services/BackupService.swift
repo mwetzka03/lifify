@@ -310,7 +310,12 @@ enum BackupService {
                 defaults.string(forKey: "appTheme") ?? AppTheme.system.rawValue,
                 UserProfile.birthRaw(defaults: defaults),
                 UserProfile.awardedYearRaw(defaults: defaults),
-                defaults.string(forKey: AppPalette.storageKey) ?? AppPalette.green.rawValue
+                defaults.string(forKey: AppPalette.storageKey) ?? AppPalette.green.rawValue,
+                UserBody.heightText(defaults: defaults),
+                UserBody.weightText(defaults: defaults),
+                UserBody.current(defaults: defaults).sex.rawValue,
+                UserBody.current(defaults: defaults).goal.rawValue,
+                MealLog.exportJSON(defaults: defaults)
             ]
         ))
         records = scopedRecords(
@@ -416,6 +421,8 @@ enum BackupService {
         ChallengeCategoryStore.reset()
         LififyNotifications.resetWeekdayClocks()
         UserProfile.reset()
+        UserBody.reset()
+        MealLog.reset()
     }
 
     @MainActor
@@ -784,6 +791,8 @@ enum BackupService {
         case "backupScope", "workoutSnapshot":
             break
         case "appPreferences":
+            UserBody.reset()
+            MealLog.reset()
             UserDefaults.standard.set(string(0), forKey: "userName")
             UserDefaults.standard.set(string(1), forKey: "dashboardPeriodMode")
             UserDefaults.standard.set(string(2), forKey: "appLanguage")
@@ -791,6 +800,12 @@ enum BackupService {
             UserProfile.restore(birthRaw: string(4), awardedYearRaw: string(5))
             if AppPalette(rawValue: string(6)) != nil {
                 UserDefaults.standard.set(string(6), forKey: AppPalette.storageKey)
+            }
+            if r.strings.count > 7 {
+                UserBody.restore(height: string(7), weight: string(8), sex: string(9), goal: string(10))
+            }
+            if !string(11).isEmpty {
+                MealLog.restore(json: string(11))
             }
         case "streakState":
             StreakSettings.restoreState(r)

@@ -36,10 +36,14 @@ and reminders from the iPhone can be imported after you explicitly allow access.
 
 **Health** holds workout plans. Starting a workout runs a timer. Exercises come
 from a local database, including exercises you add yourself when they are not
-in that database. Nutrition is not available yet. Abstinence lives with the
+in that database. Nutrition is a day board for meals, calories, and the other
+nutrients. A photo can be attached, and the values can be entered or corrected
+by hand. Recognition is not connected yet, so no photo leaves the device.
+The requirements are in [ERNAEHRUNG.md](ERNAEHRUNG.md). Abstinence lives with the
 challenges.
 
-**Settings** hold the name and date of birth, language, appearance, style, a daily
+**Settings** start with User: name, date of birth, height, weight, sex, and the
+goal. General holds language, appearance, style, a daily
 briefing with its own time for each weekday, the workout chime, the default
 account and fee for the portfolio, accounts, import, backup, and calendar and
 reminders. The birthday pays 500 coins once that year. The version shown there
@@ -95,7 +99,8 @@ read.
 Portfolio prices come from Yahoo Finance, at launch and through **Update
 prices**. A German listing is preferred. If the request fails, the manual
 price stays. For this, the ISIN is sent to those public endpoints. No other
-user data leaves the device.
+user data leaves the device. Meal photos stay on the device. Recognition is
+not connected, so a photo is not sent anywhere.
 
 Lifify reads calendars and reminders only after you explicitly allow it,
 through the system. It does not store passwords for that.
@@ -138,10 +143,14 @@ sich nach ausdrücklicher Freigabe übernehmen.
 
 **Gesundheit** enthält Trainingspläne. Ein Training startet einen Timer.
 Übungen kommen aus einer lokalen Datenbank, inklusive eigener Übungen, die
-nicht in der Datenbank stehen. Ernährung ist noch nicht verfügbar. Abstinenz
-liegt bei den Challenges.
+nicht in der Datenbank stehen. Ernährung ist eine Tagesansicht für Mahlzeiten,
+Kalorien und die übrigen Nährstoffe. Ein Foto kann angehängt werden, die Werte
+lassen sich von Hand eintragen oder korrigieren. Die Erkennung ist noch nicht
+verbunden, deshalb verlässt kein Foto das Gerät. Die Anforderungen stehen in
+[ERNAEHRUNG.md](ERNAEHRUNG.md). Abstinenz liegt bei den Challenges.
 
-**Einstellungen** halten Name und Geburtsdatum, Sprache, Erscheinungsbild, den Stil, das
+**Einstellungen** beginnen mit Nutzer: Name, Geburtsdatum, Größe, Gewicht,
+Geschlecht und das Ziel. Allgemein hält Sprache, Erscheinungsbild, den Stil, das
 tägliche Briefing mit einer eigenen Uhrzeit je Wochentag, den
 Trainingsklingelton, Standardkonto und Gebühr fürs Depot, Konten, Import,
 Sicherung sowie Kalender und Erinnerungen. Am Geburtstag gibt es einmal im
@@ -198,7 +207,8 @@ und MT940 werden nicht gelesen.
 Depotkurse kommen von Yahoo Finance, beim Start und über **Kurse aktualisieren**.
 Eine deutsche Notierung wird bevorzugt. Schlägt der Abruf fehl, bleibt der
 manuelle Kurs. Dafür wird die ISIN an diese öffentlichen Endpunkte geschickt.
-Andere Nutzerdaten verlassen das Gerät nicht.
+Andere Nutzerdaten verlassen das Gerät nicht. Fotos von Mahlzeiten bleiben auf
+dem Gerät. Die Erkennung ist nicht verbunden, deshalb wird kein Foto verschickt.
 
 Kalender und Erinnerungen liest Lifify nur nach ausdrücklicher Freigabe über
 das System. Dafür werden keine Passwörter gespeichert.

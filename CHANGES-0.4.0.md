@@ -22,10 +22,26 @@ This file is in English and in German. The finance calculations stay in
   underneath. Create workout sits directly under the filter, and the plans sit
   under that button. Workout history opens and closes on the same page. One
   session still opens its detail. Long-press a card to edit or delete it.
+  A plan that is alone in its row uses the full width.
 - The shop and coin capsules sit between the earlier slim capsule and the tall
   one: 36 points high, with a little vertical padding. In the shop, the reward
   title lines up with the middle of its symbol.
 - Recommendations leave more room around each Accept button.
+- Tapping Portfolio shows the loading card before the holdings are built.
+  Forecasts share one rounded card, and transactions share another. Search
+  stays above that card. The first row rounds the top and the last row rounds
+  the bottom. The holding screen puts Buy more and Sell directly under the
+  title, and the figures sit on a rounded tinted card. Savings plans, holdings,
+  debts, pools, expense groups, variable budgets, and the shopping list use
+  that same tinted card instead of a plain black or white list.
+- Nutrition is a day board under Health. It shows the calorie target, what was
+  eaten, and protein, and it keeps the other nutrients on the meal. Today is
+  the default, and earlier days can be filled in. A photo can be attached, and
+  the values can be corrected or entered by hand. Confirming a photo stores
+  the meal. Feedback stays on the device until recognition is connected.
+  Settings starts with User: name, date of birth, height, weight, sex, and the
+  goal (lose fat, maintain, build muscle). Setup asks for the same. A finished
+  workout adds 250 kcal that day. The estimate is not medical advice.
 - Finance keeps the account choice pinned at the top. The choices are bubbles
   in a row. A long name wraps to the next row, and that row shares the space
   evenly. All accounts, each account, and Portfolio stay the same views.
@@ -93,7 +109,9 @@ This file is in English and in German. The finance calculations stay in
 - Health data still survives an app reset.
 - An empty challenge list can still overlap the recommendations.
 - The week strip on Home can stop responding after one tap.
-- Nutrition is still the placeholder “Not available yet”.
+- Food-photo recognition is prepared and not connected. No photo leaves the
+  device. The API choice and the requirements are in
+  [ERNAEHRUNG.md](ERNAEHRUNG.md).
 - There is no snapshot test, because this environment has no Xcode.
 - Possible later work: abstinence templates, an iPad layout, widgets, and one
   shared calendar for Home and Challenges.
@@ -117,11 +135,29 @@ This file is in English and in German. The finance calculations stay in
   Training anlegen steht direkt unter dem Filter, die Pläne darunter. Der
   Trainingsverlauf klappt auf derselben Seite auf und zu. Ein einzelnes
   Training öffnet weiter seine Detailansicht. Ein langes Drücken bearbeitet
-  oder löscht eine Karte.
+  oder löscht eine Karte. Ein Plan, der allein in der Reihe steht, nutzt die
+  volle Breite.
 - Die Shop- und Coin-Kapseln liegen zwischen der früheren schmalen Kapsel und
   der hohen: 36 Punkt hoch, mit etwas Abstand nach oben und unten. Im Shop
   steht der Titel der Belohnung auf der Mitte des Symbols.
 - Die Vorschläge lassen mehr Abstand um jeden Übernehmen-Knopf.
+- Ein Tipp auf Depot zeigt zuerst die Ladekachel, danach die Positionen.
+  Prognosen teilen sich eine abgerundete Kachel, Buchungen eine eigene. Die
+  Suche bleibt über der Kachel. Die erste Zeile rundet oben, die letzte unten.
+  In der Position sitzen Nachkauf und Verkaufen direkt unter dem Titel, die
+  Zahlen auf einer abgerundeten, eingefärbten Karte. Sparpläne, Positionen,
+  Schulden, Pools, Ausgabengruppen, variable Budgets und der Einkaufszettel
+  nutzen dieselbe Karte statt einer schwarz-weißen Liste.
+- Ernährung ist eine Tagesansicht unter Gesundheit. Sie zeigt das Kalorienziel,
+  das Gegessene und das Eiweiß, und sie merkt die übrigen Nährstoffe an der
+  Mahlzeit. Heute ist voreingestellt, frühere Tage lassen sich nachtragen. Ein
+  Foto kann angehängt werden, die Werte lassen sich korrigieren oder von Hand
+  eintragen. Ein bestätigtes Foto speichert die Mahlzeit. Eine Rückmeldung
+  bleibt auf dem Gerät, bis die Erkennung verbunden ist. Die Einstellungen
+  beginnen mit Nutzer: Name, Geburtsdatum, Größe, Gewicht, Geschlecht und das
+  Ziel (Fett verlieren, Halten, Muskeln aufbauen). Die Einrichtung fragt
+  dasselbe. Ein abgeschlossenes Training hebt den Tag um 250 kcal. Die
+  Schätzung ist keine medizinische Beratung.
 - Finanzen behält die Kontoauswahl oben fest. Die Auswahl sind Blasen in einer
   Reihe. Ein langer Name bricht in die nächste Reihe, und diese Reihe teilt
   den Platz gleichmäßig. Alle Konten, jedes Konto und das Depot bleiben
@@ -196,7 +232,9 @@ This file is in English and in German. The finance calculations stay in
 - Gesundheitsdaten überstehen ein Zurücksetzen der App weiterhin.
 - Eine leere Challenge-Liste kann die Vorschläge weiterhin überdecken.
 - Die Wochenleiste auf Home kann nach einem Tippen aufhören zu reagieren.
-- Ernährung zeigt weiterhin „Noch nicht verfügbar“.
+- Die Erkennung von Essensfotos ist vorbereitet und nicht verbunden. Kein Foto
+  verlässt das Gerät. Die Wahl der API und die Anforderungen stehen in
+  [ERNAEHRUNG.md](ERNAEHRUNG.md).
 - Es gibt keinen Snapshot-Test, weil diese Umgebung kein Xcode hat.
 - Möglich später: Abstinenz-Vorlagen, ein iPad-Layout, Widgets und ein
   gemeinsamer Kalender für Home und Challenges.

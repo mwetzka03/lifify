@@ -83,6 +83,7 @@ struct VariableBudgetsView: View {
                     }
                     .appAccentTint()
                 }
+                .appGlassRow()
             }
             .onDelete { offsets in
                 offsets.map { visibleBudgets[$0] }.forEach(delete)

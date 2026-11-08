@@ -270,7 +270,12 @@ extension View {
     }
 
     func appGlassRow() -> some View {
-        listRowBackground(AppGlassRowFill())
+        modifier(AppGlassRowModifier())
+    }
+
+    /// One shared card. The first row rounds the top, the last row rounds the bottom.
+    func appJoinedCard(_ edge: ListCardEdge) -> some View {
+        modifier(AppJoinedCardModifier(edge: edge))
     }
 
     /// Links, pickers, and the tab bar follow the selected style instead of system blue.
@@ -313,12 +318,72 @@ extension View {
     }
 }
 
-struct AppGlassRowFill: View {
+/// Where a row sits inside one shared card.
+struct ListCardEdge: Equatable {
+    var roundsTop: Bool
+    var roundsBottom: Bool
+
+    static let single = ListCardEdge(roundsTop: true, roundsBottom: true)
+    static let top = ListCardEdge(roundsTop: true, roundsBottom: false)
+    static let middle = ListCardEdge(roundsTop: false, roundsBottom: false)
+    static let bottom = ListCardEdge(roundsTop: false, roundsBottom: true)
+
+    static func edge(index: Int, count: Int) -> ListCardEdge {
+        if count <= 1 { return .single }
+        if index <= 0 { return .top }
+        if index >= count - 1 { return .bottom }
+        return .middle
+    }
+}
+
+private struct AppGlassRowModifier: ViewModifier {
+    @Environment(\.colorScheme) private var scheme
+    @AppStorage(AppPalette.storageKey) private var paletteRaw = AppPalette.green.rawValue
+
+    func body(content: Content) -> some View {
+        content.listRowBackground(
+            AppLook.cardFill(AppAppearance(scheme), palette: AppPalette.resolved(paletteRaw)).color()
+        )
+    }
+}
+
+private struct AppJoinedCardModifier: ViewModifier {
+    var edge: ListCardEdge
+
+    func body(content: Content) -> some View {
+        content
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(AppJoinedCardFill(edge: edge))
+            .overlay(alignment: .bottom) {
+                if !edge.roundsBottom {
+                    Divider().padding(.leading, 44)
+                }
+            }
+            .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16))
+            .listRowSeparator(.hidden)
+            .listRowBackground(Color.clear)
+    }
+}
+
+private struct AppJoinedCardFill: View {
+    var edge: ListCardEdge
     @Environment(\.colorScheme) private var scheme
     @AppStorage(AppPalette.storageKey) private var paletteRaw = AppPalette.green.rawValue
 
     var body: some View {
-        AppLook.cardFill(AppAppearance(scheme), palette: AppPalette.resolved(paletteRaw)).color()
+        let appearance = AppAppearance(scheme)
+        let palette = AppPalette.resolved(paletteRaw)
+        let radius: CGFloat = 16
+        let shape = UnevenRoundedRectangle(
+            topLeadingRadius: edge.roundsTop ? radius : 0,
+            bottomLeadingRadius: edge.roundsBottom ? radius : 0,
+            bottomTrailingRadius: edge.roundsBottom ? radius : 0,
+            topTrailingRadius: edge.roundsTop ? radius : 0,
+            style: .continuous
+        )
+        shape.fill(AppLook.cardFill(appearance, palette: palette).color())
     }
 }
 

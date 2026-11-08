@@ -42,6 +42,10 @@ struct OnboardingView: View {
     @State private var birthDate = UserProfile.birthDate() ?? UserProfile.suggestedDate()
     @State private var initialBirth = UserProfile.birthDate() ?? UserProfile.suggestedDate()
     @State private var birthConfirmed = UserProfile.birth() != nil
+    @State private var heightText = UserBody.heightText()
+    @State private var weightText = UserBody.weightText()
+    @State private var sex = UserBody.current().sex
+    @State private var goal = UserBody.current().goal
     @State private var periodMode = DashboardPeriodMode.calendarMonth
     @State private var accountName = ""
     @State private var accountIBAN = ""
@@ -192,12 +196,22 @@ struct OnboardingView: View {
                     birthConfirmed = true
                 }
             }
+            TextField(L("Größe in cm", "Height in cm"), text: $heightText)
+                .keyboardType(.decimalPad)
+            TextField(L("Gewicht in kg", "Weight in kg"), text: $weightText)
+                .keyboardType(.decimalPad)
+            Picker(L("Geschlecht", "Sex"), selection: $sex) {
+                ForEach(BodySex.allCases) { Text($0.label).tag($0) }
+            }
+            Picker(L("Ziel", "Goal"), selection: $goal) {
+                ForEach(BodyGoal.allCases) { Text($0.label).tag($0) }
+            }
         } header: {
             Text(OnboardingSteps.welcome)
         } footer: {
             Text(L(
-                "Der Name wird nur lokal für deine Begrüßung verwendet. Stell das Geburtsdatum auf deinen Tag, dann geht es weiter. Am Geburtstag gibt es einmal im Jahr 500 Coins. Der 29. Februar fällt in einem Jahr ohne diesen Tag auf den 28. Februar.",
-                "The name is stored locally only for your greeting. Set the date of birth to your day, then you can continue. Your birthday pays 500 coins once each year. In a year without 29 February, that birthday falls on 28 February."
+                "Der Name wird nur lokal für deine Begrüßung verwendet. Stell das Geburtsdatum auf deinen Tag, dann geht es weiter. Größe, Gewicht und Ziel kannst du auch später unter Nutzer setzen. Sie bestimmen das Kalorienziel. Am Geburtstag gibt es einmal im Jahr 500 Coins.",
+                "The name is stored locally only for your greeting. Set the date of birth to your day, then you can continue. Height, weight, and the goal can also be set later under User. They set the calorie target. Your birthday pays 500 coins once each year."
             ))
         }
         .appGlassRow()
@@ -205,6 +219,7 @@ struct OnboardingView: View {
             nextButton {
                 storedName = userName.trimmingCharacters(in: .whitespacesAndNewlines)
                 UserProfile.setBirthDate(birthDate)
+                UserBody.save(heightText: heightText, weightText: weightText, sex: sex, goal: goal)
                 step = 3
             }
             .disabled(userName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !birthConfirmed)

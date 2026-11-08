@@ -105,6 +105,7 @@ struct PortfolioView: View {
                     }
                     .appAccentTint()
                 }
+                .appGlassRow()
             }
         }
         .overlay {
@@ -345,8 +346,6 @@ struct PortfolioElementsView: View {
             for holding in visibleHoldings where HoldingPurchaseDateStore.date(for: holding.id) == nil {
                 HoldingPurchaseDateStore.set(holding.updatedAt, for: holding.id)
             }
-            SavingsPlanRunner.bookDue(context: context)
-            SavingsPlanFixedCosts.sync(context: context)
             savingsPlans = SavingsPlanStore.all()
         }
         .sheet(isPresented: $showingNew) { HoldingForm(holding: nil, preferredAccountID: accountID) }
@@ -676,9 +675,11 @@ struct SavingsPlansView: View {
             if plans.isEmpty {
                 Text(L("Keine Sparpläne.", "No savings plans."))
                     .foregroundStyle(.secondary)
+                    .appGlassRow()
             } else {
                 ForEach(plans) { plan in
                     savingsPlanRow(plan, accounts: accounts, onEdit: { editedPlan = $0 }, onDelete: { delete($0) })
+                        .appGlassRow()
                 }
             }
             Section {
@@ -978,47 +979,37 @@ private struct HoldingDetailView: View {
         let selected = performance.selected(basis: basis, unit: unit)
         NavigationStack {
             Form {
-                HStack(spacing: 12) {
-                    tradeIcon(L("Nachkauf", "Buy more"), systemImage: "plus.circle.fill") {
-                        showingBuy = true
+                Section {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(Money.string(cents: performance.value))
+                            .font(.title2.bold())
+                        Text(selected.text)
+                            .font(.subheadline.bold())
+                            .foregroundStyle(selected.cents < 0 ? .red : (selected.cents > 0 ? .green : .secondary))
                     }
-                    tradeIcon(
-                        L("Verkaufen", "Sell"),
-                        systemImage: "minus.circle.fill",
-                        disabled: holding.quantity <= 0
-                    ) {
-                        showingSell = true
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    Picker(L("Zeitraum", "Period"), selection: $basis) {
+                        ForEach(PortfolioBasis.allCases) { Text($0.label).tag($0.rawValue) }
                     }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    Picker(L("Einheit", "Unit"), selection: $unit) {
+                        ForEach(PortfolioUnit.allCases) { Text($0.label).tag($0.rawValue) }
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    LabeledContent(L("Stückzahl", "Quantity"), value: holding.quantity.formatted())
+                    LabeledContent(L("Kurs", "Price"), value: Money.string(cents: holding.currentPriceCents))
+                    LabeledContent(L("Kaufkurs", "Purchase price"), value: Money.string(cents: holding.purchasePriceCents))
+                    if !holding.symbol.isEmpty {
+                        LabeledContent("ISIN", value: holding.symbol)
+                    }
+                    LabeledContent(
+                        L("Aktualisiert", "Updated"),
+                        value: "\(AppDate.numeric(holding.updatedAt)) \(AppDate.time(holding.updatedAt))"
+                    )
                 }
-                .listRowBackground(Color.clear)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(Money.string(cents: performance.value))
-                        .font(.title2.bold())
-                    Text(selected.text)
-                        .font(.subheadline.bold())
-                        .foregroundStyle(selected.cents < 0 ? .red : (selected.cents > 0 ? .green : .secondary))
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                Picker(L("Zeitraum", "Period"), selection: $basis) {
-                    ForEach(PortfolioBasis.allCases) { Text($0.label).tag($0.rawValue) }
-                }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-                Picker(L("Einheit", "Unit"), selection: $unit) {
-                    ForEach(PortfolioUnit.allCases) { Text($0.label).tag($0.rawValue) }
-                }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-                LabeledContent(L("Stückzahl", "Quantity"), value: holding.quantity.formatted())
-                LabeledContent(L("Kurs", "Price"), value: Money.string(cents: holding.currentPriceCents))
-                LabeledContent(L("Kaufkurs", "Purchase price"), value: Money.string(cents: holding.purchasePriceCents))
-                if !holding.symbol.isEmpty {
-                    LabeledContent("ISIN", value: holding.symbol)
-                }
-                LabeledContent(
-                    L("Aktualisiert", "Updated"),
-                    value: "\(AppDate.numeric(holding.updatedAt)) \(AppDate.time(holding.updatedAt))"
-                )
+                .appGlassRow()
                 if !lots.isEmpty {
                     Section(L("Einzelpositionen", "Individual positions")) {
                         ForEach(lots) { lot in
@@ -1052,8 +1043,29 @@ private struct HoldingDetailView: View {
                 }
             }
             .appGlassList()
+            .contentMargins(.top, 4, for: .scrollContent)
+            .listSectionSpacing(10)
+            .safeAreaInset(edge: .top, spacing: 0) {
+                HStack(spacing: 12) {
+                    tradeIcon(L("Nachkauf", "Buy more"), systemImage: "plus.circle.fill") {
+                        showingBuy = true
+                    }
+                    tradeIcon(
+                        L("Verkaufen", "Sell"),
+                        systemImage: "minus.circle.fill",
+                        disabled: holding.quantity <= 0
+                    ) {
+                        showingSell = true
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 4)
+                .padding(.bottom, 8)
+            }
+            .background(AppPlayfulCanvas())
             .navigationTitle(holding.name)
             .navigationBarTitleDisplayMode(.inline)
+            .toolbarTitleDisplayMode(.inline)
             .onAppear(perform: reloadLots)
             .sheet(isPresented: $showingBuy, onDismiss: reloadLots) { HoldingTradeSheet(holding: holding, isSale: false) }
             .sheet(isPresented: $showingSell, onDismiss: reloadLots) { HoldingTradeSheet(holding: holding, isSale: true) }

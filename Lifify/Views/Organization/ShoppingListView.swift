@@ -25,7 +25,7 @@ struct ShoppingListView: View {
             summary
             itemList
         }
-        .appGlassList()
+        .appGlassCanvas()
         .navigationTitle(L("Einkaufszettel", "Shopping list"))
         .toolbar { Button { showingNew = true } label: { Image(systemName: "plus") } }
         .sheet(isPresented: $showingNew) { ShoppingItemForm(item: nil) }
@@ -112,8 +112,10 @@ struct ShoppingListView: View {
                         Label(L("Löschen", "Delete"), systemImage: "trash")
                     }
                 }
+                .appGlassRow()
             }
         }
+        .appGlassList()
         .overlay {
             if items.isEmpty { ContentUnavailableView(L("Einkaufszettel ist leer", "Shopping list is empty"), systemImage: "cart") }
         }

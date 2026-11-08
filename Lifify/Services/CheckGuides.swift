@@ -270,8 +270,8 @@ enum CheckGuides {
         ),
         "Gesundheit, Einstellungen und Glasflächen zeigen dieselben Titel": g(
             "HealthScreen.sectionTitles(), SettingsDirectory.rows(), AppChrome.glassScreens, AppChrome.version",
-            "Vor dem Schrägstrich stehen die Titel, die Gesundheit und die Einstellungen zeigen. Dahinter steht die Version 0.4.0. Die bemalten Flächen umfassen Home, Challenges, Gesundheit, Einstellungen, Einrichtung und Finanzen.",
-            "Before the slash are the titles Health and Settings show. After it is version 0.4.0. The painted screens include Home, Challenges, Health, Settings, setup, and Finance."
+            "Vor dem Schrägstrich stehen die Titel, die Gesundheit zeigt. Dahinter steht die Version 0.4.0. Die Einstellungen beginnen mit Nutzer. Die Essenserkennung ist nicht verbunden.",
+            "Before the slash are the titles Health shows. After it is version 0.4.0. Settings start with User. Food recognition is not connected."
         ),
         "Hell und Dunkel haben eigene Flächen": g(
             "AppLook.modesDiffer(palette:), AppLook.canvasTop(_:palette:), AppLook.cardFill(_:palette:)",
@@ -290,8 +290,8 @@ enum CheckGuides {
         ),
         "Die Version steht unter dem Entwicklermodus": g(
             "GeneralSettingsOrder.sections",
-            "Die Messung ist die Reihenfolge der Abschnitte in Allgemein: Profil, Darstellung, Briefing, Entwicklermodus, Version. Die Version steht ganz zuletzt.",
-            "The reading is the order of the sections in General: profile, appearance, briefing, developer mode, version. The version is last of all."
+            "Die Messung ist appearance, briefing, developer, version. Die Version steht ganz zuletzt. Name und Körpermaße liegen unter Nutzer.",
+            "The reading is appearance, briefing, developer, version. The version is last of all. Name and body measures live under User."
         ),
         "Weitere Einstellungen starten geschlossen": g(
             "EditorCopy.moreSettings, EditorCopy.moreStartsClosed, ReminderSyncPreference.isEnabled",
@@ -390,8 +390,23 @@ enum CheckGuides {
         ),
         "Challenges und Gesundheit nutzen ein Kartenraster": g(
             "CardBoard.challengeColumns(), CardBoard.healthSymbol(matching:), HealthScreen.sectionTitles()",
-            "Die Messung nennt die Symbole figure.run und fork.knife, die Dauer-Beschriftung und die Kontoblasen. Challenges stehen zu zweit in einer Reihe und teilen sich die Höhe. Gesundheit schaltet Training und Ernährung in einer schmalen Kapsel um. Die Shop-Kapsel ist 36 Punkt hoch.",
-            "The reading names the symbols figure.run and fork.knife, the duration caption, and the account bubbles. Challenges sit two in a row and share the height. Health switches Training and Nutrition in a slim capsule. The shop capsule is 36 points tall."
+            "Die Messung nennt die Symbole figure.run und fork.knife, die Dauer-Beschriftung und die Kontoblasen. Ein einzelner Plan oder der dritte Plan nimmt die ganze Reihe ein. Die Shop-Kapsel ist 36 Punkt hoch.",
+            "The reading names the symbols figure.run and fork.knife, the duration caption, and the account bubbles. One plan, or the third plan, takes the whole row. The shop capsule is 36 points tall."
+        ),
+        "Die erste und die letzte Zeile runden die Kachel": g(
+            "ListCardEdge.edge(index:count:)",
+            "Die Messung lautet top, middle, bottom, single. Oben rundet nur den Anfang, die Mitte bleibt eckig, unten rundet das Ende, und eine einzelne Zeile rundet beide Seiten.",
+            "The reading says top, middle, bottom, single. The top rounds only the start, the middle stays square, the bottom rounds the end, and a single row rounds both sides."
+        ),
+        "Die Kalorien folgen Körper und Ziel": g(
+            "NutritionPlan.dayTarget(weightKg:heightCm:age:sex:goal:trained:), NutritionPlan.restingCalories(weightKg:heightCm:age:sex:)",
+            "Die vier Zahlen sind die Tagesziele in kcal: Frau 30/165/70 beim Fett verlieren, dieselbe Person beim Halten, Mann 25/180/80 beim Muskelaufbau, und dieselbe Frau ohne Geschlechtsangabe beim Halten. Ohne Gewicht gibt es kein Ziel.",
+            "The four numbers are the daily targets in kcal: a woman of 30/165/70 losing fat, the same person maintaining, a man of 25/180/80 building muscle, and the same woman with sex unspecified while maintaining. Without a weight there is no target."
+        ),
+        "Ein Trainingstag hebt das Kalorienziel": g(
+            "NutritionPlan.trained(on:sessions:calendar:), NutritionPlan.dayTarget(weightKg:heightCm:age:sex:goal:trained:), NutritionPlan.onDay(_:meals:), SettingsDirectory.rows(), DepotLoad.showsBoard(ready:)",
+            "Die Messung ist 1698, 600, user. 1698 ist das Ziel mit Training, 600 sind die Kalorien nur von diesem Tag, und user sagt, dass Nutzer zuerst steht. 250 kcal kommen nur an einem Tag mit abgeschlossenem Training dazu.",
+            "The reading is 1698, 600, user. 1698 is the target with a workout, 600 is the calories from that day only, and user says User comes first. 250 kcal are added only on a day with a finished workout."
         ),
         "Vier Stile haben je eine helle und eine dunkle Fläche": g(
             "AppLook.modesDiffer(palette:), AppLook.accent(_:palette:)",

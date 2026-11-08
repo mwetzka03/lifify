@@ -75,11 +75,7 @@ struct HealthView: View {
     @ViewBuilder
     private var selectedBoard: some View {
         if selectedTile == 1 {
-            Text(HealthScreen.nutritionNote)
-                .foregroundStyle(.secondary)
-                .padding(14)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .appGlassCard(radius: 18)
+            NutritionBoard()
         } else {
             trainingBoard
         }
@@ -100,11 +96,7 @@ struct HealthView: View {
                 Text(L("Noch kein Trainingsplan.", "No workout plan yet."))
                     .foregroundStyle(.secondary)
             }
-            LazyVGrid(columns: CardBoard.challengeColumns(), spacing: 10) {
-                ForEach(store.plans) { plan in
-                    planCard(plan)
-                }
-            }
+            trainingPlans
             workoutHistory
         }
     }
@@ -169,7 +161,24 @@ struct HealthView: View {
         }
     }
 
-    private func planCard(_ plan: WorkoutPlan) -> some View {
+    private var trainingPlans: some View {
+        let plans = store.plans
+        let columns = CardBoard.challengeColumnCount
+        let pairCount = plans.count - plans.count % columns
+        return VStack(spacing: 10) {
+            ForEach(Array(stride(from: 0, to: pairCount, by: columns)), id: \.self) { start in
+                EqualHeightPair {
+                    planCard(plans[start], sharesRow: true)
+                    planCard(plans[start + 1], sharesRow: true)
+                }
+            }
+            if let last = plans.last, CardBoard.spansFullWidth(index: plans.count - 1, count: plans.count) {
+                planCard(last, sharesRow: false)
+            }
+        }
+    }
+
+    private func planCard(_ plan: WorkoutPlan, sharesRow: Bool) -> some View {
         NavigationLink(value: HealthRoute.plan(plan.id)) {
             VStack(alignment: .leading, spacing: 8) {
                 Text(plan.name)
@@ -187,7 +196,7 @@ struct HealthView: View {
             }
             .padding(12)
             .frame(maxWidth: .infinity, minHeight: 120, alignment: .topLeading)
-            .appGlassCard(radius: 18)
+            .modifier(PlanCardChrome(sharesRow: sharesRow))
         }
         .buttonStyle(.plain)
         .contextMenu {
@@ -429,6 +438,19 @@ struct WorkoutHistoryListView: View {
         .appGlassList()
         .navigationTitle(L("Trainingsverlauf", "Workout history"))
         .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+private struct PlanCardChrome: ViewModifier {
+    var sharesRow: Bool
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if sharesRow {
+            content.equalPairCard(radius: 18)
+        } else {
+            content.appGlassCard(radius: 18)
+        }
     }
 }
 

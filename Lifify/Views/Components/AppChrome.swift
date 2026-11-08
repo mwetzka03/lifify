@@ -48,8 +48,11 @@ enum HealthScreen {
     static func sectionTitles() -> [String] {
         [L("Training", "Training"), L("Ernährung", "Nutrition")]
     }
+}
 
-    static var nutritionNote: String { L("Noch nicht verfügbar", "Not available yet") }
+/// The depot board stays behind the loading card until its snapshot is ready.
+enum DepotLoad {
+    static func showsBoard(ready: Bool) -> Bool { ready }
 }
 
 enum ChallengeCreateCopy {
@@ -73,6 +76,13 @@ enum CardBoard {
             repeating: GridItem(.flexible(), spacing: 10, alignment: .top),
             count: challengeColumnCount
         )
+    }
+
+    /// A card that is alone in its row uses the full width. Two cards share the row.
+    static func spansFullWidth(index: Int, count: Int) -> Bool {
+        guard singleCardUsesFullWidth, count > 0, index >= 0, index < count else { return false }
+        if count == 1 { return true }
+        return count % challengeColumnCount != 0 && index == count - 1
     }
 
     static func healthSymbol(matching title: String) -> String {
@@ -214,6 +224,7 @@ struct SettingsDirectoryRow: Identifiable, Equatable {
 enum SettingsDirectory {
     static func rows() -> [SettingsDirectoryRow] {
         [
+            SettingsDirectoryRow(title: L("Nutzer", "User"), symbol: "person.fill"),
             SettingsDirectoryRow(title: L("Allgemein", "General"), symbol: "gearshape.fill"),
             SettingsDirectoryRow(title: L("Finanzen", "Finance"), symbol: "eurosign"),
             SettingsDirectoryRow(title: L("Herausforderung", "Challenges"), symbol: "flame.fill"),

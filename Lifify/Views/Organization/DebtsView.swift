@@ -28,6 +28,7 @@ struct DebtsView: View {
                     Spacer()
                     Text(Money.string(cents: debt.amountCents))
                 }
+                .appGlassRow()
             }
             .onDelete { offsets in
                 offsets.map { debts[$0] }.forEach(context.delete)

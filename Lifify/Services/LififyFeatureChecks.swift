@@ -16,7 +16,10 @@ enum LififyFeatureChecks {
             briefingDaysSitInOneRow(),
             versionStaysUnderDeveloperMode(),
             advancedEditorSettingsStartClosed(),
-            cardsUseTwoColumns()
+            cardsUseTwoColumns(),
+            sharedCardRoundsTheEnds(),
+            caloriesFollowBodyAndGoal(),
+            trainingDayRaisesTheCalorieTarget()
         ]
     }
 
@@ -81,10 +84,11 @@ enum LififyFeatureChecks {
     private static func glassScreensMatchTheVisiblePages() -> LififyCheckResult {
         let health = HealthScreen.sectionTitles()
         let settings = SettingsDirectory.rows()
-        let expectedSettings = ["gearshape.fill", "eurosign", "flame.fill", "heart.fill", "externaldrive.fill"]
+        let expectedSettings = ["person.fill", "gearshape.fill", "eurosign", "flame.fill", "heart.fill", "externaldrive.fill"]
         let passed = health == [L("Training", "Training"), L("Ernährung", "Nutrition")]
             && settings.map(\.symbol) == expectedSettings
             && settings.map(\.title) == [
+                L("Nutzer", "User"),
                 L("Allgemein", "General"),
                 L("Finanzen", "Finance"),
                 L("Herausforderung", "Challenges"),
@@ -94,7 +98,8 @@ enum LififyFeatureChecks {
             && AppChrome.glassScreens == ["home", "challenges", "health", "settings", "onboarding", "finance"]
             && AppChrome.glassScreens.contains("finance")
             && AppChrome.version == "0.4.0"
-            && HealthScreen.nutritionNote == L("Noch nicht verfügbar", "Not available yet")
+            && !MealRecognition.isConnected
+            && NutritionCopy.recognitionPending == L("Die Erkennung ist noch nicht verbunden.", "Recognition is not connected yet.")
         return LififyCheckResult(
             name: "Gesundheit, Einstellungen und Glasflächen zeigen dieselben Titel",
             passed: passed,
@@ -202,7 +207,7 @@ enum LififyFeatureChecks {
 
     private static func versionStaysUnderDeveloperMode() -> LififyCheckResult {
         let order = GeneralSettingsOrder.sections
-        let passed = order == ["profile", "appearance", "briefing", "developer", "version"]
+        let passed = order == ["appearance", "briefing", "developer", "version"]
             && order.last == "version"
             && order.dropLast().last == "developer"
         return LififyCheckResult(
@@ -249,6 +254,10 @@ enum LififyFeatureChecks {
             && (duration == "Dauer 30 min" || duration == "Duration 30 min")
             && bubbles.first == L("Alle Konten", "All accounts")
             && bubbles.last == L("Depot", "Portfolio")
+            && CardBoard.spansFullWidth(index: 0, count: 1)
+            && !CardBoard.spansFullWidth(index: 0, count: 2)
+            && !CardBoard.spansFullWidth(index: 1, count: 2)
+            && CardBoard.spansFullWidth(index: 2, count: 3)
             && FactorBoard.streakBubbles() == StreakSettings.thresholds.map { "\($0)×" }
             && CheckStories.expectedLine("1,2").contains("1,2")
             && CheckStories.actualLine("1,2").contains("1,2")
@@ -259,6 +268,84 @@ enum LififyFeatureChecks {
             reading: "\(symbols.joined(separator: ", ")) / \(duration) / \(bubbles.joined(separator: ", "))",
             kind: .unit,
             topic: .screen
+        )
+    }
+
+    private static func sharedCardRoundsTheEnds() -> LififyCheckResult {
+        let three = (0..<3).map { ListCardEdge.edge(index: $0, count: 3) }
+        let single = ListCardEdge.edge(index: 0, count: 1)
+        let passed = three == [.top, .middle, .bottom]
+            && single == .single
+            && three[0].roundsTop && !three[0].roundsBottom
+            && !three[1].roundsTop && !three[1].roundsBottom
+            && !three[2].roundsTop && three[2].roundsBottom
+            && single.roundsTop && single.roundsBottom
+        return LififyCheckResult(
+            name: "Die erste und die letzte Zeile runden die Kachel",
+            passed: passed,
+            detail: passed ? nil : "\(three.count)",
+            reading: "top, middle, bottom, single",
+            kind: .unit,
+            topic: .screen
+        )
+    }
+
+    private static func caloriesFollowBodyAndGoal() -> LififyCheckResult {
+        let lose = NutritionPlan.dayTarget(weightKg: 70, heightCm: 165, age: 30, sex: .female, goal: .loseFat, trained: false)
+        let hold = NutritionPlan.dayTarget(weightKg: 70, heightCm: 165, age: 30, sex: .female, goal: .maintain, trained: false)
+        let gain = NutritionPlan.dayTarget(weightKg: 80, heightCm: 180, age: 25, sex: .male, goal: .gainMuscle, trained: false)
+        let open = NutritionPlan.dayTarget(weightKg: 70, heightCm: 165, age: 30, sex: .unspecified, goal: .maintain, trained: false)
+        let missing = NutritionPlan.dayTarget(weightKg: 0, heightCm: 165, age: 30, sex: .female, goal: .loseFat, trained: false)
+        let passed = lose == 1448 && hold == 1704 && gain == 2383 && open == 1804 && missing == nil
+            && BodyGoal.loseFat.percent == 85
+            && BodyGoal.maintain.percent == 100
+            && BodyGoal.gainMuscle.percent == 110
+            && NutritionPlan.trainingBonus == 250
+        let reading = "\(lose ?? 0), \(hold ?? 0), \(gain ?? 0), \(open ?? 0)"
+        return LififyCheckResult(
+            name: "Die Kalorien folgen Körper und Ziel",
+            passed: passed,
+            detail: passed ? nil : reading,
+            reading: reading,
+            kind: .unit,
+            topic: .training
+        )
+    }
+
+    private static func trainingDayRaisesTheCalorieTarget() -> LififyCheckResult {
+        let calendar = Calendar(identifier: .gregorian)
+        let day = calendar.date(from: DateComponents(year: 2026, month: 11, day: 8)) ?? .now
+        var session = WorkoutSession(plan: WorkoutPlan(name: "Kraft"))
+        session.finishedAt = day
+        let other = calendar.date(byAdding: .day, value: -1, to: day) ?? day
+        let trained = NutritionPlan.trained(on: day, sessions: [session], calendar: calendar)
+        let quiet = NutritionPlan.trained(on: other, sessions: [session], calendar: calendar)
+        let rest = NutritionPlan.dayTarget(weightKg: 70, heightCm: 165, age: 30, sex: .female, goal: .loseFat, trained: false)
+        let active = NutritionPlan.dayTarget(weightKg: 70, heightCm: 165, age: 30, sex: .female, goal: .loseFat, trained: true)
+        let meals = [
+            MealRecord(dayKey: "2026-11-08", title: "Mittag", source: .manual, status: .confirmed, nutrients: [Nutrient.calories.rawValue: 600, Nutrient.protein.rawValue: 30]),
+            MealRecord(dayKey: "2026-11-07", title: "Gestern", source: .manual, status: .confirmed, nutrients: [Nutrient.calories.rawValue: 400])
+        ]
+        let eaten = NutritionPlan.rounded(.calories, meals: NutritionPlan.onDay("2026-11-08", meals: meals))
+        let rows = SettingsDirectory.rows()
+        let passed = trained && !quiet
+            && rest == 1448
+            && active == rest.map { $0 + NutritionPlan.trainingBonus }
+            && eaten == 600
+            && rows.first?.symbol == "person.fill"
+            && rows.first?.title == L("Nutzer", "User")
+            && rows.dropFirst().first?.symbol == "gearshape.fill"
+            && !DepotLoad.showsBoard(ready: false)
+            && DepotLoad.showsBoard(ready: true)
+            && !MealRecognition.isConnected
+        let reading = "\(active ?? 0), \(eaten), user"
+        return LififyCheckResult(
+            name: "Ein Trainingstag hebt das Kalorienziel",
+            passed: passed,
+            detail: passed ? nil : reading,
+            reading: reading,
+            kind: .integration,
+            topic: .training
         )
     }
 }

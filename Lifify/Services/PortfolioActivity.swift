@@ -340,18 +340,34 @@ enum HoldingMaintenance {
     /// increase the share count at the current price. Plans without a priced holding
     /// still add their nominal euro amount.
     static func marketValue(of holdings: [PortfolioHolding], through day: Date) -> Int {
-        let shares = futureShares(through: day, holdings: holdings)
-        let cutoff = dayCutoff(day)
         let held = holdings.reduce(0) { total, holding in
-            let quantity = heldQuantity(of: holding, before: cutoff) + (shares.quantity[holding.id] ?? 0)
-            return total + valued(quantity, of: holding, pricedOn: day)
+            total + valued(quantity(of: holding, through: day, holdings: holdings), of: holding, pricedOn: day)
         }
-        return held + shares.unmatchedCents
+        return held + futureShares(through: day, holdings: holdings).unmatchedCents
     }
 
     static func quantity(of holding: PortfolioHolding, through day: Date, holdings: [PortfolioHolding]) -> Double {
-        heldQuantity(of: holding, before: dayCutoff(day))
+        let dayKey = Calendar.current.startOfDay(for: day).dayKey
+        var stamp = holdings.count
+        for item in holdings {
+            stamp = stamp &* 31 &+ item.currentPriceCents
+            stamp = stamp &* 31 &+ item.id.hashValue
+        }
+        let key = QuantityMemoKey(
+            dayKey: dayKey,
+            lotRevision: HoldingLotStore.cacheRevision,
+            planRevision: SavingsPlanStore.cacheRevision,
+            holdingStamp: stamp
+        )
+        if quantityMemoKey != key {
+            quantityMemoKey = key
+            quantityMemo = [:]
+        }
+        if let cached = quantityMemo[holding.id] { return cached }
+        let value = heldQuantity(of: holding, before: dayCutoff(day))
             + (futureShares(through: day, holdings: holdings).quantity[holding.id] ?? 0)
+        quantityMemo[holding.id] = value
+        return value
     }
 
     static func marketValue(of holding: PortfolioHolding, through day: Date, holdings: [PortfolioHolding]) -> Int {
@@ -422,6 +438,16 @@ enum HoldingMaintenance {
         var quantity: [UUID: Double] = [:]
         var unmatchedCents = 0
     }
+
+    private struct QuantityMemoKey: Equatable {
+        var dayKey: String
+        var lotRevision: Int
+        var planRevision: Int
+        var holdingStamp: Int
+    }
+
+    private static var quantityMemoKey: QuantityMemoKey?
+    private static var quantityMemo: [UUID: Double] = [:]
 
     private struct ShareCacheKey: Equatable {
         var dayKey: String

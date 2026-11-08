@@ -23,6 +23,7 @@ struct SettingsView: View {
 @ViewBuilder
 private func settingsDestination(_ symbol: String) -> some View {
     switch symbol {
+    case "person.fill": UserSettingsView()
     case "eurosign": FinanceSettingsView()
     case "flame.fill": ChallengeSettingsView()
     case "heart.fill": HealthSettingsView()
@@ -35,9 +36,9 @@ enum DeveloperCopy {
     static var toggle: String { L("Entwicklermodus", "Developer mode") }
 }
 
-/// Profile, appearance, briefing, developer mode, then version last.
+/// Appearance, briefing, developer mode, then version last. The person lives under User.
 enum GeneralSettingsOrder {
-    static let sections = ["profile", "appearance", "briefing", "developer", "version"]
+    static let sections = ["appearance", "briefing", "developer", "version"]
 }
 
 enum EditorCopy {
@@ -73,21 +74,8 @@ private struct GeneralSettingsView: View {
     @AppStorage(AppPalette.storageKey) private var palette = AppPalette.green.rawValue
     @AppStorage(AppClock.modeKey) private var developerMode = false
     @AppStorage(AppClock.dayKey) private var developerDay = 0.0
-    @AppStorage("userName") private var userName = ""
-    @AppStorage(UserProfile.birthKey) private var birthRaw = ""
     @AppStorage(LififyNotifications.briefingEnabledKey) private var briefingEnabled = true
     @AppStorage(LififyNotifications.briefingRevisionKey) private var briefingRevision = 0
-
-    private var birthSelection: Binding<Date> {
-        Binding(
-            get: { UserProfile.birthDate() ?? UserProfile.suggestedDate() },
-            set: { newValue in
-                UserProfile.setBirthDate(newValue)
-                birthRaw = UserProfile.birthRaw()
-                BirthdayBonusService.settle(context: context)
-            }
-        )
-    }
 
     private var developerModeBinding: Binding<Bool> {
         Binding(
@@ -129,28 +117,6 @@ private struct GeneralSettingsView: View {
 
     var body: some View {
         Form {
-            Section {
-                TextField(L("Name", "Name"), text: $userName)
-                DatePicker(
-                    L("Geburtsdatum", "Date of birth"),
-                    selection: birthSelection,
-                    in: ...Date(),
-                    displayedComponents: .date
-                )
-            } header: {
-                Text(L("Profil", "Profile"))
-            } footer: {
-                Text(birthRaw.isEmpty
-                    ? L(
-                        "Wähle dein Geburtsdatum. Das angezeigte Datum gilt erst, wenn du es änderst. Am Geburtstag gibt es einmal im Jahr 500 Coins. Der 29. Februar fällt in einem Jahr ohne diesen Tag auf den 28. Februar.",
-                        "Choose your date of birth. The date shown is saved once you change it. Your birthday pays 500 coins once each year. In a year without 29 February, that birthday falls on 28 February."
-                    )
-                    : L(
-                        "Am Geburtstag gibt es einmal im Jahr 500 Coins. Der 29. Februar fällt in einem Jahr ohne diesen Tag auf den 28. Februar.",
-                        "Your birthday pays 500 coins once each year. In a year without 29 February, that birthday falls on 28 February."
-                    ))
-            }
-            .appGlassRow()
             Section {
                 Picker(L("Sprache", "Language"), selection: $language) {
                     Text("Deutsch").tag("de")
@@ -214,6 +180,73 @@ private struct GeneralSettingsView: View {
         .appGlassList()
         .navigationTitle(L("Allgemein", "General"))
         .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+private struct UserSettingsView: View {
+    @Environment(\.modelContext) private var context
+    @AppStorage("userName") private var userName = ""
+    @AppStorage(UserProfile.birthKey) private var birthRaw = ""
+    @State private var heightText = UserBody.heightText()
+    @State private var weightText = UserBody.weightText()
+    @State private var sex = UserBody.current().sex
+    @State private var goal = UserBody.current().goal
+
+    private var birthSelection: Binding<Date> {
+        Binding(
+            get: { UserProfile.birthDate() ?? UserProfile.suggestedDate() },
+            set: { newValue in
+                UserProfile.setBirthDate(newValue)
+                birthRaw = UserProfile.birthRaw()
+                BirthdayBonusService.settle(context: context)
+            }
+        )
+    }
+
+    var body: some View {
+        Form {
+            Section {
+                TextField(L("Name", "Name"), text: $userName)
+                DatePicker(
+                    L("Geburtsdatum", "Date of birth"),
+                    selection: birthSelection,
+                    in: ...Date(),
+                    displayedComponents: .date
+                )
+                TextField(L("Größe in cm", "Height in cm"), text: $heightText)
+                    .keyboardType(.decimalPad)
+                TextField(L("Gewicht in kg", "Weight in kg"), text: $weightText)
+                    .keyboardType(.decimalPad)
+                Picker(L("Geschlecht", "Sex"), selection: $sex) {
+                    ForEach(BodySex.allCases) { Text($0.label).tag($0) }
+                }
+                Picker(L("Ziel", "Goal"), selection: $goal) {
+                    ForEach(BodyGoal.allCases) { Text($0.label).tag($0) }
+                }
+            } footer: {
+                Text(birthRaw.isEmpty
+                    ? L(
+                        "Wähle dein Geburtsdatum. Das angezeigte Datum gilt erst, wenn du es änderst. Am Geburtstag gibt es einmal im Jahr 500 Coins. Größe, Gewicht und Ziel setzen das Kalorienziel. Die Erkennung von Essensfotos ist noch nicht verbunden.",
+                        "Choose your date of birth. The date shown is saved once you change it. Your birthday pays 500 coins once each year. Height, weight, and the goal set the calorie target. Food-photo recognition is not connected yet."
+                    )
+                    : L(
+                        "Am Geburtstag gibt es einmal im Jahr 500 Coins. Größe, Gewicht und Ziel setzen das Kalorienziel. Ein Training an dem Tag hebt es. Die Erkennung von Essensfotos ist noch nicht verbunden.",
+                        "Your birthday pays 500 coins once each year. Height, weight, and the goal set the calorie target. A workout that day raises it. Food-photo recognition is not connected yet."
+                    ))
+            }
+            .appGlassRow()
+        }
+        .appGlassList()
+        .navigationTitle(L("Nutzer", "User"))
+        .navigationBarTitleDisplayMode(.inline)
+        .onChange(of: heightText) { storeBody() }
+        .onChange(of: weightText) { storeBody() }
+        .onChange(of: sex) { storeBody() }
+        .onChange(of: goal) { storeBody() }
+    }
+
+    private func storeBody() {
+        UserBody.save(heightText: heightText, weightText: weightText, sex: sex, goal: goal)
     }
 }
 
