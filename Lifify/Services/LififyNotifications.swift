@@ -1,7 +1,7 @@
 import Foundation
 import UserNotifications
 
-final class NotificationCenterDelegate: NSObject, UNUserNotificationCenterDelegate {
+final class NotificationCenterDelegate: NSObject, UNUserNotificationCenterDelegate, @unchecked Sendable {
     static let shared = NotificationCenterDelegate()
 
     func userNotificationCenter(
