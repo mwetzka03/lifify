@@ -236,8 +236,14 @@ private struct DayAgendaCard: View {
     }
 
     private func eventLinkCaption(_ event: ChallengeCalendarEvent) -> EventLinkCaption? {
-        if let id = event.linkedChallengeID, let title = allChallenges.first(where: { $0.id == id })?.title {
-            return EventLinkCaption(text: LinkCaption.challenge(title), symbol: "target", color: .green)
+        let memberTitles = ChallengeTimeStore.memberIDs(for: event.id).compactMap { id in
+            allChallenges.first(where: { $0.id == id })?.title
+        }
+        let sportTitle = event.linkedChallengeID.flatMap { id in
+            allChallenges.first(where: { $0.id == id })?.title
+        }
+        if let text = LinkCaption.challenges(memberTitles, fallback: sportTitle) {
+            return EventLinkCaption(text: text, symbol: "target", color: .green)
         }
         if let id = event.linkedChallengeGroupID, let title = groups.first(where: { $0.id == id })?.title {
             return EventLinkCaption(text: LinkCaption.group(title), symbol: "target", color: .green)
@@ -249,7 +255,7 @@ private struct DayAgendaCard: View {
     }
 
     private func challengeCalendarCaption(_ challenge: ChallengeItem) -> String? {
-        let linked = scheduleEvents.filter { !$0.isReminderSuggestion && $0.linkedChallengeID == challenge.id }
+        let linked = ChallengeTimeStore.linkedEvents(for: challenge.id, in: scheduleEvents)
         return LinkCaption.calendar(
             titles: linked.map(\.title),
             count: linked.count,
@@ -278,6 +284,7 @@ private struct ChallengeEventForm: View {
     @State private var end: Date
     @State private var allDay: Bool
     @State private var linkedChallengeID: UUID?
+    @State private var memberIDs: [UUID]
     @State private var linkedGroupID: UUID?
     @State private var linkedRewardID: UUID?
     @State private var adoptedChallengeID: UUID?
@@ -289,10 +296,20 @@ private struct ChallengeEventForm: View {
         existing = event
         _title = State(initialValue: event?.title ?? "")
         _details = State(initialValue: event?.details ?? "")
-        _start = State(initialValue: event?.startDate ?? initialDate)
-        _end = State(initialValue: event?.endDate ?? Calendar.current.date(byAdding: .hour, value: 1, to: initialDate)!)
+        let initialStart = event?.startDate ?? initialDate
+        let plannedMinutes = event.flatMap { ChallengeTimeStore.plannedMinutes(for: $0.id) }
+        let initialEnd: Date
+        if let event, let plannedMinutes, plannedMinutes > 0, !event.isAllDay {
+            initialEnd = event.startDate.addingTimeInterval(TimeInterval(plannedMinutes * 60))
+        } else {
+            initialEnd = event?.endDate ?? Calendar.current.date(byAdding: .hour, value: 1, to: initialDate)!
+        }
+        _start = State(initialValue: initialStart)
+        _end = State(initialValue: initialEnd)
         _allDay = State(initialValue: event?.isAllDay ?? false)
+        let storedMembers = event.map { ChallengeTimeStore.memberIDs(for: $0.id) } ?? []
         _linkedChallengeID = State(initialValue: event?.linkedChallengeID)
+        _memberIDs = State(initialValue: storedMembers)
         _linkedGroupID = State(initialValue: event?.linkedChallengeGroupID)
         _linkedRewardID = State(initialValue: event?.linkedRewardID)
     }
@@ -311,7 +328,16 @@ private struct ChallengeEventForm: View {
                 Toggle(L("Ganztägig", "All day"), isOn: $allDay)
                 AppDateField(title: L("Beginn", "Start"), selection: $start, includesTime: !allDay)
                 AppDateField(title: L("Ende", "End"), selection: $end, minimum: start, includesTime: !allDay)
-                optionalPicker(L("Challenge", "Challenge"), selection: $linkedChallengeID, values: challenges.map { ($0.id, $0.title) })
+                optionalPicker(
+                    L("Sport-Challenge", "Sport challenge"),
+                    selection: $linkedChallengeID,
+                    values: challenges.filter { $0.category == .sport && !$0.isArchived }.map { ($0.id, $0.title) }
+                )
+                EventChallengeTimeSection(
+                    memberIDs: $memberIDs,
+                    slotMinutes: max(ChallengeTimeRules.minutes(from: start, to: end), 1),
+                    challenges: challenges
+                )
                 optionalPicker(L("Gruppe", "Group"), selection: $linkedGroupID, values: groups.map { ($0.id, $0.title) })
                 optionalPicker(L("Belohnung", "Reward"), selection: $linkedRewardID, values: rewards.map { ($0.id, $0.title) })
                 Button(L("Als Challenge übernehmen", "Adopt as challenge")) {
@@ -331,6 +357,15 @@ private struct ChallengeEventForm: View {
                 }
             }
             .navigationTitle(L("Termin", "Event"))
+            .onAppear {
+                guard let linked = linkedChallengeID,
+                      let challenge = challenges.first(where: { $0.id == linked }),
+                      ChallengeTimeRules.allowsTime(challenge.category),
+                      !memberIDs.contains(linked)
+                else { return }
+                memberIDs.append(linked)
+                linkedChallengeID = nil
+            }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button(L("Schließen", "Close")) { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
@@ -379,12 +414,31 @@ private struct ChallengeEventForm: View {
             isAllDay: allDay
         )
         let event = current ?? ChallengeCalendarEvent(title: title, startDate: start, endDate: end)
+        let previousStart = event.startDate
+        let previousEnd = event.endDate
         event.title = title
         event.details = details
         event.startDate = start
         event.endDate = end > start ? end : start.addingTimeInterval(allDay ? 86_400 : 3_600)
         event.isAllDay = allDay
-        event.linkedChallengeID = linkedChallengeID
+        let previousCategory = challenges.first { $0.id == event.linkedChallengeID }?.category
+        if linkedChallengeID != nil || previousCategory != .abstinence {
+            event.linkedChallengeID = linkedChallengeID
+        }
+        if event.modelContext == nil { context.insert(event) }
+        let slot = ChallengeTimeRules.minutes(from: event.startDate, to: event.endDate)
+        let storedPlan = ChallengeTimeStore.plannedMinutes(for: event.id)
+        let plannedEnd = storedPlan.map { previousStart.addingTimeInterval(TimeInterval($0 * 60)) } ?? previousEnd
+        let timesChanged = abs(plannedEnd.timeIntervalSince(event.endDate)) > 60
+            || abs(previousStart.timeIntervalSince(event.startDate)) > 60
+        if storedPlan == nil || timesChanged {
+            ChallengeTimeStore.setPlannedMinutes(max(slot, 1), for: event.id)
+        }
+        let timedMembers = memberIDs.filter { id in
+            guard let category = challenges.first(where: { $0.id == id })?.category else { return false }
+            return ChallengeTimeRules.allowsTime(category)
+        }
+        ChallengeTimeStore.setMembers(allDay ? [] : timedMembers, for: event.id)
         event.linkedChallengeGroupID = linkedGroupID
         event.linkedRewardID = linkedRewardID
         if let identifier {
@@ -399,6 +453,7 @@ private struct ChallengeEventForm: View {
         if event.modelContext == nil { context.insert(event) }
         savedEvent = event
         try? context.save()
+        ChallengeTimeService.resize(context: context)
         syncWorkoutLinks()
         return event
     }
@@ -489,6 +544,7 @@ private struct ChallengeEventForm: View {
                 occurrenceStart: event.startDate
             )
         }
+        ChallengeTimeStore.removeEvent(event.id)
         context.delete(event)
         try? context.save()
         dismiss()

@@ -81,6 +81,11 @@ enum LififyChecks {
             abstinenceBonusUsesDifficulty(),
             abstinenceMilestonesStayInOrder(),
             abstinenceRunPaysDaysAndStepsOnce(),
+            abstinenceExceptionLeavesTheTimer(),
+            challengeSlotFitsFourOfFive(),
+            finishedChallengesShrinkTheSlot(),
+            oldChallengesAreSuggested(),
+            briefingNamesTheDay(),
             developerDayKeepsClockTime()
         ]
     }
@@ -645,8 +650,94 @@ enum LififyChecks {
             && again.days.isEmpty && again.milestones.isEmpty
             && relapsed.milestones == [.hour1, .hour2]
             && future.days.isEmpty && future.milestones.isEmpty
-            && dayBonus == 30
+            && dayBonus == 60
         return result("Ein Lauf zahlt jeden Tag und jede Stufe einmal, ein Rückfall startet die Boni neu", .abstinence, .integration, passed, "Tage \(first.days.count), Stufen \(first.milestones.count), neu \(relapsed.milestones.count)")
+    }
+
+    private static func abstinenceExceptionLeavesTheTimer() -> LififyCheckResult {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .gmt
+        let start = calendar.date(from: DateComponents(year: 2026, month: 10, day: 1, hour: 8)) ?? .distantPast
+        let now = start.addingTimeInterval(26 * 3_600)
+        let before = AbstinenceRules.plan(start: start, now: now, completedDays: [], awarded: [], calendar: calendar)
+        let after = AbstinenceRules.plan(start: start, now: now, completedDays: [], awarded: [], calendar: calendar)
+        let passed = before == after && before.milestones.contains(.hour24) && !before.milestones.contains(.day7)
+        return result("Eine Ausnahme ändert den Timer nicht", .abstinence, .unit, passed, "Stufen \(before.milestones.count)")
+    }
+
+    private static func challengeSlotFitsFourOfFive() -> LififyCheckResult {
+        let count = ChallengeTimeRules.fitCount(minutes: [30, 30, 30, 30, 30], slotMinutes: 120)
+        let caption = LinkCaption.challenges(["Lesen", "Schreiben"])
+        let passed = count == 4
+            && !ChallengeTimeRules.allowsTime(.sport)
+            && !ChallengeTimeRules.allowsTime(.abstinence)
+            && ChallengeTimeRules.allowsTime(.habit)
+            && ChallengeTimeRules.matches(.withTime, minutes: 30)
+            && !ChallengeTimeRules.matches(.withTime, minutes: nil)
+            && ChallengeTimeRules.matches(.withoutTime, minutes: nil)
+            && (caption == "Mit Challenges Lesen, Schreiben verknüpft" || caption == "Linked to challenges Lesen, Schreiben")
+        return result("In zwei Stunden passen vier Challenges à 30 Minuten", .challenge, .unit, passed, "passen \(count), \(caption ?? "leer")")
+    }
+
+    private static func finishedChallengesShrinkTheSlot() -> LififyCheckResult {
+        let single = ChallengeTimeRules.displayedMinutes(planned: 120, linked: [30], completed: [])
+        let waiting = ChallengeTimeRules.displayedMinutes(planned: 120, linked: [30, 30, 30, 30], completed: [])
+        let partial = ChallengeTimeRules.displayedMinutes(planned: 120, linked: [30, 30, 30, 30], completed: [30, 30, 30])
+        let full = ChallengeTimeRules.displayedMinutes(planned: 120, linked: [30, 30, 30, 30], completed: [30, 30, 30, 30])
+        let passed = single == 30 && waiting == 120 && partial == 90 && full == 120
+        return result("Drei erledigte Challenges à 30 Minuten machen den Termin zu 90 Minuten", .challenge, .integration, passed, "einzeln \(single), teil \(partial)")
+    }
+
+    private static func oldChallengesAreSuggested() -> LififyCheckResult {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let old = now.addingTimeInterval(-(8 * 86_400))
+        let fresh = now.addingTimeInterval(-(2 * 86_400))
+        let ids = [
+            UUID(uuidString: "00000000-0000-0000-0000-000000000001")!,
+            UUID(uuidString: "00000000-0000-0000-0000-000000000002")!,
+            UUID(uuidString: "00000000-0000-0000-0000-000000000003")!
+        ]
+        let suggested = ChallengeTimeRules.suggestions(
+            candidates: [
+                (id: ids[0], minutes: 30, createdAt: old),
+                (id: ids[1], minutes: 30, createdAt: fresh),
+                (id: ids[2], minutes: 90, createdAt: old)
+            ],
+            now: now,
+            remaining: 40,
+            already: []
+        )
+        let passed = suggested == [ids[0]]
+        return result("Ältere Challenges werden vorgeschlagen, wenn sie in die Zeit passen", .challenge, .unit, passed, "\(suggested.count)")
+    }
+
+    private static func briefingNamesTheDay() -> LififyCheckResult {
+        let text = DailyBriefing.text(
+            events: [DailyBriefingLine(title: "Fokus", detail: "10:00")],
+            challenges: [DailyBriefingLine(title: "Lesen", detail: "+10")],
+            rewards: [DailyBriefingLine(title: "Kino", detail: "200 · 3d")],
+            salary: "25.11.",
+            expenses: [DailyBriefingLine(title: "Miete", detail: "800 €")]
+        )
+        let early = DailyBriefing.shouldDeliverBonusNow(
+            due: Date(timeIntervalSince1970: 2_000),
+            realNow: Date(timeIntervalSince1970: 1_000),
+            alreadyQueued: true
+        )
+        let queued = DailyBriefing.shouldDeliverBonusNow(
+            due: Date(timeIntervalSince1970: 1_000),
+            realNow: Date(timeIntervalSince1970: 2_000),
+            alreadyQueued: true
+        )
+        let missed = DailyBriefing.shouldDeliverBonusNow(
+            due: Date(timeIntervalSince1970: 1_000),
+            realNow: Date(timeIntervalSince1970: 2_000),
+            alreadyQueued: false
+        )
+        let passed = text.contains("Fokus") && text.contains("Lesen") && text.contains("Kino")
+            && text.contains("25.11.") && text.contains("Miete")
+            && early && !queued && missed
+        return result("Das Tagesbriefing nennt Termine, Coins, Belohnung, Gehalt und Ausgaben", .challenge, .unit, passed, text)
     }
 
     private static func result(

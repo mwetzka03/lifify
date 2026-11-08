@@ -1,8 +1,13 @@
 import SwiftData
 import SwiftUI
+import UserNotifications
 
 @main
 struct LififyApp: App {
+    init() {
+        UNUserNotificationCenter.current().delegate = NotificationCenterDelegate.shared
+    }
+
     private let containerResult: Result<ModelContainer, Error> = {
         StoreRecoveryService.prepareCompatibleStore()
         let schema = Schema(LififySchemaV2.models)

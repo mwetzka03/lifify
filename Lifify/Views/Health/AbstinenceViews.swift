@@ -126,6 +126,7 @@ struct AbstinenceDetailView: View {
         let elapsed = AbstinenceRules.elapsed(from: start, to: now)
         let difficulty = AbstinenceSettings.difficulty(for: challenge.id)
         let relapses = AbstinenceSettings.relapses(for: challenge.id)
+        let exceptions = AbstinenceSettings.exceptions(for: challenge.id)
         return List {
             Section {
                 VStack(alignment: .leading, spacing: 6) {
@@ -167,6 +168,25 @@ struct AbstinenceDetailView: View {
                     "Ein Bonus ist der Faktor dieser Stufe mal die Coins pro Tag. Es zählt jede erreichte Stufe, nicht nur die höchste.",
                     "A bonus is that step’s factor times the coins per day. Every reached step counts, not only the highest one."
                 ))
+            }
+            if !exceptions.isEmpty {
+                Section {
+                    ForEach(exceptions) { exception in
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(exception.rewardTitle)
+                            Text("\(AppDate.numeric(exception.date)) · \(AppDate.time(exception.date))")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                } header: {
+                    Text(L("Ausnahmen", "Exceptions"))
+                } footer: {
+                    Text(L(
+                        "Eine eingelöste Belohnung stoppt den Timer nicht.",
+                        "A redeemed reward does not stop the timer."
+                    ))
+                }
             }
             if !relapses.isEmpty {
                 Section {

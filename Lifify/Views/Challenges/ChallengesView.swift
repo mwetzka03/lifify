@@ -402,8 +402,11 @@ struct ChallengesView: View {
         ReminderLinkStore.remove(for: challenge.externalIdentifier)
         StreakSettings.remove(for: challenge.id)
         AbstinenceSettings.remove(for: challenge.id)
+        ChallengeTimeStore.removeChallenge(challenge.id)
+        let challengeID = challenge.id.uuidString
         context.delete(challenge)
         try? context.save()
+        Task { await LififyNotifications.cancel(idPrefix: challengeID) }
     }
 
     private func challengeMeta(_ challenge: ChallengeItem) -> some View {
@@ -417,7 +420,7 @@ struct ChallengesView: View {
             completions: completions,
             events: calendarEvents
         ).count
-        let linked = calendarEvents.filter { !$0.isReminderSuggestion && $0.linkedChallengeID == challenge.id }
+        let linked = ChallengeTimeStore.linkedEvents(for: challenge.id, in: calendarEvents)
         return VStack(alignment: .leading, spacing: 2) {
             HStack(spacing: 6) {
                 Text(challenge.recurrence.label)
@@ -472,6 +475,7 @@ struct ChallengeForm: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
     @Query(sort: \ChallengeGroup.title) private var groups: [ChallengeGroup]
+    @Query(sort: \ChallengeCalendarEvent.startDate) private var formEvents: [ChallengeCalendarEvent]
     private let existing: ChallengeItem?
     private let sourceRecommendation: ChallengeCalendarEvent?
     @State private var title: String
@@ -485,6 +489,8 @@ struct ChallengeForm: View {
     @State private var rewardCoins: Int
     @State private var streaksEnabled: Bool
     @State private var difficulty: AbstinenceDifficulty
+    @State private var durationText: String
+    @State private var linkedEventID: UUID?
     @State private var groupID: UUID?
     @State private var icon: String
     @State private var syncToReminders: Bool
@@ -510,6 +516,8 @@ struct ChallengeForm: View {
         _rewardCoins = State(initialValue: challenge?.rewardCoins ?? 10)
         _streaksEnabled = State(initialValue: challenge.map { StreakSettings.isEnabled(for: $0.id) } ?? false)
         _difficulty = State(initialValue: challenge.map { AbstinenceSettings.difficulty(for: $0.id) } ?? .medium)
+        _durationText = State(initialValue: challenge.flatMap { ChallengeTimeStore.minutes(for: $0.id).map(String.init) } ?? "")
+        _linkedEventID = State(initialValue: challenge.flatMap { ChallengeTimeStore.eventID(containing: $0.id) })
         _groupID = State(initialValue: challenge?.groupID)
         let presetIcon = presetCategory == .abstinence ? "lungs.fill" : "target"
         _icon = State(initialValue: challenge.map { IconPreferenceStore.icon(for: $0.id, fallback: presetIcon) } ?? (recommendation == nil ? presetIcon : "lightbulb"))
@@ -564,6 +572,25 @@ struct ChallengeForm: View {
                             .keyboardType(.numberPad)
                             .multilineTextAlignment(.trailing)
                     }
+                    if category != .sport {
+                        LabeledContent(L("Dauer in Minuten", "Duration in minutes")) {
+                            TextField(L("Optional", "Optional"), text: $durationText)
+                                .keyboardType(.numberPad)
+                                .multilineTextAlignment(.trailing)
+                        }
+                        Picker(L("Termin", "Event"), selection: $linkedEventID) {
+                            Text(L("Keiner", "None")).tag(Optional<UUID>.none)
+                            ForEach(linkableEvents) { event in
+                                Text("\(event.title) · \(AppDate.numeric(event.startDate))").tag(Optional(event.id))
+                            }
+                        }
+                        Text(L(
+                            "Leer lassen, wenn die Challenge keine Dauer hat. In einem Termin zählen nur Challenges mit Dauer zur Zeit. Sport und Abstinenz haben eigene Regeln.",
+                            "Leave this empty when the challenge has no duration. In an event, only challenges with a duration count toward the time. Sport and abstinence have their own rules."
+                        ))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    }
                     Toggle(L("Streaks aktivieren", "Enable streaks"), isOn: $streaksEnabled)
                     Text(L(
                         "Die Serie zählt jede Erledigung. Die Quote folgt der Frequenz, zum Beispiel dreimal in der Woche oder einmal im Monat, an beliebigen Tagen. Fehlt sie am Ende, fällt die Serie auf 0, außer eine Freeze schützt sie.",
@@ -608,6 +635,45 @@ struct ChallengeForm: View {
         }
     }
 
+    private var linkableEvents: [ChallengeCalendarEvent] {
+        let minutes = Int(durationText.trimmingCharacters(in: .whitespaces))
+        return formEvents.filter { event in
+            guard !event.isReminderSuggestion, !event.isAllDay else { return false }
+            if event.id == linkedEventID { return true }
+            let planned = ChallengeTimeStore.plannedMinutes(for: event.id)
+                ?? ChallengeTimeRules.minutes(from: event.startDate, to: event.endDate)
+            let others = ChallengeTimeStore.memberIDs(for: event.id).filter { $0 != existing?.id }
+            let used = others.compactMap { ChallengeTimeStore.minutes(for: $0) }
+            let left = ChallengeTimeRules.remaining(slotMinutes: planned, linkedMinutes: used)
+            return ChallengeTimeRules.canAdd(minutes: minutes, remaining: left)
+        }
+    }
+
+    private func assignEvent(_ challengeID: UUID, minutes: Int?) {
+        if let eventID = linkedEventID {
+            var members = ChallengeTimeStore.memberIDs(for: eventID).filter { $0 != challengeID }
+            let event = formEvents.first { $0.id == eventID }
+            let planned = ChallengeTimeStore.plannedMinutes(for: eventID)
+                ?? event.map { ChallengeTimeRules.minutes(from: $0.startDate, to: $0.endDate) }
+                ?? 0
+            let used = members.compactMap { ChallengeTimeStore.minutes(for: $0) }
+            let left = ChallengeTimeRules.remaining(slotMinutes: max(planned, 1), linkedMinutes: used)
+            guard ChallengeTimeRules.canAdd(minutes: minutes, remaining: left) else {
+                saveMessage = L(
+                    "Die Dauer passt nicht mehr in den Termin.",
+                    "The duration no longer fits in the event."
+                )
+                return
+            }
+            members.append(challengeID)
+            ChallengeTimeStore.setMembers(members, for: eventID)
+        } else if let current = ChallengeTimeStore.eventID(containing: challengeID) {
+            var members = ChallengeTimeStore.memberIDs(for: current)
+            members.removeAll { $0 == challengeID }
+            ChallengeTimeStore.setMembers(members, for: current)
+        }
+    }
+
     @MainActor
     private func save() async {
         guard !title.isEmpty else { return }
@@ -636,6 +702,8 @@ struct ChallengeForm: View {
         } else {
             StreakSettings.setEnabled(streaksEnabled, for: challenge.id)
             AbstinenceSettings.remove(for: challenge.id)
+            let challengeID = challenge.id.uuidString
+            Task { await LififyNotifications.cancel(idPrefix: challengeID) }
         }
         if existing == nil, savedChallenge == nil {
             context.insert(challenge)
@@ -644,11 +712,31 @@ struct ChallengeForm: View {
         if let sourceRecommendation, sourceRecommendation.modelContext != nil {
             context.delete(sourceRecommendation)
         }
+        if ChallengeTimeRules.allowsTime(category) {
+            let minutes = Int(durationText.trimmingCharacters(in: .whitespaces))
+            ChallengeTimeStore.setMinutes(minutes, for: challenge.id)
+            assignEvent(challenge.id, minutes: minutes)
+        } else {
+            ChallengeTimeStore.removeChallenge(challenge.id)
+        }
         if abstinence { syncToReminders = false }
         IconPreferenceStore.set(icon, for: challenge.id)
         ReminderSyncPreference.set(syncToReminders, for: challenge.id)
         try? context.save()
-        if abstinence { AbstinenceService.settle(context: context) }
+        if abstinence {
+            AbstinenceService.settle(context: context)
+            let challengeID = challenge.id
+            let start = challenge.startDate ?? challenge.createdAt
+            Task {
+                await LififyNotifications.cancel(
+                    idPrefix: challengeID.uuidString,
+                    keeping: AbstinenceService.notificationIDs(challengeID: challengeID, start: start)
+                )
+                await DailyBriefingService.scheduleAbstinence(context: context)
+            }
+        }
+        if ChallengeTimeRules.allowsTime(category) { ChallengeTimeService.resize(context: context) }
+        if saveMessage != nil { return }
 
         if let externalIdentifier = challenge.externalIdentifier,
            externalIdentifier.hasPrefix("event-challenge:") {
@@ -829,7 +917,7 @@ private struct ChallengeGroupDetailView: View {
     }
 
     private func groupCalendarCaption(_ challenge: ChallengeItem) -> String? {
-        let linked = calendarEvents.filter { !$0.isReminderSuggestion && $0.linkedChallengeID == challenge.id }
+        let linked = ChallengeTimeStore.linkedEvents(for: challenge.id, in: calendarEvents)
         return LinkCaption.calendar(
             titles: linked.map(\.title),
             count: linked.count,
@@ -846,8 +934,11 @@ private struct ChallengeGroupDetailView: View {
         ReminderLinkStore.remove(for: challenge.externalIdentifier)
         StreakSettings.remove(for: challenge.id)
         AbstinenceSettings.remove(for: challenge.id)
+        ChallengeTimeStore.removeChallenge(challenge.id)
+        let challengeID = challenge.id.uuidString
         context.delete(challenge)
         try? context.save()
+        Task { await LififyNotifications.cancel(idPrefix: challengeID) }
     }
 }
 

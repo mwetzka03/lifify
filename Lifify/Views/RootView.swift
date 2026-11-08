@@ -61,6 +61,8 @@ struct RootView: View {
                 promptForAccess: false
             )
             AbstinenceService.settle(context: context)
+            await DailyBriefingService.refresh(context: context)
+            await DailyBriefingService.scheduleAbstinence(context: context)
         }
     }
 }

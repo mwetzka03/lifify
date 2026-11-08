@@ -77,13 +77,45 @@ Stand gegenüber `main`. Die Rechenregeln der Finanzen bleiben in
   die Tagescoins. Die Faktoren stehen unter Einstellungen, Herausforderung,
   Abstinenz-Bonus.
 - Ein erreichter Bonus erscheint auf der Startseite, wie die Karte „Heute
-  abhaken“. Der Haken quittiert die Meldung. Die Coins sind dann schon
-  gutgeschrieben.
+  abhaken“, und als Push auf dem iPhone. Das gilt auch, wenn der
+  Entwicklermodus die Zeit vorspult und der Bonus dadurch jetzt gutgeschrieben
+  wird. Der Haken auf der Startseite quittiert die Karte. Die Coins sind dann
+  schon gutgeschrieben.
+- Die Standardfaktoren für mittel sind die früheren Werte von schwer. Schwer
+  liegt darüber, zum Beispiel 6× nach 24 Stunden bei mittel und 12× bei schwer.
+- Eine Belohnung kann mit einer Abstinenz verknüpft werden. Wird sie eingelöst,
+  bleibt der Timer stehen. Der Kauf steht unter der Abstinenz als Ausnahme mit
+  Datum und Uhrzeit.
 - Ein Rückfall setzt den Timer auf jetzt und speichert Datum, Uhrzeit und die
   Dauer des beendeten Laufs. Schon gezahlte Coins bleiben. Die Boni können im
   neuen Lauf wieder erreicht werden.
-- Schwierigkeit, gezahlte Stufen, Faktoren, Rückfälle und offene Meldungen
-  liegen neben dem Datenmodell und reisen mit der Challenge-Sicherung.
+- Schwierigkeit, gezahlte Stufen, Faktoren, Rückfälle, Ausnahmen, die
+  Belohnungsverknüpfung und offene Meldungen liegen neben dem Datenmodell und
+  reisen mit der Challenge-Sicherung. Dauer und Slot-Zuordnung ebenso.
+
+## Zeit in Challenges
+
+- Eine Challenge kann, muss aber nicht, eine Dauer in Minuten haben. Sport und
+  Abstinenz sind davon ausgenommen.
+- Ein Termin ist ein Slot. Challenges mit Dauer passen nur hinein, solange die
+  Summe die Slot-Länge nicht übersteigt. Fünf Challenges à 30 Minuten sind
+  zweieinhalb Stunden. In einen Termin von zwei Stunden passen vier.
+- Ist genau eine Challenge mit Dauer verknüpft, ist der Termin so lang wie
+  diese Challenge. Sind mehrere verknüpft und noch keine erledigt, bleibt der
+  Slot. Sind zum Beispiel vier à 30 Minuten verknüpft und drei erledigt, wird
+  der Termin auf 90 Minuten gestellt.
+- Beim Zuweisen lässt sich filtern: mit Zeit, ohne Zeit oder alle. Challenges
+  ohne Dauer verbrauchen den Slot nicht.
+- Challenges, die seit mindestens sieben Tagen offen sind und noch in den Slot
+  passen, werden als Vorschlag angeboten.
+
+## Mitteilungen
+
+- Unter Allgemein gibt es das tägliche Briefing mit Uhrzeit. Es nennt die
+  Termine des Tags, die fälligen Challenges und ihre Coins, nahende
+  Belohnungen, das nächste Gehalt und die Ausgaben dieses Tags. Die App plant
+  die nächsten sieben Tage, jedes Mal wenn sie aktiv wird.
+- Abstinenz-Boni werden zusätzlich gepusht, sobald die Stufe erreicht ist.
 
 ## Gesundheit und Kalender
 
@@ -95,10 +127,11 @@ Stand gegenüber `main`. Die Rechenregeln der Finanzen bleiben in
   Die übrige Serie bleibt. Fand keines der verknüpften Trainings statt, wird
   dieses Vorkommen nach dem Tag entfernt.
 - Ein Kalendereintrag nennt seine Verknüpfung, zum Beispiel „Mit Challenge Gym
-  verknüpft“, oder den Namen der Gruppe oder der Belohnung. Eine Challenge
-  nennt ihren Kalendereintrag in der Liste, in der Gruppe, auf der Startseite
-  und in der Tagesansicht. Auf einem Training werden gleiche Titel zu
-  „GYM · 12“ zusammengezogen.
+  verknüpft“, oder den Namen der Gruppe oder der Belohnung. Mehrere Challenges
+  in einem Slot stehen gemeinsam an dem Termin. Eine Challenge nennt ihren
+  Kalendereintrag in der Liste, in der Gruppe, auf der Startseite und in der
+  Tagesansicht. Auf einem Training werden gleiche Titel zu „GYM · 12“
+  zusammengezogen.
 - Der Apple-Kalender wird von 30 Tagen zurück bis 365 Tage voraus gelesen.
   Wird die App aktiv und der Zugriff ist schon erlaubt, gleicht sie ab. Die
   erste Erlaubnis kommt weiter über den Knopf unter Herausforderung,
@@ -121,7 +154,8 @@ Stand gegenüber `main`. Die Rechenregeln der Finanzen bleiben in
 ## Einstellungen, Daten und Checks
 
 - Die Einstellungen folgen dem Aufbau der Apple-Einstellungen. Allgemein hat
-  Sprache, Erscheinungsbild und die Version. Finanzen hat die Konten und das
+  Sprache, Erscheinungsbild, das tägliche Briefing mit Uhrzeit und die Version.
+  Finanzen hat die Konten und das
   Girokonto samt Gebühr fürs Depot. Herausforderung hat Kalenderabgleich,
   Freeze-Faktor, Streak-Multiplikatoren und die Abstinenz-Boni. Gesundheit hat
   den Pausen-Ton. Daten hat Bankimport, Trade-Republic-Import, Sicherung und

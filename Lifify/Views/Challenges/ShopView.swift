@@ -282,6 +282,7 @@ private let rewardPalette = [
 private struct RewardForm: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
+    @Query(sort: \ChallengeItem.title) private var challenges: [ChallengeItem]
     private let existing: RewardItem?
     @State private var title: String
     @State private var details: String
@@ -290,8 +291,10 @@ private struct RewardForm: View {
     @State private var icon: String
     @State private var colorHex: String
     @State private var allowsMultiple: Bool
+    @State private var abstinenceID: UUID?
     @State private var confirmDelete = false
 
+    @MainActor
     init(reward: RewardItem?) {
         existing = reward
         _title = State(initialValue: reward?.title ?? "")
@@ -301,6 +304,7 @@ private struct RewardForm: View {
         _icon = State(initialValue: reward?.icon ?? "gift")
         _colorHex = State(initialValue: reward?.colorHex ?? rewardPalette[0])
         _allowsMultiple = State(initialValue: reward.map { RewardPolicyStore.allowsMultiplePurchases(for: $0.id) } ?? true)
+        _abstinenceID = State(initialValue: reward.flatMap { AbstinenceSettings.rewardLink(for: $0.id) })
     }
 
     var body: some View {
@@ -318,6 +322,18 @@ private struct RewardForm: View {
                     Text(L("Mehrmals", "Repeatable")).tag(true)
                 }
                 TextField("URL", text: $url).keyboardType(.URL).textInputAutocapitalization(.never)
+                Picker(L("Abstinenz-Ausnahme", "Abstinence exception"), selection: $abstinenceID) {
+                    Text(L("Keine", "None")).tag(Optional<UUID>.none)
+                    ForEach(challenges.filter { $0.category == .abstinence && !$0.isArchived }) { challenge in
+                        Text(challenge.title).tag(Optional(challenge.id))
+                    }
+                }
+                Text(L(
+                    "Wird die Belohnung eingelöst, bleibt der Timer stehen. Der Kauf wird unter der Abstinenz als Ausnahme mit Zeitpunkt gespeichert.",
+                    "Redeeming the reward leaves the timer running. The purchase is stored on the abstinence as an exception with its time."
+                ))
+                .font(.caption)
+                .foregroundStyle(.secondary)
                 SymbolPicker(title: L("Symbol", "Icon"), selection: $icon)
                 VStack(alignment: .leading, spacing: 8) {
                     Text(L("Farbe", "Color"))
@@ -358,6 +374,7 @@ private struct RewardForm: View {
                 Button(L("Löschen", "Delete"), role: .destructive) {
                     guard let existing else { return }
                     RewardPolicyStore.remove(for: existing.id)
+                    AbstinenceSettings.setRewardLink(nil, for: existing.id)
                     context.delete(existing)
                     try? context.save()
                     dismiss()
@@ -383,6 +400,7 @@ private struct RewardForm: View {
                         reward.colorHex = colorHex
                         if existing == nil { context.insert(reward) }
                         RewardPolicyStore.setAllowsMultiplePurchases(allowsMultiple, for: reward.id)
+                        AbstinenceSettings.setRewardLink(abstinenceID, for: reward.id)
                         try? context.save()
                         dismiss()
                     }

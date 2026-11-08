@@ -50,14 +50,26 @@ enum AbstinenceService {
                             referenceID: challenge.id
                         ))
                     }
+                    let noticeID = "\(challenge.id.uuidString)|\(milestone.rawValue)|\(start.timeIntervalSince1970)"
                     AbstinenceSettings.postNotice(AbstinenceNotice(
-                        id: "\(challenge.id.uuidString)|\(milestone.rawValue)|\(start.timeIntervalSince1970)",
+                        id: noticeID,
                         challengeID: challenge.id,
                         title: challenge.title,
                         milestone: milestone.rawValue,
                         coins: coins,
                         date: due
                     ))
+                    let bonusTitle = challenge.title
+                    let bonusLabel = milestone.label
+                    let bonusCoins = coins
+                    Task {
+                        await LififyNotifications.announceBonus(
+                            id: noticeID,
+                            title: L("Abstinenz-Bonus", "Abstinence bonus"),
+                            body: bonusCoins > 0 ? "\(bonusTitle) · \(bonusLabel) · +\(bonusCoins)" : "\(bonusTitle) · \(bonusLabel)",
+                            due: due
+                        )
+                    }
                 }
                 AbstinenceSettings.setAwarded(awarded, for: challenge.id)
                 changed = true
@@ -78,5 +90,17 @@ enum AbstinenceService {
         AbstinenceSettings.clearAwarded(for: challenge.id)
         try? context.save()
         settle(context: context, now: now)
+        let challengeID = challenge.id.uuidString
+        let kept = Self.notificationIDs(challengeID: challenge.id, start: now)
+        Task {
+            await LififyNotifications.cancel(idPrefix: challengeID, keeping: kept)
+            await DailyBriefingService.scheduleAbstinence(context: context)
+        }
+    }
+
+    static func notificationIDs(challengeID: UUID, start: Date) -> Set<String> {
+        Set(AbstinenceMilestone.allCases.map {
+            "\(challengeID.uuidString)|\($0.rawValue)|\(start.timeIntervalSince1970)"
+        })
     }
 }

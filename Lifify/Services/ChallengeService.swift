@@ -258,6 +258,9 @@ enum ChallengeService {
         }
         try? context.save()
         commitFreezes(for: [challenge], completions: tracked, events: events, on: date)
+        if ChallengeTimeRules.allowsTime(challenge.category) {
+            ChallengeTimeService.resize(context: context, completions: tracked)
+        }
         if let externalIdentifier = challenge.externalIdentifier {
             Task {
                 await EventKitSyncService.setReminderCompletion(
@@ -285,6 +288,9 @@ enum ChallengeService {
         context.insert(CoinTransaction(title: challenge.title, amount: earned, referenceID: completion.id))
         try? context.save()
         commitFreezes(for: [challenge], completions: completions + [completion], events: events, on: date)
+        if ChallengeTimeRules.allowsTime(challenge.category) {
+            ChallengeTimeService.resize(context: context, completions: completions + [completion])
+        }
         if let externalIdentifier = challenge.externalIdentifier {
             Task {
                 await EventKitSyncService.setReminderCompletion(
@@ -467,6 +473,12 @@ enum ChallengeService {
         context.insert(CoinTransaction(title: reward.title, amount: -reward.price, referenceID: purchase.id))
         if !RewardPolicyStore.allowsMultiplePurchases(for: reward.id) {
             reward.isActive = false
+        }
+        if let challengeID = AbstinenceSettings.rewardLink(for: reward.id) {
+            AbstinenceSettings.recordException(
+                AbstinenceException(id: UUID(), date: AppClock.now, rewardID: reward.id, rewardTitle: reward.title),
+                for: challengeID
+            )
         }
         try? context.save()
         return true

@@ -141,9 +141,8 @@ struct HomeView: View {
                                     .frame(width: 58, alignment: .leading)
                                 VStack(alignment: .leading, spacing: 1) {
                                     Label(event.title, systemImage: event.icon)
-                                    if let id = event.linkedChallengeID,
-                                       let title = challenges.first(where: { $0.id == id })?.title {
-                                        Text(LinkCaption.challenge(title))
+                                    if let text = eventChallengeCaption(event) {
+                                        Text(text)
                                             .font(.caption2)
                                             .foregroundStyle(.green)
                                     }
@@ -351,7 +350,7 @@ struct HomeView: View {
     private func popupRows(_ popup: HomePopup) -> some View {
         switch popup.kind {
         case .morning(let items):
-            ForEach(items, id: \.event.id) { item in
+            ForEach(items, id: \.challenge.id) { item in
                 Button {
                     ChallengeService.toggleCompletion(
                         challenge: item.challenge,
@@ -472,7 +471,7 @@ struct HomeView: View {
     }
 
     private func homeCalendarCaption(_ challenge: ChallengeItem) -> String? {
-        let linked = calendarEvents.filter { !$0.isReminderSuggestion && $0.linkedChallengeID == challenge.id }
+        let linked = ChallengeTimeStore.linkedEvents(for: challenge.id, in: calendarEvents)
         return LinkCaption.calendar(
             titles: linked.map(\.title),
             count: linked.count,
@@ -547,15 +546,26 @@ struct HomeView: View {
     }
 
     private var morningChecks: [(event: ChallengeCalendarEvent, challenge: ChallengeItem)] {
-        events(on: AppClock.now).compactMap { event in
-            guard let challengeID = event.linkedChallengeID,
-                  let challenge = challenges.first(where: { $0.id == challengeID }),
-                  !ChallengeService.isCompleted(challenge, on: AppClock.now, completions: completions)
-            else {
-                return nil
+        var seen: Set<UUID> = []
+        return events(on: AppClock.now).flatMap { event -> [(event: ChallengeCalendarEvent, challenge: ChallengeItem)] in
+            ChallengeTimeStore.challengeIDs(on: event.id, legacy: event.linkedChallengeID).compactMap { challengeID in
+                guard seen.insert(challengeID).inserted,
+                      let challenge = challenges.first(where: { $0.id == challengeID }),
+                      !ChallengeService.isCompleted(challenge, on: AppClock.now, completions: completions)
+                else { return nil }
+                return (event, challenge)
             }
-            return (event, challenge)
         }
+    }
+
+    private func eventChallengeCaption(_ event: ChallengeCalendarEvent) -> String? {
+        let memberTitles = ChallengeTimeStore.memberIDs(for: event.id).compactMap { id in
+            challenges.first(where: { $0.id == id })?.title
+        }
+        let sportTitle = event.linkedChallengeID.flatMap { id in
+            challenges.first(where: { $0.id == id })?.title
+        }
+        return LinkCaption.challenges(memberTitles, fallback: sportTitle)
     }
 
     private var budget: HomeBudgetSnapshot {
