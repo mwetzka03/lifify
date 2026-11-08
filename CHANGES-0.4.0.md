@@ -10,10 +10,22 @@ This file is in English and in German. The finance calculations stay in
 
 ### Look
 
-- Challenges use a card grid: two cards in a row, with the symbol, title, and
-  coins. A group is one wide card above those. Health opens as three tiles,
-  Training and Abstinence side by side and Nutrition across the full width.
+- Challenges use a card grid: two cards in a row. A section with one card, or
+  a leftover card, uses the full width. The title sits to the right of the
+  symbol and lines up with its middle. Coins and the streak sit on the right.
+  A duration shows in the same green caption as a linked event. A group is one
+  wide card above those. Health is one framed row of three switches, Training,
+  Abstinence, and Nutrition. The chosen switch changes the board underneath.
   Long-press a card to edit or delete it.
+- The shop and coin capsules in the Challenges bar are as tall as the plus
+  button. In the shop, the reward title lines up with the middle of its symbol.
+- Recommendations leave more room around each Accept button.
+- Finance keeps the account choice pinned at the top. The choices are bubbles
+  in a row. A long name wraps to the next row, and that row shares the space
+  evenly. All accounts, each account, and Portfolio stay the same views.
+- In Challenge settings, the streak multiplier and the abstinence bonus are
+  bubbles. Tap a step, then type the factor underneath. More settings on a new
+  challenge or event starts closed.
 - Home, Challenges, Health, Settings, and setup sit on a mint-and-peach wash
   in light mode and on a deep green wash in dark mode. Cards and list rows
   keep their own fill, so light mode is not an empty white page and dark mode
@@ -39,9 +51,10 @@ This file is in English and in German. The finance calculations stay in
   check. Further checks cover accounts, forecasts, budgets, the portfolio,
   import, backup, the shop, training sets, and the tab bar. Where a check can
   see a label, it asserts that label. The checks do not write user data. In
-  the test list every category stays collapsed until it is opened. Tapping a
-  check opens a page with what the check does, then each step, and the file
-  that step reads.
+  the test list every category stays collapsed until it is opened. Categories
+  are sorted alphabetically by their title. Tapping a check opens a page with
+  what the check does, then each step with the expected result, the measured
+  result, and the file that step reads.
 
 ### Not in this version
 
@@ -57,11 +70,24 @@ This file is in English and in German. The finance calculations stay in
 
 ### Aussehen
 
-- Challenges nutzen ein Kartenraster: zwei Karten in einer Reihe, mit Symbol,
-  Titel und Coins. Eine Gruppe ist eine breite Karte darüber. Gesundheit
-  öffnet sich als drei Kacheln, Training und Abstinenz nebeneinander und
-  Ernährung über die volle Breite. Ein langes Drücken bearbeitet oder löscht
-  eine Karte.
+- Challenges nutzen ein Kartenraster: zwei Karten in einer Reihe. Eine einzelne
+  Karte oder eine übrige Karte nutzt die volle Breite. Der Titel steht rechts
+  neben dem Symbol und auf dessen Mitte. Coins und die Serie stehen rechts.
+  Eine Dauer erscheint in derselben grünen Zeile wie ein verknüpfter Termin.
+  Eine Gruppe ist eine breite Karte darüber. Gesundheit ist eine umrahmte
+  Reihe aus drei Schaltern, Training, Abstinenz und Ernährung. Der gewählte
+  Schalter wechselt die Ansicht darunter. Ein langes Drücken bearbeitet oder
+  löscht eine Karte.
+- Die Shop- und Coin-Kapseln in der Challenge-Leiste sind so hoch wie das
+  Plus. Im Shop steht der Titel der Belohnung auf der Mitte des Symbols.
+- Die Vorschläge lassen mehr Abstand um jeden Übernehmen-Knopf.
+- Finanzen behält die Kontoauswahl oben fest. Die Auswahl sind Blasen in einer
+  Reihe. Ein langer Name bricht in die nächste Reihe, und diese Reihe teilt
+  den Platz gleichmäßig. Alle Konten, jedes Konto und das Depot bleiben
+  dieselben Ansichten.
+- Unter Herausforderung sind Streak-Multiplikator und Abstinenz-Bonus Blasen.
+  Ein Tipp wählt die Stufe, danach setzt man den Faktor. Weitere Einstellungen
+  bei einer neuen Challenge oder einem neuen Termin starten geschlossen.
 - Home, Challenges, Gesundheit, Einstellungen und die Einrichtung liegen im
   Hellen auf einem Minz- und Pfirsichgrund und im Dunkeln auf einem tiefen
   Grünton. Karten und Listen behalten eine eigene Füllung, damit der helle
@@ -92,9 +118,10 @@ This file is in English and in German. The finance calculations stay in
   das Depot, den Import, die Sicherung, den Shop, Trainingssätze und die
   Tableiste ab. Wo eine Prüfung eine Beschriftung sehen kann, prüft sie diese.
   Die Prüfungen schreiben keine Nutzerdaten. In den Tests ist jede Kategorie
-  eingeklappt, bis sie geöffnet wird. Ein Tipp auf eine Prüfung öffnet eine
-  Seite mit dem, was die Prüfung tut, danach jeden Schritt und die Datei, die
-  der Schritt liest.
+  eingeklappt, bis sie geöffnet wird. Die Kategorien stehen alphabetisch nach
+  ihrem Titel. Ein Tipp auf eine Prüfung öffnet eine Seite mit dem, was die
+  Prüfung tut, danach jeden Schritt mit dem erwarteten Ergebnis, dem gemessenen
+  Ergebnis und der Datei, die der Schritt liest.
 
 ### Nicht in dieser Version
 

@@ -477,6 +477,6 @@ enum LififyCoverageChecks {
         _ passed: Bool,
         _ detail: String
     ) -> LififyCheckResult {
-        LififyCheckResult(name: name, passed: passed, detail: passed ? nil : detail, kind: kind, topic: topic)
+        LififyCheckResult(name: name, passed: passed, detail: passed ? nil : detail, reading: detail, kind: kind, topic: topic)
     }
 }

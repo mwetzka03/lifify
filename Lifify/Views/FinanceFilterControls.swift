@@ -60,34 +60,47 @@ struct FinanceFilterControls: View {
     }
 
     private var accountFilterBar: some View {
-        Menu {
-            Button(L("Alle Konten", "All accounts")) { filters.selectAllAccounts() }
-            ForEach(accounts.filter { $0.kind != .portfolio }) { account in
-                Button(account.name) { filters.select(account: account.id) }
+        let bankAccounts = accounts.filter { $0.kind != .portfolio }
+        let includesDepot = accounts.contains { $0.kind == .portfolio }
+        let titles = AccountBubbleBar.titles(
+            accountNames: bankAccounts.map(\.name),
+            includesDepot: includesDepot
+        )
+        return EvenBubbleRow(spacing: 8, lineSpacing: 8) {
+            ForEach(Array(titles.enumerated()), id: \.offset) { index, title in
+                Button {
+                    chooseAccount(index: index, bankAccounts: bankAccounts, includesDepot: includesDepot)
+                } label: {
+                    ChoiceBubble(title: title, selected: accountSelected(index: index, bankAccounts: bankAccounts, includesDepot: includesDepot))
+                }
+                .buttonStyle(.plain)
             }
-            if accounts.contains(where: { $0.kind == .portfolio }) {
-                Button(L("Depot", "Portfolio")) { filters.selectDepot() }
-            }
-        } label: {
-            HStack(spacing: 8) {
-                Image(systemName: "line.3.horizontal.decrease.circle")
-                Text(selectedTitle)
-                    .font(.headline)
-                    .lineLimit(1)
-                Spacer(minLength: 8)
-                Image(systemName: "chevron.down")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.secondary)
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 12)
-            .background(AppSurface.card, in: RoundedRectangle(cornerRadius: 14))
         }
-        .buttonStyle(.plain)
     }
 
-    private var selectedTitle: String {
-        if filters.showsDepot { return L("Depot", "Portfolio") }
-        return filters.account(in: accounts)?.name ?? L("Alle Konten", "All accounts")
+    private func chooseAccount(index: Int, bankAccounts: [Account], includesDepot: Bool) {
+        if index == 0 {
+            filters.selectAllAccounts()
+            return
+        }
+        let accountIndex = index - 1
+        if accountIndex < bankAccounts.count {
+            filters.select(account: bankAccounts[accountIndex].id)
+            return
+        }
+        if includesDepot {
+            filters.selectDepot()
+        }
+    }
+
+    private func accountSelected(index: Int, bankAccounts: [Account], includesDepot: Bool) -> Bool {
+        if filters.showsDepot {
+            return includesDepot && index == bankAccounts.count + 1
+        }
+        if let selected = filters.account(in: accounts),
+           let accountIndex = bankAccounts.firstIndex(where: { $0.id == selected.id }) {
+            return index == accountIndex + 1
+        }
+        return index == 0
     }
 }

@@ -24,6 +24,14 @@ enum CheckStories {
         L("Gelesen aus \(file)", "Read from \(file)")
     }
 
+    static func expectedLine(_ text: String) -> String {
+        L("Erwartet: \(text)", "Expected: \(text)")
+    }
+
+    static func actualLine(_ text: String) -> String {
+        L("Ergebnis: \(text)", "Actual: \(text)")
+    }
+
     static func story(named name: String) -> CheckStory {
         catalog[name] ?? CheckStory(german: name, english: name, steps: [])
     }
@@ -358,7 +366,7 @@ enum CheckStories {
             "Die Testliste öffnet mit eingeklappten Kategorien und zählt bestandene Prüfungen je Kategorie.",
             "The test list opens with collapsed categories and counts passed checks per category.",
             ("Eine Beispielgruppe Shop hat einen Fehlschlag, Konto hat einen Erfolg.", "A sample shop group has one failure, and account has one pass.", "LififyChecks.swift"),
-            ("Die Gruppen starten eingeklappt, Konto steht vor Shop, und die Zähler sind 1/1 und 1/2.", "The groups start collapsed, account comes before shop, and the counts are 1/1 and 1/2.", "LififyChecks.swift"),
+            ("Die Gruppen starten eingeklappt und stehen alphabetisch: Konten, Navigation, Shop. Shop zählt 1/2.", "The groups start collapsed and sit in alphabetical order: Accounts, Navigation, Shop. Shop counts 1/2.", "LififyChecks.swift"),
         ),
         "Die Briefingtage stehen nebeneinander": make(
             "Die Wochentage des Briefings stehen in einer Reihe. Ein abgewählter Tag bekommt keine Mitteilung.",
@@ -487,10 +495,10 @@ enum CheckStories {
             ("Der Schaltertext ist Entwicklermodus, und der Speicherschlüssel ist lifify.developerMode.", "The switch text is Developer mode, and the storage key is lifify.developerMode.", "SettingsView.swift"),
         ),
         "Challenges und Gesundheit nutzen ein Kartenraster": make(
-            "Aktive Challenges stehen zu zweit in einer Reihe. Gruppen sind eine breite Karte. Gesundheit hat drei Kacheln, Ernährung über die volle Breite.",
-            "Active challenges sit two in a row. Groups are one wide card. Health has three tiles, and nutrition spans the full width.",
-            ("Das Raster liest zwei Spalten für Challenges und zwei für die oberen Gesundheitskacheln.", "The grid reads two columns for challenges and two for the upper health tiles.", "AppChrome.swift"),
-            ("Die drei Titel Training, Abstinenz und Ernährung behalten ihre Symbole, und Ernährung bleibt eine eigene volle Karte.", "The three titles Training, Abstinence, and Nutrition keep their symbols, and nutrition stays its own full card.", "HealthView.swift"),
+            "Aktive Challenges stehen zu zweit in einer Reihe. Eine einzelne Karte ist breit. Gesundheit schaltet Training, Abstinenz und Ernährung in einer Reihe um.",
+            "Active challenges sit two in a row. A single card is wide. Health switches Training, Abstinence, and Nutrition in one row.",
+            ("Das Raster liest zwei Spalten für Challenges. Eine einzelne Karte nutzt die volle Breite.", "The grid reads two columns for challenges. A single card uses the full width.", "AppChrome.swift"),
+            ("Training, Abstinenz und Ernährung stehen als Schalter in einer Reihe.", "Training, Abstinence, and Nutrition sit as switches in one row.", "HealthView.swift"),
         ),
         "Jede Prüfung erklärt ihre Schritte": make(
             "Jede Prüfung in der Liste hat eine Erklärung und mindestens zwei Schritte mit einer Quelldatei.",

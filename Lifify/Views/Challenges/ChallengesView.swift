@@ -130,6 +130,8 @@ struct ChallengesView: View {
         let content = label()
             .font(.subheadline.weight(.semibold))
             .lineLimit(1)
+            .padding(.vertical, 6)
+            .frame(minHeight: 44)
             .fixedSize(horizontal: true, vertical: false)
         if #available(iOS 26.0, *) {
             Button(action: action) { content }
@@ -138,7 +140,6 @@ struct ChallengesView: View {
             Button(action: action) {
                 content
                     .padding(.horizontal, 14)
-                    .padding(.vertical, 8)
                     .background(.regularMaterial, in: Capsule())
             }
             .buttonStyle(.plain)
@@ -223,22 +224,27 @@ struct ChallengesView: View {
                 Text(RecommendationCopy.empty)
                     .foregroundStyle(.secondary)
             }
-            ForEach(recommendations) { recommendation in
-                HStack(alignment: .center, spacing: 8) {
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text(recommendation.title)
-                            .font(.subheadline)
-                            .lineLimit(1)
-                        Text(AppDate.numeric(recommendation.startDate))
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 0) {
+                ForEach(recommendations) { recommendation in
+                    HStack(alignment: .center, spacing: 12) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(recommendation.title)
+                                .font(.subheadline)
+                                .lineLimit(2)
+                            Text(AppDate.numeric(recommendation.startDate))
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer(minLength: 12)
+                        Button(L("Übernehmen", "Accept")) {
+                            acceptedRecommendation = recommendation
+                        }
+                        .buttonStyle(.bordered)
                     }
-                    Spacer(minLength: 8)
-                    Button(L("Übernehmen", "Accept")) {
-                        acceptedRecommendation = recommendation
+                    .padding(.vertical, 12)
+                    if recommendation.id != recommendations.last?.id {
+                        Divider()
                     }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
                 }
             }
         } label: {
@@ -323,22 +329,35 @@ struct ChallengesView: View {
     }
 
     private func challengeSection(_ section: ChallengeSections.Section) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+        let cards = section.challengeIDs.compactMap { id in
+            filteredChallenges.first { $0.id == id }
+        }
+        return VStack(alignment: .leading, spacing: 8) {
             if section.showsTitle {
                 Text(sectionTitle(section))
                     .appText(.section)
             }
-            LazyVGrid(columns: CardBoard.challengeColumns(), spacing: 10) {
-                ForEach(section.challengeIDs, id: \.self) { id in
-                    if let challenge = filteredChallenges.first(where: { $0.id == id }) {
-                        if challenge.category == .abstinence {
-                            abstinenceLink(challenge)
-                        } else {
-                            regularChallengeRow(challenge)
-                        }
+            let pairCount = cards.count - cards.count % 2
+            VStack(spacing: 10) {
+                ForEach(Array(stride(from: 0, to: pairCount, by: 2)), id: \.self) { start in
+                    HStack(alignment: .top, spacing: 10) {
+                        challengeCard(cards[start])
+                        challengeCard(cards[start + 1])
                     }
                 }
+                if cards.count % 2 == 1, CardBoard.singleCardUsesFullWidth, let last = cards.last {
+                    challengeCard(last)
+                }
             }
+        }
+    }
+
+    @ViewBuilder
+    private func challengeCard(_ challenge: ChallengeItem) -> some View {
+        if challenge.category == .abstinence {
+            abstinenceLink(challenge)
+        } else {
+            regularChallengeRow(challenge)
         }
     }
 
@@ -443,17 +462,18 @@ struct ChallengesView: View {
         NavigationLink {
             AbstinenceDetailView(challengeID: challenge.id)
         } label: {
-            VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .center, spacing: 10) {
                 AppSymbolImage(name: IconPreferenceStore.icon(for: challenge.id, fallback: "lungs.fill"))
                     .frame(width: 28, height: 28)
                 Text(challenge.title)
                     .foregroundStyle(.primary)
                     .lineLimit(2)
+                Spacer(minLength: 8)
                 CoinAmountView(amount: challenge.rewardCoins, showsPlus: true)
                     .font(.caption)
             }
             .padding(12)
-            .frame(maxWidth: .infinity, minHeight: 132, alignment: .topLeading)
+            .frame(maxWidth: .infinity, minHeight: 72, alignment: .leading)
             .appGlassCard(radius: 18)
         }
         .buttonStyle(.plain)
@@ -485,16 +505,16 @@ struct ChallengesView: View {
             )
         } label: {
             VStack(alignment: .leading, spacing: 8) {
-                HStack {
+                HStack(alignment: .center, spacing: 10) {
                     AppSymbolImage(name: IconPreferenceStore.icon(for: challenge.id, fallback: "target"))
                         .frame(width: 28, height: 28)
-                    Spacer(minLength: 4)
+                    Text(challenge.title)
+                        .foregroundStyle(gray ? Color.secondary : Color.primary)
+                        .lineLimit(2)
+                    Spacer(minLength: 8)
                     Image(systemName: doneToday ? "checkmark.circle.fill" : "circle")
                         .foregroundStyle(gray ? Color.secondary : Color.green)
                 }
-                Text(challenge.title)
-                    .foregroundStyle(gray ? Color.secondary : Color.primary)
-                    .lineLimit(2)
                 challengeMeta(challenge)
                 if gray {
                     Text(L("Heute erledigt", "Done today"))
@@ -503,7 +523,7 @@ struct ChallengesView: View {
                 }
             }
             .padding(12)
-            .frame(maxWidth: .infinity, minHeight: 132, alignment: .topLeading)
+            .frame(maxWidth: .infinity, alignment: .leading)
             .appGlassCard(radius: 18)
             .opacity(gray ? 0.55 : 1)
         }
@@ -551,33 +571,43 @@ struct ChallengesView: View {
             events: calendarEvents
         ).count
         let linked = ChallengeTimeStore.linkedEvents(for: challenge.id, in: calendarEvents)
-        return VStack(alignment: .leading, spacing: 2) {
-            Text(challenge.recurrence.label)
-            CoinAmountView(
-                amount: ChallengeService.projectedCoins(
-                    challenge: challenge,
-                    on: AppClock.now,
-                    completions: completions,
-                    events: calendarEvents
-                ),
-                showsPlus: true
-            )
-            if enabled {
-                HStack(spacing: 2) {
-                    Image(systemName: "flame.fill")
-                    Text("\(streak)")
-                        .monospacedDigit()
+        let minutes = ChallengeTimeStore.minutes(for: challenge.id)
+        return HStack(alignment: .top, spacing: 8) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(challenge.recurrence.label)
+                if let minutes {
+                    Text(ChallengeCardCopy.duration(minutes: minutes))
+                        .foregroundStyle(.green)
                 }
-                .foregroundStyle(.orange)
+                if let caption = LinkCaption.calendar(
+                    titles: linked.map(\.title),
+                    count: linked.count,
+                    singleDate: linked.count == 1 ? linked.first?.startDate : nil
+                ) {
+                    Text(caption)
+                        .foregroundStyle(.green)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
-            if let caption = LinkCaption.calendar(
-                titles: linked.map(\.title),
-                count: linked.count,
-                singleDate: linked.count == 1 ? linked.first?.startDate : nil
-            ) {
-                Text(caption)
-                    .foregroundStyle(.green)
-                    .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 8)
+            VStack(alignment: .trailing, spacing: 2) {
+                CoinAmountView(
+                    amount: ChallengeService.projectedCoins(
+                        challenge: challenge,
+                        on: AppClock.now,
+                        completions: completions,
+                        events: calendarEvents
+                    ),
+                    showsPlus: true
+                )
+                if enabled {
+                    HStack(spacing: 2) {
+                        Image(systemName: "flame.fill")
+                        Text("\(streak)")
+                            .monospacedDigit()
+                    }
+                    .foregroundStyle(.orange)
+                }
             }
         }
         .font(.caption)
@@ -654,14 +684,7 @@ struct ChallengeForm: View {
         let presetIcon = presetCategory == .abstinence ? "lungs.fill" : "target"
         _icon = State(initialValue: challenge.map { IconPreferenceStore.icon(for: $0.id, fallback: presetIcon) } ?? (recommendation == nil ? presetIcon : "lightbulb"))
         _syncToReminders = State(initialValue: challenge.map { ReminderSyncPreference.isEnabled(for: $0.id) } ?? true)
-        let configured = challenge.map { item in
-            item.groupID != nil
-                || StreakSettings.isEnabled(for: item.id)
-                || ChallengeTimeStore.minutes(for: item.id) != nil
-                || ChallengeTimeStore.eventID(containing: item.id) != nil
-                || !ReminderSyncPreference.isEnabled(for: item.id)
-        } ?? false
-        _showsMoreSettings = State(initialValue: EditorCopy.moreStartsClosed ? configured : true)
+        _showsMoreSettings = State(initialValue: !EditorCopy.moreStartsClosed)
     }
 
     @State private var showsMoreSettings: Bool
@@ -720,7 +743,9 @@ struct ChallengeForm: View {
                             .multilineTextAlignment(.trailing)
                     }
                 }
-                DisclosureGroup(EditorCopy.moreSettings, isExpanded: $showsMoreSettings) {
+                Section {
+                    MoreSettingsToggle(isExpanded: $showsMoreSettings)
+                    if showsMoreSettings {
                     if categoryKey != ChallengeCategory.abstinence.rawValue && categoryKey != ChallengeCategory.sport.rawValue {
                         LabeledContent(L("Dauer in Minuten", "Duration in minutes")) {
                             TextField(L("Optional", "Optional"), text: $durationText)
@@ -755,6 +780,7 @@ struct ChallengeForm: View {
                     Picker(L("Gruppe", "Group"), selection: $groupID) {
                         Text(L("Keine", "None")).tag(Optional<UUID>.none)
                         ForEach(groups) { Text($0.title).tag(Optional($0.id)) }
+                    }
                     }
                 }
                 if let saveMessage {

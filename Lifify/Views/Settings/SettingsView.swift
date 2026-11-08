@@ -308,7 +308,9 @@ private struct CheckDetailView: View {
                         Text(CheckStories.stepTitle(index + 1))
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(.secondary)
-                        Text(step.text)
+                        Text(CheckStories.expectedLine(step.text))
+                        Text(CheckStories.actualLine(result.reading.isEmpty ? (result.detail ?? "—") : result.reading))
+                            .foregroundStyle(result.passed ? Color.primary : Color.red)
                         Text(CheckStories.sourceLine(step.source))
                             .font(.caption)
                             .foregroundStyle(.secondary)
@@ -465,6 +467,8 @@ private struct ChallengeSettingsView: View {
     @AppStorage(ChallengeCategoryStore.revisionKey) private var categoryRevision = 0
     @State private var factorText = ""
     @State private var bonusDifficulty: AbstinenceDifficulty = .medium
+    @State private var pickedStreak = StreakSettings.thresholds[0]
+    @State private var pickedMilestone: AbstinenceMilestone = .hour1
     @State private var editedCategory: CustomChallengeCategory?
     @State private var showingNewCategory = false
 
@@ -523,9 +527,18 @@ private struct ChallengeSettingsView: View {
                 ))
             }
             Section {
-                ForEach(StreakSettings.thresholds, id: \.self) { threshold in
-                    MultiplierRow(threshold: threshold)
+                EvenBubbleRow(spacing: 8, lineSpacing: 8) {
+                    ForEach(StreakSettings.thresholds, id: \.self) { threshold in
+                        Button {
+                            pickedStreak = threshold
+                        } label: {
+                            ChoiceBubble(title: "\(threshold)×", selected: pickedStreak == threshold)
+                        }
+                        .buttonStyle(.plain)
+                    }
                 }
+                MultiplierRow(threshold: pickedStreak)
+                    .id(pickedStreak)
             } header: {
                 Text(L("Streak-Multiplikator", "Streak multiplier"))
             } footer: {
@@ -538,10 +551,18 @@ private struct ChallengeSettingsView: View {
                 Picker(L("Schwierigkeit", "Difficulty"), selection: $bonusDifficulty) {
                     ForEach(AbstinenceDifficulty.allCases) { Text($0.label).tag($0) }
                 }
-                ForEach(AbstinenceMilestone.allCases) { milestone in
-                    AbstinenceMultiplierRow(difficulty: bonusDifficulty, milestone: milestone)
-                        .id("\(bonusDifficulty.rawValue)-\(milestone.rawValue)")
+                EvenBubbleRow(spacing: 8, lineSpacing: 8) {
+                    ForEach(AbstinenceMilestone.allCases) { milestone in
+                        Button {
+                            pickedMilestone = milestone
+                        } label: {
+                            ChoiceBubble(title: milestone.label, selected: pickedMilestone == milestone)
+                        }
+                        .buttonStyle(.plain)
+                    }
                 }
+                AbstinenceMultiplierRow(difficulty: bonusDifficulty, milestone: pickedMilestone)
+                    .id("\(bonusDifficulty.rawValue)-\(pickedMilestone.rawValue)")
             } header: {
                 Text(L("Abstinenz-Bonus", "Abstinence bonus"))
             } footer: {

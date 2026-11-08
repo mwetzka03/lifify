@@ -154,7 +154,7 @@ struct ShopView: View {
         return VStack(alignment: .leading, spacing: 0) {
             Button { edited = reward } label: {
                 VStack(alignment: .leading, spacing: 8) {
-                    HStack(alignment: .top, spacing: 10) {
+                    HStack(alignment: .center, spacing: 10) {
                         AppSymbolImage(name: reward.icon)
                             .font(.title3.weight(.semibold))
                             .foregroundStyle(.white)

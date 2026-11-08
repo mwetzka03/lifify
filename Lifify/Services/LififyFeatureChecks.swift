@@ -31,6 +31,7 @@ enum LififyFeatureChecks {
             name: "Manuelle Buchung blendet Depot und Sparplan aus",
             passed: passed,
             detail: passed ? nil : labels.joined(separator: ", "),
+            reading: labels.joined(separator: ", "),
             kind: .unit,
             topic: .finance
         )
@@ -49,6 +50,7 @@ enum LififyFeatureChecks {
             name: "Buchungsfeld und Betrag nutzen dieselben Kategorien",
             passed: passed,
             detail: passed ? nil : "Cents \(Money.cents(from: "19,99") ?? -1), \(labels.joined(separator: ", "))",
+            reading: "Cents \(Money.cents(from: "19,99") ?? -1), \(labels.joined(separator: ", "))",
             kind: .integration,
             topic: .finance
         )
@@ -69,6 +71,7 @@ enum LififyFeatureChecks {
             name: "Die Symbolauswahl enthält Hanfblatt und Zigarette",
             passed: passed,
             detail: passed ? nil : names.joined(separator: ", "),
+            reading: names.joined(separator: ", "),
             kind: .unit,
             topic: .screen
         )
@@ -95,6 +98,7 @@ enum LififyFeatureChecks {
             name: "Gesundheit, Einstellungen und Glasflächen zeigen dieselben Titel",
             passed: passed,
             detail: passed ? nil : "\(health.joined(separator: ", ")) / \(AppChrome.version)",
+            reading: "\(health.joined(separator: ", ")) / \(AppChrome.version)",
             kind: .integration,
             topic: .screen
         )
@@ -108,6 +112,7 @@ enum LififyFeatureChecks {
             name: "Hell und Dunkel haben eigene Flächen",
             passed: passed,
             detail: passed ? nil : "hell \(light.brightness), dunkel \(dark.brightness)",
+            reading: "hell \(light.brightness), dunkel \(dark.brightness)",
             kind: .unit,
             topic: .screen
         )
@@ -116,19 +121,24 @@ enum LififyFeatureChecks {
     private static func testCategoriesStartCollapsed() -> LififyCheckResult {
         let sample = [
             LififyCheckResult(name: "A", passed: true, detail: nil, kind: .unit, topic: .shop),
-            LififyCheckResult(name: "B", passed: false, detail: "fehlt", kind: .integration, topic: .shop),
-            LififyCheckResult(name: "C", passed: true, detail: nil, kind: .unit, topic: .account)
+            LififyCheckResult(name: "B", passed: false, detail: "fehlt", reading: "fehlt", kind: .integration, topic: .shop),
+            LififyCheckResult(name: "C", passed: true, detail: nil, kind: .unit, topic: .account),
+            LififyCheckResult(name: "D", passed: true, detail: nil, kind: .unit, topic: .navigation)
         ]
         let groups = CheckResultList.groups(from: sample)
+        let titles = groups.map(\.topic.title)
+        let sorted = titles.sorted { $0.localizedStandardCompare($1) == .orderedAscending }
         let passed = CheckResultList.startsCollapsed
-            && groups.map(\.topic) == [.account, .shop]
-            && groups[1].summary == "1/2"
-            && groups[1].allPassed == false
+            && titles == sorted
+            && groups.map(\.topic) == [.account, .navigation, .shop]
+            && groups[2].summary == "1/2"
+            && groups[2].allPassed == false
             && groups[0].summary == "1/1"
         return LififyCheckResult(
             name: "Testkategorien starten eingeklappt",
             passed: passed,
-            detail: passed ? nil : groups.map { "\($0.topic.rawValue) \($0.summary)" }.joined(separator: ", "),
+            detail: passed ? nil : groups.map { "\($0.topic.title) \($0.summary)" }.joined(separator: ", "),
+            reading: groups.map { "\($0.topic.title) \($0.summary)" }.joined(separator: ", "),
             kind: .integration,
             topic: .screen
         )
@@ -150,6 +160,7 @@ enum LififyFeatureChecks {
             name: "Die Briefingtage stehen nebeneinander",
             passed: passed,
             detail: passed ? nil : labels.joined(separator: " "),
+            reading: labels.joined(separator: " "),
             kind: .unit,
             topic: .challenge
         )
@@ -164,6 +175,7 @@ enum LififyFeatureChecks {
             name: "Die Version steht unter dem Entwicklermodus",
             passed: passed,
             detail: passed ? nil : order.joined(separator: ", "),
+            reading: order.joined(separator: ", "),
             kind: .unit,
             topic: .developer
         )
@@ -177,6 +189,7 @@ enum LififyFeatureChecks {
             name: "Weitere Einstellungen starten geschlossen",
             passed: passed,
             detail: passed ? nil : EditorCopy.moreSettings,
+            reading: EditorCopy.moreSettings,
             kind: .integration,
             topic: .screen
         )
@@ -185,19 +198,27 @@ enum LififyFeatureChecks {
     private static func cardsUseTwoColumns() -> LififyCheckResult {
         let titles = HealthScreen.sectionTitles()
         let symbols = titles.map(CardBoard.healthSymbol(matching:))
+        let duration = ChallengeCardCopy.duration(minutes: 30)
+        let bubbles = AccountBubbleBar.titles(accountNames: ["Sparkasse", "Trade Republic"], includesDepot: true)
         let passed = CardBoard.challengeColumnCount == 2
             && CardBoard.challengeColumns().count == 2
             && CardBoard.groupUsesFullWidth
+            && CardBoard.singleCardUsesFullWidth
             && CardBoard.healthTileCount == 3
-            && CardBoard.healthTopColumnCount == 2
-            && CardBoard.healthTopColumns().count == 2
-            && CardBoard.nutritionSpansFullWidth
+            && CardBoard.healthFiltersShareOneRow
             && titles.count == CardBoard.healthTileCount
             && symbols == ["figure.run", "lungs.fill", "fork.knife"]
+            && (duration == "Dauer 30 min" || duration == "Duration 30 min")
+            && bubbles.first == L("Alle Konten", "All accounts")
+            && bubbles.last == L("Depot", "Portfolio")
+            && FactorBoard.streakBubbles() == StreakSettings.thresholds.map { "\($0)×" }
+            && CheckStories.expectedLine("1,2").contains("1,2")
+            && CheckStories.actualLine("1,2").contains("1,2")
         return LififyCheckResult(
             name: "Challenges und Gesundheit nutzen ein Kartenraster",
             passed: passed,
-            detail: passed ? nil : symbols.joined(separator: ", "),
+            detail: passed ? nil : "\(symbols.joined(separator: ", ")) / \(bubbles.joined(separator: ", "))",
+            reading: "\(symbols.joined(separator: ", ")) / \(duration) / \(bubbles.joined(separator: ", "))",
             kind: .unit,
             topic: .screen
         )

@@ -58,6 +58,8 @@ struct LififyCheckResult: Identifiable, Equatable {
     var name: String
     var passed: Bool
     var detail: String?
+    /// The measured values, kept even when the check passed.
+    var reading: String = ""
     var kind: LififyCheckKind
     var topic: LififyCheckTopic
     var id: String { name }
@@ -81,6 +83,7 @@ enum CheckResultList {
             let rows = results.filter { $0.topic == topic }
             return rows.isEmpty ? nil : CheckTopicGroup(topic: topic, rows: rows)
         }
+        .sorted { $0.topic.title.localizedStandardCompare($1.topic.title) == .orderedAscending }
     }
 }
 
@@ -948,6 +951,6 @@ enum LififyChecks {
         _ passed: Bool,
         _ detail: String
     ) -> LififyCheckResult {
-        LififyCheckResult(name: name, passed: passed, detail: passed ? nil : detail, kind: kind, topic: topic)
+        LififyCheckResult(name: name, passed: passed, detail: passed ? nil : detail, reading: detail, kind: kind, topic: topic)
     }
 }

@@ -313,11 +313,7 @@ private struct ChallengeEventForm: View {
         _memberIDs = State(initialValue: storedMembers)
         _linkedGroupID = State(initialValue: event?.linkedChallengeGroupID)
         _linkedRewardID = State(initialValue: event?.linkedRewardID)
-        let linked = event?.linkedChallengeID != nil
-            || event?.linkedChallengeGroupID != nil
-            || event?.linkedRewardID != nil
-            || !storedMembers.isEmpty
-        _showsMoreSettings = State(initialValue: EditorCopy.moreStartsClosed ? linked : true)
+        _showsMoreSettings = State(initialValue: !EditorCopy.moreStartsClosed)
     }
 
     var body: some View {
@@ -334,7 +330,9 @@ private struct ChallengeEventForm: View {
                 Toggle(L("Ganztägig", "All day"), isOn: $allDay)
                 AppDateField(title: L("Beginn", "Start"), selection: $start, includesTime: !allDay)
                 AppDateField(title: L("Ende", "End"), selection: $end, minimum: start, includesTime: !allDay)
-                DisclosureGroup(EditorCopy.moreSettings, isExpanded: $showsMoreSettings) {
+                Section {
+                    MoreSettingsToggle(isExpanded: $showsMoreSettings)
+                    if showsMoreSettings {
                     optionalPicker(
                         L("Sport-Challenge", "Sport challenge"),
                         selection: $linkedChallengeID,
@@ -347,6 +345,7 @@ private struct ChallengeEventForm: View {
                     )
                     optionalPicker(L("Gruppe", "Group"), selection: $linkedGroupID, values: groups.map { ($0.id, $0.title) })
                     optionalPicker(L("Belohnung", "Reward"), selection: $linkedRewardID, values: rewards.map { ($0.id, $0.title) })
+                    }
                 }
                 Button(L("Als Challenge übernehmen", "Adopt as challenge")) {
                     Task { await adoptAsChallenge() }

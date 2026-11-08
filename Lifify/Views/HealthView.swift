@@ -25,12 +25,14 @@ struct HealthView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                LazyVGrid(columns: CardBoard.healthTopColumns(), spacing: 10) {
-                    healthTile(0)
-                    healthTile(1)
-                }
-                if CardBoard.nutritionSpansFullWidth {
-                    healthTile(2)
+                if CardBoard.healthFiltersShareOneRow {
+                    HStack(spacing: 6) {
+                        healthSwitch(0)
+                        healthSwitch(1)
+                        healthSwitch(2)
+                    }
+                    .padding(6)
+                    .appGlassCard(radius: 18)
                 }
                 selectedBoard
             }
@@ -52,7 +54,7 @@ struct HealthView: View {
         }
     }
 
-    private func healthTile(_ index: Int) -> some View {
+    private func healthSwitch(_ index: Int) -> some View {
         let titles = HealthScreen.sectionTitles()
         let title = titles[index]
         let accent = AppLook.accent(AppAppearance(scheme)).color()
@@ -60,25 +62,23 @@ struct HealthView: View {
         return Button {
             selectedTile = index
         } label: {
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(spacing: 4) {
                 Image(systemName: CardBoard.healthSymbol(matching: title))
-                    .font(.title2)
-                    .foregroundStyle(accent)
+                    .font(.body.weight(.semibold))
                 Text(title)
-                    .appText(.section)
-                    .foregroundStyle(.primary)
+                    .font(.caption.weight(.semibold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
                 Text(tileDetail(index))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
+                    .font(.caption2)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
             }
-            .padding(14)
-            .frame(maxWidth: .infinity, minHeight: index == 2 ? 96 : 132, alignment: .topLeading)
-            .appGlassCard(radius: 22)
-            .overlay {
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .strokeBorder(selected ? accent : Color.clear, lineWidth: 2)
-            }
+            .foregroundStyle(selected ? accent : Color.secondary)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 8)
+            .padding(.horizontal, 4)
+            .background(selected ? accent.opacity(0.16) : Color.clear, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         }
         .buttonStyle(.plain)
     }
