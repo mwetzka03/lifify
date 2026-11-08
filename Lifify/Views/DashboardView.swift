@@ -676,12 +676,12 @@ struct DashboardView: View {
 
     private func biasCard(_ forecast: PeriodForecast) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(L("Einkaufszettel", "Shopping list"))
+            Text(FinanceTileCopy.shopping)
                 .font(.headline)
                 .foregroundStyle(.secondary)
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(L("Angewendet", "Applied"))
+                    Text(FinanceTileCopy.applied)
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                     Text(Money.string(cents: forecast.biasApplied))
@@ -690,7 +690,7 @@ struct DashboardView: View {
                 }
                 Spacer()
                 VStack(alignment: .trailing, spacing: 2) {
-                    Text(L("Geplant", "Planned"))
+                    Text(FinanceTileCopy.planned)
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                     Text(Money.string(cents: forecast.biasPlanned))
@@ -1160,50 +1160,54 @@ private struct FinanceMoreSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(L("Weitere Bereiche", "More"))
-                .font(.title3.weight(.semibold))
+            Text(FinanceMoreDirectory.title)
+                .font(FinanceMoreDirectory.font(FinanceMoreDirectory.sectionFontName))
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 4)
             VStack(alignment: .leading, spacing: 0) {
-                sectionLink(L("Budgetpools", "Budget pools"), systemImage: "tray.full", route: .budgetPools)
-                Divider().padding(.leading, 54)
-                sectionLink(L("Ausgabengruppen", "Expense groups"), systemImage: "square.stack.3d.up", route: .expenseGroups)
-                Divider().padding(.leading, 54)
-                sectionLink(L("Schulden", "Debts"), systemImage: "person.2", route: .debts)
+                ForEach(Array(FinanceMoreDirectory.rows.enumerated()), id: \.element.id) { index, link in
+                    if index > 0 {
+                        Divider().padding(.leading, 40)
+                    }
+                    sectionLink(link)
+                }
             }
             .background(AppSurface.card, in: RoundedRectangle(cornerRadius: 14))
         }
     }
 
-    private func sectionLink(_ title: String, systemImage: String, route: FinanceRoute) -> some View {
+    private func sectionLink(_ link: FinanceMoreLink) -> some View {
         Group {
             if let path {
                 Button {
-                    path.wrappedValue.append(route)
+                    path.wrappedValue.append(link.route)
                 } label: {
-                    row(title, systemImage: systemImage)
+                    row(link)
                 }
             } else {
-                NavigationLink(value: route) {
-                    row(title, systemImage: systemImage)
+                NavigationLink(value: link.route) {
+                    row(link)
                 }
             }
         }
         .buttonStyle(.plain)
     }
 
-    private func row(_ title: String, systemImage: String) -> some View {
-        HStack {
-            Label(title, systemImage: systemImage)
+    private func row(_ link: FinanceMoreLink) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: link.symbol)
+                .frame(width: 28)
+                .foregroundStyle(.secondary)
+            Text(link.title)
+                .font(FinanceMoreDirectory.font(FinanceMoreDirectory.rowFontName))
+                .foregroundStyle(.primary)
             Spacer()
             Image(systemName: "chevron.right")
-                .font(.body.weight(.semibold))
+                .font(FinanceMoreDirectory.font(FinanceMoreDirectory.chevronFontName))
                 .foregroundStyle(.tertiary)
         }
-        .font(.title3)
-        .foregroundStyle(.primary)
-        .padding(.horizontal, 14)
-        .padding(.vertical, 18)
+        .padding(.horizontal, FinanceMoreDirectory.rowHorizontalPadding)
+        .padding(.vertical, FinanceMoreDirectory.rowVerticalPadding)
         .contentShape(Rectangle())
     }
 }

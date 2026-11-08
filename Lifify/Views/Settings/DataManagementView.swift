@@ -262,7 +262,7 @@ struct DataManagementView: View {
                 scope: scope,
                 workoutSnapshot: snapshot
             ))
-            exportFilename = "\(exportPrefix(scope))-\(Date.now.dayKey)"
+            exportFilename = "\(scope.exportFilenamePrefix)-\(Date.now.dayKey)"
             exportingBackup = true
         } catch {
             viewModel.message = error.localizedDescription
@@ -303,17 +303,9 @@ struct DataManagementView: View {
         }
     }
 
-    private func exportPrefix(_ scope: BackupScope) -> String {
-        switch scope {
-        case .all: "Lifify"
-        case .finance: "Lifify-Finanzen"
-        case .challenges: "Lifify-Challenges"
-        case .training: "Lifify-Training"
-        }
-    }
 }
 
-private enum DestructiveAction {
+enum DestructiveAction {
     case deleteFinance
     case deleteTraining
     case deleteChallenges

@@ -3,6 +3,19 @@ import SwiftData
 import SwiftUI
 import UniformTypeIdentifiers
 
+enum OnboardingSteps {
+    static var title: String { L("Lifify einrichten", "Set up Lifify") }
+    static var start: String { L("Wie möchtest du starten?", "How would you like to start?") }
+    static var newSetup: String { L("Neu einrichten", "Set up as new") }
+    static var restore: String { L("JSON-Sicherung laden", "Restore JSON backup") }
+    static var welcome: String { L("Willkommen", "Welcome") }
+    static var period: String { L("Budgetzeitraum", "Budget period") }
+    static var account: String { L("Hauptkonto", "Main account") }
+    static var bank: String { L("Hauptkonto importieren (optional)", "Import the main account (optional)") }
+    static var tradeRepublic: String { "Trade Republic" }
+    static var secondaryIncome: String { L("Nebeneinnahmen (optional)", "Secondary income (optional)") }
+}
+
 private struct SecondaryIncomeDraft: Identifiable {
     let id = UUID()
     var rowID: UUID?
@@ -79,7 +92,7 @@ struct OnboardingView: View {
                 }
                 .appGlassList()
             }
-            .navigationTitle(L("Lifify einrichten", "Set up Lifify"))
+            .navigationTitle(OnboardingSteps.title)
             .navigationBarTitleDisplayMode(.inline)
             .fileImporter(
                 isPresented: $importingBackup,
@@ -149,15 +162,15 @@ struct OnboardingView: View {
             Button {
                 step = 2
             } label: {
-                Label(L("Neu einrichten", "Set up as new"), systemImage: "sparkles")
+                Label(OnboardingSteps.newSetup, systemImage: "sparkles")
             }
             Button {
                 importingBackup = true
             } label: {
-                Label(L("JSON-Sicherung laden", "Restore JSON backup"), systemImage: "square.and.arrow.down")
+                Label(OnboardingSteps.restore, systemImage: "square.and.arrow.down")
             }
         } header: {
-            Text(L("Wie möchtest du starten?", "How would you like to start?"))
+            Text(OnboardingSteps.start)
         }
     }
 
@@ -177,7 +190,7 @@ struct OnboardingView: View {
                 }
             }
         } header: {
-            Text(L("Willkommen", "Welcome"))
+            Text(OnboardingSteps.welcome)
         } footer: {
             Text(L(
                 "Der Name wird nur lokal für deine Begrüßung verwendet. Stell das Geburtsdatum auf deinen Tag, dann geht es weiter. Am Geburtstag gibt es einmal im Jahr 500 Coins. Der 29. Februar fällt in einem Jahr ohne diesen Tag auf den 28. Februar.",
@@ -197,13 +210,13 @@ struct OnboardingView: View {
     @ViewBuilder
     private var periodStep: some View {
         Section {
-            Picker(L("Budgetzeitraum", "Budget period"), selection: $periodMode) {
+            Picker(OnboardingSteps.period, selection: $periodMode) {
                 ForEach(DashboardPeriodMode.allCases) { Text($0.label).tag($0) }
             }
             .pickerStyle(.inline)
             .labelsHidden()
         } header: {
-            Text(L("Budgetzeitraum", "Budget period"))
+            Text(OnboardingSteps.period)
         }
         Section {
             nextButton {
@@ -221,7 +234,7 @@ struct OnboardingView: View {
                 .textInputAutocapitalization(.characters)
                 .autocorrectionDisabled()
         } header: {
-            Text(L("Hauptkonto", "Main account"))
+            Text(OnboardingSteps.account)
         } footer: {
             Text(L("Das Hauptkonto ist verpflichtend und kann später nicht gelöscht werden.", "The main account is required and cannot be deleted later."))
         }
@@ -267,7 +280,7 @@ struct OnboardingView: View {
                 .foregroundStyle(.green)
             }
         } header: {
-            Text(L("Hauptkonto importieren (optional)", "Import the main account (optional)"))
+            Text(OnboardingSteps.bank)
         } footer: {
             Text(L(
                 "CSV und CAMT landen auf dem Hauptkonto und legen den ersten Zeitraum fest. Der Trade-Republic-Auszug folgt als eigener Schritt.",
@@ -354,7 +367,7 @@ struct OnboardingView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
         } header: {
-            Text("Trade Republic")
+            Text(OnboardingSteps.tradeRepublic)
         } footer: {
             Text(L(
                 "Kein Zielkonto. Buchungen vor dem Start des ersten Zeitraums werden nicht angelegt, danach schon. Der Startsaldo ist der Saldo aus der rechten Spalte am Starttag, sonst vom letzten Tag davor.",
@@ -405,7 +418,7 @@ struct OnboardingView: View {
                 Label(L("Nebeneinnahme hinzufügen", "Add secondary income"), systemImage: "plus")
             }
         } header: {
-            Text(L("Nebeneinnahmen (optional)", "Secondary income (optional)"))
+            Text(OnboardingSteps.secondaryIncome)
         }
         ForEach($secondaryDrafts) { draft in
             Section {

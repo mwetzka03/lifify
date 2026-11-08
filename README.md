@@ -8,7 +8,8 @@ Lifify 0.4.0 is a local iPhone app for finance, challenges, and training. It
 is built with SwiftUI and SwiftData, and it needs neither a backend nor a user
 account. German and English, and light, dark, and system appearance, can be
 switched in Settings. Home, Challenges, Health, Settings, and setup use
-Liquid Glass. The finance view keeps its own surface.
+Liquid Glass. The finance view keeps its own surface. The links under More
+use the same type as the finance tiles.
 
 The finance rules are in [FINANZEN.md](FINANZEN.md). What changed in 0.4.0 is in [CHANGES-0.4.0.md](CHANGES-0.4.0.md). What changed in 0.3.0 is in [CHANGES-0.3.0.md](CHANGES-0.3.0.md). Both are in English and German.
 
@@ -103,6 +104,7 @@ Sie ist mit SwiftUI und SwiftData gebaut, braucht kein Backend und kein
 Benutzerkonto. Deutsch und Englisch sowie Hell, Dunkel und System lassen sich
 in den Einstellungen umschalten. Home, Challenges, Gesundheit, Einstellungen
 und die Einrichtung nutzen Liquid Glass. Die Finanzansicht behält ihre eigene Fläche.
+Die Links unter Weitere Bereiche nutzen dieselbe Schrift wie die Kacheln.
 Was sich in 0.4.0 geändert hat, steht in [CHANGES-0.4.0.md](CHANGES-0.4.0.md),
 was sich in 0.3.0 geändert hat in [CHANGES-0.3.0.md](CHANGES-0.3.0.md). Beides auf Englisch und Deutsch.
 

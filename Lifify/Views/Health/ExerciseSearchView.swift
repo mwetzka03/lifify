@@ -14,8 +14,8 @@ struct ExerciseSearchView: View {
         NavigationStack {
             List {
                 Section {
-                    TextField(L("Name der Übung", "Exercise name"), text: $manualName)
-                    Button(L("Übung anlegen", "Create exercise")) {
+                    TextField(ExerciseSearchCopy.nameField, text: $manualName)
+                    Button(ExerciseSearchCopy.create) {
                         let name = manualName.trimmingCharacters(in: .whitespacesAndNewlines)
                         guard !name.isEmpty else { return }
                         onPick(WorkoutExerciseInfo(
@@ -73,4 +73,9 @@ struct ExerciseSearchView: View {
             }
         }
     }
+}
+
+enum ExerciseSearchCopy {
+    static var create: String { L("Übung anlegen", "Create exercise") }
+    static var nameField: String { L("Name der Übung", "Exercise name") }
 }

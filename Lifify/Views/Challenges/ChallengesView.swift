@@ -26,7 +26,7 @@ struct ChallengesView: View {
             Section {
                 DisclosureGroup {
                     if recommendations.isEmpty {
-                        Text(L("Keine importierten Empfehlungen", "No imported recommendations"))
+                        Text(RecommendationCopy.empty)
                             .foregroundStyle(.secondary)
                     }
                         ForEach(recommendations) { recommendation in
@@ -49,7 +49,7 @@ struct ChallengesView: View {
                         }
                 } label: {
                     Label(
-                        "\(L("Empfehlungen", "Recommendations")) (\(recommendations.count))",
+                        "\(RecommendationCopy.heading) (\(recommendations.count))",
                         systemImage: "lightbulb.fill"
                     )
                 }

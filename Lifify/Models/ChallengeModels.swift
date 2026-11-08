@@ -107,6 +107,11 @@ final class ChallengeCalendarEvent {
     }
 }
 
+enum RecommendationCopy {
+    static var empty: String { L("Keine importierten Empfehlungen", "No imported recommendations") }
+    static var heading: String { L("Empfehlungen", "Recommendations") }
+}
+
 extension ChallengeCalendarEvent {
     var isReminderSuggestion: Bool {
         externalIdentifier?.hasPrefix("reminder:") == true

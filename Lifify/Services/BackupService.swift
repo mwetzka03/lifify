@@ -68,11 +68,20 @@ struct BackupDocument: FileDocument {
     }
 }
 
-enum BackupScope: String {
+enum BackupScope: String, CaseIterable {
     case all
     case finance
     case challenges
     case training
+
+    var exportFilenamePrefix: String {
+        switch self {
+        case .all: "Lifify"
+        case .finance: "Lifify-Finanzen"
+        case .challenges: "Lifify-Challenges"
+        case .training: "Lifify-Training"
+        }
+    }
 }
 
 @MainActor

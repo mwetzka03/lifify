@@ -12,8 +12,9 @@ This file is in English and in German. The finance calculations stay in
 
 - Home, Challenges, Health, Settings, and setup use Liquid Glass. On iOS 26 the
   cards use the system glass. On earlier versions they use a thin material.
-- The finance view, including Weitere Bereiche, keeps its existing surface,
-  type, and colors.
+- The finance view keeps its existing surface, type, and colors. Weitere
+  Bereiche is the exception: those links use the same type as the tiles and
+  less padding.
 - Section titles, row text, captions, and values on the other screens share
   one type scale. Health section titles are no longer heavier than the rest.
 - The symbol picker adds more symbols, including a hemp leaf and a cigarette.
@@ -22,8 +23,9 @@ This file is in English and in German. The finance calculations stay in
 ### Checks
 
 - Finance and the other screens each have a unit check and an integration
-  check. The integration checks assert the labels the booking picker, the
-  health sections, and the settings rows show. The checks do not write user data.
+  check. Further checks cover accounts, forecasts, budgets, the portfolio,
+  import, backup, the shop, training sets, and the tab bar. Where a check can
+  see a label, it asserts that label. The checks do not write user data.
 
 ### Not in this version
 
@@ -42,8 +44,9 @@ This file is in English and in German. The finance calculations stay in
 - Home, Challenges, Gesundheit, Einstellungen und die Einrichtung nutzen
   Liquid Glass. Ab iOS 26 verwenden die Karten das Systemglas. Davor nutzen
   sie ein dünnes Material.
-- Die Finanzansicht, einschließlich Weitere Bereiche, behält Fläche, Schrift
-  und Farben.
+- Die Finanzansicht behält Fläche, Schrift und Farben. Ausnahme ist Weitere
+  Bereiche: die Links nutzen dieselbe Schrift wie die Kacheln und weniger
+  Abstand.
 - Abschnittstitel, Zeilentext, Beschriftungen und Werte auf den anderen
   Bildschirmen teilen sich eine Schriftgröße. Die Abschnittstitel unter
   Gesundheit sind nicht mehr schwerer als der Rest.
@@ -53,9 +56,10 @@ This file is in English and in German. The finance calculations stay in
 ### Prüfungen
 
 - Finanzen und die anderen Bildschirme haben je eine Unit- und eine
-  Integrationsprüfung. Die Integrationsprüfungen prüfen die Beschriftungen,
-  die die Buchungsauswahl, die Gesundheitsabschnitte und die Einstellungszeilen
-  zeigen. Die Prüfungen schreiben keine Nutzerdaten.
+  Integrationsprüfung. Weitere Prüfungen decken Konten, Prognosen, Budgets,
+  das Depot, den Import, die Sicherung, den Shop, Trainingssätze und die
+  Tableiste ab. Wo eine Prüfung eine Beschriftung sehen kann, prüft sie diese.
+  Die Prüfungen schreiben keine Nutzerdaten.
 
 ### Nicht in dieser Version
 

@@ -519,7 +519,7 @@ private enum PortfolioBasis: String, CaseIterable, Identifiable {
     }
 }
 
-private enum PortfolioSort: String, CaseIterable, Identifiable {
+enum PortfolioSort: String, CaseIterable, Identifiable {
     case value
     case purchase
     case name
@@ -534,7 +534,7 @@ private enum PortfolioSort: String, CaseIterable, Identifiable {
     }
 }
 
-private enum PortfolioUnit: String, CaseIterable, Identifiable {
+enum PortfolioUnit: String, CaseIterable, Identifiable {
     case percent
     case eur
 

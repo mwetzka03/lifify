@@ -22,6 +22,14 @@ enum LififyCheckTopic: String, CaseIterable, Equatable {
     case developer
     case finance
     case screen
+    case account
+    case forecast
+    case budget
+    case portfolio
+    case bankImport
+    case backup
+    case shop
+    case navigation
 
     var title: String {
         switch self {
@@ -34,6 +42,14 @@ enum LififyCheckTopic: String, CaseIterable, Equatable {
         case .developer: L("Entwicklermodus", "Developer mode")
         case .finance: L("Finanzen", "Finance")
         case .screen: L("Oberfläche", "Screens")
+        case .account: L("Konten", "Accounts")
+        case .forecast: L("Prognose", "Forecast")
+        case .budget: L("Budget", "Budget")
+        case .portfolio: L("Depot", "Portfolio")
+        case .bankImport: L("Import", "Import")
+        case .backup: L("Sicherung", "Backup")
+        case .shop: L("Shop", "Shop")
+        case .navigation: L("Navigation", "Navigation")
         }
     }
 }
@@ -99,7 +115,7 @@ enum LififyChecks {
             birthdayPaysFiveHundredOnce(),
             birthdayFollowsTheYear(),
             developerDayKeepsClockTime()
-        ] + LififyFeatureChecks.run()
+        ] + LififyFeatureChecks.run() + LififyCoverageChecks.run()
     }
 
     private static func multiplierReplacesLowerStep() -> LififyCheckResult {

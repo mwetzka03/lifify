@@ -26,6 +26,24 @@ enum AppChrome {
     }
 }
 
+struct AppTab: Equatable {
+    var title: String
+    var symbol: String
+    var tag: Int
+}
+
+enum AppTabs {
+    static func items() -> [AppTab] {
+        [
+            AppTab(title: L("Home", "Home"), symbol: "house", tag: 0),
+            AppTab(title: L("Finanzen", "Finance"), symbol: "eurosign.circle", tag: 1),
+            AppTab(title: L("Challenges", "Challenges"), symbol: "target", tag: 2),
+            AppTab(title: L("Gesundheit", "Health"), symbol: "leaf.fill", tag: 3),
+            AppTab(title: L("Einstellungen", "Settings"), symbol: "gear", tag: 4)
+        ]
+    }
+}
+
 enum HealthScreen {
     static func sectionTitles() -> [String] {
         [L("Training", "Training"), L("Abstinenz", "Abstinence"), L("Ernährung", "Nutrition")]

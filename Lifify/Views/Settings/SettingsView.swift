@@ -30,6 +30,10 @@ private func settingsDestination(_ symbol: String) -> some View {
     }
 }
 
+enum DeveloperCopy {
+    static var toggle: String { L("Entwicklermodus", "Developer mode") }
+}
+
 private func settingsColor(_ symbol: String) -> Color {
     switch symbol {
     case "eurosign": Color(red: 0.18, green: 0.72, blue: 0.38)
@@ -158,7 +162,7 @@ private struct GeneralSettingsView: View {
                 ))
             }
             Section {
-                Toggle(L("Entwicklermodus", "Developer mode"), isOn: developerModeBinding)
+                Toggle(DeveloperCopy.toggle, isOn: developerModeBinding)
                 if developerMode {
                     DatePicker(L("Aktueller Tag", "Current day"), selection: simulatedDay, displayedComponents: .date)
                     NavigationLink {

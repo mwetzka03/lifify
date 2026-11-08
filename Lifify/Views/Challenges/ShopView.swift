@@ -134,7 +134,7 @@ struct ShopView: View {
             Button {
                 message = ChallengeService.purchaseFreeze(challenge: challenge, transactions: transactions, context: context)
                     ? L("Streak-Freeze gekauft.", "Streak freeze purchased.")
-                    : L("Nicht genug Coins.", "Not enough coins.")
+                    : ShopCopy.notEnough
             } label: {
                 HStack(spacing: 4) {
                     Text(L("Kaufen", "Buy"))
@@ -204,7 +204,7 @@ struct ShopView: View {
             Button {
                 message = ChallengeService.purchase(reward: reward, transactions: transactions, context: context)
                     ? L("Belohnung gekauft.", "Reward purchased.")
-                    : L("Nicht genug Coins.", "Not enough coins.")
+                    : ShopCopy.notEnough
             } label: {
                 Text(L("Einlösen", "Redeem"))
                     .font(.subheadline.weight(.semibold))
@@ -329,9 +329,9 @@ private struct RewardForm: View {
                         .keyboardType(.numberPad)
                         .multilineTextAlignment(.trailing)
                 }
-                Picker(L("Einlösbarkeit", "Redemption"), selection: $allowsMultiple) {
-                    Text(L("Einmalig", "One-time")).tag(false)
-                    Text(L("Mehrmals", "Repeatable")).tag(true)
+                Picker(ShopCopy.redemption, selection: $allowsMultiple) {
+                    Text(ShopCopy.oneTime).tag(false)
+                    Text(ShopCopy.repeatable).tag(true)
                 }
                 TextField("URL", text: $url).keyboardType(.URL).textInputAutocapitalization(.never)
                 Picker(L("Abstinenz-Ausnahme", "Abstinence exception"), selection: $abstinenceID) {
@@ -433,4 +433,11 @@ private struct RewardForm: View {
             blue: Double(value & 0xFF) / 255
         )
     }
+}
+
+enum ShopCopy {
+    static var notEnough: String { L("Nicht genug Coins.", "Not enough coins.") }
+    static var redemption: String { L("Einlösbarkeit", "Redemption") }
+    static var oneTime: String { L("Einmalig", "One-time") }
+    static var repeatable: String { L("Mehrmals", "Repeatable") }
 }
