@@ -181,6 +181,12 @@ struct TransactionRow: View {
     }
 }
 
+private struct AssignmentLine: Identifiable {
+    var id: String
+    var title: String
+    var value: String
+}
+
 struct BookingAmountStack: View {
     let amount: Int
     let amountColor: Color
@@ -213,6 +219,13 @@ struct TransactionDetailView: View {
     let entry: LedgerEntry
     var embedsNavigation = true
     @Query private var splits: [TransactionSplit]
+    @Query(sort: \FixedCost.name) private var fixedCosts: [FixedCost]
+    @Query(sort: \VariableBudget.name) private var variableBudgets: [VariableBudget]
+    @Query(sort: \BudgetPool.name) private var pools: [BudgetPool]
+    @Query(sort: \ShoppingItem.name) private var shopping: [ShoppingItem]
+    @Query(sort: \ExpenseGroup.date, order: .reverse) private var expenseGroups: [ExpenseGroup]
+    @Query(sort: \IncomeForecast.name) private var incomeForecasts: [IncomeForecast]
+    @AppStorage(ExpenseGroupAssignmentStore.revisionKey) private var expenseGroupRevision = 0
     @State private var showingRefund = false
 
     var body: some View {
@@ -300,6 +313,13 @@ struct TransactionDetailView: View {
                         accountLine(to, signed: abs(entry.amountCents))
                     }
                 }
+                if !assignmentRows.isEmpty {
+                    Section(L("Zuordnung", "Assignment")) {
+                        ForEach(assignmentRows) { row in
+                            LabeledContent(row.title, value: row.value)
+                        }
+                    }
+                }
                 Section(L("Konten", "Accounts")) {
                     if let account = account(entry.accountID) {
                         LabeledContent(L("Konto", "Account"), value: account.name)
@@ -345,6 +365,78 @@ struct TransactionDetailView: View {
             .sheet(isPresented: $showingRefund) {
                 TransactionFormView(entry: nil, splits: splits, refundOriginal: entry)
             }
+    }
+
+    private var assignmentRows: [AssignmentLine] {
+        _ = expenseGroupRevision
+        var rows: [AssignmentLine] = []
+        for split in splits where split.transactionID == entry.id && split.kind == .budgetPool {
+            guard let pool = pools.first(where: { $0.id == split.targetID }) else { continue }
+            rows.append(AssignmentLine(
+                id: "pool-\(split.id.uuidString)",
+                title: L("Budgetpool", "Budget pool"),
+                value: "\(pool.name) · \(Money.string(cents: split.amountCents))"
+            ))
+        }
+        if let groupID = ExpenseGroupAssignmentStore.groupID(for: entry.id),
+           let group = expenseGroups.first(where: { $0.id == groupID }) {
+            rows.append(AssignmentLine(
+                id: "group-\(group.id.uuidString)",
+                title: L("Ausgabengruppe", "Expense group"),
+                value: group.name
+            ))
+        }
+        if let fixedID = entry.fixedCostID, let cost = fixedCosts.first(where: { $0.id == fixedID }) {
+            rows.append(AssignmentLine(
+                id: "fixed-\(cost.id.uuidString)",
+                title: L("Fixkosten", "Fixed cost"),
+                value: cost.name
+            ))
+        }
+        let variableSplitTargets = Set(
+            splits.filter { $0.transactionID == entry.id && $0.kind == .variableBudget }.map(\.targetID)
+        )
+        if let variableID = entry.variableBudgetID,
+           !variableSplitTargets.contains(variableID),
+           let budget = variableBudgets.first(where: { $0.id == variableID }) {
+            rows.append(AssignmentLine(
+                id: "variable-\(budget.id.uuidString)",
+                title: L("Variable Kosten", "Variable cost"),
+                value: budget.name
+            ))
+        }
+        for split in splits where split.transactionID == entry.id && split.kind == .variableBudget {
+            guard let budget = variableBudgets.first(where: { $0.id == split.targetID }) else { continue }
+            rows.append(AssignmentLine(
+                id: "variable-split-\(split.id.uuidString)",
+                title: L("Variable Kosten", "Variable cost"),
+                value: "\(budget.name) · \(Money.string(cents: split.amountCents))"
+            ))
+        }
+        if let shoppingID = entry.shoppingItemID, let item = shopping.first(where: { $0.id == shoppingID }) {
+            rows.append(AssignmentLine(
+                id: "shopping-\(item.id.uuidString)",
+                title: L("Einkauf", "Shopping"),
+                value: item.name
+            ))
+        }
+        if let forecastID = TransferForecastAssignmentStore.forecastID(for: entry.id),
+           let forecast = TransferForecastStore.all().first(where: { $0.id == forecastID }) {
+            rows.append(AssignmentLine(
+                id: "transfer-\(forecast.id.uuidString)",
+                title: L("Umbuchungsprognose", "Transfer forecast"),
+                value: forecast.name
+            ))
+        }
+        if let forecastID = IncomeAssignmentStore.forecastID(forEntryID: entry.id),
+           let forecast = incomeForecasts.first(where: { $0.id == forecastID }) {
+            rows.append(AssignmentLine(
+                id: "income-\(forecast.id.uuidString)",
+                title: L("Einnahmenprognose", "Income forecast"),
+                value: forecast.name
+            ))
+        }
+        return rows
     }
 
     private var expenseRemainder: Int? {

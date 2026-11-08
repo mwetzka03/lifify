@@ -107,6 +107,12 @@ enum HoldingLotStore {
         save(map)
     }
 
+    static func reset() {
+        UserDefaults.standard.removeObject(forKey: key)
+        cached = [:]
+        cacheRevision += 1
+    }
+
     private static func snapshot() -> [String: [HoldingLot]] {
         if let cached { return cached }
         let decoded: [String: [HoldingLot]]
@@ -206,6 +212,12 @@ enum SavingsPlanStore {
 
     static func remove(id: UUID) {
         save(all().filter { $0.id != id })
+    }
+
+    static func reset() {
+        UserDefaults.standard.removeObject(forKey: key)
+        cached = []
+        cacheRevision += 1
     }
 
     static func save(_ plans: [SavingsPlanRecord]) {
@@ -605,28 +617,31 @@ enum SavingsPlanBuilder {
 
 @MainActor
 enum SavingsPlanRunner {
+    /// Advances the last execution only when a real statement row or booking already covers it.
+    /// A due date without that booking stays a forecast and is not written into the ledger.
     static func bookDue(context: ModelContext) {
+        let removedSynthetic = removeSyntheticExecutions(context: context)
         var plans = SavingsPlanStore.all()
-        guard plans.contains(where: \.active) else { return }
-        var entries = (try? context.fetch(FetchDescriptor<LedgerEntry>())) ?? []
-        var holdings = (try? context.fetch(FetchDescriptor<PortfolioHolding>())) ?? []
+        guard plans.contains(where: \.active) || removedSynthetic else { return }
+        let entries = (try? context.fetch(FetchDescriptor<LedgerEntry>())) ?? []
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: .now)
-        var changed = false
+        var changed = removedSynthetic
+        if removedSynthetic {
+            for index in plans.indices {
+                let execution = calendar.startOfDay(for: plans[index].lastExecution)
+                let covered = calendar.startOfDay(for: plans[index].historyThrough)
+                guard execution > covered, !alreadyBooked(plans[index], on: plans[index].lastExecution, entries: entries) else { continue }
+                plans[index].lastExecution = plans[index].historyThrough
+            }
+        }
         for index in plans.indices where plans[index].active {
             var cursor = plans[index].lastExecution
             for _ in 0..<24 {
                 guard let next = SavingsPlanBuilder.date(after: cursor, cadence: plans[index].cadence) else { break }
                 if calendar.startOfDay(for: next) > today { break }
                 let coveredByStatement = calendar.startOfDay(for: next) <= calendar.startOfDay(for: plans[index].historyThrough)
-                if coveredByStatement || alreadyBooked(plans[index], on: next, entries: entries) {
-                    cursor = next
-                    plans[index].lastExecution = next
-                    changed = true
-                    continue
-                }
-                guard let holdingID = book(plans[index], on: next, context: context, entries: &entries, holdings: &holdings) else { break }
-                plans[index].holdingID = holdingID
+                guard coveredByStatement || alreadyBooked(plans[index], on: next, entries: entries) else { break }
                 cursor = next
                 plans[index].lastExecution = next
                 changed = true
@@ -634,8 +649,29 @@ enum SavingsPlanRunner {
         }
         if changed {
             SavingsPlanStore.save(plans)
-            try? context.save()
         }
+    }
+
+    /// Drops ledger rows this app previously invented when a savings-plan date passed.
+    private static func removeSyntheticExecutions(context: ModelContext) -> Bool {
+        let entries = (try? context.fetch(FetchDescriptor<LedgerEntry>())) ?? []
+        let synthetic = entries.filter { $0.importFingerprint?.hasPrefix("sparplan-") == true }
+        guard !synthetic.isEmpty else { return false }
+        let holdings = (try? context.fetch(FetchDescriptor<PortfolioHolding>())) ?? []
+        for entry in synthetic {
+            for holding in holdings {
+                let lots = HoldingLotStore.lots(for: holding.id)
+                let removed = lots.filter { $0.ledgerEntryID == entry.id }
+                guard !removed.isEmpty else { continue }
+                let kept = lots.filter { $0.ledgerEntryID != entry.id }
+                HoldingLotStore.replace(kept, holdingID: holding.id)
+                let quantity = removed.reduce(0.0) { $0 + $1.quantity }
+                holding.quantity = max(0, holding.quantity - quantity)
+            }
+            context.delete(entry)
+        }
+        try? context.save()
+        return true
     }
 
     private static func alreadyBooked(_ plan: SavingsPlanRecord, on date: Date, entries: [LedgerEntry]) -> Bool {
@@ -644,76 +680,6 @@ enum SavingsPlanRunner {
             calendar.isDate(entry.date, inSameDayAs: date)
                 && entry.notes.localizedCaseInsensitiveContains(plan.isin)
         }
-    }
-
-    @discardableResult
-    private static func book(
-        _ plan: SavingsPlanRecord,
-        on date: Date,
-        context: ModelContext,
-        entries: inout [LedgerEntry],
-        holdings: inout [PortfolioHolding]
-    ) -> UUID? {
-        let holding = holdings.first { $0.id == plan.holdingID }
-            ?? holdings.first { $0.accountID == plan.portfolioAccountID && $0.symbol.caseInsensitiveCompare(plan.isin) == .orderedSame }
-        let price = holding?.currentPriceCents ?? holding?.purchasePriceCents ?? 0
-        guard price > 0 else { return nil }
-        let quantity = Double(plan.amountCents) / Double(price)
-        guard quantity > 0 else { return nil }
-        let target: PortfolioHolding
-        if let holding {
-            let previous = holding.quantity * Double(holding.purchasePriceCents)
-            let next = holding.quantity + quantity
-            holding.purchasePriceCents = Int(((previous + Double(plan.amountCents)) / next).rounded())
-            holding.quantity = next
-            holding.updatedAt = date
-            target = holding
-        } else {
-            let created = PortfolioHolding(
-                accountID: plan.portfolioAccountID,
-                name: plan.name,
-                symbol: plan.isin,
-                quantity: quantity,
-                purchasePriceCents: price,
-                currentPriceCents: price,
-                updatedAt: date
-            )
-            context.insert(created)
-            holdings.append(created)
-            target = created
-        }
-        let entry = LedgerEntry(
-            date: date,
-            title: "\(L("Sparplan", "Savings plan")): \(plan.name)",
-            notes: "\(L("Typ", "Type")): Sparplan\nISIN: \(plan.isin)\n\(L("Stück", "Quantity")): \(quantityText(quantity))",
-            amountCents: plan.amountCents,
-            kind: .transfer,
-            fromAccountID: plan.checkingAccountID,
-            toAccountID: plan.portfolioAccountID,
-            importFingerprint: "sparplan-\(plan.isin)-\(date.dayKey)"
-        )
-        context.insert(entry)
-        entries.append(entry)
-        HoldingLotStore.add(
-            HoldingLot(
-                date: date,
-                quantity: quantity,
-                unitPriceCents: price,
-                amountCents: -plan.amountCents,
-                isSale: false,
-                isSavingsPlan: true,
-                ledgerEntryID: entry.id
-            ),
-            holdingID: target.id
-        )
-        return target.id
-    }
-
-    private static func quantityText(_ quantity: Double) -> String {
-        var text = String(format: "%.6f", quantity)
-        while text.contains("."), text.last == "0" { text.removeLast() }
-        if text.last == "." { text.removeLast() }
-        return text
     }
 }
 
@@ -752,6 +718,11 @@ enum ClosedPositionStore {
     static func remove(isin: String) {
         let symbol = isin.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
         save(all().filter { $0.isin.uppercased() != symbol })
+    }
+
+    static func reset() {
+        UserDefaults.standard.removeObject(forKey: key)
+        cached = []
     }
 
     private static func save(_ rows: [ClosedPositionRecord]) {

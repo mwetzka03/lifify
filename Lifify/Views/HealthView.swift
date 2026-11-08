@@ -1,3 +1,4 @@
+import SwiftData
 import SwiftUI
 
 enum HealthRoute: Hashable {
@@ -5,11 +6,19 @@ enum HealthRoute: Hashable {
     case session(UUID)
     case history(UUID)
     case historyList
+    case abstinence(UUID)
 }
 
 struct HealthView: View {
+    @Environment(\.modelContext) private var context
     @EnvironmentObject private var store: WorkoutStore
+    @Query(sort: \ChallengeItem.title) private var challenges: [ChallengeItem]
     @State private var editorPlan: WorkoutPlan?
+    @State private var showingAbstinence = false
+
+    private var abstinences: [ChallengeItem] {
+        challenges.filter { $0.category == .abstinence && !$0.isArchived }
+    }
 
     var body: some View {
         List {
@@ -39,6 +48,7 @@ struct HealthView: View {
                     }
                     .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                         Button(role: .destructive) {
+                            WorkoutLinkStore.removePlan(plan.id)
                             store.deletePlan(id: plan.id)
                         } label: {
                             Label(L("Löschen", "Delete"), systemImage: "trash")
@@ -65,6 +75,29 @@ struct HealthView: View {
                 sectionTitle(L("Training", "Training"))
             }
             Section {
+                if abstinences.isEmpty {
+                    Text(L("Noch keine Abstinenz.", "No abstinence yet."))
+                        .foregroundStyle(.secondary)
+                }
+                ForEach(abstinences) { challenge in
+                    NavigationLink(value: HealthRoute.abstinence(challenge.id)) {
+                        AbstinenceSummary(challenge: challenge)
+                    }
+                }
+                Button {
+                    showingAbstinence = true
+                } label: {
+                    Label(L("Abstinenz anlegen", "Create abstinence"), systemImage: "plus")
+                }
+            } header: {
+                sectionTitle(L("Abstinenz", "Abstinence"))
+            } footer: {
+                Text(L(
+                    "Der Timer zählt, wie lange du etwas lässt. Jeder Tag zahlt die Coins der Challenge, und die Zeitstufen zahlen einen Bonus.",
+                    "The timer counts how long you have gone without something. Each day pays the challenge’s coins, and the time steps pay a bonus."
+                ))
+            }
+            Section {
                 Text(L("Noch nicht verfügbar", "Not available yet"))
                     .foregroundStyle(.secondary)
             } header: {
@@ -77,6 +110,12 @@ struct HealthView: View {
         .sheet(item: $editorPlan) { plan in
             WorkoutEditorView(plan: plan)
                 .environmentObject(store)
+        }
+        .sheet(isPresented: $showingAbstinence) {
+            ChallengeForm(challenge: nil, presetCategory: .abstinence)
+        }
+        .onAppear {
+            Task { await WorkoutCalendarSync.cleanup(context: context, sessions: store.sessions) }
         }
     }
 
@@ -116,6 +155,8 @@ struct HealthRouteScreen: View {
             WorkoutHistoryView(sessionID: id)
         case .historyList:
             WorkoutHistoryListView()
+        case .abstinence(let id):
+            AbstinenceDetailView(challengeID: id)
         }
     }
 }
@@ -151,6 +192,8 @@ struct WorkoutPlanDetailView: View {
                         }
                         .buttonStyle(.borderedProminent)
                         .disabled(plan.exercises.isEmpty)
+
+                        WorkoutLinkSection(planID: plan.id)
 
                         ForEach(plan.exercises) { exercise in
                             VStack(alignment: .leading, spacing: 8) {
@@ -209,6 +252,9 @@ struct WorkoutHistoryView: View {
                         Text(AppDate.numeric(session.finishedAt))
                             .font(.headline)
                             .foregroundStyle(.secondary)
+                        Text("\(L("Dauer", "Duration")) \(WorkoutFormat.duration(seconds: session.durationSeconds))")
+                            .font(.title3.weight(.semibold))
+                            .monospacedDigit()
                         Text("\(L("Volumen", "Volume")) \(WorkoutProgress.volumeText(WorkoutProgress.volume(of: session)))")
                             .font(.title3.weight(.semibold))
                         let performed = session.performedExercises
@@ -279,7 +325,7 @@ struct WorkoutHistoryListView: View {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(session.planName)
                                 .font(.body.weight(.semibold))
-                            Text("\(AppDate.numeric(session.finishedAt)) · \(WorkoutProgress.volumeText(WorkoutProgress.volume(of: session)))")
+                            Text("\(AppDate.numeric(session.finishedAt)) · \(WorkoutFormat.duration(seconds: session.durationSeconds)) · \(WorkoutProgress.volumeText(WorkoutProgress.volume(of: session)))")
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
                         }

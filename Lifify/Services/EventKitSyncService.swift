@@ -30,8 +30,9 @@ final class EventKitSyncService: ObservableObject {
             var importedReminders = 0
 
             if eventsAllowed {
-                let windowStart = Calendar.current.date(byAdding: .day, value: -30, to: .now)!
-                let windowEnd = Calendar.current.date(byAdding: .day, value: 365, to: .now)!
+                let now = Date()
+                let windowStart = CalendarSyncWindow.start(around: now)
+                let windowEnd = CalendarSyncWindow.end(around: now)
                 let predicate = store.predicateForEvents(withStart: windowStart, end: windowEnd, calendars: nil)
                 var matchedEventIDs = Set<UUID>()
                 for event in store.events(matching: predicate) {
@@ -52,6 +53,17 @@ final class EventKitSyncService: ObservableObject {
                         model = matched
                     } else {
                         let sibling = existingEvents.first { $0.externalIdentifier == identifier }
+                        let inherited = CalendarSeriesLink.links(
+                            externalIdentifier: identifier,
+                            events: existingEvents.map {
+                                CalendarSeriesLink.Event(
+                                    externalIdentifier: $0.externalIdentifier,
+                                    challengeID: $0.linkedChallengeID,
+                                    groupID: $0.linkedChallengeGroupID,
+                                    rewardID: $0.linkedRewardID
+                                )
+                            }
+                        )
                         model = ChallengeCalendarEvent(
                             title: event.title ?? L("Kalenderereignis", "Calendar event"),
                             startDate: event.startDate,
@@ -59,9 +71,9 @@ final class EventKitSyncService: ObservableObject {
                             isAllDay: event.isAllDay,
                             colorHex: sibling?.colorHex ?? "#4F7CAC",
                             icon: sibling?.icon ?? "calendar",
-                            linkedChallengeID: sibling?.linkedChallengeID,
-                            linkedChallengeGroupID: sibling?.linkedChallengeGroupID,
-                            linkedRewardID: sibling?.linkedRewardID,
+                            linkedChallengeID: inherited.challengeID,
+                            linkedChallengeGroupID: inherited.groupID,
+                            linkedRewardID: inherited.rewardID,
                             externalIdentifier: identifier,
                             isReadOnly: true
                         )
@@ -75,12 +87,13 @@ final class EventKitSyncService: ObservableObject {
                     matchedEventIDs.insert(model.id)
                     importedEvents += 1
                 }
-                for local in existingEvents where
-                    local.externalIdentifier?.hasPrefix("reminder:") != true &&
-                    local.externalIdentifier != nil &&
-                    !matchedEventIDs.contains(local.id) &&
-                    local.startDate >= windowStart &&
-                    local.startDate < windowEnd {
+                for local in existingEvents where CalendarSyncWindow.removesImportedEvent(
+                    start: local.startDate,
+                    externalIdentifier: local.externalIdentifier,
+                    matched: matchedEventIDs.contains(local.id),
+                    around: now
+                ) {
+                    WorkoutLinkStore.removeEvent(local.id)
                     context.delete(local)
                 }
             }
@@ -139,6 +152,10 @@ final class EventKitSyncService: ObservableObject {
                 }
             }
             try context.save()
+            let stored = (try? context.fetch(FetchDescriptor<ChallengeCalendarEvent>())) ?? []
+            WorkoutLinkStore.reconcile(calendar: stored.filter { !$0.isReminderSuggestion }.map {
+                WorkoutLinkRules.CalendarLink(eventID: $0.id, challengeID: $0.linkedChallengeID)
+            })
             if promptForAccess {
                 message = String(
                     format: L("%d Termine und %d Erinnerungen synchronisiert.", "%d events and %d reminders synced."),
@@ -172,7 +189,8 @@ final class EventKitSyncService: ObservableObject {
         notes: String,
         start: Date,
         end: Date,
-        isAllDay: Bool
+        isAllDay: Bool,
+        occurrenceOnly: Bool = false
     ) async -> String? {
         do {
             let eventStore = EKEventStore()
@@ -191,7 +209,8 @@ final class EventKitSyncService: ObservableObject {
             event.isAllDay = isAllDay
             event.startDate = start
             event.endDate = end > start ? end : start.addingTimeInterval(isAllDay ? 86_400 : 3_600)
-            try eventStore.save(event, span: event.hasRecurrenceRules ? .futureEvents : .thisEvent, commit: true)
+            let span: EKSpan = occurrenceOnly || !event.hasRecurrenceRules ? .thisEvent : .futureEvents
+            try eventStore.save(event, span: span, commit: true)
             return event.eventIdentifier
         } catch {
             return nil

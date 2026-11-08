@@ -1,6 +1,6 @@
 # Lifify – Funktionsumfang und Annahmen
 
-Die App ist Version **0.2.0**. Wie Finanzen, Depot und Budget rechnen, steht
+Die App ist Version **0.3.0**. Wie Finanzen, Depot und Budget rechnen, steht
 in [FINANZEN.md](FINANZEN.md). Der Gesundheit-Tab ist kein Platzhalter mehr:
 Training ist umgesetzt, Ernährung zeigt „Noch nicht verfügbar“.
 
@@ -15,9 +15,11 @@ Training ist umgesetzt, Ernährung zeigt „Noch nicht verfügbar“.
   oder zweiwöchentlicher Wiederholung
 - Fälligkeit am Kalendertag sowie am ersten oder letzten Bankarbeitstag in
   Rheinland-Pfalz (inklusive gesetzlicher Feiertage)
-- Variable Kosten und Budgetpools pro Gehaltszeitraum oder Kalenderjahr;
-  skalierbare Pools übertragen den Rest in die nächste Periode
-- Einkaufszettel, Schulden, Ausgabengruppen und Depotpositionen mit ISIN,
+- Variable Kosten und Budgetpools pro Kalendermonat oder Kalenderjahr, ohne
+  Starttag; die Option heißt skalierbar und überträgt den Rest in die nächste
+  Periode
+- Ausgabengruppen aus zugeordneten Buchungen, ohne die Buchung selbst zu ändern
+- Einkaufszettel, Schulden und Depotpositionen mit ISIN,
   automatischem Kursabruf, Tages- und Kaufveränderung in Euro und Prozent
   sowie manuellem Fallback
 - Deutsch und Englisch, Erscheinungsbild Hell/Dunkel/System
@@ -67,10 +69,10 @@ Training ist umgesetzt, Ernährung zeigt „Noch nicht verfügbar“.
    FIFO-Steuerlot umgerechnet.
 6. **Variable Kosten:** Monatswerte gelten ab dem Erstellungsmonat. Es gibt
    keinen fest eingebauten Startmonat.
-7. **Budgetpool-Gehaltszeitraum:** Der Starttag ist je Pool einstellbar
-   (standardmäßig der 1.). Eine Periode läuft vom Starttag bis zum Vortag
-   desselben Tages im Folgemonat. Bei kurzen Monaten wird der Tag auf das
-   Monatsende begrenzt.
+7. **Budgetpool-Zeitraum:** Es gibt keinen einstellbaren Starttag. Der
+   Gehaltszeitraum ist der Kalendermonat, das Kalenderjahr das Kalenderjahr.
+   Eine ältere Zuweisung mit gespeichertem Starttag zählt in dem Kalendermonat,
+   in dem dieser alte Zeitraum beginnt.
 8. **Skalierbarer Übertrag:** Rest = Grundbudget + bisheriger Übertrag −
    zugeordnete Ausgaben. Der Rest wird vollständig, auch wenn er negativ ist, in
    die nächste Periode übernommen.

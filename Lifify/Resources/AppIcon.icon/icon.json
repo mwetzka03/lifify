@@ -1,0 +1,58 @@
+{
+  "fill-specializations" : [
+    {
+      "value" : {
+        "solid" : "extended-srgb:0.25882,0.79608,0.56863,1.00000"
+      }
+    },
+    {
+      "appearance" : "dark",
+      "value" : {
+        "solid" : "extended-srgb:0.03529,0.35686,0.19608,1.00000"
+      }
+    }
+  ],
+  "groups" : [
+    {
+      "layers" : [
+        {
+          "fill-specializations" : [
+            {
+              "value" : {
+                "solid" : "extended-srgb:1.00000,1.00000,1.00000,1.00000"
+              }
+            },
+            {
+              "appearance" : "dark",
+              "value" : {
+                "solid" : "extended-srgb:1.00000,1.00000,1.00000,1.00000"
+              }
+            },
+            {
+              "appearance" : "tinted",
+              "value" : "automatic"
+            }
+          ],
+          "glass" : false,
+          "image-name" : "glyph.png",
+          "name" : "Mark"
+        }
+      ],
+      "name" : "Mark",
+      "shadow" : {
+        "kind" : "none",
+        "opacity" : 0
+      },
+      "specular" : false,
+      "translucency" : {
+        "enabled" : false,
+        "value" : 0
+      }
+    }
+  ],
+  "supported-platforms" : {
+    "squares" : [
+      "iOS"
+    ]
+  }
+}
