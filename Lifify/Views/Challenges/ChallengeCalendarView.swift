@@ -486,7 +486,7 @@ private struct ChallengeEventForm: View {
             ?? ChallengeItem(
                 title: title,
                 details: details,
-                category: .habit,
+                category: .other,
                 recurrence: metadata?.recurrence ?? .none,
                 startDate: start,
                 endDate: metadata?.endDate,

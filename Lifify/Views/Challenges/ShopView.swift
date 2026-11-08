@@ -1,6 +1,14 @@
 import SwiftData
 import SwiftUI
 
+enum ShopRows {
+    static func pairs<T>(_ items: [T]) -> [[T]] {
+        stride(from: 0, to: items.count, by: 2).map { start in
+            Array(items[start..<min(start + 2, items.count)])
+        }
+    }
+}
+
 struct ShopView: View {
     @Environment(\.modelContext) private var context
     @Environment(\.openURL) private var openURL
@@ -17,11 +25,6 @@ struct ShopView: View {
     @State private var showingNew = false
     @State private var edited: RewardItem?
     @State private var message: String?
-
-    private let columns = [
-        GridItem(.flexible(), spacing: 12),
-        GridItem(.flexible(), spacing: 12)
-    ]
 
     private var activeRewards: [RewardItem] {
         rewards.filter(\.isActive)
@@ -48,9 +51,17 @@ struct ShopView: View {
                         ContentUnavailableView(L("Keine Belohnungen", "No rewards"), systemImage: "gift")
                             .padding(.top, 12)
                     } else {
-                        LazyVGrid(columns: columns, spacing: 12) {
-                            ForEach(activeRewards) { reward in
-                                rewardTile(reward)
+                        VStack(spacing: 12) {
+                            ForEach(Array(ShopRows.pairs(activeRewards).enumerated()), id: \.offset) { _, row in
+                                HStack(alignment: .top, spacing: 12) {
+                                    ForEach(row) { reward in
+                                        rewardTile(reward)
+                                    }
+                                    if row.count == 1 {
+                                        Color.clear
+                                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                    }
+                                }
                             }
                         }
                         .padding(16)
@@ -189,6 +200,7 @@ struct ShopView: View {
             }
             .padding(.horizontal, 12)
             .padding(.top, 10)
+            Spacer(minLength: 0)
             Button {
                 message = ChallengeService.purchase(reward: reward, transactions: transactions, context: context)
                     ? L("Belohnung gekauft.", "Reward purchased.")
@@ -206,7 +218,7 @@ struct ShopView: View {
             .padding(.top, 10)
             .padding(.bottom, 12)
         }
-        .frame(maxWidth: .infinity, alignment: .top)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(AppSurface.card)
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
         .overlay(

@@ -76,11 +76,12 @@ Stand gegenüber `main`. Die Rechenregeln der Finanzen bleiben in
   30 Tagen und auf 1 Jahr. Jede erreichte Stufe zahlt ihren eigenen Faktor mal
   die Tagescoins. Die Faktoren stehen unter Einstellungen, Herausforderung,
   Abstinenz-Bonus.
-- Ein erreichter Bonus erscheint auf der Startseite, wie die Karte „Heute
-  abhaken“, und als Push auf dem iPhone. Das gilt auch, wenn der
-  Entwicklermodus die Zeit vorspult und der Bonus dadurch jetzt gutgeschrieben
-  wird. Der Haken auf der Startseite quittiert die Karte. Die Coins sind dann
-  schon gutgeschrieben.
+- Ein erreichter Bonus erscheint auf der Startseite nur, wenn seine Stufe auf
+  den aktuellen Tag fällt. Liegen mehrere Stufen an dem Tag, steht nur die
+  letzte dort. Ältere Stufen verschwinden von allein, ohne Abhaken. Derselbe
+  Bonus kommt als Push und bleibt in der Mitteilungszentrale. Das gilt auch,
+  wenn der Entwicklermodus die Zeit vorspult und der Bonus dadurch jetzt
+  gutgeschrieben wird.
 - Die Standardfaktoren für mittel sind die früheren Werte von schwer. Schwer
   liegt darüber, zum Beispiel 6× nach 24 Stunden bei mittel und 12× bei schwer.
 - Eine Belohnung kann mit einer Abstinenz verknüpft werden. Wird sie eingelöst,
@@ -106,16 +107,35 @@ Stand gegenüber `main`. Die Rechenregeln der Finanzen bleiben in
   der Termin auf 90 Minuten gestellt.
 - Beim Zuweisen lässt sich filtern: mit Zeit, ohne Zeit oder alle. Challenges
   ohne Dauer verbrauchen den Slot nicht.
+- Der Termin einer Challenge darf höchstens eine Woche zurückliegen. Die Liste
+  hat ein Suchfeld. Der schon gewählte Termin bleibt sichtbar.
 - Challenges, die seit mindestens sieben Tagen offen sind und noch in den Slot
   passen, werden als Vorschlag angeboten.
 
 ## Mitteilungen
 
-- Unter Allgemein gibt es das tägliche Briefing mit Uhrzeit. Es nennt die
-  Termine des Tags, die fälligen Challenges und ihre Coins, nahende
-  Belohnungen, das nächste Gehalt und die Ausgaben dieses Tags. Die App plant
-  die nächsten sieben Tage, jedes Mal wenn sie aktiv wird.
+- Unter Allgemein gibt es das tägliche Briefing. Montag bis Sonntag haben
+  jeweils eine eigene Uhrzeit, der Standard ist 08:00. Es nennt die Termine
+  des Tags, die fälligen Challenges und ihre Coins, nahende Belohnungen, das
+  nächste Gehalt und die Ausgaben dieses Tags. Die App plant die nächsten
+  sieben Tage, jedes Mal wenn sie aktiv wird.
 - Abstinenz-Boni werden zusätzlich gepusht, sobald die Stufe erreicht ist.
+  Die Mitteilung bleibt in der Mitteilungszentrale.
+
+## Kategorien und Listen
+
+- Neue Challenges bieten Sport, Abstinenz und Sonstiges an. Weitere Kategorien
+  lassen sich an der Challenge und unter Herausforderung anlegen. Eine eigene
+  Kategorie kann separat eine Überschrift bekommen. Sonst liegt sie bei den
+  übrigen.
+- In der aktiven Liste haben Abstinenz und Sport eine eigene Zwischenüberschrift.
+  Alles andere steht in einem Topf, außer eine Kategorie ist separat markiert.
+- Unter Abgeschlossen steht eine Abstinenz einmal, mit der Spanne ihrer Tage,
+  und nicht an jedem Tag einzeln.
+- Zwei Shop-Kacheln in einer Reihe sind gleich breit und gleich hoch. Die
+  kleinere wächst auf die größere.
+- Der Entwicklertag springt beim Start der App und beim Ein- oder Ausschalten
+  des Modus auf den echten heutigen Tag zurück.
 
 ## Gesundheit und Kalender
 

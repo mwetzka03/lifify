@@ -6,6 +6,7 @@ import UserNotifications
 struct LififyApp: App {
     init() {
         UNUserNotificationCenter.current().delegate = NotificationCenterDelegate.shared
+        AppClock.resetSimulatedDay()
     }
 
     private let containerResult: Result<ModelContainer, Error> = {

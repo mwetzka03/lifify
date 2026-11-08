@@ -45,6 +45,10 @@ enum ChallengeCategory: String, Codable, CaseIterable, Identifiable {
     case other
 
     var id: String { rawValue }
+
+    /// The categories offered when creating a challenge. More can be added in settings.
+    static let offered: [ChallengeCategory] = [.sport, .abstinence, .other]
+
     var label: String {
         switch self {
         case .health: L("Gesundheit", "Health")
@@ -144,7 +148,7 @@ final class ChallengeItem {
         id: UUID = UUID(),
         title: String,
         details: String = "",
-        category: ChallengeCategory = .habit,
+        category: ChallengeCategory = .other,
         recurrence: ChallengeRecurrence = .none,
         startDate: Date? = .now,
         endDate: Date? = nil,

@@ -21,6 +21,7 @@ enum ChallengeTimeFilter: String, CaseIterable, Identifiable {
 /// Sport and abstinence stay out of this. They keep their own rules.
 enum ChallengeTimeRules {
     static let suggestionAge: TimeInterval = 7 * 86_400
+    static let assignmentLookbackDays = 7
 
     static func allowsTime(_ category: ChallengeCategory) -> Bool {
         category != .sport && category != .abstinence
@@ -33,6 +34,16 @@ enum ChallengeTimeRules {
         case .withTime: return hasTime
         case .withoutTime: return !hasTime
         }
+    }
+
+    /// An event can be assigned when it is still ahead, or at most a week in the past.
+    /// The event already chosen stays available so editing it does not drop the link.
+    static func canAssign(start: Date, now: Date, keepingSelection: Bool, calendar: Calendar = .current) -> Bool {
+        if keepingSelection { return true }
+        guard let earliest = calendar.date(byAdding: .day, value: -assignmentLookbackDays, to: calendar.startOfDay(for: now)) else {
+            return false
+        }
+        return start >= earliest
     }
 
     static func minutes(from start: Date, to end: Date) -> Int {

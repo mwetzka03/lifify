@@ -445,13 +445,6 @@ struct HomeView: View {
                             CoinAmountView(amount: notice.coins, showsPlus: true)
                                 .font(.caption)
                         }
-                        Button {
-                            AbstinenceSettings.dismissNotice(notice.id)
-                        } label: {
-                            Image(systemName: "checkmark.circle")
-                                .foregroundStyle(Color.green)
-                        }
-                        .buttonStyle(.plain)
                     }
                 }
             }
@@ -502,7 +495,8 @@ struct HomeView: View {
             popups.append(HomePopup(id: "freeze", kind: .freeze(freezeWarnings)))
         }
         let _ = abstinenceRevision
-        let abstinenceNotices = AbstinenceSettings.notices()
+        let _ = developerDay
+        let abstinenceNotices = AbstinenceRules.currentNotices(AbstinenceSettings.notices(), on: AppClock.now)
         if !abstinenceNotices.isEmpty {
             popups.append(HomePopup(id: "abstinence", kind: .abstinence(abstinenceNotices)))
         }

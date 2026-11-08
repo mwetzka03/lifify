@@ -36,4 +36,10 @@ enum AppClock {
         if stored > 0 { return Date(timeIntervalSince1970: stored) }
         return Calendar.current.startOfDay(for: Date())
     }
+
+    /// Puts the simulated day back on the real today. Used at launch and when the mode is switched.
+    static func resetSimulatedDay(calendar: Calendar = .current) {
+        let start = calendar.startOfDay(for: Date())
+        UserDefaults.standard.set(start.timeIntervalSince1970, forKey: dayKey)
+    }
 }

@@ -50,4 +50,38 @@ enum ChallengeHistory {
             return ChallengeHistoryDay(day: day, entries: entries)
         }
     }
+
+    /// One row for the whole abstinence, instead of one completion on every day.
+    static func abstinenceSpans(
+        _ completions: [ChallengeHistoryCompletion],
+        calendar: Calendar = .current
+    ) -> [AbstinenceHistorySpan] {
+        let grouped = Dictionary(grouping: completions, by: \.challengeID)
+        return grouped.keys.sorted { lhs, rhs in
+            let left = grouped[lhs]?.first?.title ?? ""
+            let right = grouped[rhs]?.first?.title ?? ""
+            if left == right { return lhs.uuidString < rhs.uuidString }
+            return left.localizedStandardCompare(right) == .orderedAscending
+        }.compactMap { id in
+            guard let items = grouped[id], let title = items.first?.title else { return nil }
+            let days = Set(items.map { calendar.startOfDay(for: $0.date) })
+            guard let first = days.min(), let last = days.max() else { return nil }
+            return AbstinenceHistorySpan(
+                challengeID: id,
+                title: title,
+                first: first,
+                last: last,
+                dayCount: days.count
+            )
+        }
+    }
+}
+
+struct AbstinenceHistorySpan: Equatable, Identifiable {
+    var challengeID: UUID
+    var title: String
+    var first: Date
+    var last: Date
+    var dayCount: Int
+    var id: UUID { challengeID }
 }

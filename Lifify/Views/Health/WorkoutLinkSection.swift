@@ -158,7 +158,7 @@ private struct WorkoutChallengePicker: View {
                     ForEach(challenges) { challenge in
                         linkChoiceRow(
                             title: challenge.title,
-                            subtitle: challenge.category.label,
+                            subtitle: ChallengeCategoryStore.label(for: challenge.categoryRaw),
                             isSelected: selected.contains(challenge.id)
                         ) {
                             toggle($selected, challenge.id)

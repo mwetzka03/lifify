@@ -11,13 +11,12 @@ enum DailyBriefingService {
         }
         guard await LififyNotifications.requestAccess() else { return }
         let calendar = Calendar.current
-        let hour = LififyNotifications.briefingHour
-        let minute = LififyNotifications.briefingMinute
         let today = calendar.startOfDay(for: Date())
         var items: [(id: String, title: String, body: String, date: Date)] = []
         for offset in 0..<7 {
-            guard let day = calendar.date(byAdding: .day, value: offset, to: today),
-                  let fire = calendar.date(bySettingHour: hour, minute: minute, second: 0, of: day),
+            guard let day = calendar.date(byAdding: .day, value: offset, to: today) else { continue }
+            let clock = LififyNotifications.clock(for: calendar.component(.weekday, from: day))
+            guard let fire = calendar.date(bySettingHour: clock.hour, minute: clock.minute, second: 0, of: day),
                   fire > Date()
             else { continue }
             let stamp = dayStamp(day, calendar: calendar)

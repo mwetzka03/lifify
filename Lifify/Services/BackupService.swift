@@ -88,7 +88,8 @@ enum BackupService {
         "workoutChallengeLink", "workoutEventLink", "streakState", "streakMultiplier", "streakFreezeFactor",
         "abstinenceDifficulty", "abstinenceAwarded", "abstinenceMultiplier",
         "abstinenceRelapse", "abstinenceNotice", "abstinenceException", "abstinenceRewardLink",
-        "challengeDuration", "challengeTimeMembers", "challengeTimePlanned"
+        "challengeDuration", "challengeTimeMembers", "challengeTimePlanned",
+        "customCategory"
     ]
     private static let sideTypes: Set<String> = [
         "iconPreference", "reminderRecurrence", "eventRecurrence", "marketSymbol", "previousClose", "purchaseDate",
@@ -96,6 +97,7 @@ enum BackupService {
         "abstinenceDifficulty", "abstinenceAwarded", "abstinenceMultiplier",
         "abstinenceRelapse", "abstinenceNotice", "abstinenceException", "abstinenceRewardLink",
         "challengeDuration", "challengeTimeMembers", "challengeTimePlanned",
+        "customCategory", "briefingWeekday",
         "primaryIncome", "secondaryIncome", "incomeAssignment", "expenseGroupAssignment",
         "workoutChallengeLink", "workoutEventLink", "appPreferences", "backupScope", "workoutSnapshot"
     ]
@@ -244,6 +246,8 @@ enum BackupService {
         records.append(StreakSettings.exportFreezeFactorRecord())
         records += AbstinenceSettings.exportRecords()
         records += ChallengeTimeStore.exportRecords()
+        records += ChallengeCategoryStore.exportRecords()
+        records += LififyNotifications.exportWeekdayRecords()
         records += purchases.map {
             BackupRecord(type: "purchase", id: $0.id, strings: [$0.title], integers: [$0.price], dates: [$0.date], uuids: [$0.rewardID])
         }
@@ -349,6 +353,8 @@ enum BackupService {
         StreakSettings.resetFreezeFactor()
         AbstinenceSettings.reset()
         ChallengeTimeStore.reset()
+        ChallengeCategoryStore.reset()
+        LififyNotifications.resetWeekdayClocks()
     }
 
     static func deleteFinanceData(from context: ModelContext) throws {
@@ -373,6 +379,7 @@ enum BackupService {
         StreakSettings.resetFreezeFactor()
         AbstinenceSettings.reset()
         ChallengeTimeStore.reset()
+        ChallengeCategoryStore.reset()
     }
 
     static func deleteTrainingData() throws {
@@ -394,6 +401,8 @@ enum BackupService {
         StreakSettings.reset()
         AbstinenceSettings.reset()
         ChallengeTimeStore.reset()
+        ChallengeCategoryStore.reset()
+        LififyNotifications.resetWeekdayClocks()
     }
 
     @MainActor
@@ -410,6 +419,8 @@ enum BackupService {
         StreakSettings.reset()
         AbstinenceSettings.reset()
         ChallengeTimeStore.reset()
+        ChallengeCategoryStore.reset()
+        LififyNotifications.resetWeekdayClocks()
         for record in backup.records where sideTypes.contains(record.type) {
             insert(record, into: context)
         }
@@ -459,6 +470,7 @@ enum BackupService {
         StreakSettings.reset()
         AbstinenceSettings.reset()
         ChallengeTimeStore.reset()
+        ChallengeCategoryStore.reset()
         for record in backup.records where challengeTypes.contains(record.type) && !sideTypes.contains(record.type) {
             insert(record, into: context)
         }
@@ -693,7 +705,10 @@ enum BackupService {
         case "challengeEvent":
             context.insert(ChallengeCalendarEvent(id: r.id, title: string(0), details: string(1), startDate: date(0) ?? .now, endDate: date(1) ?? .now, isAllDay: bool(0), colorHex: string(2), icon: string(3), linkedChallengeID: uuid(0), linkedChallengeGroupID: uuid(1), linkedRewardID: uuid(2), externalIdentifier: string(4).isEmpty ? nil : string(4), isReadOnly: bool(1)))
         case "challenge":
-            context.insert(ChallengeItem(id: r.id, title: string(0), details: string(1), category: ChallengeCategory(rawValue: string(2)) ?? .other, recurrence: ChallengeRecurrence(rawValue: string(3)) ?? .none, startDate: date(0), endDate: date(1), weeklyDays: Set(string(4).split(separator: ",").compactMap { Int($0) }), rewardCoins: int(0), streakTarget: int(1), groupID: uuid(0), isArchived: bool(0), externalIdentifier: string(5).isEmpty ? nil : string(5), isReadOnly: bool(1), createdAt: date(2) ?? .now))
+            let rawCategory = string(2)
+            let challenge = ChallengeItem(id: r.id, title: string(0), details: string(1), category: ChallengeCategory(rawValue: rawCategory) ?? .other, recurrence: ChallengeRecurrence(rawValue: string(3)) ?? .none, startDate: date(0), endDate: date(1), weeklyDays: Set(string(4).split(separator: ",").compactMap { Int($0) }), rewardCoins: int(0), streakTarget: int(1), groupID: uuid(0), isArchived: bool(0), externalIdentifier: string(5).isEmpty ? nil : string(5), isReadOnly: bool(1), createdAt: date(2) ?? .now)
+            if !rawCategory.isEmpty { challenge.categoryRaw = rawCategory }
+            context.insert(challenge)
         case "completion":
             if let challengeID = uuid(0) { context.insert(ChallengeCompletion(id: r.id, challengeID: challengeID, date: date(0) ?? .now, earnedCoins: int(0))) }
         case "challengeGroup":
@@ -786,6 +801,10 @@ enum BackupService {
             ChallengeTimeStore.restoreMembers(r)
         case "challengeTimePlanned":
             ChallengeTimeStore.restorePlanned(r)
+        case "customCategory":
+            ChallengeCategoryStore.restore(r)
+        case "briefingWeekday":
+            LififyNotifications.restoreWeekday(r)
         default:
             break
         }

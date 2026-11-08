@@ -62,33 +62,32 @@ private struct GeneralSettingsView: View {
     @AppStorage(AppClock.modeKey) private var developerMode = false
     @AppStorage(AppClock.dayKey) private var developerDay = 0.0
     @AppStorage(LififyNotifications.briefingEnabledKey) private var briefingEnabled = true
-    @AppStorage(LififyNotifications.briefingHourKey) private var briefingHour = 8
-    @AppStorage(LififyNotifications.briefingMinuteKey) private var briefingMinute = 0
+    @AppStorage(LififyNotifications.briefingRevisionKey) private var briefingRevision = 0
 
     private var developerModeBinding: Binding<Bool> {
         Binding(
             get: { developerMode },
             set: { enabled in
                 developerMode = enabled
-                if enabled, developerDay <= 0 {
-                    developerDay = Calendar.current.startOfDay(for: Date()).timeIntervalSince1970
-                }
+                AppClock.resetSimulatedDay()
             }
         )
     }
 
-    private var briefingTime: Binding<Date> {
+    private func briefingBinding(_ weekday: Int) -> Binding<Date> {
         Binding(
             get: {
+                let _ = briefingRevision
+                let clock = LififyNotifications.clock(for: weekday)
                 var parts = Calendar.current.dateComponents([.year, .month, .day], from: Date())
-                parts.hour = briefingHour
-                parts.minute = briefingMinute
+                parts.hour = clock.hour
+                parts.minute = clock.minute
                 return Calendar.current.date(from: parts) ?? Date()
             },
             set: {
                 let parts = Calendar.current.dateComponents([.hour, .minute], from: $0)
-                briefingHour = parts.hour ?? 8
-                briefingMinute = parts.minute ?? 0
+                LififyNotifications.setClock(weekday: weekday, hour: parts.hour ?? 8, minute: parts.minute ?? 0)
+                briefingRevision += 1
             }
         )
     }
@@ -132,22 +131,24 @@ private struct GeneralSettingsView: View {
                 }
             } footer: {
                 Text(L(
-                    "Der Tag gilt für Home, Challenges und den Kalender. Finanzen bleiben beim echten Datum.",
-                    "The day applies to Home, challenges, and the calendar. Finance stays on the real date."
+                    "Der Tag gilt für Home, Challenges und den Kalender. Finanzen bleiben beim echten Datum. Beim Start der App und beim Ein- oder Ausschalten springt der Tag auf heute zurück.",
+                    "The day applies to Home, challenges, and the calendar. Finance stays on the real date. Launching the app or switching the mode puts the day back on today."
                 ))
             }
             Section {
                 Toggle(L("Tägliches Briefing", "Daily briefing"), isOn: $briefingEnabled)
-                DatePicker(
-                    L("Uhrzeit", "Time"),
-                    selection: briefingTime,
-                    displayedComponents: .hourAndMinute
-                )
-                .disabled(!briefingEnabled)
+                ForEach(BriefingSchedule.weekdays, id: \.self) { weekday in
+                    DatePicker(
+                        BriefingSchedule.weekdayLabel(weekday),
+                        selection: briefingBinding(weekday),
+                        displayedComponents: .hourAndMinute
+                    )
+                    .disabled(!briefingEnabled)
+                }
             } footer: {
                 Text(L(
-                    "Eine Mitteilung am Tag: Termine, fällige Challenges und ihre Coins, nahende Belohnungen, das nächste Gehalt und die Ausgaben dieses Tags. Abstinenz-Boni kommen zusätzlich, sobald sie erreicht sind.",
-                    "One notification a day: events, due challenges and their coins, upcoming rewards, the next salary, and that day's expenses. Abstinence bonuses arrive as well, as soon as they are reached."
+                    "Eine Mitteilung am Tag, mit einer eigenen Uhrzeit von Montag bis Sonntag. Sie nennt Termine, fällige Challenges und ihre Coins, nahende Belohnungen, das nächste Gehalt und die Ausgaben dieses Tags. Abstinenz-Boni kommen zusätzlich und bleiben in der Mitteilungszentrale.",
+                    "One notification a day, with its own time from Monday through Sunday. It names events, due challenges and their coins, upcoming rewards, the next salary, and that day's expenses. Abstinence bonuses arrive as well and stay in Notification Center."
                 ))
             }
             Section {
@@ -155,8 +156,7 @@ private struct GeneralSettingsView: View {
             }
         }
         .onChange(of: briefingEnabled) { Task { await DailyBriefingService.refresh(context: context) } }
-        .onChange(of: briefingHour) { Task { await DailyBriefingService.refresh(context: context) } }
-        .onChange(of: briefingMinute) { Task { await DailyBriefingService.refresh(context: context) } }
+        .onChange(of: briefingRevision) { Task { await DailyBriefingService.refresh(context: context) } }
         .navigationTitle(L("Allgemein", "General"))
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -269,11 +269,48 @@ private struct FinanceSettingsView: View {
 
 private struct ChallengeSettingsView: View {
     @AppStorage(StreakSettings.freezeFactorKey) private var freezeFactor = 10
+    @AppStorage(ChallengeCategoryStore.revisionKey) private var categoryRevision = 0
     @State private var factorText = ""
     @State private var bonusDifficulty: AbstinenceDifficulty = .medium
+    @State private var editedCategory: CustomChallengeCategory?
+    @State private var showingNewCategory = false
 
     var body: some View {
+        let _ = categoryRevision
         Form {
+            Section {
+                ForEach(ChallengeCategoryStore.all()) { category in
+                    Button {
+                        editedCategory = category
+                    } label: {
+                        HStack {
+                            Text(category.name)
+                                .foregroundStyle(.primary)
+                            Spacer()
+                            if category.separate {
+                                Text(L("Separat", "Separate"))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                    .swipeActions {
+                        Button(role: .destructive) {
+                            ChallengeCategoryStore.remove(category.id)
+                        } label: {
+                            Label(L("Löschen", "Delete"), systemImage: "trash")
+                        }
+                    }
+                }
+                Button(L("Kategorie hinzufügen", "Add category")) { showingNewCategory = true }
+            } header: {
+                Text(L("Kategorien", "Categories"))
+            } footer: {
+                Text(L(
+                    "Sport, Abstinenz und Sonstiges gibt es immer. Eine eigene Kategorie kann separat eine Überschrift in der aktiven Liste bekommen. Sonst liegt sie bei den übrigen.",
+                    "Sport, abstinence, and other always exist. A custom category can have its own heading in the active list. Otherwise it stays with the rest."
+                ))
+            }
             Section {
                 NavigationLink {
                     SystemCalendarSyncView()
@@ -335,6 +372,12 @@ private struct ChallengeSettingsView: View {
                 return
             }
             freezeFactor = value
+        }
+        .sheet(isPresented: $showingNewCategory) {
+            CustomCategoryEditor(existing: nil) { _ in }
+        }
+        .sheet(item: $editedCategory) { category in
+            CustomCategoryEditor(existing: category) { _ in }
         }
     }
 }

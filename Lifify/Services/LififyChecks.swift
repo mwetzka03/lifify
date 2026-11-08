@@ -86,6 +86,12 @@ enum LififyChecks {
             finishedChallengesShrinkTheSlot(),
             oldChallengesAreSuggested(),
             briefingNamesTheDay(),
+            todaysAbstinenceNoticeOnly(),
+            recentEventsCanBeAssigned(),
+            categoriesSplitTheActiveList(),
+            briefingClockFollowsTheWeekday(),
+            shopTilesShareARow(),
+            abstinenceHistoryStaysOneRow(),
             developerDayKeepsClockTime()
         ]
     }
@@ -738,6 +744,107 @@ enum LififyChecks {
             && text.contains("25.11.") && text.contains("Miete")
             && early && !queued && missed
         return result("Das Tagesbriefing nennt Termine, Coins, Belohnung, Gehalt und Ausgaben", .challenge, .unit, passed, text)
+    }
+
+    private static func todaysAbstinenceNoticeOnly() -> LififyCheckResult {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .gmt
+        let today = calendar.date(from: DateComponents(year: 2026, month: 11, day: 8, hour: 12)) ?? .distantFuture
+        let yesterday = calendar.date(byAdding: .day, value: -1, to: today) ?? .distantPast
+        let challenge = UUID(uuidString: "00000000-0000-0000-0000-000000000010")!
+        let other = UUID(uuidString: "00000000-0000-0000-0000-000000000011")!
+        let notices = [
+            AbstinenceNotice(id: "old", challengeID: challenge, title: "Rauchfrei", milestone: "24h", coins: 20, date: yesterday),
+            AbstinenceNotice(id: "early", challengeID: challenge, title: "Rauchfrei", milestone: "1h", coins: 5, date: today),
+            AbstinenceNotice(id: "year", challengeID: challenge, title: "Rauchfrei", milestone: "1y", coins: 100, date: today.addingTimeInterval(3_600)),
+            AbstinenceNotice(id: "other", challengeID: other, title: "Zuckerfrei", milestone: "7d", coins: 40, date: today)
+        ]
+        let shown = AbstinenceRules.currentNotices(notices, on: today, calendar: calendar)
+        let passed = shown.map(\.id) == ["year", "other"]
+        return result("Auf der Startseite steht nur der Abstinenz-Bonus von heute", .abstinence, .unit, passed, shown.map(\.id).joined(separator: ","))
+    }
+
+    private static func recentEventsCanBeAssigned() -> LififyCheckResult {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .gmt
+        let now = calendar.date(from: DateComponents(year: 2026, month: 11, day: 8, hour: 15)) ?? .distantFuture
+        let weekAgo = calendar.date(from: DateComponents(year: 2026, month: 11, day: 1)) ?? .distantPast
+        let tooOld = calendar.date(from: DateComponents(year: 2026, month: 10, day: 31, hour: 23)) ?? .distantPast
+        let future = calendar.date(from: DateComponents(year: 2026, month: 11, day: 20, hour: 9)) ?? .distantFuture
+        let passed = ChallengeTimeRules.canAssign(start: weekAgo, now: now, keepingSelection: false, calendar: calendar)
+            && !ChallengeTimeRules.canAssign(start: tooOld, now: now, keepingSelection: false, calendar: calendar)
+            && ChallengeTimeRules.canAssign(start: future, now: now, keepingSelection: false, calendar: calendar)
+            && ChallengeTimeRules.canAssign(start: tooOld, now: now, keepingSelection: true, calendar: calendar)
+        return result("Ein Termin darf höchstens eine Woche in der Vergangenheit liegen", .challenge, .unit, passed, "")
+    }
+
+    private static func categoriesSplitTheActiveList() -> LififyCheckResult {
+        let separate = UUID(uuidString: "00000000-0000-0000-0000-000000000021")!
+        let pooled = UUID(uuidString: "00000000-0000-0000-0000-000000000022")!
+        let abstinence = UUID(uuidString: "00000000-0000-0000-0000-000000000023")!
+        let sport = UUID(uuidString: "00000000-0000-0000-0000-000000000024")!
+        let habit = UUID(uuidString: "00000000-0000-0000-0000-000000000025")!
+        let sections = ChallengeSections.make(
+            challenges: [
+                .init(id: habit, categoryRaw: "habit"),
+                .init(id: abstinence, categoryRaw: ChallengeCategory.abstinence.rawValue),
+                .init(id: sport, categoryRaw: ChallengeCategory.sport.rawValue),
+                .init(id: separate, categoryRaw: "custom:\(separate.uuidString)"),
+                .init(id: pooled, categoryRaw: "custom:\(pooled.uuidString)")
+            ],
+            customs: [
+                .init(id: separate, name: "Fokus", separate: true),
+                .init(id: pooled, name: "Lesen", separate: false)
+            ]
+        )
+        let passed = sections.map(\.id) == ["abstinence", "sport", separate.uuidString, "rest"]
+            && sections[0].challengeIDs == [abstinence]
+            && sections[1].challengeIDs == [sport]
+            && sections[3].challengeIDs == [habit, pooled]
+            && sections[3].showsTitle
+        return result("Sport und Abstinenz stehen separat, der Rest in einem Topf", .challenge, .unit, passed, sections.map(\.id).joined(separator: ","))
+    }
+
+    private static func briefingClockFollowsTheWeekday() -> LififyCheckResult {
+        let monday = BriefingSchedule.clock(weekday: 2, overrides: [2: BriefingClock(hour: 7, minute: 30)], fallback: BriefingClock(hour: 8, minute: 0))
+        let sunday = BriefingSchedule.clock(weekday: 1, overrides: [:], fallback: BriefingClock(hour: 8, minute: 0))
+        let late = BriefingSchedule.clock(weekday: 6, overrides: [6: BriefingClock(hour: 25, minute: 70)], fallback: BriefingClock(hour: 8, minute: 0))
+        let passed = monday == BriefingClock(hour: 7, minute: 30)
+            && sunday == BriefingClock(hour: 8, minute: 0)
+            && late == BriefingClock(hour: 23, minute: 59)
+            && BriefingSchedule.weekdays == [2, 3, 4, 5, 6, 7, 1]
+        return result("Das Briefing hat von Montag bis Sonntag eine eigene Uhrzeit", .challenge, .unit, passed, "\(monday.hour):\(monday.minute)")
+    }
+
+    private static func shopTilesShareARow() -> LififyCheckResult {
+        let rows = ShopRows.pairs([1, 2, 3, 4, 5])
+        let passed = rows.count == 3 && rows[0] == [1, 2] && rows[1] == [3, 4] && rows[2] == [5]
+        return result("Zwei Shop-Kacheln teilen sich eine Reihe", .challenge, .unit, passed, "\(rows.count)")
+    }
+
+    private static func abstinenceHistoryStaysOneRow() -> LififyCheckResult {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .gmt
+        let abstinence = UUID(uuidString: "00000000-0000-0000-0000-000000000031")!
+        let habit = UUID(uuidString: "00000000-0000-0000-0000-000000000032")!
+        let first = calendar.date(from: DateComponents(year: 2026, month: 11, day: 1, hour: 8)) ?? .distantPast
+        let middle = calendar.date(from: DateComponents(year: 2026, month: 11, day: 2, hour: 8)) ?? .distantPast
+        let last = calendar.date(from: DateComponents(year: 2026, month: 11, day: 3, hour: 8)) ?? .distantPast
+        let rows = [
+            ChallengeHistoryCompletion(challengeID: abstinence, title: "Rauchfrei", date: first),
+            ChallengeHistoryCompletion(challengeID: abstinence, title: "Rauchfrei", date: middle),
+            ChallengeHistoryCompletion(challengeID: abstinence, title: "Rauchfrei", date: last),
+            ChallengeHistoryCompletion(challengeID: habit, title: "Lesen", date: middle)
+        ]
+        let spans = ChallengeHistory.abstinenceSpans(rows.filter { $0.challengeID == abstinence }, calendar: calendar)
+        let days = ChallengeHistory.grouped(completions: rows.filter { $0.challengeID != abstinence }, calendar: calendar)
+        let passed = spans.count == 1
+            && spans[0].dayCount == 3
+            && spans[0].first == calendar.startOfDay(for: first)
+            && spans[0].last == calendar.startOfDay(for: last)
+            && days.count == 1
+            && days[0].entries.map(\.title) == ["Lesen"]
+        return result("Eine Abstinenz steht unter Abgeschlossen als ein Eintrag", .abstinence, .integration, passed, "\(spans.count)")
     }
 
     private static func result(

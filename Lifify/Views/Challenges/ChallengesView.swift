@@ -17,6 +17,7 @@ struct ChallengesView: View {
     @State private var showingShop = false
     @State private var showingWallet = false
     @AppStorage(StreakSettings.revisionKey) private var streakRevision = 0
+    @AppStorage(ChallengeCategoryStore.revisionKey) private var categoryRevision = 0
     @AppStorage(AppClock.modeKey) private var developerMode = false
     @AppStorage(AppClock.dayKey) private var developerDay = 0.0
 
@@ -67,6 +68,13 @@ struct ChallengesView: View {
             }
 
             if completedTab {
+                if !abstinenceHistory.isEmpty {
+                    Section(L("Abstinenz", "Abstinence")) {
+                        ForEach(abstinenceHistory) { span in
+                            abstinenceHistoryRow(span)
+                        }
+                    }
+                }
                 ForEach(historyDays) { day in
                     Section(AppDate.weekdayAndNumeric(day.day)) {
                         ForEach(day.entries) { entry in
@@ -105,11 +113,17 @@ struct ChallengesView: View {
             }
 
             if !completedTab && filter != .groups {
-                ForEach(filteredChallenges) { challenge in
-                    if challenge.category == .abstinence {
-                        abstinenceLink(challenge)
+                ForEach(activeSections) { section in
+                    if section.showsTitle {
+                        Section {
+                            sectionChallenges(section)
+                        } header: {
+                            Text(sectionTitle(section))
+                        }
                     } else {
-                        regularChallengeRow(challenge)
+                        Section {
+                            sectionChallenges(section)
+                        }
                     }
                 }
             }
@@ -216,7 +230,7 @@ struct ChallengesView: View {
     }
 
     private var visibleChallengesEmpty: Bool {
-        if completedTab { return historyDays.isEmpty }
+        if completedTab { return historyDays.isEmpty && abstinenceHistory.isEmpty }
         switch filter {
         case .groups:
             return groups.isEmpty
@@ -237,7 +251,7 @@ struct ChallengesView: View {
         }
     }
 
-    private var historyDays: [ChallengeHistoryDay] {
+    private var historySource: [ChallengeHistoryCompletion] {
         let _ = developerMode
         let _ = developerDay
         let allowed = challenges.filter { challenge in
@@ -248,11 +262,93 @@ struct ChallengesView: View {
             }
         }
         let titles = Dictionary(uniqueKeysWithValues: allowed.map { ($0.id, $0.title) })
-        let rows = completions.compactMap { completion -> ChallengeHistoryCompletion? in
+        return completions.compactMap { completion -> ChallengeHistoryCompletion? in
             guard let title = titles[completion.challengeID] else { return nil }
             return ChallengeHistoryCompletion(challengeID: completion.challengeID, title: title, date: completion.date)
         }
-        return ChallengeHistory.grouped(completions: rows)
+    }
+
+    private var abstinenceIDs: Set<UUID> {
+        Set(challenges.filter { $0.category == .abstinence }.map(\.id))
+    }
+
+    private var abstinenceHistory: [AbstinenceHistorySpan] {
+        ChallengeHistory.abstinenceSpans(historySource.filter { abstinenceIDs.contains($0.challengeID) })
+    }
+
+    private var historyDays: [ChallengeHistoryDay] {
+        ChallengeHistory.grouped(completions: historySource.filter { !abstinenceIDs.contains($0.challengeID) })
+    }
+
+    private var activeSections: [ChallengeSections.Section] {
+        let _ = categoryRevision
+        return ChallengeSections.make(
+            challenges: filteredChallenges.map { ChallengeSections.Challenge(id: $0.id, categoryRaw: $0.categoryRaw) },
+            customs: ChallengeCategoryStore.all().map {
+                ChallengeSections.Custom(id: $0.id, name: $0.name, separate: $0.separate)
+            }
+        )
+    }
+
+    private func sectionTitle(_ section: ChallengeSections.Section) -> String {
+        switch section.id {
+        case "abstinence": return L("Abstinenz", "Abstinence")
+        case "sport": return L("Sport", "Sport")
+        case "rest": return L("Weitere", "More")
+        default:
+            return ChallengeCategoryStore.all().first { $0.id.uuidString == section.id }?.name
+                ?? L("Weitere", "More")
+        }
+    }
+
+    @ViewBuilder
+    private func sectionChallenges(_ section: ChallengeSections.Section) -> some View {
+        ForEach(section.challengeIDs, id: \.self) { id in
+            if let challenge = filteredChallenges.first(where: { $0.id == id }) {
+                if challenge.category == .abstinence {
+                    abstinenceLink(challenge)
+                } else {
+                    regularChallengeRow(challenge)
+                }
+            }
+        }
+    }
+
+    private func abstinenceHistoryRow(_ span: AbstinenceHistorySpan) -> some View {
+        let challenge = challenges.first { $0.id == span.challengeID }
+        let range = span.dayCount <= 1
+            ? AppDate.numeric(span.first)
+            : "\(AppDate.numeric(span.first)) – \(AppDate.numeric(span.last))"
+        let days = span.dayCount == 1 ? L("1 Tag", "1 day") : "\(span.dayCount) \(L("Tage", "days"))"
+        return NavigationLink {
+            AbstinenceDetailView(challengeID: span.challengeID)
+        } label: {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(span.title)
+                Text("\(days) · \(range)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+            if let challenge {
+                Button(role: .destructive) {
+                    deleteChallenge(challenge)
+                } label: {
+                    Label(L("Löschen", "Delete"), systemImage: "trash")
+                }
+            }
+        }
+        .swipeActions(edge: .leading, allowsFullSwipe: false) {
+            if let challenge {
+                Button {
+                    edited = challenge
+                } label: {
+                    Label(L("Bearbeiten", "Edit"), systemImage: "pencil")
+                }
+                .tint(.blue)
+            }
+        }
     }
 
     private func historyRow(_ entry: ChallengeHistoryEntry) -> some View {
@@ -480,7 +576,9 @@ struct ChallengeForm: View {
     private let sourceRecommendation: ChallengeCalendarEvent?
     @State private var title: String
     @State private var details: String
-    @State private var category: ChallengeCategory
+    @AppStorage(ChallengeCategoryStore.revisionKey) private var categoryRevision = 0
+    @State private var categoryKey: String
+    @State private var showingNewCategory = false
     @State private var recurrence: ChallengeRecurrence
     @State private var startDate: Date
     @State private var hasEndDate: Bool
@@ -507,7 +605,9 @@ struct ChallengeForm: View {
         sourceRecommendation = recommendation
         _title = State(initialValue: challenge?.title ?? recommendation?.title ?? "")
         _details = State(initialValue: challenge?.details ?? recommendation?.details ?? "")
-        _category = State(initialValue: challenge?.category ?? presetCategory ?? (recommendation == nil ? .habit : .todo))
+        _categoryKey = State(initialValue: ChallengeCategoryStore.selectionKey(
+            for: challenge?.categoryRaw ?? presetCategory?.rawValue ?? ChallengeCategory.other.rawValue
+        ))
         _recurrence = State(initialValue: challenge?.recurrence ?? reminderMetadata?.recurrence ?? .none)
         _startDate = State(initialValue: challenge?.startDate ?? recommendation?.startDate ?? .now)
         _hasEndDate = State(initialValue: challenge?.endDate != nil || reminderMetadata?.endDate != nil)
@@ -534,10 +634,15 @@ struct ChallengeForm: View {
                 TextField(L("Titel", "Title"), text: $title)
                 TextField(L("Beschreibung", "Description"), text: $details, axis: .vertical)
                 SymbolPicker(title: L("Symbol", "Icon"), selection: $icon)
-                Picker(L("Kategorie", "Category"), selection: $category) {
-                    ForEach(ChallengeCategory.allCases) { Text($0.label).tag($0) }
+                let _ = categoryRevision
+                Picker(L("Kategorie", "Category"), selection: $categoryKey) {
+                    ForEach(ChallengeCategory.offered) { Text($0.label).tag($0.rawValue) }
+                    ForEach(ChallengeCategoryStore.all()) { custom in
+                        Text(custom.name).tag(ChallengeCategoryStore.raw(custom.id))
+                    }
                 }
-                if category == .abstinence {
+                Button(L("Kategorie anlegen", "Add category")) { showingNewCategory = true }
+                if categoryKey == ChallengeCategory.abstinence.rawValue {
                     AppDateField(title: L("Abstinent seit", "Abstinent since"), selection: $startDate, includesTime: true)
                     Picker(L("Schwierigkeit", "Difficulty"), selection: $difficulty) {
                         ForEach(AbstinenceDifficulty.allCases) { Text($0.label).tag($0) }
@@ -572,17 +677,16 @@ struct ChallengeForm: View {
                             .keyboardType(.numberPad)
                             .multilineTextAlignment(.trailing)
                     }
-                    if category != .sport {
+                    if categoryKey != ChallengeCategory.sport.rawValue {
                         LabeledContent(L("Dauer in Minuten", "Duration in minutes")) {
                             TextField(L("Optional", "Optional"), text: $durationText)
                                 .keyboardType(.numberPad)
                                 .multilineTextAlignment(.trailing)
                         }
-                        Picker(L("Termin", "Event"), selection: $linkedEventID) {
-                            Text(L("Keiner", "None")).tag(Optional<UUID>.none)
-                            ForEach(linkableEvents) { event in
-                                Text("\(event.title) · \(AppDate.numeric(event.startDate))").tag(Optional(event.id))
-                            }
+                        NavigationLink {
+                            ChallengeEventPicker(selection: $linkedEventID, events: linkableEvents)
+                        } label: {
+                            LabeledContent(L("Termin", "Event"), value: linkedEventTitle)
                         }
                         Text(L(
                             "Leer lassen, wenn die Challenge keine Dauer hat. In einem Termin zählen nur Challenges mit Dauer zur Zeit. Sport und Abstinenz haben eigene Regeln.",
@@ -615,6 +719,11 @@ struct ChallengeForm: View {
             }
             .disabled(existing?.isReadOnly == true)
             .navigationTitle(L("Challenge", "Challenge"))
+            .sheet(isPresented: $showingNewCategory) {
+                CustomCategoryEditor(existing: nil) { created in
+                    categoryKey = ChallengeCategoryStore.raw(created.id)
+                }
+            }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button(L("Schließen", "Close")) { dismiss() } }
                 if existing?.isReadOnly != true {
@@ -635,11 +744,25 @@ struct ChallengeForm: View {
         }
     }
 
+    private var linkedEventTitle: String {
+        guard let linkedEventID, let event = formEvents.first(where: { $0.id == linkedEventID }) else {
+            return L("Keiner", "None")
+        }
+        return "\(event.title) · \(AppDate.numeric(event.startDate))"
+    }
+
     private var linkableEvents: [ChallengeCalendarEvent] {
         let minutes = Int(durationText.trimmingCharacters(in: .whitespaces))
         return formEvents.filter { event in
-            guard !event.isReminderSuggestion, !event.isAllDay else { return false }
-            if event.id == linkedEventID { return true }
+            guard !event.isReminderSuggestion else { return false }
+            let selected = event.id == linkedEventID
+            if !selected {
+                guard !event.isAllDay else { return false }
+                guard ChallengeTimeRules.canAssign(start: event.startDate, now: AppClock.now, keepingSelection: false) else {
+                    return false
+                }
+            }
+            if selected { return true }
             let planned = ChallengeTimeStore.plannedMinutes(for: event.id)
                 ?? ChallengeTimeRules.minutes(from: event.startDate, to: event.endDate)
             let others = ChallengeTimeStore.memberIDs(for: event.id).filter { $0 != existing?.id }
@@ -647,6 +770,7 @@ struct ChallengeForm: View {
             let left = ChallengeTimeRules.remaining(slotMinutes: planned, linkedMinutes: used)
             return ChallengeTimeRules.canAdd(minutes: minutes, remaining: left)
         }
+        .sorted { $0.startDate < $1.startDate }
     }
 
     private func assignEvent(_ challengeID: UUID, minutes: Int?) {
@@ -687,8 +811,8 @@ struct ChallengeForm: View {
         )
         challenge.title = title
         challenge.details = details
-        let abstinence = category == .abstinence
-        challenge.category = category
+        let abstinence = categoryKey == ChallengeCategory.abstinence.rawValue
+        challenge.categoryRaw = categoryKey
         challenge.recurrence = abstinence ? .daily : recurrence
         challenge.startDate = startDate
         challenge.endDate = abstinence ? nil : (recurrence != .none && hasEndDate ? endDate : nil)
@@ -712,7 +836,7 @@ struct ChallengeForm: View {
         if let sourceRecommendation, sourceRecommendation.modelContext != nil {
             context.delete(sourceRecommendation)
         }
-        if ChallengeTimeRules.allowsTime(category) {
+        if !abstinence && categoryKey != ChallengeCategory.sport.rawValue {
             let minutes = Int(durationText.trimmingCharacters(in: .whitespaces))
             ChallengeTimeStore.setMinutes(minutes, for: challenge.id)
             assignEvent(challenge.id, minutes: minutes)
@@ -735,7 +859,7 @@ struct ChallengeForm: View {
                 await DailyBriefingService.scheduleAbstinence(context: context)
             }
         }
-        if ChallengeTimeRules.allowsTime(category) { ChallengeTimeService.resize(context: context) }
+        if !abstinence && categoryKey != ChallengeCategory.sport.rawValue { ChallengeTimeService.resize(context: context) }
         if saveMessage != nil { return }
 
         if let externalIdentifier = challenge.externalIdentifier,
