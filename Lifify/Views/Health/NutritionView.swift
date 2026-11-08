@@ -12,6 +12,7 @@ struct NutritionBoard: View {
     @State private var meals: [MealRecord] = []
     @State private var edited: MealRecord?
     @State private var photoItem: PhotosPickerItem?
+    @State private var showsPhotoPicker = false
 
     var body: some View {
         let calendar = Calendar.current
@@ -146,13 +147,16 @@ struct NutritionBoard: View {
 
     private var addRow: some View {
         HStack(spacing: 10) {
-            PhotosPicker(selection: $photoItem, matching: .images) {
+            Button {
+                showsPhotoPicker = true
+            } label: {
                 Label(L("Foto", "Photo"), systemImage: "camera")
                     .frame(maxWidth: .infinity)
                     .padding(14)
                     .appGlassCard(radius: 18)
             }
             .buttonStyle(.plain)
+            .photosPicker(isPresented: $showsPhotoPicker, selection: $photoItem, matching: .images)
             Button {
                 let key = NutritionPlan.dayKey(day)
                 edited = MealRecord(
