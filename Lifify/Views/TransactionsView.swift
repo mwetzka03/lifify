@@ -47,7 +47,7 @@ struct TransactionsView: View {
         .searchable(text: $search, prompt: L("Titel oder Notiz", "Title or note"))
         .toolbar {
             Menu {
-                ForEach(BookingCategory.allCases.filter(\.allowsManualEntry)) { category in
+                ForEach(BookingCategory.manualChoices) { category in
                     Button(category.label) { newBookingCategory = category }
                 }
             } label: {
@@ -565,7 +565,7 @@ struct TransactionFormView: View {
                 Section {
                     if viewModel.allowsCategoryChange {
                         Picker(L("Kategorie", "Category"), selection: $viewModel.category) {
-                            ForEach(BookingCategory.allCases.filter(\.allowsManualEntry)) { category in
+                            ForEach(BookingCategory.manualChoices) { category in
                                 Text(category.label).tag(category)
                             }
                         }

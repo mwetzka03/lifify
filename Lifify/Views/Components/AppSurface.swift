@@ -10,6 +10,29 @@ extension View {
         background(AppSurface.canvas.ignoresSafeArea())
     }
 
+    /// Clear page behind Liquid Glass. The finance screens keep `appCanvas()`.
+    func appGlassCanvas() -> some View {
+        background(Color.clear.ignoresSafeArea())
+    }
+
+    func appGlassList() -> some View {
+        scrollContentBackground(.hidden)
+    }
+
+    @ViewBuilder
+    func appGlassCard(radius: CGFloat = 22) -> some View {
+        let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
+        if #available(iOS 26.0, *) {
+            glassEffect(.regular, in: shape)
+        } else {
+            background(.ultraThinMaterial, in: shape)
+        }
+    }
+
+    func appText(_ role: AppTextRole) -> some View {
+        font(AppChrome.font(role))
+    }
+
     @ViewBuilder
     func liquidGlassSurface(prominent: Bool = false) -> some View {
         self

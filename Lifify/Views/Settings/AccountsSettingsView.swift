@@ -44,6 +44,7 @@ struct AccountsSettingsView: View {
         .overlay {
             if accounts.isEmpty { ContentUnavailableView(L("Keine Konten", "No accounts"), systemImage: "building.columns") }
         }
+        .appGlassList()
         .navigationTitle(L("Konten", "Accounts"))
         .toolbar { Button { showingNew = true } label: { Image(systemName: "plus") } }
         .sheet(isPresented: $showingNew) { AccountForm(account: nil, allAccounts: accounts) }

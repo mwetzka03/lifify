@@ -149,6 +149,7 @@ struct DataManagementView: View {
                 Text(L("Zurücksetzen", "Reset"))
             }
         }
+        .appGlassList()
         .navigationTitle(L("Daten", "Data"))
         .navigationBarTitleDisplayMode(.inline)
         .confirmationDialog(

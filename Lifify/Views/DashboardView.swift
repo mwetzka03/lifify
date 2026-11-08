@@ -586,7 +586,7 @@ struct DashboardView: View {
             .overlay(Capsule().strokeBorder(Color.primary.opacity(0.08)))
             .clipShape(Capsule())
             Menu {
-                ForEach(BookingCategory.allCases.filter(\.allowsManualEntry)) { category in
+                ForEach(BookingCategory.manualChoices) { category in
                     Button(category.label) { newBookingCategory = category }
                 }
             } label: {

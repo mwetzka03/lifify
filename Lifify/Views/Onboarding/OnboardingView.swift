@@ -77,6 +77,7 @@ struct OnboardingView: View {
                     default: incomeStep
                     }
                 }
+                .appGlassList()
             }
             .navigationTitle(L("Lifify einrichten", "Set up Lifify"))
             .navigationBarTitleDisplayMode(.inline)

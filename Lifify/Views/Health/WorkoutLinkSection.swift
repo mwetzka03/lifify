@@ -54,7 +54,7 @@ struct WorkoutLinkSection: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(AppSurface.card, in: RoundedRectangle(cornerRadius: 16))
+        .appGlassCard(radius: 16)
         .sheet(item: $picker) { kind in
             WorkoutLinkPickerSheet(
                 kind: kind,

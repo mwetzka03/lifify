@@ -75,7 +75,7 @@ struct WorkoutEditorView: View {
             .listStyle(.insetGrouped)
             .scrollContentBackground(.hidden)
             .scrollDismissesKeyboard(.interactively)
-            .appCanvas()
+            .appGlassCanvas()
             .navigationTitle(L("Routine bearbeiten", "Edit routine"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

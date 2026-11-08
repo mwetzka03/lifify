@@ -1,8 +1,24 @@
+# Lifify – Features and assumptions
+
+## English
+
+Lifify is version **0.4.0**. Finance, portfolio, and budget calculations are in
+[FINANZEN.md](FINANZEN.md) and are unchanged. The German list below is the
+feature set. In 0.4.0, Home, Challenges, Health, Settings, and setup use
+Liquid Glass and one type scale. The finance view keeps its surface. The
+symbol picker adds a hemp leaf and a cigarette. Nutrition still shows
+“Not available yet”.
+
+## Deutsch
+
 # Lifify – Funktionsumfang und Annahmen
 
-Die App ist Version **0.3.0**. Wie Finanzen, Depot und Budget rechnen, steht
-in [FINANZEN.md](FINANZEN.md). Der Gesundheit-Tab ist kein Platzhalter mehr:
-Training ist umgesetzt, Ernährung zeigt „Noch nicht verfügbar“.
+Die App ist Version **0.4.0**. Wie Finanzen, Depot und Budget rechnen, steht
+in [FINANZEN.md](FINANZEN.md) und ist unverändert. Der Gesundheit-Tab ist kein
+Platzhalter mehr: Training ist umgesetzt, Ernährung zeigt „Noch nicht verfügbar“.
+Home, Challenges, Gesundheit, Einstellungen und die Einrichtung nutzen Liquid
+Glass und eine gemeinsame Schrift. Die Finanzansicht behält ihre Fläche. Die
+Symbolauswahl enthält ein Hanfblatt und eine Zigarette.
 
 ## Umgesetzter Umfang
 

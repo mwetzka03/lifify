@@ -4,12 +4,13 @@
 
 ## English
 
-Lifify 0.3.0 is a local iPhone app for finance, challenges, and training. It
+Lifify 0.4.0 is a local iPhone app for finance, challenges, and training. It
 is built with SwiftUI and SwiftData, and it needs neither a backend nor a user
 account. German and English, and light, dark, and system appearance, can be
-switched in Settings.
+switched in Settings. Home, Challenges, Health, Settings, and setup use
+Liquid Glass. The finance view keeps its own surface.
 
-The finance rules are in [FINANZEN.md](FINANZEN.md). What changed in 0.3.0 is in [CHANGES.md](CHANGES.md), in English and German.
+The finance rules are in [FINANZEN.md](FINANZEN.md). What changed in 0.4.0 is in [CHANGES-0.4.0.md](CHANGES-0.4.0.md). What changed in 0.3.0 is in [CHANGES-0.3.0.md](CHANGES-0.3.0.md). Both are in English and German.
 
 ### Areas
 
@@ -38,7 +39,7 @@ in that database. Nutrition is not available yet.
 briefing with its own time for each weekday, the workout chime, the default
 account and fee for the portfolio, accounts, import, backup, and calendar and
 reminders. The birthday pays 500 coins once that year. The version shown there
-is 0.3.0.
+is 0.4.0.
 
 ### First launch
 
@@ -97,10 +98,13 @@ through the system. It does not store passwords for that.
 
 ## Deutsch
 
-Lifify 0.3.0 ist eine lokale iPhone-App für Finanzen, Challenges und Training.
+Lifify 0.4.0 ist eine lokale iPhone-App für Finanzen, Challenges und Training.
 Sie ist mit SwiftUI und SwiftData gebaut, braucht kein Backend und kein
 Benutzerkonto. Deutsch und Englisch sowie Hell, Dunkel und System lassen sich
-in den Einstellungen umschalten. Was sich in 0.3.0 geändert hat, steht auf Englisch und Deutsch in [CHANGES.md](CHANGES.md).
+in den Einstellungen umschalten. Home, Challenges, Gesundheit, Einstellungen
+und die Einrichtung nutzen Liquid Glass. Die Finanzansicht behält ihre eigene Fläche.
+Was sich in 0.4.0 geändert hat, steht in [CHANGES-0.4.0.md](CHANGES-0.4.0.md),
+was sich in 0.3.0 geändert hat in [CHANGES-0.3.0.md](CHANGES-0.3.0.md). Beides auf Englisch und Deutsch.
 
 Die Finanzregeln stehen in [FINANZEN.md](FINANZEN.md).
 
@@ -132,7 +136,7 @@ nicht in der Datenbank stehen. Ernährung ist noch nicht verfügbar.
 tägliche Briefing mit einer eigenen Uhrzeit je Wochentag, den
 Trainingsklingelton, Standardkonto und Gebühr fürs Depot, Konten, Import,
 Sicherung sowie Kalender und Erinnerungen. Am Geburtstag gibt es einmal im
-Jahr 500 Coins. Die angezeigte Version ist 0.3.0.
+Jahr 500 Coins. Die angezeigte Version ist 0.4.0.
 
 ### Ersteinrichtung
 

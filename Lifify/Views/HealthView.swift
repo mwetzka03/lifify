@@ -72,7 +72,7 @@ struct HealthView: View {
                     Label(L("Trainingsverlauf", "Workout history"), systemImage: "clock")
                 }
             } header: {
-                sectionTitle(L("Training", "Training"))
+                sectionTitle(HealthScreen.sectionTitles()[0])
             }
             Section {
                 if abstinences.isEmpty {
@@ -90,7 +90,7 @@ struct HealthView: View {
                     Label(L("Abstinenz anlegen", "Create abstinence"), systemImage: "plus")
                 }
             } header: {
-                sectionTitle(L("Abstinenz", "Abstinence"))
+                sectionTitle(HealthScreen.sectionTitles()[1])
             } footer: {
                 Text(L(
                     "Der Timer zählt, wie lange du etwas lässt. Jeder Tag zahlt die Coins der Challenge, und die Zeitstufen zahlen einen Bonus.",
@@ -98,12 +98,13 @@ struct HealthView: View {
                 ))
             }
             Section {
-                Text(L("Noch nicht verfügbar", "Not available yet"))
+                Text(HealthScreen.nutritionNote)
                     .foregroundStyle(.secondary)
             } header: {
-                sectionTitle(L("Ernährung", "Nutrition"))
+                sectionTitle(HealthScreen.sectionTitles()[2])
             }
         }
+        .appGlassList()
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         .navigationDestination(for: HealthRoute.self) { HealthRouteScreen(route: $0) }
@@ -121,7 +122,7 @@ struct HealthView: View {
 
     private func sectionTitle(_ title: String) -> some View {
         Text(title)
-            .font(.title3.weight(.semibold))
+            .appText(.section)
             .foregroundStyle(.primary)
             .textCase(nil)
     }
@@ -219,12 +220,12 @@ struct WorkoutPlanDetailView: View {
                             }
                             .padding(14)
                             .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(AppSurface.card, in: RoundedRectangle(cornerRadius: 16))
+                            .appGlassCard(radius: 16)
                         }
                     }
                     .padding(12)
                 }
-                .appCanvas()
+                .appGlassCanvas()
                 .navigationTitle(plan.name)
                 .toolbar {
                     Button(L("Bearbeiten", "Edit")) { editorPlan = plan }
@@ -296,12 +297,12 @@ struct WorkoutHistoryView: View {
                             }
                             .padding(14)
                             .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(AppSurface.card, in: RoundedRectangle(cornerRadius: 16))
+                            .appGlassCard(radius: 16)
                         }
                     }
                     .padding(12)
                 }
-                .appCanvas()
+                .appGlassCanvas()
                 .navigationTitle(session.planName)
             } else {
                 ContentUnavailableView(L("Training nicht gefunden", "Workout not found"), systemImage: "clock")

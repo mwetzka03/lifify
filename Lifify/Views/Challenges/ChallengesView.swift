@@ -157,6 +157,7 @@ struct ChallengesView: View {
         }
         .navigationDestination(isPresented: $showingShop) { ShopView() }
         .navigationDestination(isPresented: $showingWallet) { WalletView() }
+        .appGlassList()
         .onAppear { commitSimulatedDay() }
         .onChange(of: developerDay) { commitSimulatedDay() }
         .onChange(of: developerMode) { commitSimulatedDay() }
@@ -453,7 +454,7 @@ struct ChallengesView: View {
             )
         } label: {
             HStack {
-                Image(systemName: IconPreferenceStore.icon(for: challenge.id, fallback: "target"))
+                AppSymbolImage(name: IconPreferenceStore.icon(for: challenge.id, fallback: "target"))
                     .frame(width: 24)
                 VStack(alignment: .leading) {
                     Text(challenge.title).foregroundStyle(gray ? .secondary : .primary)
@@ -959,6 +960,7 @@ private struct ChallengeGroupDetailView: View {
                 }
             }
         }
+        .appGlassList()
         .navigationTitle(group.title)
         .sheet(item: $edited) { ChallengeForm(challenge: $0) }
     }
@@ -1000,7 +1002,7 @@ private struct ChallengeGroupDetailView: View {
             )
         } label: {
             HStack {
-                Image(systemName: IconPreferenceStore.icon(for: challenge.id, fallback: "target"))
+                AppSymbolImage(name: IconPreferenceStore.icon(for: challenge.id, fallback: "target"))
                 VStack(alignment: .leading, spacing: 2) {
                     Text(challenge.title)
                         .foregroundStyle(gray ? Color.secondary : Color.primary)

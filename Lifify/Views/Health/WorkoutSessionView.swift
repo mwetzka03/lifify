@@ -93,7 +93,7 @@ struct WorkoutSessionView: View {
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
         .scrollDismissesKeyboard(.interactively)
-        .appCanvas()
+        .appGlassCanvas()
         .navigationTitle(L("Training", "Workout"))
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(true)

@@ -34,7 +34,7 @@ struct HomeView: View {
                 let _ = birthRaw
                 if !userName.isEmpty {
                     Text("\(L("Willkommen zurück", "Welcome back")), \(userName)")
-                        .font(.title2.bold())
+                        .appText(.screenTitle)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 if let birth = UserProfile.birth(), BirthdayBonus.isBirthday(birth, on: AppClock.now) {
@@ -100,7 +100,7 @@ struct HomeView: View {
             }
             .padding()
         }
-        .appCanvas()
+        .appGlassCanvas()
         .onAppear {
             ChallengeService.commitFreezes(for: challenges, completions: completions, events: calendarEvents, on: AppClock.now)
             AbstinenceService.settle(context: context)
@@ -125,7 +125,7 @@ struct HomeView: View {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
                     Text(AppDate.weekdayAndNumeric(selectedDate))
-                        .font(.title3.bold())
+                        .appText(.value)
                     Spacer()
                     if AppClock.isToday(selectedDate) {
                         Text(L("Heute", "Today"))
@@ -165,7 +165,7 @@ struct HomeView: View {
                     agendaSection(L("Challenges", "Challenges"), systemImage: "target", isEmpty: dayChallenges.isEmpty) {
                         ForEach(dayChallenges.prefix(5)) { challenge in
                             HStack {
-                                Image(systemName: IconPreferenceStore.icon(for: challenge.id, fallback: "target"))
+                                AppSymbolImage(name: IconPreferenceStore.icon(for: challenge.id, fallback: "target"))
                                 VStack(alignment: .leading, spacing: 1) {
                                     Text(challenge.title)
                                     if let caption = homeCalendarCaption(challenge) {
@@ -188,7 +188,7 @@ struct HomeView: View {
             .foregroundStyle(.primary)
             .padding()
             .frame(maxWidth: .infinity, minHeight: 300, alignment: .topLeading)
-            .background(AppSurface.card, in: RoundedRectangle(cornerRadius: 18))
+            .appGlassCard(radius: 18)
         }
         .buttonStyle(.plain)
     }
@@ -308,7 +308,7 @@ struct HomeView: View {
             .font(.caption)
         }
         .padding(10)
-        .background(AppSurface.card, in: RoundedRectangle(cornerRadius: 16))
+        .appGlassCard(radius: 16)
     }
 
     @ViewBuilder
@@ -331,7 +331,7 @@ struct HomeView: View {
             }
         }
         .padding()
-        .background(AppSurface.card, in: RoundedRectangle(cornerRadius: 18))
+        .appGlassCard(radius: 18)
     }
 
     private func popupCard(_ popup: HomePopup) -> some View {
@@ -354,7 +354,7 @@ struct HomeView: View {
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(AppSurface.card, in: RoundedRectangle(cornerRadius: 18))
+        .appGlassCard(radius: 18)
     }
 
     @ViewBuilder
@@ -633,7 +633,7 @@ struct HomeView: View {
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(AppSurface.card, in: RoundedRectangle(cornerRadius: 18))
+        .appGlassCard(radius: 18)
     }
 
     private var periodEntries: [LedgerEntry] {
@@ -771,7 +771,7 @@ private struct BudgetSummaryCard: View {
             }
         }
         .padding()
-        .background(AppSurface.card, in: RoundedRectangle(cornerRadius: 22))
+        .appGlassCard(radius: 22)
     }
 
     private var progress: Double {
@@ -888,7 +888,7 @@ private struct WeekDayCard<Details: View>: View {
                         Text(AppDate.weekdayShort(day))
                             .font(.caption)
                         Text(AppDate.day(day))
-                            .font(.title3.bold())
+                            .appText(.value)
                             .foregroundStyle(AppClock.isToday(day) ? .red : .primary)
                     }
                     .frame(width: 44)
@@ -912,7 +912,7 @@ private struct WeekDayCard<Details: View>: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(AppSurface.card, in: RoundedRectangle(cornerRadius: 13))
+        .appGlassCard(radius: 13)
     }
 }
 

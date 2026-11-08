@@ -34,6 +34,7 @@ struct SystemCalendarSyncView: View {
                 LabeledContent(L("Importierte Erinnerungen", "Imported reminders"), value: "\(events.filter(\.isReminderSuggestion).count)")
             }
         }
+        .appGlassList()
         .navigationTitle(L("Kalender-Sync", "Calendar sync"))
         .alert(L("Synchronisierung", "Sync"), isPresented: Binding(
             get: { service.message != nil },

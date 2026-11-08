@@ -26,7 +26,7 @@ struct AbstinenceSummary: View {
         let elapsed = AbstinenceRules.elapsed(from: start, to: now)
         let difficulty = AbstinenceSettings.difficulty(for: challenge.id)
         return HStack(spacing: 12) {
-            Image(systemName: IconPreferenceStore.icon(for: challenge.id, fallback: "lungs.fill"))
+            AppSymbolImage(name: IconPreferenceStore.icon(for: challenge.id, fallback: "lungs.fill"))
                 .frame(width: 24)
             VStack(alignment: .leading, spacing: 2) {
                 Text(challenge.title)

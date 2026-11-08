@@ -1,20 +1,64 @@
 import Foundation
 import SwiftUI
 
+struct SymbolChoice: Identifiable, Equatable {
+    var name: String
+    var title: String
+    var id: String { name }
+}
+
+enum AppSymbol {
+    static let assetPrefix = "symbol."
+
+    static func assetName(in stored: String) -> String? {
+        guard stored.hasPrefix(assetPrefix) else { return nil }
+        let name = String(stored.dropFirst(assetPrefix.count))
+        return name.isEmpty ? nil : name
+    }
+}
+
+struct AppSymbolImage: View {
+    var name: String
+
+    var body: some View {
+        if let asset = AppSymbol.assetName(in: name) {
+            Image(asset)
+                .renderingMode(.template)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 28, height: 28)
+        } else {
+            Image(systemName: name)
+        }
+    }
+}
+
 enum SymbolCatalog {
-    static let names = [
-        "banknote", "eurosign.circle", "creditcard", "building.columns", "wallet.pass",
-        "cart", "basket", "bag", "gift", "shippingbox", "fork.knife", "cup.and.saucer",
-        "house", "key", "bolt", "drop", "flame", "wifi", "phone", "laptopcomputer",
-        "car", "bus", "tram", "bicycle", "airplane", "fuelpump", "parkingsign.circle",
-        "heart", "cross.case", "pills", "figure.walk", "figure.run", "dumbbell",
-        "book", "graduationcap", "briefcase", "hammer", "wrench.and.screwdriver",
-        "gamecontroller", "music.note", "film", "tv", "camera", "paintpalette",
-        "pawprint", "leaf", "tree", "sun.max", "moon", "cloud.rain",
-        "calendar", "clock", "alarm", "checkmark.circle", "target", "flag",
-        "star", "sparkles", "lightbulb", "bell", "person.2", "figure.2.and.child.holdinghands",
-        "chart.line.uptrend.xyaxis", "chart.pie", "percent", "repeat", "arrow.left.arrow.right"
-    ]
+    static var names: [String] { choices().map(\.name) }
+
+    static func choices() -> [SymbolChoice] {
+        let symbols = [
+            "banknote", "eurosign.circle", "creditcard", "building.columns", "wallet.pass",
+            "cart", "basket", "bag", "gift", "shippingbox", "fork.knife", "cup.and.saucer",
+            "takeoutbag.and.cup.and.straw", "mug", "wineglass", "waterbottle",
+            "house", "key", "bolt", "drop", "flame", "wifi", "phone", "laptopcomputer",
+            "car", "bus", "tram", "bicycle", "airplane", "fuelpump", "parkingsign.circle",
+            "heart", "cross.case", "pills", "syringe", "bandage", "stethoscope", "lungs",
+            "brain.head.profile", "waveform.path.ecg", "bed.double", "moon.zzz",
+            "figure.walk", "figure.run", "figure.yoga", "figure.pool.swim", "figure.cooldown",
+            "dumbbell", "sportscourt", "soccerball", "basketball", "tennis.racket",
+            "book", "graduationcap", "briefcase", "hammer", "wrench.and.screwdriver",
+            "gamecontroller", "music.note", "film", "tv", "camera", "paintpalette",
+            "pawprint", "leaf", "tree", "camera.macro", "sun.max", "moon", "cloud.rain",
+            "calendar", "clock", "alarm", "checkmark.circle", "target", "flag",
+            "star", "sparkles", "lightbulb", "bell", "person.2", "figure.2.and.child.holdinghands",
+            "chart.line.uptrend.xyaxis", "chart.pie", "percent", "repeat", "arrow.left.arrow.right"
+        ]
+        return symbols.map { SymbolChoice(name: $0, title: $0) } + [
+            SymbolChoice(name: "symbol.hemp-leaf", title: L("Hanfblatt", "Hemp leaf")),
+            SymbolChoice(name: "symbol.cigarette", title: L("Zigarette", "Cigarette"))
+        ]
+    }
 }
 
 enum IconPreferenceStore {
@@ -51,8 +95,8 @@ struct SymbolPicker: View {
             HStack {
                 Text(title)
                 Spacer()
-                Image(systemName: selection)
-                    .font(.title3)
+                AppSymbolImage(name: selection)
+                    .font(AppChrome.font(.value))
             }
             .foregroundStyle(.primary)
         }
@@ -63,30 +107,27 @@ struct SymbolPicker: View {
                         columns: Array(repeating: GridItem(.flexible()), count: 5),
                         spacing: 14
                     ) {
-                        ForEach(Array(SymbolCatalog.names.enumerated()), id: \.element) { index, symbol in
+                        ForEach(SymbolCatalog.choices()) { symbol in
                             Button {
-                                selection = symbol
+                                selection = symbol.name
                                 isPresented = false
                             } label: {
-                                Image(systemName: symbol)
-                                    .font(.title2)
+                                AppSymbolImage(name: symbol.name)
+                                    .font(AppChrome.font(.value))
                                     .frame(maxWidth: .infinity)
                                     .frame(height: 48)
-                                    .background(
-                                        selection == symbol ? Color.accentColor.opacity(0.18) : Color.secondary.opacity(0.08),
-                                        in: RoundedRectangle(cornerRadius: 12)
-                                    )
+                                    .appGlassCard(radius: 12)
                                     .overlay(alignment: .topTrailing) {
-                                        if selection == symbol {
+                                        if selection == symbol.name {
                                             Image(systemName: "checkmark.circle.fill")
-                                                .font(.caption)
+                                                .font(AppChrome.font(.caption))
                                                 .foregroundStyle(Color.accentColor)
                                                 .padding(4)
                                         }
                                     }
                             }
                             .buttonStyle(.plain)
-                            .accessibilityLabel("\(title) \(index + 1)")
+                            .accessibilityLabel(symbol.title)
                         }
                     }
                     .padding()

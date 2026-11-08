@@ -50,6 +50,7 @@ struct ChallengeEventPicker: View {
                 .buttonStyle(.plain)
             }
         }
+        .appGlassList()
         .navigationTitle(L("Termin", "Event"))
         .navigationBarTitleDisplayMode(.inline)
         .searchable(text: $query, prompt: L("Termin suchen", "Search events"))

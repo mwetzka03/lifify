@@ -60,6 +60,11 @@ enum BookingCategory: String, CaseIterable, Identifiable {
         }
     }
 
+    /// Categories offered by the manual booking picker.
+    static var manualChoices: [BookingCategory] {
+        allCases.filter(\.allowsManualEntry)
+    }
+
     /// Depot buys, sales, and savings plans are created from the holding or plan, not the booking form.
     var allowsManualEntry: Bool {
         switch self {

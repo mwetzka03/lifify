@@ -69,7 +69,7 @@ struct ChallengeCalendarView: View {
                 .padding()
             }
         }
-        .appCanvas()
+        .appGlassCanvas()
         .navigationTitle(L("Kalender", "Calendar"))
         .toolbar {
             Button { showingNewEvent = true } label: {
@@ -156,7 +156,7 @@ private struct DayAgendaCard: View {
             ForEach(events) { event in
                 Button { onEvent(event) } label: {
                     HStack {
-                        Image(systemName: event.icon)
+                        AppSymbolImage(name: event.icon)
                         VStack(alignment: .leading) {
                             Text(event.title)
                             if !event.isAllDay {
@@ -188,7 +188,7 @@ private struct DayAgendaCard: View {
                 let completed = ChallengeService.isCompleted(challenge, on: day, completions: completions)
                 Button { onChallenge(challenge) } label: {
                     HStack {
-                        Image(systemName: IconPreferenceStore.icon(for: challenge.id, fallback: "target"))
+                        AppSymbolImage(name: IconPreferenceStore.icon(for: challenge.id, fallback: "target"))
                         VStack(alignment: .leading, spacing: 2) {
                             Text(challenge.title)
                             if let caption = challengeCalendarCaption(challenge) {
@@ -232,7 +232,7 @@ private struct DayAgendaCard: View {
             }
         }
         .padding()
-        .background(AppSurface.card, in: RoundedRectangle(cornerRadius: 16))
+        .appGlassCard(radius: 16)
     }
 
     private func eventLinkCaption(_ event: ChallengeCalendarEvent) -> EventLinkCaption? {

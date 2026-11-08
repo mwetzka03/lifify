@@ -5,34 +5,38 @@ struct SettingsView: View {
     var body: some View {
         List {
             Section {
-                NavigationLink {
-                    GeneralSettingsView()
-                } label: {
-                    SettingsCategoryLabel(title: L("Allgemein", "General"), systemImage: "gearshape.fill", color: Color(white: 0.56))
-                }
-                NavigationLink {
-                    FinanceSettingsView()
-                } label: {
-                    SettingsCategoryLabel(title: L("Finanzen", "Finance"), systemImage: "eurosign", color: Color(red: 0.18, green: 0.72, blue: 0.38))
-                }
-                NavigationLink {
-                    ChallengeSettingsView()
-                } label: {
-                    SettingsCategoryLabel(title: L("Herausforderung", "Challenges"), systemImage: "flame.fill", color: .orange)
-                }
-                NavigationLink {
-                    HealthSettingsView()
-                } label: {
-                    SettingsCategoryLabel(title: L("Gesundheit", "Health"), systemImage: "heart.fill", color: .red)
-                }
-                NavigationLink {
-                    DataManagementView()
-                } label: {
-                    SettingsCategoryLabel(title: L("Daten", "Data"), systemImage: "externaldrive.fill", color: Color(red: 0.35, green: 0.34, blue: 0.84))
+                ForEach(SettingsDirectory.rows()) { row in
+                    NavigationLink {
+                        settingsDestination(row.symbol)
+                    } label: {
+                        SettingsCategoryLabel(title: row.title, systemImage: row.symbol, color: settingsColor(row.symbol))
+                    }
                 }
             }
         }
+        .appGlassList()
         .navigationTitle(L("Einstellungen", "Settings"))
+    }
+}
+
+@ViewBuilder
+private func settingsDestination(_ symbol: String) -> some View {
+    switch symbol {
+    case "eurosign": FinanceSettingsView()
+    case "flame.fill": ChallengeSettingsView()
+    case "heart.fill": HealthSettingsView()
+    case "externaldrive.fill": DataManagementView()
+    default: GeneralSettingsView()
+    }
+}
+
+private func settingsColor(_ symbol: String) -> Color {
+    switch symbol {
+    case "eurosign": Color(red: 0.18, green: 0.72, blue: 0.38)
+    case "flame.fill": .orange
+    case "heart.fill": .red
+    case "externaldrive.fill": Color(red: 0.35, green: 0.34, blue: 0.84)
+    default: Color(white: 0.56)
     }
 }
 
@@ -186,11 +190,12 @@ private struct GeneralSettingsView: View {
                 ))
             }
             Section {
-                LabeledContent(L("Version", "Version"), value: "0.3.0")
+                LabeledContent(L("Version", "Version"), value: AppChrome.version)
             }
         }
         .onChange(of: briefingEnabled) { Task { await DailyBriefingService.refresh(context: context) } }
         .onChange(of: briefingRevision) { Task { await DailyBriefingService.refresh(context: context) } }
+        .appGlassList()
         .navigationTitle(L("Allgemein", "General"))
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -235,6 +240,7 @@ private struct DeveloperTestsView: View {
                 }
             }
         }
+        .appGlassList()
         .navigationTitle(L("Tests", "Tests"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -287,6 +293,7 @@ private struct FinanceSettingsView: View {
                 ))
             }
         }
+        .appGlassList()
         .navigationTitle(L("Finanzen", "Finance"))
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
@@ -392,6 +399,7 @@ private struct ChallengeSettingsView: View {
                 ))
             }
         }
+        .appGlassList()
         .navigationTitle(L("Herausforderung", "Challenges"))
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
@@ -488,6 +496,7 @@ private struct HealthSettingsView: View {
                 ))
             }
         }
+        .appGlassList()
         .navigationTitle(L("Gesundheit", "Health"))
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -513,6 +522,7 @@ private struct RestChimePicker: View {
                 }
             }
         }
+        .appGlassList()
         .navigationTitle(L("Klingelton", "Chime"))
         .navigationBarTitleDisplayMode(.inline)
     }

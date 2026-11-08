@@ -38,9 +38,19 @@ final class LififyChecksTests: XCTestCase {
     }
 
     @MainActor
+    func testFinance() {
+        assertPassed(.finance)
+    }
+
+    @MainActor
+    func testScreen() {
+        assertPassed(.screen)
+    }
+
+    @MainActor
     func testTopicsCoverChallengesTrainingAndCalendar() {
         let results = LififyChecks.run()
-        for topic in [LififyCheckTopic.challenge, .calendar, .training, .streak, .multiplier, .abstinence] {
+        for topic in [LififyCheckTopic.challenge, .calendar, .training, .streak, .multiplier, .abstinence, .finance, .screen] {
             let rows = results.filter { $0.topic == topic }
             XCTAssertTrue(rows.contains { $0.kind == .unit }, "\(topic.rawValue) unit")
             XCTAssertTrue(rows.contains { $0.kind == .integration }, "\(topic.rawValue) integration")

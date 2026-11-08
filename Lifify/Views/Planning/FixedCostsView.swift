@@ -86,7 +86,7 @@ struct FixedCostsView: View {
             selected = cost
         } label: {
             HStack {
-                Image(systemName: savings ? BookingCategory.savingsPlan.systemImage : IconPreferenceStore.icon(for: cost.id, fallback: "repeat"))
+                AppSymbolImage(name: savings ? BookingCategory.savingsPlan.systemImage : IconPreferenceStore.icon(for: cost.id, fallback: "repeat"))
                     .frame(width: 28)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(savings ? SavingsPlanFixedCosts.planName(inFixedCostName: cost.name) : cost.name)

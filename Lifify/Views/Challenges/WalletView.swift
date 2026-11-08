@@ -52,6 +52,7 @@ struct WalletView: View {
                 }
             }
         }
+        .appGlassList()
         .navigationTitle(L("Wallet", "Wallet"))
     }
 }
