@@ -42,14 +42,16 @@ nutrients. The arrows move one day, and tapping the date jumps to another day.
 A photo can be attached. With a Gemini key under Settings, Health, the photo
 is read and classified. Without a key it stays on the device. Fast food buys
 the Fast Food reward for 25 coins. Staying at or under the calorie target pays
-the pinned challenge Under the calorie target. The requirements are in
+the pinned challenge Calorie deficit. The requirements are in
 [ERNAEHRUNG.md](ERNAEHRUNG.md). Abstinence lives with the challenges. A sport
 challenge linked to a workout is completed only by finishing that workout.
 Up to four challenges can be pinned to the top of the challenges page.
 
-**Settings** start with User: name, date of birth, height in centimetres, weight
+**Settings** start with your name and profile photo. The line under the name
+is User settings. That page holds the date of birth, height in centimetres, weight
 in kilograms, sex, and the goal. The title sits on one line. Health holds the
-Gemini key. General holds language, appearance, style, a daily
+Gemini key and the switch that saves a new photo to the library. The switch is
+off. General holds language, appearance, style, a daily
 briefing with its own time for each weekday, the workout chime, the default
 account and fee for the portfolio, accounts, import, backup, and calendar and
 reminders. The birthday pays 500 coins once that year. The version shown there
@@ -156,15 +158,17 @@ wechseln einen Tag, ein Tipp auf das Datum springt zu einem anderen Tag. Ein
 Foto kann angehängt werden. Mit einem Gemini-Schlüssel unter Einstellungen,
 Gesundheit, wird das Foto gelesen und eingeordnet. Ohne Schlüssel bleibt es
 auf dem Gerät. Fast Food kauft die Belohnung Fast Food für 25 Coins. Wer am
-oder unter dem Kalorienziel bleibt, bekommt die angepinnte Challenge Unter dem
-Kalorienziel. Die Anforderungen stehen in [ERNAEHRUNG.md](ERNAEHRUNG.md).
+oder unter dem Kalorienziel bleibt, bekommt die angepinnte Challenge
+Kaloriendefizit. Die Anforderungen stehen in [ERNAEHRUNG.md](ERNAEHRUNG.md).
 Abstinenz liegt bei den Challenges. Eine Sport-Challenge mit einem verknüpften
 Training gilt nur als erledigt, wenn dieses Training beendet wurde. Bis zu
 vier Challenges lassen sich oben auf der Challenges-Seite anpinnen.
 
-**Einstellungen** beginnen mit Nutzer: Name, Geburtsdatum, Größe in Zentimetern,
+**Einstellungen** beginnen mit dem Namen und dem Profilbild. Darunter steht
+Nutzereinstellungen. Diese Seite hält Geburtsdatum, Größe in Zentimetern,
 Gewicht in Kilogramm, Geschlecht und das Ziel. Die Überschrift steht in einer
-Zeile. Gesundheit hält den Gemini-Schlüssel. Allgemein hält Sprache,
+Zeile. Gesundheit hält den Gemini-Schlüssel und den Schalter, ob eine
+Aufnahme in die Galerie kommt. Der Schalter ist aus. Allgemein hält Sprache,
 Erscheinungsbild, den Stil, das
 tägliche Briefing mit einer eigenen Uhrzeit je Wochentag, den
 Trainingsklingelton, Standardkonto und Gebühr fürs Depot, Konten, Import,

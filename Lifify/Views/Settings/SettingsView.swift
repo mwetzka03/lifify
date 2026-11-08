@@ -1,11 +1,26 @@
+import PhotosUI
 import SwiftData
 import SwiftUI
+import UIKit
 
 struct SettingsView: View {
+    @AppStorage("userName") private var userName = ""
+
     var body: some View {
+        let rows = SettingsDirectory.rows()
         List {
+            if let profile = rows.first(where: { $0.symbol == "person.fill" }) {
+                Section {
+                    NavigationLink {
+                        UserSettingsView()
+                    } label: {
+                        profileRow(profile.title)
+                    }
+                }
+                .appGlassRow()
+            }
             Section {
-                ForEach(SettingsDirectory.rows()) { row in
+                ForEach(rows.filter { $0.symbol != "person.fill" }) { row in
                     NavigationLink {
                         settingsDestination(row.symbol)
                     } label: {
@@ -19,6 +34,22 @@ struct SettingsView: View {
         .navigationTitle(L("Einstellungen", "Settings"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbarTitleDisplayMode(.inline)
+    }
+
+    private func profileRow(_ subtitle: String) -> some View {
+        let trimmed = userName.trimmingCharacters(in: .whitespacesAndNewlines)
+        return HStack(spacing: 14) {
+            ProfileAvatar(side: 64)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(trimmed.isEmpty ? L("Name", "Name") : trimmed)
+                    .font(.title2.weight(.semibold))
+                    .foregroundStyle(.primary)
+                Text(subtitle)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(.vertical, 8)
     }
 }
 
@@ -189,10 +220,14 @@ private struct UserSettingsView: View {
     @Environment(\.modelContext) private var context
     @AppStorage("userName") private var userName = ""
     @AppStorage(UserProfile.birthKey) private var birthRaw = ""
+    @AppStorage(ProfilePhotoStore.revisionKey) private var photoRevision = 0
     @State private var heightText = UserBody.heightText()
     @State private var weightText = UserBody.weightText()
     @State private var sex = UserBody.current().sex
     @State private var goal = UserBody.current().goal
+    @State private var showsCamera = false
+    @State private var showsLibrary = false
+    @State private var libraryItem: PhotosPickerItem?
 
     private var birthSelection: Binding<Date> {
         Binding(
@@ -206,8 +241,33 @@ private struct UserSettingsView: View {
     }
 
     var body: some View {
+        let _ = photoRevision
         Form {
             Section {
+                VStack(spacing: 10) {
+                    ProfileAvatar(side: 88)
+                    Menu {
+                        if CameraCapture.isAvailable {
+                            Button(L("Foto aufnehmen", "Take photo"), systemImage: "camera") {
+                                showsCamera = true
+                            }
+                        }
+                        Button(L("Galerie", "Library"), systemImage: "photo") {
+                            showsLibrary = true
+                        }
+                        if ProfilePhotoStore.load() != nil {
+                            Button(role: .destructive) {
+                                ProfilePhotoStore.remove()
+                            } label: {
+                                Label(L("Bild entfernen", "Remove photo"), systemImage: "trash")
+                            }
+                        }
+                    } label: {
+                        Text(L("Profilbild", "Profile photo"))
+                    }
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 6)
                 TextField(L("Name", "Name"), text: $userName)
                 DatePicker(
                     L("Geburtsdatum", "Date of birth"),
@@ -237,8 +297,26 @@ private struct UserSettingsView: View {
             .appGlassRow()
         }
         .appGlassList()
-        .navigationTitle(L("Nutzer", "User"))
+        .navigationTitle(L("Nutzereinstellungen", "User settings"))
         .navigationBarTitleDisplayMode(.inline)
+        .photosPicker(isPresented: $showsLibrary, selection: $libraryItem, matching: .images)
+        .onChange(of: libraryItem) { _, item in
+            guard let item else { return }
+            Task {
+                if let data = try? await item.loadTransferable(type: Data.self) {
+                    ProfilePhotoStore.save(data)
+                }
+                libraryItem = nil
+            }
+        }
+        .sheet(isPresented: $showsCamera) {
+            CameraCapture { data in
+                ProfilePhotoStore.save(data)
+                showsCamera = false
+            } onCancel: {
+                showsCamera = false
+            }
+        }
         .onChange(of: heightText) { storeBody() }
         .onChange(of: weightText) { storeBody() }
         .onChange(of: sex) { storeBody() }
@@ -729,13 +807,37 @@ private struct MeasureField: View {
     }
 }
 
+private struct ProfileAvatar: View {
+    var side: CGFloat
+    @AppStorage(ProfilePhotoStore.revisionKey) private var revision = 0
+
+    var body: some View {
+        let _ = revision
+        Group {
+            if let data = ProfilePhotoStore.load(), let image = UIImage(data: data) {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFill()
+            } else {
+                Image(systemName: "person.crop.circle.fill")
+                    .resizable()
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .frame(width: side, height: side)
+        .clipShape(Circle())
+    }
+}
+
 private struct HealthSettingsView: View {
     @AppStorage(RestChime.storageKey) private var restChimeID = 1005
+    @AppStorage(MealCapture.saveKey) private var saveMealPhotos = false
     @State private var geminiKey = ""
 
     var body: some View {
         Form {
             Section {
+                Toggle(L("Aufnahmen in der Galerie sichern", "Save new photos to the library"), isOn: $saveMealPhotos)
                 SecureField(L("Gemini-Schlüssel", "Gemini key"), text: $geminiKey)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
@@ -743,8 +845,8 @@ private struct HealthSettingsView: View {
                 Text(L("Ernährung", "Nutrition"))
             } footer: {
                 Text(L(
-                    "Der Schlüssel bleibt auf diesem Gerät. Ein Essensfoto wird nur mit diesem Schlüssel an Gemini geschickt. Ohne Schlüssel bleibt das Foto hier.",
-                    "The key stays on this device. A meal photo is sent to Gemini only with this key. Without a key the photo stays here."
+                    "Eine Aufnahme bleibt in der App. Sie kommt nur in die Galerie, wenn der Schalter an ist. Er ist aus. Ein Bild, das du aus der Galerie wählst, wird nicht noch einmal gespeichert. Der Schlüssel bleibt auf diesem Gerät. Ein Essensfoto wird nur mit diesem Schlüssel an Gemini geschickt.",
+                    "A new photo stays in the app. It reaches the library only when the switch is on. It is off. A picture you pick from the library is not saved again. The key stays on this device. A meal photo is sent to Gemini only with this key."
                 ))
             }
             .appGlassRow()

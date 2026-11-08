@@ -39,25 +39,29 @@ This file is in English and in German. The finance calculations stay in
 - Nutrition is a day board under Health. It shows the calorie target, what was
   eaten, and protein, and it keeps the other nutrients on the meal. Today is
   the default. The arrows move one day, and tapping the date opens a calendar.
-  A future day cannot be selected. A photo can be attached. With a Gemini key
+  A future day cannot be selected. A photo can be taken or chosen from the
+  library. A new photo stays in the app unless Health, Nutrition, saves it to
+  the library. That switch is off. With a Gemini key
   under Health, Gemini 2.5 Flash reads the meal and picks a kind: whole food,
   balanced, hearty, sweet, fast food, or alcohol. Without a key the photo stays
   on the device. Fast food buys the Fast Food shop reward for 25 coins and
   refunds it if the kind changes or the meal is deleted. Staying at or under
-  the calorie target pays the daily challenge Under the calorie target, under
+  the calorie target pays the daily challenge Calorie deficit, under
   More, with streaks, pinned the first time it is created. A clean day of whole
   and balanced meals pays 30 coins before the streak multiplier, any other day
   under the target pays 20, and a day over the target pays nothing. The board
-  shows that amount. Settings starts with User: name, date of birth, height in
+  shows that amount. Settings starts with the name and a profile photo. The
+  line under the name is User settings. That page holds the date of birth, height in
   centimetres, weight in kilograms, sex, and the goal (lose fat, maintain,
   build muscle). The settings title is one line. Setup asks for the same body
-  fields. A finished workout adds 250 kcal that day. The estimate is not
-  medical advice.
+  fields. A finished workout adds 250 kcal that day.
 - Up to four challenges can be pinned. They sit at the top of the challenges
-  page with a pin icon, and the pin can be removed. A sport challenge linked
-  to a workout cannot be checked off by hand. It counts when that workout is
-  finished. Exercise pictures drop a near-white background and sit on a tinted
-  rounded tile.
+  page with a pin icon, and the pin can be removed. A category with nothing
+  left unpinned disappears, including its create button. The plus menu offers
+  an abstinence challenge, a sport challenge, another challenge, and a group.
+  A sport challenge linked to a workout cannot be checked off by hand, and its
+  card has no check circle. It counts when that workout is finished. Exercise
+  pictures drop a near-white background and sit on a tinted rounded tile.
 - Finance keeps the account choice pinned at the top. The choices are bubbles
   in a row. A long name wraps to the next row, and that row shares the space
   evenly. All accounts, each account, and Portfolio stay the same views.
@@ -170,26 +174,33 @@ This file is in English and in German. The finance calculations stay in
   das Gegessene und das Eiweiß, und sie merkt die übrigen Nährstoffe an der
   Mahlzeit. Heute ist voreingestellt. Die Pfeile wechseln einen Tag, und ein
   Tipp auf das Datum öffnet einen Kalender. Ein späterer Tag geht nicht. Ein
-  Foto kann angehängt werden. Mit einem Gemini-Schlüssel unter Gesundheit liest
+  Foto kann aufgenommen oder aus der Galerie gewählt werden. Eine Aufnahme
+  bleibt in der App, solange unter Gesundheit, Ernährung, das Sichern in die
+  Galerie aus ist. Mit einem Gemini-Schlüssel unter Gesundheit liest
   Gemini 2.5 Flash die Mahlzeit und wählt eine Art: unverarbeitet, ausgewogen,
   deftig, süß, Fast Food oder Alkohol. Ohne Schlüssel bleibt das Foto auf dem
   Gerät. Fast Food kauft die Shop-Belohnung Fast Food für 25 Coins und erstattet
   sie, wenn die Art sich ändert oder die Mahlzeit gelöscht wird. Wer am oder
-  unter dem Kalorienziel bleibt, bekommt die tägliche Challenge Unter dem
-  Kalorienziel unter Weitere, mit Streaks, beim ersten Anlegen angepinnt. Ein
+  unter dem Kalorienziel bleibt, bekommt die tägliche Challenge
+  Kaloriendefizit unter Weitere, mit Streaks, beim ersten Anlegen angepinnt. Ein
   sauberer Tag aus unverarbeiteten und ausgewogenen Mahlzeiten zahlt 30 Coins
   vor dem Streak-Faktor, jeder andere Tag unter dem Ziel zahlt 20, und ein Tag
   darüber zahlt nichts. Die Ansicht zeigt diesen Betrag. Die Einstellungen
-  beginnen mit Nutzer: Name, Geburtsdatum, Größe in Zentimetern, Gewicht in
+  beginnen mit dem Namen und einem Profilbild. Darunter steht
+  Nutzereinstellungen. Diese Seite hält Geburtsdatum, Größe in Zentimetern, Gewicht in
   Kilogramm, Geschlecht und das Ziel (Fett verlieren, Halten, Muskeln
   aufbauen). Die Überschrift der Einstellungen steht in einer Zeile. Die
   Einrichtung fragt dieselben Körperfelder. Ein abgeschlossenes Training hebt
-  den Tag um 250 kcal. Die Schätzung ist keine medizinische Beratung.
+  den Tag um 250 kcal.
 - Bis zu vier Challenges lassen sich anpinnen. Sie stehen oben auf der
   Challenges-Seite mit einem Pin-Symbol, und der Pin lässt sich lösen. Eine
-  Sport-Challenge mit einem verknüpften Training lässt sich nicht von Hand
-  abhaken. Sie zählt, wenn dieses Training beendet ist. Übungsbilder verlieren
-  einen fast weißen Grund und liegen auf einer gefärbten, abgerundeten Kachel.
+  Kategorie ohne ungepinnte Challenge verschwindet, samt Anlegen-Knopf. Das
+  Plus bietet eine Abstinenz-Challenge, eine Sport-Challenge, eine sonstige
+  Challenge und eine Gruppe. Eine Sport-Challenge mit einem verknüpften
+  Training lässt sich nicht von Hand abhaken, und ihre Kachel hat keinen
+  Hakenkreis. Sie zählt, wenn dieses Training beendet ist. Übungsbilder
+  verlieren einen fast weißen Grund und liegen auf einer gefärbten,
+  abgerundeten Kachel.
 - Finanzen behält die Kontoauswahl oben fest. Die Auswahl sind Blasen in einer
   Reihe. Ein langer Name bricht in die nächste Reihe, und diese Reihe teilt
   den Platz gleichmäßig. Alle Konten, jedes Konto und das Depot bleiben

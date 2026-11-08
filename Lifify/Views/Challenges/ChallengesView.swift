@@ -10,7 +10,6 @@ struct ChallengesView: View {
     @Query private var transactions: [CoinTransaction]
     @State private var completedTab = false
     @State private var filter = ChallengeFilter.all
-    @State private var showingNewChallenge = false
     @State private var createCategory: ChallengeCategory?
     @State private var showingNewGroup = false
     @State private var edited: ChallengeItem?
@@ -44,12 +43,6 @@ struct ChallengesView: View {
                         ForEach(activeSections) { section in
                             challengeSection(section)
                         }
-                        if !activeSections.contains(where: { $0.id == "abstinence" }) {
-                            createChallengeButton(.abstinence)
-                        }
-                        if !activeSections.contains(where: { $0.id == "sport" }) {
-                            createChallengeButton(.sport)
-                        }
                     }
                 }
                 if visibleChallengesEmpty && !recommendations.isEmpty {
@@ -69,14 +62,15 @@ struct ChallengesView: View {
             leadingChallengeLinks
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
-                    Button(L("Challenge", "Challenge")) { showingNewChallenge = true }
-                    Button(L("Gruppe", "Group")) { showingNewGroup = true }
+                    Button(ChallengeCreateMenu.abstinence) { createCategory = .abstinence }
+                    Button(ChallengeCreateMenu.sport) { createCategory = .sport }
+                    Button(ChallengeCreateMenu.other) { createCategory = .other }
+                    Button(ChallengeCreateMenu.group) { showingNewGroup = true }
                 } label: {
                     Image(systemName: "plus")
                 }
             }
         }
-        .sheet(isPresented: $showingNewChallenge) { ChallengeForm(challenge: nil) }
         .sheet(item: $createCategory) { category in
             ChallengeForm(challenge: nil, presetCategory: category)
         }
@@ -382,9 +376,7 @@ struct ChallengesView: View {
             filteredChallenges.first { $0.id == id && !pinned.contains($0.id) }
         }
         return Group {
-            if cards.isEmpty, section.id != "abstinence", section.id != "sport" {
-                EmptyView()
-            } else {
+            if ChallengeBoard.showsCategory(unpinned: cards.count) {
                 sectionStack(section, cards: cards)
             }
         }
@@ -618,8 +610,10 @@ struct ChallengesView: View {
                             .foregroundStyle(.secondary)
                     }
                     Spacer(minLength: 8)
-                    Image(systemName: doneToday ? "checkmark.circle.fill" : "circle")
-                        .foregroundStyle(gray ? Color.secondary : Color.green)
+                    if ChallengeBoard.showsCheckCircle(allowsHand: !handLocked) {
+                        Image(systemName: doneToday ? "checkmark.circle.fill" : "circle")
+                            .foregroundStyle(gray ? Color.secondary : Color.green)
+                    }
                 }
                 challengeMeta(challenge)
                 if handLocked {
@@ -793,7 +787,13 @@ struct ChallengeForm: View {
         _durationText = State(initialValue: challenge.flatMap { ChallengeTimeStore.minutes(for: $0.id).map(String.init) } ?? "")
         _linkedEventID = State(initialValue: challenge.flatMap { ChallengeTimeStore.eventID(containing: $0.id) })
         _groupID = State(initialValue: challenge?.groupID)
-        let presetIcon = presetCategory == .abstinence ? "lungs.fill" : "target"
+        let presetIcon = if presetCategory == .abstinence {
+            "lungs.fill"
+        } else if presetCategory == .sport {
+            "figure.run"
+        } else {
+            "target"
+        }
         _icon = State(initialValue: challenge.map { IconPreferenceStore.icon(for: $0.id, fallback: presetIcon) } ?? (recommendation == nil ? presetIcon : "lightbulb"))
         _syncToReminders = State(initialValue: challenge.map { ReminderSyncPreference.isEnabled(for: $0.id) } ?? true)
         _showsMoreSettings = State(initialValue: !EditorCopy.moreStartsClosed)
@@ -1227,8 +1227,10 @@ private struct ChallengeGroupDetailView: View {
                     }
                 }
                 Spacer()
-                Image(systemName: doneToday ? "checkmark.circle.fill" : "circle")
-                    .foregroundStyle(gray ? Color.secondary : Color.green)
+                if ChallengeBoard.showsCheckCircle(allowsHand: !handLocked) {
+                    Image(systemName: doneToday ? "checkmark.circle.fill" : "circle")
+                        .foregroundStyle(gray ? Color.secondary : Color.green)
+                }
             }
             .opacity(gray ? 0.55 : 1)
         }

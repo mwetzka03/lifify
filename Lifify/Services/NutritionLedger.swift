@@ -38,10 +38,14 @@ enum NutritionLedger {
     private static func ensureChallenge(context: ModelContext) -> ChallengeItem {
         let stored = (try? context.fetch(FetchDescriptor<ChallengeItem>())) ?? []
         if let existing = stored.first(where: { $0.externalIdentifier == challengeMark }) {
+            if NutritionCopy.previousCalorieTitles.contains(existing.title) {
+                existing.title = NutritionCopy.calorieChallenge
+                try? context.save()
+            }
             return existing
         }
         let challenge = ChallengeItem(
-            title: L("Unter dem Kalorienziel", "Under the calorie target"),
+            title: NutritionCopy.calorieChallenge,
             details: L(
                 "Ein Tag zählt, wenn die bestätigten Mahlzeiten das Kalorienziel nicht übersteigen. Eine Reihe aus unverarbeiteten und ausgewogenen Mahlzeiten zahlt mehr. Fast Food wird im Shop gekauft.",
                 "A day counts when the confirmed meals stay within the calorie target. A run of whole and balanced meals pays more. Fast food is bought in the shop."

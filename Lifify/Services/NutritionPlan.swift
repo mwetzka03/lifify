@@ -358,9 +358,18 @@ enum NutritionCopy {
         L("Noch keine Mahlzeit an diesem Tag.", "No meal on this day yet.")
     }
 
-    static var estimateNote: String {
-        L("Schätzung, keine medizinische Beratung.", "An estimate, not medical advice.")
+    static var calorieChallenge: String {
+        L("Kaloriendefizit", "Calorie deficit")
     }
+
+    static let previousCalorieTitles = ["Unter dem Kalorienziel", "Under the calorie target"]
+}
+
+/// A camera shot is kept in the app. It reaches the photo library only when this is on.
+enum MealCapture {
+    static let saveKey = "lifify.saveMealPhotos"
+
+    static func keepsInLibrary(_ enabled: Bool) -> Bool { enabled }
 }
 
 /// Photo recognition follows the Gemini key stored under Health. See ERNAEHRUNG.md.

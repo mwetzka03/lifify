@@ -270,8 +270,8 @@ enum CheckGuides {
         ),
         "Gesundheit, Einstellungen und Glasflächen zeigen dieselben Titel": g(
             "HealthScreen.sectionTitles(), SettingsDirectory.rows(), AppChrome.glassScreens, AppChrome.version",
-            "Vor dem Schrägstrich stehen die Titel, die Gesundheit zeigt. Dahinter steht die Version 0.4.0. Die Einstellungen beginnen mit Nutzer. Ohne Schlüssel bleibt der Satz, dass die Erkennung nicht verbunden ist.",
-            "Before the slash are the titles Health shows. After it is version 0.4.0. Settings start with User. Without a key the sentence still says recognition is not connected."
+            "Vor dem Schrägstrich stehen die Titel, die Gesundheit zeigt. Dahinter steht die Version 0.4.0. Die Einstellungen beginnen mit Nutzereinstellungen. Ohne Schlüssel bleibt der Satz, dass die Erkennung nicht verbunden ist.",
+            "Before the slash are the titles Health shows. After it is version 0.4.0. Settings start with User settings. Without a key the sentence still says recognition is not connected."
         ),
         "Hell und Dunkel haben eigene Flächen": g(
             "AppLook.modesDiffer(palette:), AppLook.canvasTop(_:palette:), AppLook.cardFill(_:palette:)",
@@ -290,8 +290,8 @@ enum CheckGuides {
         ),
         "Die Version steht unter dem Entwicklermodus": g(
             "GeneralSettingsOrder.sections",
-            "Die Messung ist appearance, briefing, developer, version. Die Version steht ganz zuletzt. Name und Körpermaße liegen unter Nutzer.",
-            "The reading is appearance, briefing, developer, version. The version is last of all. Name and body measures live under User."
+            "Die Messung ist appearance, briefing, developer, version. Die Version steht ganz zuletzt. Name und Körpermaße liegen unter Nutzereinstellungen.",
+            "The reading is appearance, briefing, developer, version. The version is last of all. Name and body measures live under User settings."
         ),
         "Weitere Einstellungen starten geschlossen": g(
             "EditorCopy.moreSettings, EditorCopy.moreStartsClosed, ReminderSyncPreference.isEnabled",
@@ -423,10 +423,20 @@ enum CheckGuides {
             "Die Messung ist ready, 25, 4. Ein Schlüssel verbindet die Erkennung, ein fehlender nicht. Eine bereite Depotansicht zeigt die Ladekachel nicht wieder. Fast Food kostet 25 Coins, und höchstens vier Challenges bleiben angepinnt.",
             "The reading is ready, 25, 4. A key connects recognition, and a missing one does not. A ready portfolio does not show the loading card again. Fast food costs 25 coins, and at most four challenges stay pinned."
         ),
+        "Eine leere Kategorie zeigt keinen Haken": g(
+            "ChallengeBoard.showsCategory(unpinned:), ChallengeBoard.showsCheckCircle(allowsHand:)",
+            "Die Messung ist 0, weg. Null ungepinnte Challenges verstecken die Kategorie und den Anlegen-Knopf. Eine übrige Challenge zeigt die Kategorie. Ein gesperrter Hakenkreis bleibt weg, ein normaler bleibt da.",
+            "The reading is 0, weg. Zero unpinned challenges hide the category and the create button. One remaining challenge shows the category. A locked check circle stays away, and a normal one stays."
+        ),
+        "Profil, Galerie und Kaloriendefizit": g(
+            "SettingsDirectory.rows(), MealCapture.keepsInLibrary(_:), NutritionCopy.calorieChallenge, ChallengeCreateMenu.labels",
+            "Die Messung ist Profil, aus, Kaloriendefizit. Die erste Einstellungszeile heißt Nutzereinstellungen. Eine Aufnahme mit ausgeschaltetem Schalter bleibt aus der Galerie. Die Challenge heißt Kaloriendefizit, und das Plus hat vier Einträge.",
+            "The reading is Profil, aus, Kaloriendefizit. The first settings row is named User settings. A new photo with the switch off stays out of the library. The challenge is named Calorie deficit, and the plus menu has four entries."
+        ),
         "Ein Trainingstag hebt das Kalorienziel": g(
             "NutritionPlan.trained(on:sessions:calendar:), NutritionPlan.dayTarget(weightKg:heightCm:age:sex:goal:trained:), NutritionPlan.onDay(_:meals:), SettingsDirectory.rows(), DepotLoad.showsBoard(ready:)",
-            "Die Messung ist 1698, 600, user. 1698 ist das Ziel mit Training, 600 sind die Kalorien nur von diesem Tag, und user sagt, dass Nutzer zuerst steht. 250 kcal kommen nur an einem Tag mit abgeschlossenem Training dazu.",
-            "The reading is 1698, 600, user. 1698 is the target with a workout, 600 is the calories from that day only, and user says User comes first. 250 kcal are added only on a day with a finished workout."
+            "Die Messung ist 1698, 600, user. 1698 ist das Ziel mit Training, 600 sind die Kalorien nur von diesem Tag, und user sagt, dass das Profil zuerst steht. 250 kcal kommen nur an einem Tag mit abgeschlossenem Training dazu.",
+            "The reading is 1698, 600, user. 1698 is the target with a workout, 600 is the calories from that day only, and user says the profile comes first. 250 kcal are added only on a day with a finished workout."
         ),
         "Vier Stile haben je eine helle und eine dunkle Fläche": g(
             "AppLook.modesDiffer(palette:), AppLook.accent(_:palette:)",

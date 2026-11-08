@@ -23,7 +23,9 @@ enum LififyFeatureChecks {
             fastFoodCostsAndACleanDayPays(),
             pinsStopAtFour(),
             linkedSportCannotBeCheckedByHand(),
-            nutritionKeyDepotAndMealsFollowOneRule()
+            nutritionKeyDepotAndMealsFollowOneRule(),
+            emptyCategoryHidesTheCheckCircle(),
+            profileLibraryAndCalorieDeficit()
         ]
     }
 
@@ -92,7 +94,7 @@ enum LififyFeatureChecks {
         let passed = health == [L("Training", "Training"), L("Ernährung", "Nutrition")]
             && settings.map(\.symbol) == expectedSettings
             && settings.map(\.title) == [
-                L("Nutzer", "User"),
+                L("Nutzereinstellungen", "User settings"),
                 L("Allgemein", "General"),
                 L("Finanzen", "Finance"),
                 L("Herausforderung", "Challenges"),
@@ -336,7 +338,7 @@ enum LififyFeatureChecks {
             && active == rest.map { $0 + NutritionPlan.trainingBonus }
             && eaten == 600
             && rows.first?.symbol == "person.fill"
-            && rows.first?.title == L("Nutzer", "User")
+            && rows.first?.title == L("Nutzereinstellungen", "User settings")
             && rows.dropFirst().first?.symbol == "gearshape.fill"
             && !DepotLoad.showsBoard(ready: false)
             && DepotLoad.showsBoard(ready: true)
@@ -428,6 +430,47 @@ enum LififyFeatureChecks {
         let reading = "ready, 25, 4"
         return LififyCheckResult(
             name: "Schlüssel, Depot und Ernährung folgen derselben Regel",
+            passed: passed,
+            detail: passed ? nil : reading,
+            reading: reading,
+            kind: .integration,
+            topic: .training
+        )
+    }
+
+    private static func emptyCategoryHidesTheCheckCircle() -> LififyCheckResult {
+        let hidden = !ChallengeBoard.showsCategory(unpinned: 0)
+        let shown = ChallengeBoard.showsCategory(unpinned: 1)
+        let noCircle = !ChallengeBoard.showsCheckCircle(allowsHand: false)
+        let circle = ChallengeBoard.showsCheckCircle(allowsHand: true)
+        let passed = hidden && shown && noCircle && circle
+        let reading = "0, weg"
+        return LififyCheckResult(
+            name: "Eine leere Kategorie zeigt keinen Haken",
+            passed: passed,
+            detail: passed ? nil : "\(hidden), \(shown), \(noCircle), \(circle)",
+            reading: reading,
+            kind: .unit,
+            topic: .training
+        )
+    }
+
+    private static func profileLibraryAndCalorieDeficit() -> LififyCheckResult {
+        let rows = SettingsDirectory.rows()
+        let passed = rows.first?.symbol == "person.fill"
+            && rows.first?.title == L("Nutzereinstellungen", "User settings")
+            && rows.dropFirst().first?.symbol == "gearshape.fill"
+            && !MealCapture.keepsInLibrary(false)
+            && MealCapture.keepsInLibrary(true)
+            && NutritionCopy.calorieChallenge == L("Kaloriendefizit", "Calorie deficit")
+            && ChallengeCreateMenu.abstinence == L("Abstinenz-Challenge", "Abstinence challenge")
+            && ChallengeCreateMenu.sport == L("Sport-Challenge", "Sport challenge")
+            && ChallengeCreateMenu.other == L("Sonstige Challenge", "Other challenge")
+            && ChallengeCreateMenu.group == L("Gruppe", "Group")
+            && ChallengeCreateMenu.labels.count == 4
+        let reading = "Profil, aus, Kaloriendefizit"
+        return LififyCheckResult(
+            name: "Profil, Galerie und Kaloriendefizit",
             passed: passed,
             detail: passed ? nil : reading,
             reading: reading,

@@ -248,6 +248,8 @@
 				INFOPLIST_KEY_CFBundleDisplayName = Lifify;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.finance";
 				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "Lifify kann deine Systemkalender lokal in der gemeinsamen Tagesansicht anzeigen.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Lifify nimmt ein Foto für eine Mahlzeit oder das Profil auf. Eine Aufnahme kommt nicht in die Galerie, solange das unter Gesundheit aus ist.";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Lifify sichert ein aufgenommenes Essensfoto in der Galerie nur, wenn du das unter Gesundheit einschaltest.";
 				INFOPLIST_KEY_NSRemindersFullAccessUsageDescription = "Lifify kann Erinnerungen lokal als Challenge-Empfehlungen anzeigen und deren Status synchronisieren.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -274,6 +276,8 @@
 				INFOPLIST_KEY_CFBundleDisplayName = Lifify;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.finance";
 				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "Lifify kann deine Systemkalender lokal in der gemeinsamen Tagesansicht anzeigen.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Lifify nimmt ein Foto für eine Mahlzeit oder das Profil auf. Eine Aufnahme kommt nicht in die Galerie, solange das unter Gesundheit aus ist.";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Lifify sichert ein aufgenommenes Essensfoto in der Galerie nur, wenn du das unter Gesundheit einschaltest.";
 				INFOPLIST_KEY_NSRemindersFullAccessUsageDescription = "Lifify kann Erinnerungen lokal als Challenge-Empfehlungen anzeigen und deren Status synchronisieren.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;

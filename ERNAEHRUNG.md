@@ -15,10 +15,11 @@ the start, and earlier days can be filled in. A later day cannot.
 
 A day shows the calorie target, what was eaten, what is left, and protein.
 The goal is lose fat, maintain, or build muscle. A finished workout on that
-day adds 250 kcal. The line under the board says the figure is an estimate,
-not medical advice.
+day adds 250 kcal.
 
-A meal can be added by hand. A photo can be attached too. With a Gemini key
+A meal can be added by hand. A photo can be taken or chosen from the library.
+A new photo stays in the app and is not saved to the library unless Health,
+Nutrition, turns that on. The switch is off. With a Gemini key
 under Health, the photo is sent and the reading fills the meal. Without a
 key, the photo stays on the device and the values start empty. The meal stays
 a draft until Correct. The person can type the values, or write feedback and
@@ -33,8 +34,8 @@ alcohol. The model picks one. The person can change it. Fast food buys the
 Fast Food reward in the shop for 25 coins, even if the balance goes negative.
 Changing the kind, or deleting the meal, refunds that purchase.
 
-Staying at or under the calorie target pays the challenge Under the calorie
-target. It lives under More, is daily, uses streaks, and is pinned the first
+Staying at or under the calorie target pays the challenge Calorie deficit.
+It lives under More, is daily, uses streaks, and is pinned the first
 time it is created. The day pays 20 coins, or 30 when every confirmed meal
 is whole food or balanced. Over the target, or a day with no confirmed meal,
 pays nothing. The board shows that amount, including the streak multiplier,
@@ -47,7 +48,8 @@ and magnesium. The first group is open. The rest sits under More settings.
 
 ### Who it is for
 
-Settings starts with User, above General. User holds the name, the date of
+Settings starts with the name and profile photo, above General. The line
+under the name is User settings. That page holds the name, the date of
 birth, height in centimeters, weight in kilograms, sex, and the goal. Setup
 asks for the same things after the name. The birthday still pays 500 coins
 once that year.
@@ -124,11 +126,12 @@ geht nicht.
 
 Ein Tag zeigt das Kalorienziel, das Gegessene, das Übrige und das Eiweiß.
 Das Ziel ist Fett verlieren, Halten oder Muskeln aufbauen. Ein abgeschlossenes
-Training an dem Tag gibt 250 kcal dazu. Unter der Ansicht steht, dass die
-Zahl eine Schätzung ist und keine medizinische Beratung.
+Training an dem Tag gibt 250 kcal dazu.
 
-Eine Mahlzeit lässt sich von Hand anlegen. Ein Foto kann auch angehängt
-werden. Mit einem Gemini-Schlüssel unter Gesundheit wird das Foto geschickt
+Eine Mahlzeit lässt sich von Hand anlegen. Ein Foto kann aufgenommen oder
+aus der Galerie gewählt werden. Eine Aufnahme bleibt in der App und kommt
+nicht in die Galerie, solange das unter Gesundheit, Ernährung, aus ist. Der
+Schalter ist aus. Mit einem Gemini-Schlüssel unter Gesundheit wird das Foto geschickt
 und die Lesung füllt die Mahlzeit. Ohne Schlüssel bleibt das Foto auf dem
 Gerät und die Werte starten leer. Die Mahlzeit bleibt ein Entwurf, bis Stimmt
 sie speichert. Die Person kann die Werte eintragen oder eine Rückmeldung
@@ -144,8 +147,8 @@ kauft die Belohnung Fast Food im Shop für 25 Coins, auch wenn das Guthaben
 dabei negativ wird. Ändert man die Art oder löscht die Mahlzeit, wird der
 Kauf erstattet.
 
-Wer am oder unter dem Kalorienziel bleibt, bekommt die Challenge Unter dem
-Kalorienziel. Sie steht unter Weitere, ist täglich, nutzt Streaks und wird
+Wer am oder unter dem Kalorienziel bleibt, bekommt die Challenge
+Kaloriendefizit. Sie steht unter Weitere, ist täglich, nutzt Streaks und wird
 beim ersten Anlegen angepinnt. Der Tag zahlt 20 Coins, oder 30, wenn jede
 bestätigte Mahlzeit unverarbeitet oder ausgewogen ist. Über dem Ziel, oder
 ein Tag ohne bestätigte Mahlzeit, zahlt nichts. Die Ansicht zeigt diesen
@@ -159,7 +162,8 @@ Der Rest liegt unter Weitere Einstellungen.
 
 ### Für wen
 
-Die Einstellungen beginnen mit Nutzer, über Allgemein. Nutzer hält den Namen,
+Die Einstellungen beginnen mit dem Namen und dem Profilbild, über Allgemein.
+Darunter steht Nutzereinstellungen. Diese Seite hält den Namen,
 das Geburtsdatum, die Größe in Zentimetern, das Gewicht in Kilogramm, das
 Geschlecht und das Ziel. Die Einrichtung fragt dasselbe nach dem Namen. Der
 Geburtstag zahlt weiterhin einmal im Jahr 500 Coins.

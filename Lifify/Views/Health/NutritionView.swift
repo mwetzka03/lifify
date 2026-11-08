@@ -1,6 +1,7 @@
 import PhotosUI
 import SwiftData
 import SwiftUI
+import UIKit
 
 struct NutritionBoard: View {
     @Environment(\.modelContext) private var context
@@ -18,6 +19,7 @@ struct NutritionBoard: View {
     @State private var edited: MealRecord?
     @State private var photoItem: PhotosPickerItem?
     @State private var showsPhotoPicker = false
+    @State private var showsCamera = false
     @State private var showsDayPicker = false
     @State private var recognizing = false
 
@@ -46,9 +48,6 @@ struct NutritionBoard: View {
             targetCard(target: target, meals: dayMeals, trained: trained, measures: measures)
             addRow
             mealCard(dayMeals)
-            Text(NutritionCopy.estimateNote)
-                .font(.caption)
-                .foregroundStyle(.secondary)
         }
         .onAppear(perform: reload)
         .onChange(of: day) {
@@ -78,6 +77,14 @@ struct NutritionBoard: View {
         .onChange(of: photoItem) { _, item in
             guard let item else { return }
             Task { await attach(item, on: key) }
+        }
+        .sheet(isPresented: $showsCamera) {
+            CameraCapture { data in
+                showsCamera = false
+                Task { await storePhoto(data, on: key, fromCamera: true) }
+            } onCancel: {
+                showsCamera = false
+            }
         }
         .sheet(item: $edited) { meal in
             MealEditor(
@@ -166,8 +173,8 @@ struct NutritionBoard: View {
                 }
             } else if !measures.isComplete {
                 Text(L(
-                    "Trag Größe und Gewicht unter Nutzer ein. Daraus wird das Tagesziel.",
-                    "Add height and weight under User. That sets the daily target."
+                    "Trag Größe und Gewicht unter Nutzereinstellungen ein. Daraus wird das Tagesziel.",
+                    "Add height and weight under User settings. That sets the daily target."
                 ))
                 .foregroundStyle(.secondary)
             }
@@ -193,16 +200,23 @@ struct NutritionBoard: View {
 
     private var addRow: some View {
         HStack(spacing: 10) {
-            Button {
-                showsPhotoPicker = true
+            Menu {
+                if CameraCapture.isAvailable {
+                    Button(L("Foto aufnehmen", "Take photo"), systemImage: "camera") {
+                        showsCamera = true
+                    }
+                }
+                Button(L("Galerie", "Library"), systemImage: "photo.on.rectangle") {
+                    showsPhotoPicker = true
+                }
             } label: {
                 Label(recognizing ? NutritionCopy.recognizing : L("Foto", "Photo"), systemImage: recognizing ? "hourglass" : "camera")
                     .frame(maxWidth: .infinity)
                     .padding(14)
                     .appGlassCard(radius: 18)
             }
-            .disabled(recognizing)
             .buttonStyle(.plain)
+            .disabled(recognizing)
             .photosPicker(isPresented: $showsPhotoPicker, selection: $photoItem, matching: .images)
             Button {
                 let key = NutritionPlan.dayKey(day)
@@ -310,7 +324,7 @@ struct NutritionBoard: View {
         }
         return HStack {
             VStack(alignment: .leading, spacing: 2) {
-                Text(L("Unter dem Kalorienziel", "Under the calorie target"))
+                Text(NutritionCopy.calorieChallenge)
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 if streak > 0 {
@@ -367,6 +381,17 @@ struct NutritionBoard: View {
 
     private func attach(_ item: PhotosPickerItem, on key: String) async {
         let data = try? await item.loadTransferable(type: Data.self)
+        photoItem = nil
+        await storePhoto(data, on: key, fromCamera: false)
+    }
+
+    private func storePhoto(_ data: Data?, on key: String, fromCamera: Bool) async {
+        if fromCamera,
+           MealCapture.keepsInLibrary(UserDefaults.standard.bool(forKey: MealCapture.saveKey)),
+           let data,
+           let image = UIImage(data: data) {
+            MealCapture.saveToLibrary(image)
+        }
         let id = UUID()
         let photoName = data.flatMap { MealPhotoStore.save($0, id: id) }
         var meal = MealRecord(

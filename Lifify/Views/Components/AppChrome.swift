@@ -65,6 +65,21 @@ enum ChallengeCreateCopy {
     static var sport: String { L("Sport anlegen", "Create sport") }
 }
 
+/// The plus menu on the challenges page.
+enum ChallengeCreateMenu {
+    static var abstinence: String { L("Abstinenz-Challenge", "Abstinence challenge") }
+    static var sport: String { L("Sport-Challenge", "Sport challenge") }
+    static var other: String { L("Sonstige Challenge", "Other challenge") }
+    static var group: String { L("Gruppe", "Group") }
+    static var labels: [String] { [abstinence, sport, other, group] }
+}
+
+/// A category with nothing left unpinned is not shown. A workout-locked card has no check circle.
+enum ChallengeBoard {
+    static func showsCategory(unpinned: Int) -> Bool { unpinned > 0 }
+    static func showsCheckCircle(allowsHand: Bool) -> Bool { allowsHand }
+}
+
 /// Card layout for Challenges and Health. One challenge in a section uses the full width.
 enum CardBoard {
     static let challengeColumnCount = 2
@@ -229,7 +244,7 @@ struct SettingsDirectoryRow: Identifiable, Equatable {
 enum SettingsDirectory {
     static func rows() -> [SettingsDirectoryRow] {
         [
-            SettingsDirectoryRow(title: L("Nutzer", "User"), symbol: "person.fill"),
+            SettingsDirectoryRow(title: L("Nutzereinstellungen", "User settings"), symbol: "person.fill"),
             SettingsDirectoryRow(title: L("Allgemein", "General"), symbol: "gearshape.fill"),
             SettingsDirectoryRow(title: L("Finanzen", "Finance"), symbol: "eurosign"),
             SettingsDirectoryRow(title: L("Herausforderung", "Challenges"), symbol: "flame.fill"),

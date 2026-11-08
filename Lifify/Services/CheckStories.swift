@@ -391,7 +391,7 @@ enum CheckStories {
         "Gesundheit, Einstellungen und Glasflächen zeigen dieselben Titel": make(
             "Gesundheit, Einstellungen und die bemalten Flächen zeigen die Titel, die auf dem Bildschirm stehen.",
             "Health, Settings, and the painted screens show the titles that appear on screen.",
-            ("Training, Ernährung und die sechs Einstellungszeilen werden gelesen. Nutzer steht über Allgemein.", "Training, Nutrition, and the six settings rows are read. User sits above General.", "AppChrome.swift"),
+            ("Training, Ernährung und die sechs Einstellungszeilen werden gelesen. Nutzereinstellungen steht über Allgemein.", "Training, Nutrition, and the six settings rows are read. User settings sits above General.", "AppChrome.swift"),
             ("Die bemalten Flächen umfassen Home, Challenges, Gesundheit, Einstellungen, Einrichtung und Finanzen. Die Version ist 0.4.0. Ohne Schlüssel bleibt der Text, dass die Erkennung nicht verbunden ist.", "The painted screens include Home, Challenges, Health, Settings, setup, and Finance. The version is 0.4.0. Without a key the text still says recognition is not connected.", "HealthView.swift"),
         ),
         "Hell und Dunkel haben eigene Flächen": make(
@@ -413,8 +413,8 @@ enum CheckStories {
             ("Montag ist aus und liefert nichts. Ein Tag ohne gespeicherten Schalter bleibt an. Der Hauptschalter aus liefert gar nichts.", "Monday is off and delivers nothing. A day without a stored switch stays on. The master switch off delivers nothing.", "DailyBriefing.swift"),
         ),
         "Die Version steht unter dem Entwicklermodus": make(
-            "In Allgemein kommt der Entwicklermodus unten hin, und die Version steht ganz zuletzt. Name und Körpermaße liegen unter Nutzer.",
-            "In General, developer mode sits near the bottom, and the version is last of all. Name and body measures live under User.",
+            "In Allgemein kommt der Entwicklermodus unten hin, und die Version steht ganz zuletzt. Name und Körpermaße liegen unter Nutzereinstellungen.",
+            "In General, developer mode sits near the bottom, and the version is last of all. Name and body measures live under User settings.",
             ("Die Reihenfolge der Abschnitte wird gelesen.", "The section order is read.", "SettingsView.swift"),
             ("Sie lautet Darstellung, Briefing, Entwicklermodus, Version.", "It reads appearance, briefing, developer mode, version.", "SettingsView.swift"),
         ),
@@ -574,11 +574,23 @@ enum CheckStories {
             ("Verbunden wird aus dem Schlüssel gelesen, und die Ladekachel aus dem Bereit-Zustand.", "Connected is read from the key, and the loading card from the ready state.", "MealRecognition.swift"),
             ("Die Messung ist ready, 25, 4. Das Modell ist gemini-2.5-flash, und die Kalorien-Challenge trägt die Markierung nutrition:calories.", "The reading is ready, 25, 4. The model is gemini-2.5-flash, and the calorie challenge carries the mark nutrition:calories.", "NutritionLedger.swift"),
         ),
+        "Eine leere Kategorie zeigt keinen Haken": make(
+            "Eine Kategorie ohne ungepinnte Challenge verschwindet samt Anlegen-Knopf. Eine Sport-Challenge, die nur das Training zählt, zeigt keinen Hakenkreis.",
+            "A category with no unpinned challenge disappears, including its create button. A sport challenge that only counts the workout shows no check circle.",
+            ("Null ungepinnte Karten verstecken die Kategorie, eine Karte zeigt sie.", "Zero unpinned cards hide the category, and one card shows it.", "AppChrome.swift"),
+            ("Ohne Hand-Abhaken gibt es keinen Kreis, mit Hand-Abhaken bleibt er.", "Without a hand check there is no circle, and with a hand check it stays.", "ChallengesView.swift"),
+        ),
+        "Profil, Galerie und Kaloriendefizit": make(
+            "Die Einstellungen beginnen mit dem Profil und der Zeile Nutzereinstellungen. Eine Aufnahme kommt nur mit eingeschaltetem Schalter in die Galerie. Die Kalorien-Challenge heißt Kaloriendefizit. Das Plus bietet Abstinenz, Sport, Sonstige und Gruppe.",
+            "Settings start with the profile and the line User settings. A new photo reaches the library only when the switch is on. The calorie challenge is named Calorie deficit. The plus menu offers abstinence, sport, other, and a group.",
+            ("Die erste Zeile und der Galerie-Schalter werden gelesen. Aus bleibt aus.", "The first row and the library switch are read. Off stays off.", "SettingsView.swift"),
+            ("Die Messung ist Profil, aus, Kaloriendefizit. Das Plus nennt vier Einträge.", "The reading is profile, off, calorie deficit. The plus menu names four entries.", "AppChrome.swift"),
+        ),
         "Ein Trainingstag hebt das Kalorienziel": make(
             "Ein abgeschlossenes Training an dem Tag hebt das Ziel um 250 kcal. Mahlzeiten eines anderen Tags zählen nicht mit. Nutzer steht in den Einstellungen ganz oben, und das Depot zeigt zuerst die Ladekachel.",
             "A finished workout on that day raises the target by 250 kcal. Meals from another day do not count. User is the first settings row, and Portfolio shows the loading card first.",
             ("Der 8.11.2026 hat ein Training, der 7.11. nicht. Die Mahlzeit vom 8. zählt 600 kcal, die vom 7. bleibt draußen.", "8 Nov 2026 has a workout, and 7 Nov does not. The meal on the 8th counts 600 kcal, and the one on the 7th stays out.", "NutritionPlan.swift"),
-            ("Das Ziel steigt von 1448 auf 1698. Die erste Einstellungszeile ist Nutzer. Die Depotkachel bleibt zu, bis sie bereit ist.", "The target rises from 1448 to 1698. The first settings row is User. The portfolio card stays closed until it is ready.", "SettingsView.swift"),
+            ("Das Ziel steigt von 1448 auf 1698. Die erste Einstellungszeile ist Nutzereinstellungen. Die Depotkachel bleibt zu, bis sie bereit ist.", "The target rises from 1448 to 1698. The first settings row is User settings. The portfolio card stays closed until it is ready.", "SettingsView.swift"),
         ),
         "Vier Stile haben je eine helle und eine dunkle Fläche": make(
             "Grün, Blau, Bordeaux und Violett haben je eine helle und eine dunkle Fläche. Die Akzente bleiben unterscheidbar.",
