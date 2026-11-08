@@ -55,6 +55,7 @@ struct RootView: View {
         .environmentObject(workouts)
         .environmentObject(financeFilters)
         .preferredColorScheme(colorScheme)
+        .appAccentTint()
         .task {
             SavingsPlanRunner.bookDue(context: context)
             SavingsPlanFixedCosts.sync(context: context)

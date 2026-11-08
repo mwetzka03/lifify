@@ -32,12 +32,36 @@ enum CheckStories {
         L("Ergebnis: \(text)", "Actual: \(text)")
     }
 
+    static func filesLine(_ files: [String]) -> String {
+        var unique: [String] = []
+        for file in files where !unique.contains(file) {
+            unique.append(file)
+        }
+        let list = unique.joined(separator: ", ")
+        return L("Wichtige Dateien: \(list)", "Important files: \(list)")
+    }
+
+    static func methodsLine(_ name: String) -> String {
+        guard let guide = CheckGuides.guide(named: name) else { return "" }
+        return L("Methoden: \(guide.methods)", "Methods: \(guide.methods)")
+    }
+
+    static func readingGuide(_ name: String) -> String {
+        guard let guide = CheckGuides.guide(named: name) else { return "" }
+        return L(guide.german, guide.english)
+    }
+
     static func story(named name: String) -> CheckStory {
         catalog[name] ?? CheckStory(german: name, english: name, steps: [])
     }
 
     static func isComplete(_ name: String) -> Bool {
         guard let story = catalog[name], !story.german.isEmpty, story.steps.count >= 2 else { return false }
+        guard let guide = CheckGuides.guide(named: name),
+              !guide.methods.isEmpty,
+              !guide.german.isEmpty,
+              !guide.english.isEmpty
+        else { return false }
         return story.steps.allSatisfy { step in
             !step.german.isEmpty && !step.english.isEmpty && step.source.hasSuffix(".swift")
         }
@@ -377,10 +401,10 @@ enum CheckStories {
             ("Hell ist deutlich heller als 0,75, dunkel dunkler als 0,2, und die Karten sind deckend.", "Light is clearly brighter than 0.75, dark is darker than 0.2, and the cards are opaque.", "AppSurface.swift"),
         ),
         "Testkategorien starten eingeklappt": make(
-            "Die Testliste öffnet mit eingeklappten Kategorien und zählt bestandene Prüfungen je Kategorie.",
-            "The test list opens with collapsed categories and counts passed checks per category.",
-            ("Eine Beispielgruppe Shop hat einen Fehlschlag, Konto hat einen Erfolg.", "A sample shop group has one failure, and account has one pass.", "LififyChecks.swift"),
-            ("Die Gruppen starten eingeklappt und stehen alphabetisch: Konten, Navigation, Shop. Shop zählt 1/2.", "The groups start collapsed and sit in alphabetical order: Accounts, Navigation, Shop. Shop counts 1/2.", "LififyChecks.swift"),
+            "Die Testliste öffnet mit eingeklappten Kategorien. CheckResultList.groups sortiert die Kategorien alphabetisch nach dem Titel. In einer Kategorie kommen zuerst alle Unit-Prüfungen, danach alle Integrationsprüfungen, und innerhalb jeder Art wieder alphabetisch nach dem Namen.",
+            "The test list opens with collapsed categories. CheckResultList.groups sorts the categories alphabetically by title. Inside a category every unit check comes first, then every integration check, and within each kind the names are alphabetical again.",
+            ("Ein Beispiel für Shop enthält die Unit-Prüfungen Alpha und Zeta und die fehlgeschlagene Integration Mango. Mango liegt im Alphabet vor Zeta und steht trotzdem dahinter, weil Integration nach Unit kommt.", "A shop sample contains the unit checks Alpha and Zeta and the failed integration Mango. Mango comes before Zeta in the alphabet and is still listed after them, because integration follows unit.", "LififyChecks.swift"),
+            ("Die Gruppen starten eingeklappt. Die Reihenfolge der Kategorien ist Konten, Navigation, Shop. Shop zählt 2/3.", "The groups start collapsed. The category order is Accounts, Navigation, Shop. Shop counts 2/3.", "LififyChecks.swift"),
         ),
         "Die Briefingtage stehen nebeneinander": make(
             "Die Wochentage des Briefings stehen in einer Reihe. Ein abgewählter Tag bekommt keine Mitteilung.",
@@ -407,22 +431,22 @@ enum CheckStories {
             ("Keine Beschriftung ist leer.", "No label is empty.", "LififyCoverageChecks.swift"),
         ),
         "Saldo-Anker, Oberspartopf und Depotwert": make(
-            "Ein Saldo-Anker setzt den Kontostand. Spartöpfe zählen mit, die Gruppe selbst nicht. Das Depot ist Menge mal Kurs.",
-            "A balance anchor sets the account balance. Savings pots count, the group itself does not. The portfolio is quantity times price.",
-            ("Giro, Spartopf, Gruppe und Depot werden mit Buchungen und einer Aktie gerechnet.", "Checking, a savings pot, a group, and a portfolio are calculated with bookings and one share.", "FinanceService.swift"),
-            ("Giro ist 9800 Cent, Depot 300 Cent, die Summe 15100 Cent.", "Checking is 9800 cents, the portfolio 300 cents, and the total 15100 cents.", "LififyCoverageChecks.swift"),
+            "FinanceService.balance und FinanceService.totalBalance in FinanceService.swift rechnen Konten aus Buchungen. Ein Saldo-Anker ist eine Anpassung: er setzt den Stand, und nur Buchungen danach ändern ihn. Buchungen davor werden ignoriert. Ein Spartopf zählt in die Summe, die Spargruppe selbst nicht, weil totalBalance Konten der Art Oberspartopf überspringt. Das Depot ist keine Buchungssumme, sondern Menge mal aktuellem Kurs in Cent.",
+            "FinanceService.balance and FinanceService.totalBalance in FinanceService.swift calculate accounts from bookings. A balance anchor is an adjustment: it sets the balance, and only bookings after it change it. Bookings before it are ignored. A savings pot counts in the total, and the savings group itself does not, because totalBalance skips savings-group accounts. The portfolio is not a sum of bookings. It is quantity times the current price in cents.",
+            ("FinanceService.balance für das Giro: Anker 10000 Cent am 2. Januar, die Ausgabe von 500 Cent am 1. Januar liegt davor und zählt nicht, die Ausgabe von 200 Cent am 3. Januar wird abgezogen. 10000 minus 200 ist 9800 Cent. Dieselbe Methode für das Depot: Menge 2 mal Kurs 150 Cent ist 300 Cent.", "FinanceService.balance for checking: an anchor of 10000 cents on 2 January, the 500 cent expense on 1 January is before it and does not count, and the 200 cent expense on 3 January is subtracted. 10000 minus 200 is 9800 cents. The same method for the portfolio: quantity 2 times a price of 150 cents is 300 cents.", "FinanceService.swift"),
+            ("FinanceService.totalBalance addiert Giro 9800, den Spartopf-Anker 5000 und das Depot 300. Das sind 15100 Cent. Der Gruppen-Anker von 99999 Cent fehlt absichtlich. 9800 plus 300 allein wären 10100 und wären falsch. Die Messung nennt Giro, Depot und Summe. Der Spartopf steht nicht extra in der Zeile, steckt aber in der Summe.", "FinanceService.totalBalance adds checking 9800, the savings-pot anchor 5000, and the portfolio 300. That is 15100 cents. The group anchor of 99999 cents is left out on purpose. 9800 plus 300 alone would be 10100 and would be wrong. The reading names checking, the portfolio, and the total. The pot is not a separate figure, but it is inside the total.", "LififyCoverageChecks.swift"),
         ),
         "Fälligkeit und Bankarbeitstage": make(
-            "Fälligkeiten kennen Bankarbeitstage. Feiertage und Wochenenden werden übersprungen.",
-            "Due dates know banking days. Holidays and weekends are skipped.",
-            ("Der 1.1.2026 und der 1.5.2026 werden als Feiertage geprüft.", "1 Jan 2026 and 1 May 2026 are checked as holidays.", "CalendarService.swift"),
-            ("Der erste Bankarbeitstag im Januar ist der 2., und der Mai springt vom Feiertag auf den 4.", "The first banking day in January is the 2nd, and May moves from the holiday to the 4th.", "LififyCoverageChecks.swift"),
+            "CalendarService.isBankingDay, CalendarService.dueDate und CalendarService.chargeDays in CalendarService.swift bestimmen Fälligkeiten. Ein Bankarbeitstag ist kein Samstag, kein Sonntag und kein gesetzlicher Feiertag. Feste Feiertage sind unter anderem der 1. Januar und der 1. Mai. Der 14. Mai 2026 ist Christi Himmelfahrt. Die Prüfung nutzt die Zeitzone des Geräts. Die Testdaten liegen auf Berliner Mittag, damit der Kalendertag stabil bleibt.",
+            "CalendarService.isBankingDay, CalendarService.dueDate, and CalendarService.chargeDays in CalendarService.swift decide due dates. A banking day is not a Saturday, not a Sunday, and not a public holiday. Fixed holidays include 1 January and 1 May. 14 May 2026 is Ascension Day. The check uses the device time zone. The test dates sit at noon in Berlin so the calendar day stays stable.",
+            ("CalendarService.isBankingDay weist den 1.1.2026 ab, weil Neujahr ein Feiertag ist, und den 1.5.2026, weil der Tag der Arbeit ein Feiertag ist. Der 2.1.2026 ist ein Freitag und ein Bankarbeitstag. Der 14.5.2026 ist ebenfalls keiner. CalendarService.chargeDays liefert für wöchentlich die Tage 2, 9, 16 und 23 und für zweiwöchentlich 2 und 16.", "CalendarService.isBankingDay rejects 1 Jan 2026 because New Year’s Day is a holiday, and 1 May 2026 because Labour Day is a holiday. 2 Jan 2026 is a Friday and a banking day. 14 May 2026 is not a banking day either. CalendarService.chargeDays returns days 2, 9, 16, and 23 for weekly, and 2 and 16 for biweekly.", "CalendarService.swift"),
+            ("CalendarService.dueDate mit der Regel erster Bankarbeitstag startet am 1. Januar und geht vorwärts auf den 2. Die Regel letzter Bankarbeitstag startet am 31. Mai 2026. Der 31. ist ein Sonntag, der 30. ein Samstag, also ist der letzte Bankarbeitstag Freitag der 29. Der Sprung vom 1. Mai auf den 4. Mai gehört nicht hierher. Den rechnet CalendarService.savingsPlanDates in der Prüfung Wiederholungen und Sparplan-Abbuchung.", "CalendarService.dueDate with the first-banking-day rule starts on 1 January and walks forward to the 2nd. The last-banking-day rule starts on 31 May 2026. The 31st is a Sunday and the 30th is a Saturday, so the last banking day is Friday the 29th. The jump from 1 May to 4 May does not belong here. CalendarService.savingsPlanDates measures that in the check about repeats and the savings-plan charge.", "LififyCoverageChecks.swift"),
         ),
         "Wiederholungen und Sparplan-Abbuchung": make(
-            "Prognosen wiederholen sich nach Rhythmus. Ein Sparplan am Samstag rutscht auf den nächsten Bankarbeitstag.",
-            "Forecasts repeat by cadence. A savings plan on Saturday moves to the next banking day.",
-            ("Monatliche und wöchentliche Termine werden gezählt.", "Monthly and weekly occurrences are counted.", "CalendarService.swift"),
-            ("Die Mai-Abbuchung am 2., einem Samstag nach dem Feiertag, landet am 4. Mai.", "The May charge on the 2nd, a Saturday after the holiday, lands on 4 May.", "LififyCoverageChecks.swift"),
+            "CalendarService.nextOccurrences zählt Prognosen nach Rhythmus. CalendarService.savingsPlanDates schiebt eine Abbuchung vom Feiertag und vom Wochenende auf den nächsten Bankarbeitstag. Im Mai 2026 ist der 1. ein Feiertag und der 2. ein Samstag, deshalb landet die monatliche Abbuchung am Montag, dem 4. Mai.",
+            "CalendarService.nextOccurrences counts forecasts by cadence. CalendarService.savingsPlanDates moves a charge off a holiday and off the weekend onto the next banking day. In May 2026 the 1st is a holiday and the 2nd is a Saturday, so the monthly charge lands on Monday 4 May.",
+            ("CalendarService.nextOccurrences zählt ab dem 15.1.2026 monatlich bis zum 20.3. drei Termine, alle am 15. Wöchentlich ab dem 5.1. sind es vier Termine.", "CalendarService.nextOccurrences counts three monthly occurrences from 15 Jan 2026 through 20 Mar, all on the 15th. Weekly from 5 Jan there are four occurrences.", "CalendarService.swift"),
+            ("CalendarService.savingsPlanDates für Mai 2026 liefert nur den 4. Der 2. fehlt, weil er ein Samstag nach dem Feiertag ist. Der Wochenplan-Text nennt 2., 9., 16. und 23.", "CalendarService.savingsPlanDates for May 2026 returns only the 4th. The 2nd is missing because it is a Saturday after the holiday. The weekly schedule text names the 2nd, 9th, 16th, and 23rd.", "LififyCoverageChecks.swift"),
         ),
         "Restbudget, Anteil und Zeitraum": make(
             "Das Restbudget ist geplant minus ausgegeben. Anteile und der Zeitraum bleiben nachvollziehbar.",
@@ -509,10 +533,10 @@ enum CheckStories {
             ("Der Schaltertext ist Entwicklermodus, und der Speicherschlüssel ist lifify.developerMode.", "The switch text is Developer mode, and the storage key is lifify.developerMode.", "SettingsView.swift"),
         ),
         "Challenges und Gesundheit nutzen ein Kartenraster": make(
-            "Aktive Challenges stehen zu zweit in einer Reihe und teilen sich die Höhe der höheren Karte. Gesundheit schaltet Training und Ernährung in einer Reihe um.",
-            "Active challenges sit two in a row and share the height of the taller card. Health switches Training and Nutrition in one row.",
+            "Aktive Challenges stehen zu zweit in einer Reihe und teilen sich die Höhe der höheren Karte. Gesundheit schaltet Training und Ernährung in einer schmalen Kapsel um.",
+            "Active challenges sit two in a row and share the height of the taller card. Health switches Training and Nutrition in a slim capsule.",
             ("Das Raster liest zwei Spalten. Die Shop-Kapsel ist 36 Punkt hoch, dazwischen von der alten und der hohen Kapsel.", "The grid reads two columns. The shop capsule is 36 points tall, midway between the old one and the tall one.", "AppChrome.swift"),
-            ("Training und Ernährung stehen als Schalter. Darunter lassen sich Abstinenz und Sport anlegen.", "Training and Nutrition sit as switches. Abstinence and sport can be created underneath.", "AppChrome.swift"),
+            ("Training und Ernährung stehen als schmale Umschaltung in einer Kapsel. Darunter lassen sich Abstinenz und Sport anlegen.", "Training and Nutrition sit as a slim switch in a capsule. Abstinence and sport can be created underneath.", "AppChrome.swift"),
         ),
         "Vier Stile haben je eine helle und eine dunkle Fläche": make(
             "Grün, Blau, Bordeaux und Violett haben je eine helle und eine dunkle Fläche. Die Akzente bleiben unterscheidbar.",
@@ -521,10 +545,10 @@ enum CheckStories {
             ("Blau ist blauer, Bordeaux röter und Violett tiefer als Grün.", "Blue is bluer, bordeaux is redder, and violet is deeper than green.", "LififyFeatureChecks.swift"),
         ),
         "Jede Prüfung erklärt ihre Schritte": make(
-            "Jede Prüfung in der Liste hat eine Erklärung und mindestens zwei Schritte mit einer Quelldatei.",
-            "Every check in the list has an explanation and at least two steps with a source file.",
-            ("Alle Ergebnisse außer dieser Prüfung selbst werden auf eine vollständige Erklärung geprüft.", "Every result except this check itself is checked for a complete explanation.", "CheckStories.swift"),
-            ("Eine Erklärung ist vollständig, wenn Text und mindestens zwei Schritte auf eine Swift-Datei zeigen.", "An explanation is complete when the text and at least two steps point at a Swift file.", "CheckStories.swift"),
+            "Jede Prüfung in der Liste nennt die wichtigen Dateien, die Methoden und eine Lesart der Messung. Dazu kommen mindestens zwei Schritte, und jeder Schritt zeigt auf eine Swift-Datei.",
+            "Every check in the list names the important files, the methods, and how to read the measurement. It also has at least two steps, and each step points at a Swift file.",
+            ("CheckStories.isComplete prüft alle Ergebnisse außer dieser Prüfung selbst. CheckGuides.guide liefert Methoden und die Lesart.", "CheckStories.isComplete checks every result except this check itself. CheckGuides.guide supplies the methods and the reading.", "CheckStories.swift"),
+            ("Eine Erklärung ist vollständig, wenn der Text da ist, die Methoden und die Lesart nicht leer sind und mindestens zwei Schritte auf eine Swift-Datei zeigen.", "An explanation is complete when the text is present, the methods and the reading are not empty, and at least two steps point at a Swift file.", "CheckStories.swift"),
         ),
     ]
 }

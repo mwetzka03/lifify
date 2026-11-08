@@ -74,6 +74,7 @@ struct PortfolioShareChartView: View {
                     .frame(height: 280)
                     .padding(.vertical, 8)
                 }
+                .appGlassRow()
                 Section(L("Anteile", "Shares")) {
                     ForEach(shares) { share in
                         Button {
@@ -99,6 +100,7 @@ struct PortfolioShareChartView: View {
                         .listRowBackground(displayedShare?.id == share.id ? Color.accentColor.opacity(0.12) : nil)
                     }
                 }
+                .appGlassRow()
             }
         }
         .appGlassList()

@@ -31,6 +31,7 @@ struct PortfolioView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.vertical, 4)
             }
+            .appGlassRow()
             Section {
                 Picker(L("Zeitraum", "Period"), selection: $basis) {
                     ForEach(PortfolioBasis.allCases) { Text($0.label).tag($0.rawValue) }
@@ -43,6 +44,7 @@ struct PortfolioView: View {
                 .pickerStyle(.segmented)
                 .labelsHidden()
             }
+            .appGlassRow()
             Section {
                 Picker(L("Sortierung", "Sort"), selection: $sort) {
                     ForEach(PortfolioSort.allCases) { Text($0.label).tag($0.rawValue) }
@@ -50,6 +52,7 @@ struct PortfolioView: View {
                 .pickerStyle(.segmented)
                 .labelsHidden()
             }
+            .appGlassRow()
             if !savingsPlans.isEmpty || !sortedHoldings.isEmpty {
                 Section {
                     if !savingsPlans.isEmpty {
@@ -63,6 +66,7 @@ struct PortfolioView: View {
                         }
                     }
                 }
+                .appGlassRow()
             }
             ForEach(sortedHoldings) { holding in
                 let performance = holdingPerformance(holding)
@@ -99,7 +103,7 @@ struct PortfolioView: View {
                     } label: {
                         Label(L("Bearbeiten", "Edit"), systemImage: "pencil")
                     }
-                    .tint(.blue)
+                    .appAccentTint()
                 }
             }
         }
@@ -668,6 +672,7 @@ struct SavingsPlansView: View {
                 }
                 .padding(.vertical, 4)
             }
+            .appGlassRow()
             if plans.isEmpty {
                 Text(L("Keine Sparpläne.", "No savings plans."))
                     .foregroundStyle(.secondary)
@@ -696,6 +701,7 @@ struct SavingsPlansView: View {
             } header: {
                 Text(L("Gebuchte Sparpläne", "Booked savings plans"))
             }
+            .appGlassRow()
         }
         .appGlassList()
         .navigationTitle(L("Sparpläne", "Savings plans"))
@@ -782,7 +788,7 @@ private func savingsPlanRow(
         Button { onEdit(plan) } label: {
             Label(L("Bearbeiten", "Edit"), systemImage: "pencil")
         }
-        .tint(.blue)
+        .appAccentTint()
     }
 }
 
@@ -1038,10 +1044,11 @@ private struct HoldingDetailView: View {
                                 Button { editedLot = lot } label: {
                                     Label(L("Bearbeiten", "Edit"), systemImage: "pencil")
                                 }
-                                .tint(.blue)
+                                .appAccentTint()
                             }
                         }
                     }
+                    .appGlassRow()
                 }
             }
             .appGlassList()

@@ -26,6 +26,7 @@ struct ForecastDetailView: View {
                         LabeledContent(L("Noch offen", "Still open"), value: Money.string(cents: remaining))
                     }
                 }
+                .appGlassRow()
                 if item.refKind == .variable {
                     variableSection
                 } else {
@@ -88,6 +89,7 @@ struct ForecastDetailView: View {
         } header: {
             Text(L("Buchung zuweisen", "Assign transaction"))
         }
+        .appGlassRow()
     }
 
     private var variableSection: some View {
@@ -121,6 +123,7 @@ struct ForecastDetailView: View {
         } header: {
             Text(L("Buchungen zuweisen", "Assign transactions"))
         }
+        .appGlassRow()
     }
 
     @ViewBuilder

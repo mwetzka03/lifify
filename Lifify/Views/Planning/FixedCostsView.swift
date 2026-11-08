@@ -54,10 +54,12 @@ struct FixedCostsView: View {
                 NavigationLink(value: FinanceRoute.savingsPlans) {
                     savingsSummaryRow
                 }
+                .appGlassRow()
             }
             ForEach(regularCosts) { cost in
                 costRow(cost)
             }
+            .appGlassRow()
             .onDelete { offsets in
                 offsets.map { regularCosts[$0] }.forEach(delete)
             }
@@ -108,7 +110,7 @@ struct FixedCostsView: View {
             } label: {
                 Label(L("Bearbeiten", "Edit"), systemImage: "pencil")
             }
-            .tint(.blue)
+            .appAccentTint()
         }
     }
 

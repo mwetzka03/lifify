@@ -52,6 +52,7 @@ struct WorkoutSessionView: View {
                 }
                 .listRowBackground(Color.clear)
             }
+            .appGlassRow()
             if draft.exercises.isEmpty {
                 ContentUnavailableView(
                     L("Keine Übungen", "No exercises"),
@@ -88,6 +89,7 @@ struct WorkoutSessionView: View {
                             }
                     }
                 }
+                .appGlassRow()
             }
         }
         .listStyle(.plain)

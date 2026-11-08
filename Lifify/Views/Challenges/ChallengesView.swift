@@ -803,6 +803,7 @@ struct ChallengeForm: View {
                     }
                     }
                 }
+                .appGlassRow()
                 if let saveMessage {
                     Text(saveMessage)
                         .font(.caption)
@@ -1013,8 +1014,8 @@ private struct WeekdayPicker: View {
                     Text(String(labels[day - 1].prefix(1)))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 7)
-                        .background(selection.contains(day) ? Color.accentColor : Color.secondary.opacity(0.15), in: Circle())
-                        .foregroundStyle(selection.contains(day) ? .white : .primary)
+                        .background(selection.contains(day) ? Color.accentColor.opacity(0.22) : Color.secondary.opacity(0.15), in: Circle())
+                        .foregroundStyle(selection.contains(day) ? Color.accentColor : Color.primary)
                 }
                 .buttonStyle(.plain)
             }
@@ -1035,7 +1036,10 @@ private struct ChallengeGroupDetailView: View {
 
     var body: some View {
         List {
-            if !group.details.isEmpty { Section { Text(group.details) } }
+            if !group.details.isEmpty {
+                Section { Text(group.details) }
+                    .appGlassRow()
+            }
             ForEach(challenges.filter { challenge in
                 guard challenge.groupID == group.id, !challenge.isArchived else { return false }
                 return ChallengeActivity.staysOnActiveList(
@@ -1076,7 +1080,7 @@ private struct ChallengeGroupDetailView: View {
             } label: {
                 Label(L("Bearbeiten", "Edit"), systemImage: "pencil")
             }
-            .tint(.blue)
+            .appAccentTint()
         }
     }
 
@@ -1130,7 +1134,7 @@ private struct ChallengeGroupDetailView: View {
             } label: {
                 Label(L("Bearbeiten", "Edit"), systemImage: "pencil")
             }
-            .tint(.blue)
+            .appAccentTint()
         }
     }
 

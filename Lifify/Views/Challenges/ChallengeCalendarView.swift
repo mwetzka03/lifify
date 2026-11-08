@@ -139,7 +139,7 @@ private struct DayAgendaCard: View {
                     .font(.headline)
                 Spacer()
                 if AppClock.isToday(day) {
-                    Text(L("Heute", "Today")).font(.caption).foregroundStyle(.blue)
+                    Text(L("Heute", "Today")).font(.caption).appAccentForeground()
                 }
             }
             if events.isEmpty && challenges.isEmpty {
@@ -347,6 +347,7 @@ private struct ChallengeEventForm: View {
                     optionalPicker(L("Belohnung", "Reward"), selection: $linkedRewardID, values: rewards.map { ($0.id, $0.title) })
                     }
                 }
+                .appGlassRow()
                 Button(L("Als Challenge übernehmen", "Adopt as challenge")) {
                     Task { await adoptAsChallenge() }
                 }

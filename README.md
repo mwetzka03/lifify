@@ -13,7 +13,7 @@ wash and the same card fill, and it keeps its tile arrangement. Positive
 amounts stay green and negative amounts stay red. The links under More are
 a step larger than the tile titles.
 
-The finance rules are in [FINANZEN.md](FINANZEN.md). What changed in 0.4.0 is in [CHANGES-0.4.0.md](CHANGES-0.4.0.md). What changed in 0.3.0 is in [CHANGES-0.3.0.md](CHANGES-0.3.0.md). Both are in English and German.
+The finance rules are in [FINANZEN.md](FINANZEN.md). What changed in 0.4.0 is in [CHANGES-0.4.0.md](CHANGES-0.4.0.md). What changed in 0.3.0 is in [CHANGES-0.3.0.md](CHANGES-0.3.0.md). Both are in English and German. How changes, checks, and the visual style are kept is in [RULES.md](RULES.md).
 
 ### Areas
 
@@ -112,6 +112,7 @@ und behält die Anordnung der Kacheln. Positive Beträge bleiben grün, negative
 rot. Die Links unter Weitere Bereiche sind eine Stufe größer als die Kacheltitel.
 Was sich in 0.4.0 geändert hat, steht in [CHANGES-0.4.0.md](CHANGES-0.4.0.md),
 was sich in 0.3.0 geändert hat in [CHANGES-0.3.0.md](CHANGES-0.3.0.md). Beides auf Englisch und Deutsch.
+Wie Änderungen, Prüfungen und der Stil gehalten werden, steht in [RULES.md](RULES.md).
 
 Die Finanzregeln stehen in [FINANZEN.md](FINANZEN.md).
 

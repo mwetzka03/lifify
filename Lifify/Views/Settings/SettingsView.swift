@@ -9,7 +9,7 @@ struct SettingsView: View {
                     NavigationLink {
                         settingsDestination(row.symbol)
                     } label: {
-                        SettingsCategoryLabel(title: row.title, systemImage: row.symbol, color: settingsColor(row.symbol))
+                        SettingsCategoryLabel(title: row.title, systemImage: row.symbol)
                     }
                 }
             }
@@ -45,28 +45,20 @@ enum EditorCopy {
     static let moreStartsClosed = true
 }
 
-private func settingsColor(_ symbol: String) -> Color {
-    switch symbol {
-    case "eurosign": Color(red: 0.18, green: 0.72, blue: 0.38)
-    case "flame.fill": .orange
-    case "heart.fill": .red
-    case "externaldrive.fill": Color(red: 0.35, green: 0.34, blue: 0.84)
-    default: Color(white: 0.56)
-    }
-}
-
 private struct SettingsCategoryLabel: View {
+    @Environment(\.colorScheme) private var scheme
+    @AppStorage(AppPalette.storageKey) private var paletteRaw = AppPalette.green.rawValue
     let title: String
     let systemImage: String
-    let color: Color
 
     var body: some View {
+        let accent = AppLook.accent(AppAppearance(scheme), palette: AppPalette.resolved(paletteRaw)).color()
         HStack(spacing: 12) {
             Image(systemName: systemImage)
                 .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(accent)
                 .frame(width: 34, height: 34)
-                .background(color, in: Circle())
+                .background(accent.opacity(0.16), in: Circle())
             Text(title)
                 .foregroundStyle(.primary)
             Spacer(minLength: 0)
@@ -158,6 +150,7 @@ private struct GeneralSettingsView: View {
                         "Your birthday pays 500 coins once each year. In a year without 29 February, that birthday falls on 28 February."
                     ))
             }
+            .appGlassRow()
             Section {
                 Picker(L("Sprache", "Language"), selection: $language) {
                     Text("Deutsch").tag("de")
@@ -177,6 +170,7 @@ private struct GeneralSettingsView: View {
                     "All data stays locally on this device. Lifify has no backend and needs no account."
                 ))
             }
+            .appGlassRow()
             Section {
                 Toggle(L("Tägliches Briefing", "Daily briefing"), isOn: $briefingEnabled)
                 BriefingWeekBoard(
@@ -192,6 +186,7 @@ private struct GeneralSettingsView: View {
                     "Tap a day to turn the briefing on or off for that weekday. The time sits underneath. The notification names events, due challenges and their coins, upcoming rewards, the next salary, and that day's expenses. Abstinence bonuses arrive as well and stay in Notification Center."
                 ))
             }
+            .appGlassRow()
             Section {
                 Toggle(DeveloperCopy.toggle, isOn: developerModeBinding)
                 if developerMode {
@@ -208,9 +203,11 @@ private struct GeneralSettingsView: View {
                     "The day applies to Home, challenges, and the calendar. Finance stays on the real date. Launching the app or switching the mode puts the day back on today."
                 ))
             }
+            .appGlassRow()
             Section {
                 LabeledContent(L("Version", "Version"), value: AppChrome.version)
             }
+            .appGlassRow()
         }
         .onChange(of: briefingEnabled) { Task { await DailyBriefingService.refresh(context: context) } }
         .onChange(of: briefingRevision) { Task { await DailyBriefingService.refresh(context: context) } }
@@ -296,9 +293,14 @@ private struct CheckDetailView: View {
 
     var body: some View {
         let story = CheckStories.story(named: result.name)
+        let measured = result.reading.isEmpty ? (result.detail ?? "") : result.reading
+        let methods = CheckStories.methodsLine(result.name)
+        let guide = CheckStories.readingGuide(result.name)
         List {
             Section {
                 Text(story.summary)
+                Text(CheckStories.filesLine(story.steps.map(\.source)))
+                    .font(.subheadline)
                 if let detail = result.detail, !result.passed {
                     Text(detail)
                         .font(.caption)
@@ -308,6 +310,20 @@ private struct CheckDetailView: View {
                 Text(result.kind.label)
             }
             .appGlassRow()
+            if !measured.isEmpty || !guide.isEmpty {
+                Section {
+                    if !guide.isEmpty {
+                        Text(guide)
+                    }
+                    if !measured.isEmpty {
+                        Text(CheckStories.actualLine(measured))
+                            .foregroundStyle(result.passed ? Color.primary : Color.red)
+                    }
+                } header: {
+                    Text(L("Gemessen", "Measured"))
+                }
+                .appGlassRow()
+            }
             Section {
                 ForEach(Array(story.steps.enumerated()), id: \.offset) { index, step in
                     VStack(alignment: .leading, spacing: 4) {
@@ -315,8 +331,11 @@ private struct CheckDetailView: View {
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(.secondary)
                         Text(CheckStories.expectedLine(step.text))
-                        Text(CheckStories.actualLine(result.reading.isEmpty ? (result.detail ?? "—") : result.reading))
-                            .foregroundStyle(result.passed ? Color.primary : Color.red)
+                        if !methods.isEmpty {
+                            Text(methods)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
                         Text(CheckStories.sourceLine(step.source))
                             .font(.caption)
                             .foregroundStyle(.secondary)
@@ -364,6 +383,7 @@ private struct DeveloperTestsView: View {
                     "The same checks run in Xcode as LififyChecksTests. They do not write any data."
                 ))
             }
+            .appGlassRow()
             ForEach(CheckResultList.groups(from: results)) { group in
                 DisclosureGroup(isExpanded: expanded(group.topic)) {
                     ForEach(group.rows) { result in
@@ -427,6 +447,7 @@ private struct FinanceSettingsView: View {
                     Label(L("Konten", "Accounts"), systemImage: "building.columns")
                 }
             }
+            .appGlassRow()
             Section {
                 Picker(L("Standard-Girokonto", "Default checking account"), selection: $defaultCheckingAccountID) {
                     Text(L("Erstes Girokonto", "First checking account")).tag("")
@@ -452,6 +473,7 @@ private struct FinanceSettingsView: View {
                     "The checking account is preselected for buys and sales. The fee can be turned off and applies once per booking, not per share."
                 ))
             }
+            .appGlassRow()
         }
         .appGlassList()
         .navigationTitle(L("Finanzen", "Finance"))
@@ -514,6 +536,7 @@ private struct ChallengeSettingsView: View {
                     "Sport, abstinence, and other always exist. A custom category can have its own heading in the active list. Otherwise it stays with the rest."
                 ))
             }
+            .appGlassRow()
             Section {
                 NavigationLink {
                     SystemCalendarSyncView()
@@ -521,6 +544,7 @@ private struct ChallengeSettingsView: View {
                     Label(L("Kalender & Erinnerungen", "Calendar & Reminders"), systemImage: "arrow.triangle.2.circlepath")
                 }
             }
+            .appGlassRow()
             Section {
                 TextField(L("Faktor", "Factor"), text: $factorText)
                     .keyboardType(.numberPad)
@@ -532,6 +556,7 @@ private struct ChallengeSettingsView: View {
                     "An extra freeze costs this whole-number factor times the base reward. The default is 10."
                 ))
             }
+            .appGlassRow()
             Section {
                 EvenBubbleRow(spacing: 8, lineSpacing: 8) {
                     ForEach(StreakSettings.thresholds, id: \.self) { threshold in
@@ -553,6 +578,7 @@ private struct ChallengeSettingsView: View {
                     "These defaults apply until you change them. The factor applies to the base reward. When a streak reaches several steps, only the highest one counts, not the product."
                 ))
             }
+            .appGlassRow()
             Section {
                 Picker(L("Schwierigkeit", "Difficulty"), selection: $bonusDifficulty) {
                     ForEach(AbstinenceDifficulty.allCases) { Text($0.label).tag($0) }
@@ -577,6 +603,7 @@ private struct ChallengeSettingsView: View {
                     "The bonus is this factor times the coins per day. Easy, medium, and hard each have their own factors. The default table applies until you change it. Every reached step pays its bonus."
                 ))
             }
+            .appGlassRow()
         }
         .appGlassList()
         .navigationTitle(L("Herausforderung", "Challenges"))
@@ -674,6 +701,7 @@ private struct HealthSettingsView: View {
                     "The chime ends a rest period. Exercises come from the local database."
                 ))
             }
+            .appGlassRow()
         }
         .appGlassList()
         .navigationTitle(L("Gesundheit", "Health"))
@@ -696,10 +724,11 @@ private struct RestChimePicker: View {
                     Spacer()
                     if tone.id == selection {
                         Image(systemName: "checkmark")
-                            .foregroundStyle(Color.accentColor)
+                            .appAccentForeground()
                     }
                 }
             }
+            .appGlassRow()
         }
         .appGlassList()
         .navigationTitle(L("Klingelton", "Chime"))

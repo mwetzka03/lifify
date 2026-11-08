@@ -28,6 +28,7 @@ struct ChallengeEventPicker: View {
                     }
                 }
             }
+            .appGlassRow()
             ForEach(visible) { event in
                 Button {
                     selection = event.id
@@ -49,6 +50,7 @@ struct ChallengeEventPicker: View {
                 }
                 .buttonStyle(.plain)
             }
+            .appGlassRow()
         }
         .appGlassList()
         .navigationTitle(L("Termin", "Event"))

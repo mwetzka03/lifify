@@ -17,8 +17,8 @@ This file is in English and in German. The finance calculations stay in
   the same green caption as a linked event. An abstinence card also shows the
   difficulty, the elapsed time, and the next bonus. Under the abstinence cards
   and the sport cards there is a button that creates a challenge of that
-  category. A group is one wide card above those. Health is one framed row of
-  two switches, Training and Nutrition. The chosen switch changes the board
+  category. A group is one wide card above those. Health switches Training and
+  Nutrition with one slim capsule. The chosen side changes the board
   underneath. Create workout sits directly under the filter, and the plans sit
   under that button. Workout history opens and closes on the same page. One
   session still opens its detail. Long-press a card to edit or delete it.
@@ -39,9 +39,15 @@ This file is in English and in German. The finance calculations stay in
   dark wash, and Appearance still chooses System, Light, or Dark. Positive
   amounts stay green and negative amounts stay red.
 - Finance keeps the same arrangement of tiles, forecasts, and transactions.
-  Its cards use the same tinted fill as the other screens. The links under
+  Its cards use the same tinted fill as the other screens. Forecast rows and
+  transaction rows use that fill too, instead of a black list. The links under
   More are a step larger than the tile titles, and the gap above Forecasts is
   tighter.
+- The tab bar, the Home period control, settings icons, and link highlights
+  use the selected style. Settings category icons are that color. List and
+  form rows use the card fill. Positive amounts stay green and negative
+  amounts stay red. Challenge symbols and the icons on finance entries keep
+  their own colors.
 - In General, the daily briefing is a row of day circles, Mo through Su.
   Tap a circle to include that day. The time sits in the row underneath.
   Developer mode sits above the version, and the version stays last.
@@ -73,9 +79,14 @@ This file is in English and in German. The finance calculations stay in
   import, backup, the shop, training sets, and the tab bar. Where a check can
   see a label, it asserts that label. The checks do not write user data. In
   the test list every category stays collapsed until it is opened. Categories
-  are sorted alphabetically by their title. Tapping a check opens a page with
-  what the check does, then each step with the expected result, the measured
-  result, and the file that step reads.
+  are sorted alphabetically by their title. Inside a category the unit checks
+  come first, then the integration checks, and each of those groups is
+  alphabetical too. Tapping a check opens a page that names the important
+  files and the methods, explains what the measured line means, and shows that
+  line once. Each step says what should happen and which file it reads.
+- [RULES.md](RULES.md) records that changes are documented in English and in
+  German, that new behavior gets a unit check and an integration check, and
+  that the interface uses the selected style.
 
 ### Not in this version
 
@@ -101,8 +112,8 @@ This file is in English and in German. The finance calculations stay in
   Abstinenzkarte zeigt zusätzlich Schwierigkeit, vergangene Zeit und den
   nächsten Bonus. Unter den Abstinenzkarten und den Sportkarten liegt ein
   Knopf, der eine Challenge dieser Kategorie anlegt. Eine Gruppe ist eine
-  breite Karte darüber. Gesundheit ist eine umrahmte Reihe aus zwei Schaltern,
-  Training und Ernährung. Der gewählte Schalter wechselt die Ansicht darunter.
+  breite Karte darüber. Gesundheit schaltet Training und Ernährung mit einer
+  schmalen Kapsel um. Die gewählte Seite wechselt die Ansicht darunter.
   Training anlegen steht direkt unter dem Filter, die Pläne darunter. Der
   Trainingsverlauf klappt auf derselben Seite auf und zu. Ein einzelnes
   Training öffnet weiter seine Detailansicht. Ein langes Drücken bearbeitet
@@ -127,8 +138,14 @@ This file is in English and in German. The finance calculations stay in
   Dunkel. Positive Beträge bleiben grün, negative rot.
 - Finanzen behält die Anordnung von Kacheln, Prognosen und Buchungen. Die
   Kacheln nutzen dieselbe gefärbte Füllung wie die anderen Bildschirme. Die
-  Links unter Weitere Bereiche sind eine Stufe größer als die Kacheltitel, und
-  der Abstand über den Prognosen ist enger.
+  Zeilen der Prognosen und der Buchungen nutzen diese Füllung ebenfalls, nicht
+  eine schwarze Liste. Die Links unter Weitere Bereiche sind eine Stufe größer
+  als die Kacheltitel, und der Abstand über den Prognosen ist enger.
+- Die Tableiste, die Zeitraumwahl auf Home, die Symbole in den Einstellungen
+  und hervorgehobene Links nutzen den gewählten Stil. Die Kategorie-Symbole
+  der Einstellungen haben diese Farbe. Zeilen in Listen und Formularen nutzen
+  die Kartenfüllung. Positive Beträge bleiben grün, negative rot. Challenge-
+  Symbole und die Symbole an Finanzbuchungen behalten ihre eigene Farbe.
 - Unter Allgemein ist das tägliche Briefing eine Reihe Kreise von Mo bis So.
   Ein Tipp nimmt den Tag auf oder heraus. Die Uhrzeit steht in der Reihe
   darunter. Der Entwicklermodus steht über der Version, und die Version bleibt
@@ -165,9 +182,14 @@ This file is in English and in German. The finance calculations stay in
   Tableiste ab. Wo eine Prüfung eine Beschriftung sehen kann, prüft sie diese.
   Die Prüfungen schreiben keine Nutzerdaten. In den Tests ist jede Kategorie
   eingeklappt, bis sie geöffnet wird. Die Kategorien stehen alphabetisch nach
-  ihrem Titel. Ein Tipp auf eine Prüfung öffnet eine Seite mit dem, was die
-  Prüfung tut, danach jeden Schritt mit dem erwarteten Ergebnis, dem gemessenen
-  Ergebnis und der Datei, die der Schritt liest.
+  ihrem Titel. In einer Kategorie kommen zuerst die Unit-Prüfungen, dann die
+  Integrationsprüfungen, und jede dieser Gruppen ist wieder alphabetisch. Ein
+  Tipp auf eine Prüfung öffnet eine Seite, die die wichtigen Dateien und die
+  Methoden nennt, die gemessene Zeile in einem Satz erklärt und diese Zeile
+  einmal zeigt. Jeder Schritt sagt, was passieren soll, und nennt die Datei.
+- [RULES.md](RULES.md) hält fest, dass Änderungen auf Englisch und Deutsch
+  dokumentiert werden, neue Funktionen eine Unit- und eine Integrationsprüfung
+  bekommen und die Oberfläche den gewählten Stil verwendet.
 
 ### Nicht in dieser Version
 

@@ -17,14 +17,17 @@ struct CustomCategoryEditor: View {
     var body: some View {
         NavigationStack {
             Form {
-                TextField(L("Name", "Name"), text: $name)
-                Toggle(L("Separat anzeigen", "Show separately"), isOn: $separate)
-                Text(L(
-                    "Separat heißt: die Kategorie bekommt eine eigene Überschrift in der Liste der aktiven Challenges. Sonst liegt sie bei den übrigen.",
-                    "Separate means the category gets its own heading in the active challenge list. Otherwise it stays with the rest."
-                ))
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                Section {
+                    TextField(L("Name", "Name"), text: $name)
+                    Toggle(L("Separat anzeigen", "Show separately"), isOn: $separate)
+                    Text(L(
+                        "Separat heißt: die Kategorie bekommt eine eigene Überschrift in der Liste der aktiven Challenges. Sonst liegt sie bei den übrigen.",
+                        "Separate means the category gets its own heading in the active challenge list. Otherwise it stays with the rest."
+                    ))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                }
+                .appGlassRow()
             }
             .appGlassList()
             .navigationTitle(L("Kategorie", "Category"))

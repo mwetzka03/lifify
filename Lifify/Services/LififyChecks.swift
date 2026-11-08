@@ -81,9 +81,17 @@ enum CheckResultList {
     static func groups(from results: [LififyCheckResult]) -> [CheckTopicGroup] {
         LififyCheckTopic.allCases.compactMap { topic in
             let rows = results.filter { $0.topic == topic }
-            return rows.isEmpty ? nil : CheckTopicGroup(topic: topic, rows: rows)
+            return rows.isEmpty ? nil : CheckTopicGroup(topic: topic, rows: ordered(rows))
         }
         .sorted { $0.topic.title.localizedStandardCompare($1.topic.title) == .orderedAscending }
+    }
+
+    /// Unit checks first, then integration checks, and alphabetical within each kind.
+    private static func ordered(_ rows: [LififyCheckResult]) -> [LififyCheckResult] {
+        rows.sorted { lhs, rhs in
+            if lhs.kind != rhs.kind { return lhs.kind == .unit }
+            return lhs.name.localizedStandardCompare(rhs.name) == .orderedAscending
+        }
     }
 }
 

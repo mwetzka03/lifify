@@ -30,6 +30,7 @@ struct WorkoutEditorView: View {
                     TextField(L("Name, z. B. Push", "Name, for example Push"), text: $plan.name)
                         .font(.title2.bold())
                 }
+                .appGlassRow()
                 ForEach(plan.exercises) { exercise in
                     Section {
                         exerciseHeader(exercise)
@@ -63,6 +64,7 @@ struct WorkoutEditorView: View {
                         }
                         .buttonStyle(.borderless)
                     }
+                    .appGlassRow()
                 }
                 Section {
                     Button {
@@ -71,6 +73,7 @@ struct WorkoutEditorView: View {
                         Label(L("Übung hinzufügen", "Add exercise"), systemImage: "plus")
                     }
                 }
+                .appGlassRow()
             }
             .appGlassList()
             .scrollDismissesKeyboard(.interactively)

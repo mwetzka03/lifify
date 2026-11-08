@@ -28,6 +28,10 @@ struct HomeView: View {
     @Environment(\.colorScheme) private var scheme
     @AppStorage(AppPalette.storageKey) private var paletteRaw = AppPalette.green.rawValue
 
+    private var paletteAccent: Color {
+        AppLook.accent(AppAppearance(scheme), palette: AppPalette.resolved(paletteRaw)).color()
+    }
+
     var body: some View {
         ScrollView {
             VStack(spacing: 16) {
@@ -87,6 +91,7 @@ struct HomeView: View {
                     ForEach(ChallengeCalendarViewMode.allCases) { Text($0.label).tag($0) }
                 }
                 .pickerStyle(.segmented)
+                .tint(paletteAccent)
 
                 HStack {
                     Button { move(by: -1) } label: { Image(systemName: "chevron.left") }
@@ -101,6 +106,7 @@ struct HomeView: View {
                     Spacer()
                     Button { move(by: 1) } label: { Image(systemName: "chevron.right") }
                 }
+                .tint(paletteAccent)
 
                 Group {
                     switch mode {
@@ -304,7 +310,7 @@ struct HomeView: View {
                                     .background(AppClock.isToday(date) ? Color.red : .clear, in: Circle())
                                 HStack(spacing: 2) {
                                     if !events(on: date).isEmpty {
-                                        Circle().fill(.blue).frame(width: 4, height: 4)
+                                        Circle().fill(paletteAccent).frame(width: 4, height: 4)
                                     }
                                     if !dueChallenges(on: date).isEmpty {
                                         Circle().fill(.green).frame(width: 4, height: 4)
@@ -321,7 +327,7 @@ struct HomeView: View {
                 }
             }
             HStack(spacing: 14) {
-                Label(L("Termine", "Events"), systemImage: "circle.fill").foregroundStyle(.blue)
+                Label(L("Termine", "Events"), systemImage: "circle.fill").foregroundStyle(paletteAccent)
                 Label(L("Challenges", "Challenges"), systemImage: "circle.fill").foregroundStyle(.green)
                 Spacer()
             }
@@ -883,6 +889,7 @@ private struct PeriodTransactionsView: View {
     var body: some View {
         List(entries) { entry in
             HomeTransactionRow(entry: entry, accounts: accounts, holdings: holdings, ledgerEntries: ledgerEntries)
+                .appGlassRow()
         }
         .appGlassList()
         .navigationTitle(title)

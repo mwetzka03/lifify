@@ -31,6 +31,7 @@ struct ExerciseSearchView: View {
                 } header: {
                     Text(L("Eigene Übung", "Custom exercise"))
                 }
+                .appGlassRow()
                 Section {
                     if results.isEmpty {
                         Text(L("Keine Treffer", "No matches"))
@@ -62,6 +63,7 @@ struct ExerciseSearchView: View {
                 } header: {
                     Text(L("Datenbank", "Database"))
                 }
+                .appGlassRow()
             }
             .appGlassList()
             .navigationTitle(L("Übung suchen", "Search exercise"))

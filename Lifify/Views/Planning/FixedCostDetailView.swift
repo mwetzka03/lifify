@@ -25,6 +25,7 @@ struct FixedCostDetailView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
+                .appGlassRow()
                 Section {
                     if assigned.isEmpty {
                         Text(L("Noch keine Buchung zugeordnet.", "No transaction is assigned yet."))
@@ -61,7 +62,7 @@ struct FixedCostDetailView: View {
                             } label: {
                                 Label(L("Bearbeiten", "Edit"), systemImage: "pencil")
                             }
-                            .tint(.blue)
+                            .appAccentTint()
                         }
                     }
                 } header: {
@@ -72,6 +73,7 @@ struct FixedCostDetailView: View {
                         "Remove clears only the assignment. The transaction stays."
                     ))
                 }
+                .appGlassRow()
                 Section {
                     if upcoming.isEmpty {
                         Text(L("Keine weitere Abbuchung.", "No further debit."))
@@ -99,6 +101,7 @@ struct FixedCostDetailView: View {
                 } header: {
                     Text(L("Nächste Prognosen", "Next forecasts"))
                 }
+                .appGlassRow()
             }
             .appGlassList()
             .navigationTitle(cost.name)

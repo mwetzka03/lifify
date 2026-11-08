@@ -59,6 +59,7 @@ struct EventChallengeTimeSection: View {
                 "The slot is the limit. A single challenge sets the event to its duration. When several are linked and you finish only some, the event shrinks to the finished minutes. Sport and abstinence stay out of this."
             ))
         }
+        .appGlassRow()
         if !suggestions.isEmpty {
             Section {
                 ForEach(suggestions) { challenge in
@@ -76,6 +77,7 @@ struct EventChallengeTimeSection: View {
             } header: {
                 Text(L("Vorschläge", "Suggestions"))
             }
+            .appGlassRow()
         }
     }
 

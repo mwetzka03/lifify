@@ -33,9 +33,10 @@ struct TransferForecastsView: View {
                     Button { edited = forecast } label: {
                         Label(L("Bearbeiten", "Edit"), systemImage: "pencil")
                     }
-                    .tint(.blue)
+                    .appAccentTint()
                 }
             }
+            .appGlassRow()
         }
         .overlay {
             if forecasts.isEmpty {

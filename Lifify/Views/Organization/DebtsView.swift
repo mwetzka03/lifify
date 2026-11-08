@@ -12,6 +12,7 @@ struct DebtsView: View {
                 LabeledContent(L("Bekomme ich", "Owed to me"), value: Money.string(cents: total(.owedToMe)))
                 LabeledContent(L("Schulde ich", "I owe"), value: Money.string(cents: total(.iOwe)))
             }
+            .appGlassRow()
             ForEach(debts) { debt in
                 HStack {
                     Button {

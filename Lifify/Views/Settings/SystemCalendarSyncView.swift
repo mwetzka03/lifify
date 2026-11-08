@@ -29,10 +29,12 @@ struct SystemCalendarSyncView: View {
             } header: {
                 Text(L("Systemintegration", "System integration"))
             }
+            .appGlassRow()
             Section {
                 LabeledContent(L("Importierte Termine", "Imported events"), value: "\(events.filter { $0.externalIdentifier != nil && !$0.isReminderSuggestion }.count)")
                 LabeledContent(L("Importierte Erinnerungen", "Imported reminders"), value: "\(events.filter(\.isReminderSuggestion).count)")
             }
+            .appGlassRow()
         }
         .appGlassList()
         .navigationTitle(L("Kalender-Sync", "Calendar sync"))

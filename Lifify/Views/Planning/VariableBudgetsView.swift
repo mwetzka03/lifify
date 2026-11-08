@@ -81,7 +81,7 @@ struct VariableBudgetsView: View {
                     } label: {
                         Label(L("Bearbeiten", "Edit"), systemImage: "pencil")
                     }
-                    .tint(.blue)
+                    .appAccentTint()
                 }
             }
             .onDelete { offsets in
@@ -193,6 +193,7 @@ private struct VariableBudgetDetailView: View {
                     Text("\(AppDate.numeric(period.start)) – \(AppDate.numeric(period.end))")
                         .foregroundStyle(.secondary)
                 }
+                .appGlassRow()
             }
             if assigned.isEmpty {
                 Text(L(
@@ -284,6 +285,7 @@ struct VariableBudgetForm: View {
                         "The amount is split evenly across the selected accounts. With no selection it applies to every account."
                     ))
                 }
+                .appGlassRow()
                 TextField(L("Notiz", "Note"), text: $notes, axis: .vertical)
             }
             .appGlassList()

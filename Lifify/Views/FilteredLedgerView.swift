@@ -133,6 +133,7 @@ struct FilteredLedgerView: View {
                     } header: {
                         Text(L("Einnahmeprognosen", "Income forecasts"))
                     }
+                    .appGlassRow()
                 }
                 if kind == .expense && !filters.showsDepot {
                     Section {
@@ -146,6 +147,7 @@ struct FilteredLedgerView: View {
                     } header: {
                         Text(L("Prognoseausgaben", "Expense forecasts"))
                     }
+                    .appGlassRow()
                 }
                 if rowsToken != ledgerToken {
                     HStack {
@@ -262,7 +264,7 @@ struct FilteredLedgerView: View {
             } label: {
                 Label(L("Bearbeiten", "Edit"), systemImage: "pencil")
             }
-            .tint(.blue)
+            .appAccentTint()
         }
     }
 

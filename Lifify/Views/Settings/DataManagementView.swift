@@ -68,6 +68,7 @@ struct DataManagementView: View {
             } header: {
                 Text(L("Bankimport", "Bank import"))
             }
+            .appGlassRow()
 
             Section {
                 Button {
@@ -84,6 +85,7 @@ struct DataManagementView: View {
             } header: {
                 Text("Trade Republic")
             }
+            .appGlassRow()
 
             Section(L("JSON-Sicherung", "JSON backup")) {
                 Button {
@@ -118,6 +120,7 @@ struct DataManagementView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
             }
+            .appGlassRow()
 
             Section {
                 Button(role: .destructive) {
@@ -148,6 +151,7 @@ struct DataManagementView: View {
             } header: {
                 Text(L("Zurücksetzen", "Reset"))
             }
+            .appGlassRow()
         }
         .appGlassList()
         .navigationTitle(L("Daten", "Data"))

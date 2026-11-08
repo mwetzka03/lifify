@@ -151,9 +151,11 @@ struct OnboardingView: View {
             .pickerStyle(.inline)
             .labelsHidden()
         }
+        .appGlassRow()
         Section {
             nextButton { step = 1 }
         }
+        .appGlassRow()
     }
 
     @ViewBuilder
@@ -172,6 +174,7 @@ struct OnboardingView: View {
         } header: {
             Text(OnboardingSteps.start)
         }
+        .appGlassRow()
     }
 
     @ViewBuilder
@@ -197,6 +200,7 @@ struct OnboardingView: View {
                 "The name is stored locally only for your greeting. Set the date of birth to your day, then you can continue. Your birthday pays 500 coins once each year. In a year without 29 February, that birthday falls on 28 February."
             ))
         }
+        .appGlassRow()
         Section {
             nextButton {
                 storedName = userName.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -205,6 +209,7 @@ struct OnboardingView: View {
             }
             .disabled(userName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !birthConfirmed)
         }
+        .appGlassRow()
     }
 
     @ViewBuilder
@@ -218,12 +223,14 @@ struct OnboardingView: View {
         } header: {
             Text(OnboardingSteps.period)
         }
+        .appGlassRow()
         Section {
             nextButton {
                 storedPeriod = periodMode.rawValue
                 step = 4
             }
         }
+        .appGlassRow()
     }
 
     @ViewBuilder
@@ -238,12 +245,14 @@ struct OnboardingView: View {
         } footer: {
             Text(L("Das Hauptkonto ist verpflichtend und kann später nicht gelöscht werden.", "The main account is required and cannot be deleted later."))
         }
+        .appGlassRow()
         Section {
             nextButton {
                 if saveMainAccount() { step = 5 }
             }
             .disabled(accountName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         }
+        .appGlassRow()
     }
 
     @ViewBuilder
@@ -287,6 +296,7 @@ struct OnboardingView: View {
                 "CSV and CAMT go to the main account and define the first period. The Trade Republic statement follows as its own step."
             ))
         }
+        .appGlassRow()
         Section {
             if !importedRows.isEmpty {
                 nextButton { step = 6 }
@@ -297,6 +307,7 @@ struct OnboardingView: View {
             }
             .disabled(!importedRows.isEmpty)
         }
+        .appGlassRow()
     }
 
     @ViewBuilder
@@ -374,6 +385,7 @@ struct OnboardingView: View {
                 "No destination account. Transactions before the start of the first period are not booked; later ones are. The opening balance is the right-hand balance on the start day, or from the previous day."
             ))
         }
+        .appGlassRow()
         Section {
             if tradeRepublicImported {
                 nextButton { step = 7 }
@@ -384,6 +396,7 @@ struct OnboardingView: View {
             }
             .disabled(tradeRepublicImported)
         }
+        .appGlassRow()
     }
 
     @ViewBuilder
@@ -411,6 +424,7 @@ struct OnboardingView: View {
                 Stepper("\(L("Kalendertag", "Calendar day")): \(dueDay)", value: $dueDay, in: 1...31)
             }
         }
+        .appGlassRow()
         Section {
             Button {
                 secondaryDrafts.append(SecondaryIncomeDraft())
@@ -420,6 +434,7 @@ struct OnboardingView: View {
         } header: {
             Text(OnboardingSteps.secondaryIncome)
         }
+        .appGlassRow()
         ForEach($secondaryDrafts) { draft in
             Section {
                 if !positiveRows.isEmpty {
@@ -447,6 +462,7 @@ struct OnboardingView: View {
                     secondaryDrafts.removeAll { $0.id == draft.wrappedValue.id }
                 }
             }
+            .appGlassRow()
         }
         Section {
             Button {
@@ -460,6 +476,7 @@ struct OnboardingView: View {
             }
             .disabled(!canFinish || isFinishing)
         }
+        .appGlassRow()
     }
 
     private var positiveRows: [ImportedTransaction] {

@@ -37,7 +37,7 @@ struct ExpenseGroupsView: View {
                     Button { edited = group } label: {
                         Label(L("Bearbeiten", "Edit"), systemImage: "pencil")
                     }
-                    .tint(.blue)
+                    .appAccentTint()
                 }
             }
         }
@@ -79,7 +79,10 @@ private struct ExpenseGroupDetailView: View {
 
     var body: some View {
         List {
-            if !group.notes.isEmpty { Section { Text(group.notes) } }
+            if !group.notes.isEmpty {
+                Section { Text(group.notes) }
+                    .appGlassRow()
+            }
             Section {
                 if assigned.isEmpty {
                     Text(L("Noch keine Buchung zugeordnet.", "No transaction assigned yet."))
@@ -113,6 +116,7 @@ private struct ExpenseGroupDetailView: View {
                     "The group applies only here. The transaction itself stays unchanged."
                 ))
             }
+            .appGlassRow()
         }
         .appGlassList()
         .navigationTitle(group.name)
@@ -199,6 +203,7 @@ private struct ExpenseBookingPicker: View {
                     }
                 }
                 .buttonStyle(.plain)
+                .appGlassRow()
             }
             .searchable(text: $query, prompt: L("Buchung suchen", "Search transactions"))
             .appGlassList()

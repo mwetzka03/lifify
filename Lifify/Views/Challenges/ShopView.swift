@@ -180,7 +180,7 @@ struct ShopView: View {
                     Button { openURL(url) } label: {
                         Label(reward.urlString, systemImage: "link")
                             .font(.caption)
-                            .foregroundStyle(.blue)
+                            .appAccentForeground()
                             .lineLimit(2)
                             .multilineTextAlignment(.leading)
                             .frame(maxWidth: .infinity, alignment: .leading)
@@ -375,6 +375,7 @@ private struct RewardForm: View {
                             confirmDelete = true
                         }
                     }
+                    .appGlassRow()
                 }
             }
             .appGlassList()

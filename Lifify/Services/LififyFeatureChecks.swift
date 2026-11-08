@@ -151,18 +151,21 @@ enum LififyFeatureChecks {
 
     private static func testCategoriesStartCollapsed() -> LififyCheckResult {
         let sample = [
-            LififyCheckResult(name: "A", passed: true, detail: nil, kind: .unit, topic: .shop),
-            LififyCheckResult(name: "B", passed: false, detail: "fehlt", reading: "fehlt", kind: .integration, topic: .shop),
+            LififyCheckResult(name: "Zeta", passed: true, detail: nil, kind: .unit, topic: .shop),
+            LififyCheckResult(name: "Mango", passed: false, detail: "fehlt", reading: "fehlt", kind: .integration, topic: .shop),
+            LififyCheckResult(name: "Alpha", passed: true, detail: nil, kind: .unit, topic: .shop),
             LififyCheckResult(name: "C", passed: true, detail: nil, kind: .unit, topic: .account),
             LififyCheckResult(name: "D", passed: true, detail: nil, kind: .unit, topic: .navigation)
         ]
         let groups = CheckResultList.groups(from: sample)
         let titles = groups.map(\.topic.title)
         let sorted = titles.sorted { $0.localizedStandardCompare($1) == .orderedAscending }
+        let shopNames = groups[2].rows.map(\.name)
         let passed = CheckResultList.startsCollapsed
             && titles == sorted
             && groups.map(\.topic) == [.account, .navigation, .shop]
-            && groups[2].summary == "1/2"
+            && shopNames == ["Alpha", "Zeta", "Mango"]
+            && groups[2].summary == "2/3"
             && groups[2].allPassed == false
             && groups[0].summary == "1/1"
         return LififyCheckResult(

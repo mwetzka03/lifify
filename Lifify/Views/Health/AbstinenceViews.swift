@@ -146,6 +146,7 @@ struct AbstinenceDetailView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.vertical, 8)
             }
+            .appGlassRow()
             Section {
                 ForEach(AbstinenceMilestone.allCases) { milestone in
                     let reached = now >= milestone.due(from: start)
@@ -170,6 +171,7 @@ struct AbstinenceDetailView: View {
                     "A bonus is that step’s factor times the coins per day. Every reached step counts, not only the highest one."
                 ))
             }
+            .appGlassRow()
             if !exceptions.isEmpty {
                 Section {
                     ForEach(exceptions) { exception in
@@ -188,6 +190,7 @@ struct AbstinenceDetailView: View {
                         "A redeemed reward does not stop the timer."
                     ))
                 }
+                .appGlassRow()
             }
             if !relapses.isEmpty {
                 Section {
@@ -205,12 +208,14 @@ struct AbstinenceDetailView: View {
                 } header: {
                     Text(L("Rückfälle", "Relapses"))
                 }
+                .appGlassRow()
             }
             Section {
                 Button(L("Rückfall", "Relapse"), role: .destructive) {
                     confirmingRelapse = true
                 }
             }
+            .appGlassRow()
         }
     }
 

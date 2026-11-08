@@ -74,7 +74,7 @@ enum LififyCoverageChecks {
             .account,
             .integration,
             passed,
-            "Giro \(checkingBalance), Depot \(depotBalance), Summe \(total)"
+            "Giro \(checkingBalance) Cent ist Anker 10000 minus 200. Depot \(depotBalance) Cent ist 2 mal 150. Summe \(total) Cent ist Giro plus Spartopf 5000 plus Depot. Die Gruppe 99999 zählt nicht."
         )
     }
 
@@ -100,7 +100,13 @@ enum LififyCoverageChecks {
             && lastParts.day == 29 && lastParts.month == 5
             && CalendarService.chargeDays(for: .weekly) == [2, 9, 16, 23]
             && CalendarService.chargeDays(for: .biweekly) == [2, 16]
-        return check("Fälligkeit und Bankarbeitstage", .forecast, .unit, passed, "erster \(firstParts.day ?? 0), letzter \(lastParts.day ?? 0)")
+        return check(
+            "Fälligkeit und Bankarbeitstage",
+            .forecast,
+            .unit,
+            passed,
+            "Erster Bankarbeitstag im Januar ist der \(firstParts.day ?? 0). Letzter Bankarbeitstag im Mai ist der \(lastParts.day ?? 0), weil der 31. ein Sonntag und der 30. ein Samstag ist."
+        )
     }
 
     private static func occurrencesAndSavingsPlansFollowTheRules() -> LififyCheckResult {
@@ -133,7 +139,13 @@ enum LififyCoverageChecks {
             && planDays == [4]
             && !planDays.contains(2)
             && (text.contains("2., 9., 16. und 23.") || text.contains("2nd, 9th, 16th and 23rd"))
-        return check("Wiederholungen und Sparplan-Abbuchung", .forecast, .integration, passed, "Monat \(monthly.count), Woche \(weekly.count), Mai \(planDays)")
+        return check(
+            "Wiederholungen und Sparplan-Abbuchung",
+            .forecast,
+            .integration,
+            passed,
+            "Monatlich \(monthly.count) Termine, wöchentlich \(weekly.count). Die Mai-Abbuchung landet am \(planDays), weil der 1. ein Feiertag und der 2. ein Samstag ist."
+        )
     }
 
     private static func budgetMathMatchesTheTiles() -> LififyCheckResult {

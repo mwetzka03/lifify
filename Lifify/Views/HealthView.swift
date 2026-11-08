@@ -22,13 +22,7 @@ struct HealthView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 if CardBoard.healthFiltersShareOneRow {
-                    HStack(spacing: 6) {
-                        ForEach(0..<HealthScreen.sectionTitles().count, id: \.self) { index in
-                            healthSwitch(index)
-                        }
-                    }
-                    .padding(6)
-                    .appGlassCard(radius: 18)
+                    healthFilter
                 }
                 selectedBoard
             }
@@ -47,40 +41,35 @@ struct HealthView: View {
         }
     }
 
-    private func healthSwitch(_ index: Int) -> some View {
+    private var healthFilter: some View {
         let titles = HealthScreen.sectionTitles()
-        let title = titles[index]
-        let accent = AppLook.accent(AppAppearance(scheme), palette: AppPalette.resolved(paletteRaw)).color()
-        let selected = selectedTile == index
-        return Button {
-            selectedTile = index
-        } label: {
-            VStack(spacing: 4) {
-                Image(systemName: CardBoard.healthSymbol(matching: title))
-                    .font(.body.weight(.semibold))
-                Text(title)
-                    .font(.caption.weight(.semibold))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
-                Text(tileDetail(index))
-                    .font(.caption2)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
+        let appearance = AppAppearance(scheme)
+        let palette = AppPalette.resolved(paletteRaw)
+        let accent = AppLook.accent(appearance, palette: palette).color()
+        return HStack(spacing: 4) {
+            ForEach(Array(titles.enumerated()), id: \.offset) { index, title in
+                let selected = selectedTile == index
+                Button {
+                    selectedTile = index
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: CardBoard.healthSymbol(matching: title))
+                        Text(title)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
+                    }
+                    .font(.subheadline.weight(.semibold))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 8)
+                    .foregroundStyle(selected ? accent : Color.secondary)
+                    .background(selected ? accent.opacity(0.18) : Color.clear, in: Capsule())
+                }
+                .buttonStyle(.plain)
             }
-            .foregroundStyle(selected ? accent : Color.secondary)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 8)
-            .padding(.horizontal, 4)
-            .background(selected ? accent.opacity(0.16) : Color.clear, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         }
-        .buttonStyle(.plain)
-    }
-
-    private func tileDetail(_ index: Int) -> String {
-        if index == 1 { return HealthScreen.nutritionNote }
-        return store.plans.isEmpty
-            ? L("Noch kein Trainingsplan.", "No workout plan yet.")
-            : "\(store.plans.count)"
+        .padding(4)
+        .background(AppLook.cardFill(appearance, palette: palette).color(), in: Capsule())
+        .overlay(Capsule().strokeBorder(AppLook.cardStroke(appearance, palette: palette).color(), lineWidth: 1))
     }
 
     @ViewBuilder
@@ -408,6 +397,7 @@ struct WorkoutHistoryListView: View {
             if store.sessions.isEmpty {
                 Text(L("Noch kein abgeschlossenes Training.", "No finished workout yet."))
                     .foregroundStyle(.secondary)
+                    .appGlassRow()
             }
             ForEach(store.sessions) { session in
                 NavigationLink(value: HealthRoute.history(session.id)) {
@@ -434,6 +424,7 @@ struct WorkoutHistoryListView: View {
                     }
                 }
             }
+            .appGlassRow()
         }
         .appGlassList()
         .navigationTitle(L("Trainingsverlauf", "Workout history"))

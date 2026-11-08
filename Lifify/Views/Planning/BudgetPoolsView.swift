@@ -20,7 +20,7 @@ struct BudgetPoolsView: View {
                     VStack(alignment: .leading, spacing: 5) {
                         HStack {
                             Text(pool.name)
-                            if pool.isScalable { Image(systemName: "arrow.triangle.2.circlepath").foregroundStyle(.blue) }
+                            if pool.isScalable { Image(systemName: "arrow.triangle.2.circlepath").appAccentForeground() }
                             Spacer()
                             Text(Money.string(cents: pool.amountCents + carry - spent))
                         }
@@ -46,7 +46,7 @@ struct BudgetPoolsView: View {
                     Button { edited = pool } label: {
                         Label(L("Bearbeiten", "Edit"), systemImage: "pencil")
                     }
-                    .tint(.blue)
+                    .appAccentTint()
                 }
             }
         }
@@ -87,6 +87,7 @@ private struct BudgetPoolDetailView: View {
                 LabeledContent(L("Rest", "Remaining"), value: Money.string(cents: remaining))
                 LabeledContent(L("Skalierbar", "Scalable"), value: pool.isScalable ? L("Ja", "Yes") : L("Nein", "No"))
             }
+            .appGlassRow()
             Section(L("Buchungen", "Transactions")) {
                 if assignedEntries.isEmpty {
                     Text(L("In diesem Zeitraum ist nichts zugeordnet.", "Nothing is assigned in this period."))
@@ -124,6 +125,7 @@ private struct BudgetPoolDetailView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
             }
+            .appGlassRow()
         }
         .appGlassList()
         .navigationTitle(pool.name)
@@ -292,6 +294,7 @@ private struct PoolBookingPicker: View {
                     }
                 }
                 .buttonStyle(.plain)
+                .appGlassRow()
             }
     }
 

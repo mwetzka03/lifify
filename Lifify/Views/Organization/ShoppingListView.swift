@@ -102,7 +102,7 @@ struct ShoppingListView: View {
                     Button { edited = item } label: {
                         Label(L("Bearbeiten", "Edit"), systemImage: "pencil")
                     }
-                    .tint(.blue)
+                    .appAccentTint()
                 }
                 .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                     Button(role: .destructive) {
@@ -176,6 +176,7 @@ struct ShoppingItemDetailView: View {
                         Spacer()
                     }
                 }
+                .appGlassRow()
                 Section(L("Buchungen", "Transactions")) {
                     if bookings.isEmpty {
                         Text(L("Noch keine Buchung zugeordnet.", "No transaction is assigned yet."))
@@ -201,6 +202,7 @@ struct ShoppingItemDetailView: View {
                         .buttonStyle(.plain)
                     }
                 }
+                .appGlassRow()
             }
             .appGlassList()
             .navigationTitle(item.name)

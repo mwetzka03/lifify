@@ -92,6 +92,7 @@ struct DashboardView: View {
                                 .foregroundStyle(.primary)
                                 .textCase(nil)
                         }
+                        .appGlassRow()
                     }
                     Section {
                         bookingSearchRow
@@ -128,7 +129,7 @@ struct DashboardView: View {
                                 } label: {
                                     Label(L("Bearbeiten", "Edit"), systemImage: "pencil")
                                 }
-                                .tint(.blue)
+                                .appAccentTint()
                             }
                         }
                     } header: {
@@ -137,9 +138,11 @@ struct DashboardView: View {
                             .foregroundStyle(.primary)
                             .textCase(nil)
                     }
+                    .appGlassRow()
                     }
                     .listStyle(.plain)
                     .scrollContentBackground(.hidden)
+                    .appAccentTint()
                     .listSectionSpacing(FinanceMoreDirectory.sectionSpacing)
                 }
                 .task(id: filters.showsDepot ? 0 : forecastToken) {
@@ -329,7 +332,7 @@ struct DashboardView: View {
             } label: {
                 Label(L("Bearbeiten", "Edit"), systemImage: "pencil")
             }
-            .tint(.blue)
+            .appAccentTint()
         }
     }
 

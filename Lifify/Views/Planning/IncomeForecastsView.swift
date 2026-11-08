@@ -34,7 +34,7 @@ struct IncomeOverviewView: View {
                             Button { edited = forecast } label: {
                                 Label(L("Bearbeiten", "Edit"), systemImage: "pencil")
                             }
-                            .tint(.blue)
+                            .appAccentTint()
                         }
                 }
                 Button {
@@ -45,6 +45,7 @@ struct IncomeOverviewView: View {
             } header: {
                 Text(L("Einnahmeprognosen", "Income forecasts"))
             }
+            .appGlassRow()
             Section(L("Buchungen", "Transactions")) {
                 if incomeEntries.isEmpty {
                     Text(L("Noch keine Einnahmen.", "No income yet."))
@@ -55,6 +56,7 @@ struct IncomeOverviewView: View {
                         .buttonStyle(.plain)
                 }
             }
+            .appGlassRow()
         }
         .appGlassList()
         .navigationTitle(L("Einnahmen", "Income"))
@@ -110,7 +112,7 @@ struct IncomeForecastsView: View {
                     Button { edited = forecast } label: {
                         Label(L("Bearbeiten", "Edit"), systemImage: "pencil")
                     }
-                    .tint(.blue)
+                    .appAccentTint()
                 }
             }
         }

@@ -266,10 +266,20 @@ extension View {
             .scrollContentBackground(.hidden)
             .listStyle(.insetGrouped)
             .background(AppPlayfulCanvas())
+            .appAccentTint()
     }
 
     func appGlassRow() -> some View {
         listRowBackground(AppGlassRowFill())
+    }
+
+    /// Links, pickers, and the tab bar follow the selected style instead of system blue.
+    func appAccentTint() -> some View {
+        modifier(AppAccentTintModifier())
+    }
+
+    func appAccentForeground() -> some View {
+        modifier(AppAccentForegroundModifier())
     }
 
     func appGlassCard(radius: CGFloat = 22) -> some View {
@@ -337,6 +347,24 @@ private struct AppTintedCapsuleFill: View {
         let fill = AppLook.cardFill(appearance, palette: palette).color()
         let stroke = AppLook.cardStroke(appearance, palette: palette).color()
         return Capsule().fill(fill).overlay(Capsule().strokeBorder(stroke, lineWidth: 1))
+    }
+}
+
+private struct AppAccentTintModifier: ViewModifier {
+    @Environment(\.colorScheme) private var scheme
+    @AppStorage(AppPalette.storageKey) private var paletteRaw = AppPalette.green.rawValue
+
+    func body(content: Content) -> some View {
+        content.tint(AppLook.accent(AppAppearance(scheme), palette: AppPalette.resolved(paletteRaw)).color())
+    }
+}
+
+private struct AppAccentForegroundModifier: ViewModifier {
+    @Environment(\.colorScheme) private var scheme
+    @AppStorage(AppPalette.storageKey) private var paletteRaw = AppPalette.green.rawValue
+
+    func body(content: Content) -> some View {
+        content.foregroundStyle(AppLook.accent(AppAppearance(scheme), palette: AppPalette.resolved(paletteRaw)).color())
     }
 }
 

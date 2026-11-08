@@ -94,7 +94,7 @@ struct TransactionsView: View {
                     } label: {
                         Label(L("Bearbeiten", "Edit"), systemImage: "pencil")
                     }
-                    .tint(.blue)
+                    .appAccentTint()
                 }
             }
         }
@@ -262,6 +262,7 @@ struct TransactionDetailView: View {
                         value: AppDate.weekdayAndNumeric(entry.date)
                     )
                 }
+                .appGlassRow()
                 if category == .expense {
                     Section {
                         Button {
@@ -270,6 +271,7 @@ struct TransactionDetailView: View {
                             Label(L("Rückerstattung anlegen", "Add refund"), systemImage: "arrow.uturn.backward.circle")
                         }
                     }
+                    .appGlassRow()
                 }
                 if category == .refund {
                     Section(L("Ursprüngliche Buchung", "Original transaction")) {
@@ -284,6 +286,7 @@ struct TransactionDetailView: View {
                                 .foregroundStyle(.secondary)
                         }
                     }
+                    .appGlassRow()
                 }
                 if !linkedRefunds.isEmpty {
                     Section(L("Rückerstattungen", "Refunds")) {
@@ -295,6 +298,7 @@ struct TransactionDetailView: View {
                             }
                         }
                     }
+                    .appGlassRow()
                 }
                 if category == .portfolioSale {
                     Section(L("Verkauf", "Sale")) {
@@ -307,12 +311,14 @@ struct TransactionDetailView: View {
                                 .foregroundStyle(saleDifferenceColor)
                         }
                     }
+                    .appGlassRow()
                 }
                 if let from = account(entry.fromAccountID), let to = account(entry.toAccountID) {
                     Section(L("Beide Buchungen", "Both transactions")) {
                         accountLine(from, signed: -abs(entry.amountCents))
                         accountLine(to, signed: abs(entry.amountCents))
                     }
+                    .appGlassRow()
                 }
                 if !assignmentRows.isEmpty {
                     Section(L("Zuordnung", "Assignment")) {
@@ -320,6 +326,7 @@ struct TransactionDetailView: View {
                             LabeledContent(row.title, value: row.value)
                         }
                     }
+                    .appGlassRow()
                 }
                 Section(L("Konten", "Accounts")) {
                     if let account = account(entry.accountID) {
@@ -335,6 +342,7 @@ struct TransactionDetailView: View {
                         LabeledContent(L("Nach", "To"), value: account.name)
                     }
                 }
+                .appGlassRow()
                 if !entry.notes.isEmpty {
                     Section(L("Buchungsdetails", "Transaction details")) {
                         if !importDetails.isEmpty {
@@ -354,6 +362,7 @@ struct TransactionDetailView: View {
                             )
                         }
                     }
+                    .appGlassRow()
                 }
             }
             .appGlassList()
@@ -580,6 +589,7 @@ struct TransactionFormView: View {
                     AppDateField(title: L("Datum", "Date"), selection: $viewModel.date)
                     TextField(L("Notiz", "Note"), text: $viewModel.notes, axis: .vertical)
                 }
+                .appGlassRow()
 
                 Section(L("Konten", "Accounts")) {
                     if viewModel.category.usesTwoAccounts {
@@ -589,6 +599,7 @@ struct TransactionFormView: View {
                         accountPicker(L("Konto", "Account"), selection: $viewModel.accountID, portfolio: false)
                     }
                 }
+                .appGlassRow()
 
                 if viewModel.category == .refund {
                     Section(L("Ursprüngliche Buchung", "Original transaction")) {
@@ -605,6 +616,7 @@ struct TransactionFormView: View {
                             }
                         }
                     }
+                    .appGlassRow()
                 }
 
                 if viewModel.category == .transfer {
@@ -616,6 +628,7 @@ struct TransactionFormView: View {
                             }
                         }
                     }
+                    .appGlassRow()
                 }
 
                 if viewModel.category == .expense {
@@ -624,6 +637,7 @@ struct TransactionFormView: View {
                         optionalPicker(L("Variable Kosten", "Variable cost"), selection: $viewModel.variableBudgetID, values: variableBudgets.map { ($0.id, $0.name) })
                         optionalPicker(L("Einkauf", "Shopping"), selection: $viewModel.shoppingItemID, values: shopping.map { ($0.id, $0.name) })
                     }
+                    .appGlassRow()
                     SplitSection(
                         title: L("Variable Kosten aufteilen", "Split variable costs"),
                         drafts: $viewModel.variableSplits,
@@ -638,6 +652,7 @@ struct TransactionFormView: View {
 
                 if let error = viewModel.errorMessage {
                     Section { Text(error).foregroundStyle(.red) }
+                    .appGlassRow()
                 }
             }
             .appGlassList()
@@ -728,5 +743,6 @@ private struct SplitSection: View {
                 Label(L("Split hinzufügen", "Add split"), systemImage: "plus")
             }
         }
+        .appGlassRow()
     }
 }
