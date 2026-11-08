@@ -10,6 +10,10 @@ This file is in English and in German. The finance calculations stay in
 
 ### Look
 
+- Challenges use a card grid: two cards in a row, with the symbol, title, and
+  coins. A group is one wide card above those. Health opens as three tiles,
+  Training and Abstinence side by side and Nutrition across the full width.
+  Long-press a card to edit or delete it.
 - Home, Challenges, Health, Settings, and setup sit on a mint-and-peach wash
   in light mode and on a deep green wash in dark mode. Cards and list rows
   keep their own fill, so light mode is not an empty white page and dark mode
@@ -53,6 +57,11 @@ This file is in English and in German. The finance calculations stay in
 
 ### Aussehen
 
+- Challenges nutzen ein Kartenraster: zwei Karten in einer Reihe, mit Symbol,
+  Titel und Coins. Eine Gruppe ist eine breite Karte darüber. Gesundheit
+  öffnet sich als drei Kacheln, Training und Abstinenz nebeneinander und
+  Ernährung über die volle Breite. Ein langes Drücken bearbeitet oder löscht
+  eine Karte.
 - Home, Challenges, Gesundheit, Einstellungen und die Einrichtung liegen im
   Hellen auf einem Minz- und Pfirsichgrund und im Dunkeln auf einem tiefen
   Grünton. Karten und Listen behalten eine eigene Füllung, damit der helle

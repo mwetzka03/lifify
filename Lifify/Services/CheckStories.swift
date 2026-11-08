@@ -486,6 +486,12 @@ enum CheckStories {
             ("Der 8.11.2026 wird mit 7:30:15 zusammengelegt.", "8 Nov 2026 is combined with 7:30:15.", "AppClock.swift"),
             ("Der Schaltertext ist Entwicklermodus, und der Speicherschlüssel ist lifify.developerMode.", "The switch text is Developer mode, and the storage key is lifify.developerMode.", "SettingsView.swift"),
         ),
+        "Challenges und Gesundheit nutzen ein Kartenraster": make(
+            "Aktive Challenges stehen zu zweit in einer Reihe. Gruppen sind eine breite Karte. Gesundheit hat drei Kacheln, Ernährung über die volle Breite.",
+            "Active challenges sit two in a row. Groups are one wide card. Health has three tiles, and nutrition spans the full width.",
+            ("Das Raster liest zwei Spalten für Challenges und zwei für die oberen Gesundheitskacheln.", "The grid reads two columns for challenges and two for the upper health tiles.", "AppChrome.swift"),
+            ("Die drei Titel Training, Abstinenz und Ernährung behalten ihre Symbole, und Ernährung bleibt eine eigene volle Karte.", "The three titles Training, Abstinence, and Nutrition keep their symbols, and nutrition stays its own full card.", "HealthView.swift"),
+        ),
         "Jede Prüfung erklärt ihre Schritte": make(
             "Jede Prüfung in der Liste hat eine Erklärung und mindestens zwei Schritte mit einer Quelldatei.",
             "Every check in the list has an explanation and at least two steps with a source file.",

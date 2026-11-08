@@ -14,7 +14,8 @@ enum LififyFeatureChecks {
             testCategoriesStartCollapsed(),
             briefingDaysSitInOneRow(),
             versionStaysUnderDeveloperMode(),
-            advancedEditorSettingsStartClosed()
+            advancedEditorSettingsStartClosed(),
+            cardsUseTwoColumns()
         ]
     }
 
@@ -177,6 +178,27 @@ enum LififyFeatureChecks {
             passed: passed,
             detail: passed ? nil : EditorCopy.moreSettings,
             kind: .integration,
+            topic: .screen
+        )
+    }
+
+    private static func cardsUseTwoColumns() -> LififyCheckResult {
+        let titles = HealthScreen.sectionTitles()
+        let symbols = titles.map(CardBoard.healthSymbol(matching:))
+        let passed = CardBoard.challengeColumnCount == 2
+            && CardBoard.challengeColumns().count == 2
+            && CardBoard.groupUsesFullWidth
+            && CardBoard.healthTileCount == 3
+            && CardBoard.healthTopColumnCount == 2
+            && CardBoard.healthTopColumns().count == 2
+            && CardBoard.nutritionSpansFullWidth
+            && titles.count == CardBoard.healthTileCount
+            && symbols == ["figure.run", "lungs.fill", "fork.knife"]
+        return LififyCheckResult(
+            name: "Challenges und Gesundheit nutzen ein Kartenraster",
+            passed: passed,
+            detail: passed ? nil : symbols.joined(separator: ", "),
+            kind: .unit,
             topic: .screen
         )
     }

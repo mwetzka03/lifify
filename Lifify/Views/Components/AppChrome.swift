@@ -52,6 +52,36 @@ enum HealthScreen {
     static var nutritionNote: String { L("Noch nicht verfügbar", "Not available yet") }
 }
 
+/// Card layout for Challenges and Health. Groups and nutrition span the full width.
+enum CardBoard {
+    static let challengeColumnCount = 2
+    static let groupUsesFullWidth = true
+    static let healthTileCount = 3
+    static let healthTopColumnCount = 2
+    static let nutritionSpansFullWidth = true
+
+    static func challengeColumns() -> [GridItem] {
+        Array(
+            repeating: GridItem(.flexible(), spacing: 10, alignment: .top),
+            count: challengeColumnCount
+        )
+    }
+
+    static func healthTopColumns() -> [GridItem] {
+        Array(
+            repeating: GridItem(.flexible(), spacing: 10, alignment: .top),
+            count: healthTopColumnCount
+        )
+    }
+
+    static func healthSymbol(matching title: String) -> String {
+        let titles = HealthScreen.sectionTitles()
+        if titles.count > 1, title == titles[1] { return "lungs.fill" }
+        if titles.count > 2, title == titles[2] { return "fork.knife" }
+        return "figure.run"
+    }
+}
+
 struct SettingsDirectoryRow: Identifiable, Equatable {
     var title: String
     var symbol: String

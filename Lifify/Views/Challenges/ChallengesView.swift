@@ -22,123 +22,31 @@ struct ChallengesView: View {
     @AppStorage(AppClock.dayKey) private var developerDay = 0.0
 
     var body: some View {
-        List {
-            Section {
-                DisclosureGroup {
-                    if recommendations.isEmpty {
-                        Text(RecommendationCopy.empty)
-                            .foregroundStyle(.secondary)
-                    }
-                        ForEach(recommendations) { recommendation in
-                            HStack(alignment: .center, spacing: 8) {
-                                VStack(alignment: .leading, spacing: 1) {
-                                    Text(recommendation.title)
-                                        .font(.subheadline)
-                                        .lineLimit(1)
-                                    Text(AppDate.numeric(recommendation.startDate))
-                                        .font(.caption2)
-                                        .foregroundStyle(.secondary)
-                                }
-                                Spacer(minLength: 8)
-                                Button(L("Übernehmen", "Accept")) {
-                                    acceptedRecommendation = recommendation
-                                }
-                                .buttonStyle(.bordered)
-                                .controlSize(.small)
-                            }
-                        }
-                } label: {
-                    Label(
-                        "\(RecommendationCopy.heading) (\(recommendations.count))",
-                        systemImage: "lightbulb.fill"
-                    )
-                }
-            }
-            .appGlassRow()
-
-            Section {
-                Picker(L("Status", "Status"), selection: $completedTab) {
-                    Text(L("Aktiv", "Active")).tag(false)
-                    Text(L("Abgeschlossen", "Completed")).tag(true)
-                }
-                .pickerStyle(.segmented)
-                Picker(L("Filter", "Filter"), selection: $filter) {
-                    ForEach(ChallengeFilter.allCases) { Text($0.label).tag($0) }
-                }
-                .pickerStyle(.segmented)
-            }
-            .appGlassRow()
-
-            if completedTab {
-                if !abstinenceHistory.isEmpty {
-                    Section(L("Abstinenz", "Abstinence")) {
-                        ForEach(abstinenceHistory) { span in
-                            abstinenceHistoryRow(span)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                recommendationsCard
+                filterCard
+                if completedTab {
+                    completedBoard
+                } else {
+                    if filter != .single {
+                        ForEach(groups) { group in
+                            groupCard(group)
                         }
                     }
-                    .appGlassRow()
-                }
-                ForEach(historyDays) { day in
-                    Section(AppDate.weekdayAndNumeric(day.day)) {
-                        ForEach(day.entries) { entry in
-                            historyRow(entry)
+                    if filter != .groups {
+                        ForEach(activeSections) { section in
+                            challengeSection(section)
                         }
                     }
-                    .appGlassRow()
+                }
+                if visibleChallengesEmpty && !recommendations.isEmpty {
+                    Text(L("Keine Challenges", "No challenges"))
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity)
                 }
             }
-
-            if !completedTab && filter != .single {
-                ForEach(groups) { group in
-                    NavigationLink {
-                        ChallengeGroupDetailView(group: group)
-                    } label: {
-                        VStack(alignment: .leading) {
-                            HStack {
-                                Text(group.title).font(.headline)
-                                Spacer()
-                                CoinAmountView(
-                                    amount: activeGroupMembers(group).reduce(0) { $0 + $1.rewardCoins }
-                                )
-                            }
-                            ForEach(activeGroupMembers(group).prefix(3)) { challenge in
-                                Label(challenge.title, systemImage: "arrow.turn.down.right")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                            if activeGroupMembers(group).count > 3 {
-                                Text("+\(activeGroupMembers(group).count - 3)")
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                    }
-                    .appGlassRow()
-                }
-            }
-
-            if !completedTab && filter != .groups {
-                ForEach(activeSections) { section in
-                    if section.showsTitle {
-                        Section {
-                            sectionChallenges(section)
-                        } header: {
-                            Text(sectionTitle(section))
-                        }
-                        .appGlassRow()
-                    } else {
-                        Section {
-                            sectionChallenges(section)
-                        }
-                        .appGlassRow()
-                    }
-                }
-            }
-
-            if visibleChallengesEmpty && !recommendations.isEmpty {
-                Text(L("Keine Challenges", "No challenges"))
-                    .foregroundStyle(.secondary)
-            }
+            .padding(16)
         }
         .overlay {
             if visibleChallengesEmpty && recommendations.isEmpty {
@@ -164,7 +72,7 @@ struct ChallengesView: View {
         }
         .navigationDestination(isPresented: $showingShop) { ShopView() }
         .navigationDestination(isPresented: $showingWallet) { WalletView() }
-        .appGlassList()
+        .appGlassCanvas()
         .onAppear { commitSimulatedDay() }
         .onChange(of: developerDay) { commitSimulatedDay() }
         .onChange(of: developerMode) { commitSimulatedDay() }
@@ -309,14 +217,126 @@ struct ChallengesView: View {
         }
     }
 
+    private var recommendationsCard: some View {
+        DisclosureGroup {
+            if recommendations.isEmpty {
+                Text(RecommendationCopy.empty)
+                    .foregroundStyle(.secondary)
+            }
+            ForEach(recommendations) { recommendation in
+                HStack(alignment: .center, spacing: 8) {
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(recommendation.title)
+                            .font(.subheadline)
+                            .lineLimit(1)
+                        Text(AppDate.numeric(recommendation.startDate))
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer(minLength: 8)
+                    Button(L("Übernehmen", "Accept")) {
+                        acceptedRecommendation = recommendation
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                }
+            }
+        } label: {
+            Label(
+                "\(RecommendationCopy.heading) (\(recommendations.count))",
+                systemImage: "lightbulb.fill"
+            )
+        }
+        .padding(14)
+        .appGlassCard(radius: 18)
+    }
+
+    private var filterCard: some View {
+        VStack(spacing: 10) {
+            Picker(L("Status", "Status"), selection: $completedTab) {
+                Text(L("Aktiv", "Active")).tag(false)
+                Text(L("Abgeschlossen", "Completed")).tag(true)
+            }
+            .pickerStyle(.segmented)
+            Picker(L("Filter", "Filter"), selection: $filter) {
+                ForEach(ChallengeFilter.allCases) { Text($0.label).tag($0) }
+            }
+            .pickerStyle(.segmented)
+        }
+        .padding(14)
+        .appGlassCard(radius: 18)
+    }
+
     @ViewBuilder
-    private func sectionChallenges(_ section: ChallengeSections.Section) -> some View {
-        ForEach(section.challengeIDs, id: \.self) { id in
-            if let challenge = filteredChallenges.first(where: { $0.id == id }) {
-                if challenge.category == .abstinence {
-                    abstinenceLink(challenge)
-                } else {
-                    regularChallengeRow(challenge)
+    private var completedBoard: some View {
+        if !abstinenceHistory.isEmpty {
+            VStack(alignment: .leading, spacing: 8) {
+                Text(L("Abstinenz", "Abstinence"))
+                    .appText(.section)
+                ForEach(abstinenceHistory) { span in
+                    abstinenceHistoryRow(span)
+                }
+            }
+        }
+        ForEach(historyDays) { day in
+            VStack(alignment: .leading, spacing: 8) {
+                Text(AppDate.weekdayAndNumeric(day.day))
+                    .appText(.section)
+                LazyVGrid(columns: CardBoard.challengeColumns(), spacing: 10) {
+                    ForEach(day.entries) { entry in
+                        historyRow(entry)
+                    }
+                }
+            }
+        }
+    }
+
+    private func groupCard(_ group: ChallengeGroup) -> some View {
+        NavigationLink {
+            ChallengeGroupDetailView(group: group)
+        } label: {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    Text(group.title)
+                        .font(.headline)
+                    Spacer()
+                    CoinAmountView(
+                        amount: activeGroupMembers(group).reduce(0) { $0 + $1.rewardCoins }
+                    )
+                }
+                ForEach(activeGroupMembers(group).prefix(3)) { challenge in
+                    Label(challenge.title, systemImage: "arrow.turn.down.right")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                if activeGroupMembers(group).count > 3 {
+                    Text("+\(activeGroupMembers(group).count - 3)")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .appGlassCard(radius: 18)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func challengeSection(_ section: ChallengeSections.Section) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if section.showsTitle {
+                Text(sectionTitle(section))
+                    .appText(.section)
+            }
+            LazyVGrid(columns: CardBoard.challengeColumns(), spacing: 10) {
+                ForEach(section.challengeIDs, id: \.self) { id in
+                    if let challenge = filteredChallenges.first(where: { $0.id == id }) {
+                        if challenge.category == .abstinence {
+                            abstinenceLink(challenge)
+                        } else {
+                            regularChallengeRow(challenge)
+                        }
+                    }
                 }
             }
         }
@@ -337,24 +357,23 @@ struct ChallengesView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .appGlassCard(radius: 18)
         }
-        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-            if let challenge {
-                Button(role: .destructive) {
-                    deleteChallenge(challenge)
-                } label: {
-                    Label(L("Löschen", "Delete"), systemImage: "trash")
-                }
-            }
-        }
-        .swipeActions(edge: .leading, allowsFullSwipe: false) {
+        .buttonStyle(.plain)
+        .contextMenu {
             if let challenge {
                 Button {
                     edited = challenge
                 } label: {
                     Label(L("Bearbeiten", "Edit"), systemImage: "pencil")
                 }
-                .tint(.blue)
+                Button(role: .destructive) {
+                    deleteChallenge(challenge)
+                } label: {
+                    Label(L("Löschen", "Delete"), systemImage: "trash")
+                }
             }
         }
     }
@@ -372,37 +391,33 @@ struct ChallengesView: View {
                 context: context
             )
         } label: {
-            HStack {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(entry.title)
-                    Text(L("Erledigt am \(AppDate.numeric(entry.date))", "Done on \(AppDate.numeric(entry.date))"))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                Spacer()
+            VStack(alignment: .leading, spacing: 6) {
                 Image(systemName: "checkmark.circle.fill")
                     .foregroundStyle(.secondary)
+                Text(entry.title)
+                    .lineLimit(2)
+                Text(L("Erledigt am \(AppDate.numeric(entry.date))", "Done on \(AppDate.numeric(entry.date))"))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
+            .padding(12)
+            .frame(maxWidth: .infinity, minHeight: 112, alignment: .topLeading)
+            .appGlassCard(radius: 18)
         }
         .buttonStyle(.plain)
         .disabled(challenge?.isReadOnly == true)
-        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-            if let challenge {
-                Button(role: .destructive) {
-                    deleteChallenge(challenge)
-                } label: {
-                    Label(L("Löschen", "Delete"), systemImage: "trash")
-                }
-            }
-        }
-        .swipeActions(edge: .leading, allowsFullSwipe: false) {
+        .contextMenu {
             if let challenge {
                 Button {
                     edited = challenge
                 } label: {
                     Label(L("Bearbeiten", "Edit"), systemImage: "pencil")
                 }
-                .tint(.blue)
+                Button(role: .destructive) {
+                    deleteChallenge(challenge)
+                } label: {
+                    Label(L("Löschen", "Delete"), systemImage: "trash")
+                }
             }
         }
     }
@@ -428,22 +443,31 @@ struct ChallengesView: View {
         NavigationLink {
             AbstinenceDetailView(challengeID: challenge.id)
         } label: {
-            AbstinenceSummary(challenge: challenge)
-        }
-        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-            Button(role: .destructive) {
-                deleteChallenge(challenge)
-            } label: {
-                Label(L("Löschen", "Delete"), systemImage: "trash")
+            VStack(alignment: .leading, spacing: 8) {
+                AppSymbolImage(name: IconPreferenceStore.icon(for: challenge.id, fallback: "lungs.fill"))
+                    .frame(width: 28, height: 28)
+                Text(challenge.title)
+                    .foregroundStyle(.primary)
+                    .lineLimit(2)
+                CoinAmountView(amount: challenge.rewardCoins, showsPlus: true)
+                    .font(.caption)
             }
+            .padding(12)
+            .frame(maxWidth: .infinity, minHeight: 132, alignment: .topLeading)
+            .appGlassCard(radius: 18)
         }
-        .swipeActions(edge: .leading, allowsFullSwipe: false) {
+        .buttonStyle(.plain)
+        .contextMenu {
             Button {
                 edited = challenge
             } label: {
                 Label(L("Bearbeiten", "Edit"), systemImage: "pencil")
             }
-            .tint(.blue)
+            Button(role: .destructive) {
+                deleteChallenge(challenge)
+            } label: {
+                Label(L("Löschen", "Delete"), systemImage: "trash")
+            }
         }
     }
 
@@ -460,40 +484,42 @@ struct ChallengesView: View {
                 context: context
             )
         } label: {
-            HStack {
-                AppSymbolImage(name: IconPreferenceStore.icon(for: challenge.id, fallback: "target"))
-                    .frame(width: 24)
-                VStack(alignment: .leading) {
-                    Text(challenge.title).foregroundStyle(gray ? .secondary : .primary)
-                    challengeMeta(challenge)
-                    if gray {
-                        Text(L("Heute erledigt", "Done today"))
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    AppSymbolImage(name: IconPreferenceStore.icon(for: challenge.id, fallback: "target"))
+                        .frame(width: 28, height: 28)
+                    Spacer(minLength: 4)
+                    Image(systemName: doneToday ? "checkmark.circle.fill" : "circle")
+                        .foregroundStyle(gray ? Color.secondary : Color.green)
                 }
-                Spacer()
-                Image(systemName: doneToday ? "checkmark.circle.fill" : "circle")
-                    .foregroundStyle(gray ? Color.secondary : Color.green)
+                Text(challenge.title)
+                    .foregroundStyle(gray ? Color.secondary : Color.primary)
+                    .lineLimit(2)
+                challengeMeta(challenge)
+                if gray {
+                    Text(L("Heute erledigt", "Done today"))
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
             }
+            .padding(12)
+            .frame(maxWidth: .infinity, minHeight: 132, alignment: .topLeading)
+            .appGlassCard(radius: 18)
             .opacity(gray ? 0.55 : 1)
         }
         .buttonStyle(.plain)
         .disabled(challenge.isReadOnly)
-        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-            Button(role: .destructive) {
-                deleteChallenge(challenge)
-            } label: {
-                Label(L("Löschen", "Delete"), systemImage: "trash")
-            }
-        }
-        .swipeActions(edge: .leading, allowsFullSwipe: false) {
+        .contextMenu {
             Button {
                 edited = challenge
             } label: {
                 Label(L("Bearbeiten", "Edit"), systemImage: "pencil")
             }
-            .tint(.blue)
+            Button(role: .destructive) {
+                deleteChallenge(challenge)
+            } label: {
+                Label(L("Löschen", "Delete"), systemImage: "trash")
+            }
         }
     }
 
@@ -526,25 +552,23 @@ struct ChallengesView: View {
         ).count
         let linked = ChallengeTimeStore.linkedEvents(for: challenge.id, in: calendarEvents)
         return VStack(alignment: .leading, spacing: 2) {
-            HStack(spacing: 6) {
-                Text(challenge.recurrence.label)
-                CoinAmountView(
-                    amount: ChallengeService.projectedCoins(
-                        challenge: challenge,
-                        on: AppClock.now,
-                        completions: completions,
-                        events: calendarEvents
-                    ),
-                    showsPlus: true
-                )
-                if enabled {
-                    HStack(spacing: 2) {
-                        Image(systemName: "flame.fill")
-                        Text("\(streak)")
-                            .monospacedDigit()
-                    }
-                    .foregroundStyle(.orange)
+            Text(challenge.recurrence.label)
+            CoinAmountView(
+                amount: ChallengeService.projectedCoins(
+                    challenge: challenge,
+                    on: AppClock.now,
+                    completions: completions,
+                    events: calendarEvents
+                ),
+                showsPlus: true
+            )
+            if enabled {
+                HStack(spacing: 2) {
+                    Image(systemName: "flame.fill")
+                    Text("\(streak)")
+                        .monospacedDigit()
                 }
+                .foregroundStyle(.orange)
             }
             if let caption = LinkCaption.calendar(
                 titles: linked.map(\.title),
