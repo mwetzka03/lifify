@@ -37,6 +37,13 @@ This file is in English and in German. The finance calculations stay in
 - In General, the daily briefing is a row of day circles, Mo through Su.
   Tap a circle to include that day. The time sits in the row underneath.
   Developer mode sits above the version, and the version stays last.
+- Dates follow the device time zone, the way Calendar and Clock do. Changing
+  the time zone keeps a developer day on the calendar day you picked and
+  reschedules the pushes. The daily briefing stays at the same local time.
+  An abstinence bonus stays the same instant, and developer mode still uses
+  the real clock for those pushes.
+- An abstinence bonus opens with a short cheer. The message still names the
+  challenge, the step, and the coins.
 - A new challenge or event starts with the fields you need first. Reminders,
   the linked event, streaks, and the group sit under More settings, which
   starts closed. Saving to Apple Reminders stays on unless you turn it off.
@@ -65,6 +72,9 @@ This file is in English and in German. The finance calculations stay in
 - There is no snapshot test, because this environment has no Xcode.
 - Possible later work: abstinence templates, an iPad layout, widgets, and one
   shared calendar for Home and Challenges.
+- Further notifications are not built yet: a nudge for an open challenge, a
+  streak that is about to break, a streak milestone, the birthday bonus, a
+  savings-plan debit, and a budget that is nearly spent.
 
 ## Deutsch
 
@@ -101,6 +111,13 @@ This file is in English and in German. The finance calculations stay in
   Ein Tipp nimmt den Tag auf oder heraus. Die Uhrzeit steht in der Reihe
   darunter. Der Entwicklermodus steht über der Version, und die Version bleibt
   ganz unten.
+- Daten folgen der Zeitzone des Geräts, so wie Kalender und Uhr. Wechselt die
+  Zeitzone, bleibt ein Entwicklertag auf dem gewählten Kalendertag, und die
+  Mitteilungen werden neu gesetzt. Das Tagesbriefing bleibt zur selben
+  Ortszeit. Ein Abstinenz-Bonus bleibt derselbe Augenblick, und der
+  Entwicklermodus nutzt für diese Mitteilungen weiter die echte Uhr.
+- Ein Abstinenz-Bonus beginnt mit einem kurzen Jubel. Die Meldung nennt
+  weiter die Challenge, die Stufe und die Coins.
 - Eine neue Challenge oder ein neuer Termin beginnt mit den Feldern, die man
   zuerst braucht. Erinnerungen, der verknüpfte Termin, Streaks und die Gruppe
   liegen unter Weitere Einstellungen, und die Gruppe startet zu. In Apple
@@ -132,3 +149,6 @@ This file is in English and in German. The finance calculations stay in
 - Es gibt keinen Snapshot-Test, weil diese Umgebung kein Xcode hat.
 - Möglich später: Abstinenz-Vorlagen, ein iPad-Layout, Widgets und ein
   gemeinsamer Kalender für Home und Challenges.
+- Weitere Mitteilungen sind noch nicht gebaut: ein Stups für eine offene
+  Challenge, eine Serie, die abreißt, eine Streak-Stufe, der Geburtstagsbonus,
+  eine Sparplan-Abbuchung und ein Budget, das fast aufgebraucht ist.

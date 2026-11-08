@@ -183,9 +183,37 @@ enum LififyChecks {
         let time = calendar.date(from: DateComponents(year: 2026, month: 10, day: 25, hour: 16, minute: 5, second: 9)) ?? .distantPast
         let combined = AppClock.combining(day: day, time: time, calendar: calendar)
         let parts = calendar.dateComponents([.year, .month, .day, .hour, .minute, .second], from: combined)
+        let stamp = AppClock.stamp(year: 2026, month: 11, day: 2)
+        let berlinKept = keptDay(stamp, zone: "Europe/Berlin")
+        let yorkKept = keptDay(stamp, zone: "America/New_York")
+        var zone = Calendar(identifier: .gregorian)
+        zone.timeZone = TimeZone(identifier: "Europe/Berlin") ?? .gmt
+        let moment = zone.date(from: DateComponents(year: 2026, month: 11, day: 8, hour: 8, minute: 30)) ?? .distantPast
+        let wall = NotificationTiming.components(for: moment, followsDeviceTimeZone: true, calendar: zone)
+        let fixed = NotificationTiming.components(for: moment, followsDeviceTimeZone: false, calendar: zone)
         let passed = parts.year == 2026 && parts.month == 11 && parts.day == 2
             && parts.hour == 16 && parts.minute == 5 && parts.second == 9
-        return result("Entwicklertag behält die Uhrzeit", .developer, .unit, passed, "\(parts.day ?? 0).\(parts.month ?? 0). \(parts.hour ?? 0):\(parts.minute ?? 0)")
+            && berlinKept && yorkKept
+            && CalendarService.timeZone.identifier == TimeZone.autoupdatingCurrent.identifier
+            && wall.timeZone == nil && wall.hour == 8 && wall.minute == 30
+            && fixed.timeZone?.identifier == "Europe/Berlin" && fixed.hour == 8
+        return result(
+            "Entwicklertag behält die Uhrzeit",
+            .developer,
+            .unit,
+            passed,
+            "\(parts.day ?? 0).\(parts.month ?? 0). \(parts.hour ?? 0):\(parts.minute ?? 0), Wand \(wall.hour ?? -1), fest \(fixed.timeZone?.identifier ?? "-")"
+        )
+    }
+
+    private static func keptDay(_ stamp: String, zone: String) -> Bool {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: zone) ?? .gmt
+        let time = calendar.date(from: DateComponents(year: 2026, month: 1, day: 1, hour: 16, minute: 5, second: 9)) ?? .distantPast
+        guard let combined = AppClock.combining(stamp: stamp, time: time, calendar: calendar) else { return false }
+        let parts = calendar.dateComponents([.year, .month, .day, .hour, .minute, .second], from: combined)
+        return parts.year == 2026 && parts.month == 11 && parts.day == 2
+            && parts.hour == 16 && parts.minute == 5 && parts.second == 9
     }
 
     private static func linkingChallengePullsCalendar() -> LififyCheckResult {
@@ -819,8 +847,22 @@ enum LififyChecks {
             AbstinenceNotice(id: "other", challengeID: other, title: "Zuckerfrei", milestone: "7d", coins: 40, date: today)
         ]
         let shown = AbstinenceRules.currentNotices(notices, on: today, calendar: calendar)
+        let cheer = AbstinenceCheer.body(challenge: "Rauchfrei", milestone: .hour24, coins: 20)
+        let quiet = AbstinenceCheer.body(challenge: "Rauchfrei", milestone: .hour1, coins: 0)
+        let cheerTitle = AbstinenceCheer.title(for: .hour24)
         let passed = shown.map(\.id) == ["year", "other"]
-        return result("Auf der Startseite steht nur der Abstinenz-Bonus von heute", .abstinence, .unit, passed, shown.map(\.id).joined(separator: ","))
+            && cheer.contains("Rauchfrei")
+            && (cheer.contains("24 Stunden") || cheer.contains("24 hours"))
+            && cheer.contains("20")
+            && (cheerTitle == "Ein ganzer Tag!" || cheerTitle == "A whole day!")
+            && !quiet.contains("+")
+        return result(
+            "Auf der Startseite steht nur der Abstinenz-Bonus von heute",
+            .abstinence,
+            .unit,
+            passed,
+            "\(shown.map(\.id).joined(separator: ",")), \(cheerTitle)"
+        )
     }
 
     private static func recentEventsCanBeAssigned() -> LififyCheckResult {

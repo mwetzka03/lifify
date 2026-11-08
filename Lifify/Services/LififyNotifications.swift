@@ -1,6 +1,21 @@
 import Foundation
 import UserNotifications
 
+/// How a local notification sits on the clock.
+/// A wall-clock time follows the device time zone, like an Apple alarm.
+/// An absolute time stays the same instant, like a timer.
+enum NotificationTiming {
+    static func components(
+        for date: Date,
+        followsDeviceTimeZone: Bool,
+        calendar: Calendar = .autoupdatingCurrent
+    ) -> DateComponents {
+        var parts = calendar.dateComponents([.year, .month, .day, .hour, .minute], from: date)
+        parts.timeZone = followsDeviceTimeZone ? nil : calendar.timeZone
+        return parts
+    }
+}
+
 final class NotificationCenterDelegate: NSObject, UNUserNotificationCenterDelegate, @unchecked Sendable {
     static let shared = NotificationCenterDelegate()
 
@@ -146,12 +161,18 @@ enum LififyNotifications {
         let queued = pending.contains { $0.identifier == id } || delivered.contains { $0.request.identifier == id }
         guard DailyBriefing.shouldDeliverBonusNow(due: due, realNow: Date(), alreadyQueued: queued) else { return }
         center.removePendingNotificationRequests(withIdentifiers: [id])
-        deliver(id: id, title: title, body: body, at: nil)
+        deliver(id: id, title: title, body: body, at: nil, followsDeviceTimeZone: false)
     }
 
-    static func schedule(id: String, title: String, body: String, at date: Date) {
+    static func schedule(
+        id: String,
+        title: String,
+        body: String,
+        at date: Date,
+        followsDeviceTimeZone: Bool = false
+    ) {
         guard date > Date() else { return }
-        deliver(id: id, title: title, body: body, at: date)
+        deliver(id: id, title: title, body: body, at: date, followsDeviceTimeZone: followsDeviceTimeZone)
     }
 
     static func replaceBriefings(_ items: [(id: String, title: String, body: String, date: Date)]) async {
@@ -160,7 +181,7 @@ enum LififyNotifications {
         let old = pending.map(\.identifier).filter { $0.hasPrefix(briefingPrefix) }
         center.removePendingNotificationRequests(withIdentifiers: old)
         for item in items {
-            schedule(id: item.id, title: item.title, body: item.body, at: item.date)
+            schedule(id: item.id, title: item.title, body: item.body, at: item.date, followsDeviceTimeZone: true)
         }
     }
 
@@ -178,14 +199,20 @@ enum LififyNotifications {
         center.removePendingNotificationRequests(withIdentifiers: old)
     }
 
-    private static func deliver(id: String, title: String, body: String, at date: Date?) {
+    private static func deliver(
+        id: String,
+        title: String,
+        body: String,
+        at date: Date?,
+        followsDeviceTimeZone: Bool
+    ) {
         let content = UNMutableNotificationContent()
         content.title = title
         content.body = body
         content.sound = .default
         let trigger: UNNotificationTrigger?
         if let date {
-            let parts = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: date)
+            let parts = NotificationTiming.components(for: date, followsDeviceTimeZone: followsDeviceTimeZone)
             trigger = UNCalendarNotificationTrigger(dateMatching: parts, repeats: false)
         } else {
             trigger = nil

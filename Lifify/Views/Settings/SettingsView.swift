@@ -127,9 +127,10 @@ private struct GeneralSettingsView: View {
     private var simulatedDay: Binding<Date> {
         Binding(
             get: {
-                developerDay > 0 ? Date(timeIntervalSince1970: developerDay) : Calendar.current.startOfDay(for: Date())
+                let _ = developerDay
+                return AppClock.simulatedDay
             },
-            set: { developerDay = Calendar.current.startOfDay(for: $0).timeIntervalSince1970 }
+            set: { AppClock.setSimulatedDay($0) }
         )
     }
 

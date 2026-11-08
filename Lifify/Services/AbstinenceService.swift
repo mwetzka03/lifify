@@ -60,13 +60,13 @@ enum AbstinenceService {
                         date: due
                     ))
                     let bonusTitle = challenge.title
-                    let bonusLabel = milestone.label
+                    let bonusMilestone = milestone
                     let bonusCoins = coins
                     Task {
                         await LififyNotifications.announceBonus(
                             id: noticeID,
-                            title: L("Abstinenz-Bonus", "Abstinence bonus"),
-                            body: bonusCoins > 0 ? "\(bonusTitle) · \(bonusLabel) · +\(bonusCoins)" : "\(bonusTitle) · \(bonusLabel)",
+                            title: AbstinenceCheer.title(for: bonusMilestone),
+                            body: AbstinenceCheer.body(challenge: bonusTitle, milestone: bonusMilestone, coins: bonusCoins),
                             due: due
                         )
                     }

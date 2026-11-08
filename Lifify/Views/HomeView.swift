@@ -366,7 +366,7 @@ struct HomeView: View {
                 Label(L("Streak-Freeze", "Streak freeze"), systemImage: "snowflake")
                     .font(.headline)
             case .abstinence:
-                Label(L("Abstinenz-Bonus", "Abstinence bonus"), systemImage: "lungs.fill")
+                Label(L("Geschafft!", "You did it!"), systemImage: "lungs.fill")
                     .font(.headline)
             }
             popupRows(popup)
@@ -466,7 +466,7 @@ struct HomeView: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(notice.title)
                                 .foregroundStyle(.primary)
-                            Text(AbstinenceMilestone(rawValue: notice.milestone)?.label ?? notice.milestone)
+                            Text(abstinenceNoticeLine(notice))
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
@@ -479,6 +479,11 @@ struct HomeView: View {
                 }
             }
         }
+    }
+
+    private func abstinenceNoticeLine(_ notice: AbstinenceNotice) -> String {
+        guard let milestone = AbstinenceMilestone(rawValue: notice.milestone) else { return notice.milestone }
+        return "\(milestone.label). \(AbstinenceCheer.line(for: milestone))"
     }
 
     private func freezeWarning(done: Int, required: Int, recurrence: ChallengeRecurrence) -> String {

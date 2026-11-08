@@ -10,7 +10,7 @@ enum DailyBriefingService {
             return
         }
         guard await LififyNotifications.requestAccess() else { return }
-        let calendar = Calendar.current
+        let calendar = Calendar.autoupdatingCurrent
         let today = calendar.startOfDay(for: Date())
         var items: [(id: String, title: String, body: String, date: Date)] = []
         for offset in 0..<7 {
@@ -52,8 +52,8 @@ enum DailyBriefingService {
                 )
                 LififyNotifications.schedule(
                     id: id,
-                    title: L("Abstinenz-Bonus", "Abstinence bonus"),
-                    body: bonusBody(challenge.title, milestone: milestone.label, coins: coins),
+                    title: AbstinenceCheer.title(for: milestone),
+                    body: AbstinenceCheer.body(challenge: challenge.title, milestone: milestone, coins: coins),
                     at: due
                 )
             }
@@ -128,10 +128,4 @@ enum DailyBriefingService {
         return String(format: "%04d-%02d-%02d", parts.year ?? 0, parts.month ?? 0, parts.day ?? 0)
     }
 
-    private static func bonusBody(_ title: String, milestone: String, coins: Int) -> String {
-        if coins > 0 {
-            return "\(title) · \(milestone) · +\(coins)"
-        }
-        return "\(title) · \(milestone)"
-    }
 }

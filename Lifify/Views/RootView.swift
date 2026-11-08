@@ -63,6 +63,13 @@ struct RootView: View {
         .onAppear { BirthdayBonusService.settle(context: context) }
         .onChange(of: developerMode) { BirthdayBonusService.settle(context: context) }
         .onChange(of: developerDay) { BirthdayBonusService.settle(context: context) }
+        .onReceive(NotificationCenter.default.publisher(for: Notification.Name.NSSystemTimeZoneDidChange)) { _ in
+            AppClock.rebaseSimulatedDayToCurrentTimeZone()
+            Task {
+                await DailyBriefingService.refresh(context: context)
+                await DailyBriefingService.scheduleAbstinence(context: context)
+            }
+        }
         .task(id: scenePhase) {
             guard scenePhase == .active else { return }
             await EventKitSyncService().sync(

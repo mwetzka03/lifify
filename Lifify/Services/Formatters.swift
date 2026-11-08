@@ -53,6 +53,7 @@ enum AppDate {
     static var calendar: Calendar {
         var calendar = Calendar(identifier: .gregorian)
         calendar.locale = locale
+        calendar.timeZone = .autoupdatingCurrent
         return calendar
     }
 
@@ -116,6 +117,7 @@ extension Date {
         let formatter = DateFormatter()
         formatter.calendar = Calendar(identifier: .gregorian)
         formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = .autoupdatingCurrent
         formatter.dateFormat = "yyyy-MM"
         return formatter.string(from: self)
     }
@@ -124,6 +126,7 @@ extension Date {
         let formatter = DateFormatter()
         formatter.calendar = Calendar(identifier: .gregorian)
         formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = .autoupdatingCurrent
         formatter.dateFormat = "yyyy-MM-dd"
         return formatter.string(from: self)
     }

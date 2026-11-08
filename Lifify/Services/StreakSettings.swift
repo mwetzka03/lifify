@@ -6,7 +6,7 @@ import Foundation
 enum StreakSettings {
     static let revisionKey = "lifify.streakRevision"
     static let freezeFactorKey = "lifify.streakFreezeFactor"
-    static let thresholds = [5, 10, 15, 20, 25, 50, 100, 200, 250, 500, 1000]
+    nonisolated static let thresholds = [5, 10, 15, 20, 25, 50, 100, 200, 250, 500, 1000]
     static let defaultMultipliers: [Int: Double] = [
         5: 1.1,
         10: 1.2,

@@ -79,6 +79,7 @@ enum CheckStories {
             "The simulated day replaces only the date. Hour, minute, and second stay.",
             ("Der 2.11.2026 wird mit der Uhrzeit 16:05:09 zusammengelegt.", "2 Nov 2026 is combined with the time 16:05:09.", "AppClock.swift"),
             ("Jahr, Monat und Tag kommen vom gewählten Tag, die Uhrzeit von der echten Uhr.", "Year, month, and day come from the chosen day, and the clock time stays.", "LififyChecks.swift"),
+            ("Der 2.11.2026 bleibt in Berlin und in New York derselbe Tag um 16:05:09. Eine Uhrzeit ohne Zeitzone folgt dem Gerät, eine gesetzte Zeitzone bleibt der Augenblick.", "2 Nov 2026 stays the same day at 16:05:09 in Berlin and in New York. A time without a time zone follows the device, and a set time zone stays the instant.", "AppClock.swift"),
         ),
         "Challenge zieht ihre Kalendereinträge nach": make(
             "Wenn eine Challenge neu verknüpft wird, kommen ihre Termine mit.",
@@ -289,6 +290,7 @@ enum CheckStories {
             "Home shows only the abstinence bonus that is due today.",
             ("Mehrere Boni liegen an verschiedenen Tagen.", "Several bonuses fall on different days.", "AbstinenceRules.swift"),
             ("Angezeigt wird nur der Bonus des heutigen Tages.", "Only today’s bonus is shown.", "LififyChecks.swift"),
+            ("Die Mitteilung zum ganzen Tag nennt Rauchfrei, 24 Stunden und 20 Coins, und ihr Titel ist kein reiner Hinweis.", "The whole-day notification names Rauchfrei, 24 hours, and 20 coins, and its title is not a plain notice.", "DailyBriefing.swift"),
         ),
         "Ein Termin darf höchstens eine Woche in der Vergangenheit liegen": make(
             "Ein Termin lässt sich nur zuordnen, wenn er nicht älter als eine Woche ist.",
