@@ -24,7 +24,7 @@ enum AbstinenceMilestone: String, CaseIterable, Identifiable, Equatable {
     case hour4 = "4h"
     case hour8 = "8h"
     case hour24 = "24h"
-    case hour78 = "78h"
+    case hour72 = "72h"
     case day7 = "7d"
     case day14 = "14d"
     case day30 = "30d"
@@ -39,7 +39,7 @@ enum AbstinenceMilestone: String, CaseIterable, Identifiable, Equatable {
         case .hour4: L("4 Stunden", "4 hours")
         case .hour8: L("8 Stunden", "8 hours")
         case .hour24: L("24 Stunden", "24 hours")
-        case .hour78: L("78 Stunden", "78 hours")
+        case .hour72: L("72 Stunden", "72 hours")
         case .day7: L("7 Tage", "7 days")
         case .day14: L("14 Tage", "14 days")
         case .day30: L("30 Tage", "30 days")
@@ -54,7 +54,7 @@ enum AbstinenceMilestone: String, CaseIterable, Identifiable, Equatable {
         case .hour4: return start.addingTimeInterval(4 * 3_600)
         case .hour8: return start.addingTimeInterval(8 * 3_600)
         case .hour24: return start.addingTimeInterval(24 * 3_600)
-        case .hour78: return start.addingTimeInterval(78 * 3_600)
+        case .hour72: return start.addingTimeInterval(72 * 3_600)
         case .day7: return calendar.date(byAdding: .day, value: 7, to: start) ?? start
         case .day14: return calendar.date(byAdding: .day, value: 14, to: start) ?? start
         case .day30: return calendar.date(byAdding: .day, value: 30, to: start) ?? start
@@ -80,15 +80,15 @@ enum AbstinenceRules {
     static let defaultMultipliers: [AbstinenceDifficulty: [String: Double]] = [
         .easy: [
             "1h": 0.5, "2h": 0.5, "4h": 1, "8h": 1, "24h": 2,
-            "78h": 3, "7d": 4, "14d": 5, "30d": 8, "1y": 12
+            "72h": 3, "7d": 4, "14d": 5, "30d": 8, "1y": 12
         ],
         .medium: [
             "1h": 1, "2h": 1, "4h": 2, "8h": 2, "24h": 3,
-            "78h": 5, "7d": 7, "14d": 10, "30d": 15, "1y": 25
+            "72h": 5, "7d": 7, "14d": 10, "30d": 15, "1y": 25
         ],
         .hard: [
             "1h": 2, "2h": 2, "4h": 3, "8h": 4, "24h": 6,
-            "78h": 10, "7d": 14, "14d": 20, "30d": 30, "1y": 50
+            "72h": 10, "7d": 14, "14d": 20, "30d": 30, "1y": 50
         ]
     ]
 

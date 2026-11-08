@@ -370,7 +370,7 @@ struct ChallengesView: View {
                 }
                 Spacer()
                 Image(systemName: doneToday ? "checkmark.circle.fill" : "circle")
-                    .foregroundStyle(gray ? .secondary : .green)
+                    .foregroundStyle(gray ? Color.secondary : Color.green)
             }
             .opacity(gray ? 0.55 : 1)
         }
@@ -741,83 +741,91 @@ private struct ChallengeGroupDetailView: View {
                 let _ = developerMode
                 let _ = developerDay
                 if challenge.category == .abstinence {
-                    NavigationLink {
-                        AbstinenceDetailView(challengeID: challenge.id)
-                    } label: {
-                        AbstinenceSummary(challenge: challenge)
-                    }
-                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                        Button(role: .destructive) {
-                            deleteChallenge(challenge)
-                        } label: {
-                            Label(L("Löschen", "Delete"), systemImage: "trash")
-                        }
-                    }
-                    .swipeActions(edge: .leading, allowsFullSwipe: false) {
-                        Button {
-                            edited = challenge
-                        } label: {
-                            Label(L("Bearbeiten", "Edit"), systemImage: "pencil")
-                        }
-                        .tint(.blue)
-                    }
+                    groupAbstinenceRow(challenge)
                 } else {
-                let doneToday = ChallengeService.isCompleted(challenge, on: AppClock.now, completions: completions)
-                let gray = ChallengeActivity.dimsActiveRow(recurrence: challenge.recurrence, completedToday: doneToday)
-                Button {
-                    ChallengeService.toggleCompletion(
-                        challenge: challenge,
-                        date: AppClock.now,
-                        completions: completions,
-                        transactions: transactions,
-                        events: calendarEvents,
-                        context: context
-                    )
-                } label: {
-                    HStack {
-                        Image(systemName: IconPreferenceStore.icon(for: challenge.id, fallback: "target"))
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(challenge.title)
-                                .foregroundStyle(gray ? .secondary : .primary)
-                            if let caption = groupCalendarCaption(challenge) {
-                                Text(caption)
-                                    .font(.caption2)
-                                    .foregroundStyle(.green)
-                            }
-                            if gray {
-                                Text(L("Heute erledigt", "Done today"))
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                        Spacer()
-                        Image(systemName: doneToday ? "checkmark.circle.fill" : "circle")
-                            .foregroundStyle(gray ? .secondary : .green)
-                    }
-                    .opacity(gray ? 0.55 : 1)
-                }
-                .buttonStyle(.plain)
-                .disabled(challenge.isReadOnly)
-                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                    Button(role: .destructive) {
-                        deleteChallenge(challenge)
-                    } label: {
-                        Label(L("Löschen", "Delete"), systemImage: "trash")
-                    }
-                }
-                .swipeActions(edge: .leading, allowsFullSwipe: false) {
-                    Button {
-                        edited = challenge
-                    } label: {
-                        Label(L("Bearbeiten", "Edit"), systemImage: "pencil")
-                    }
-                    .tint(.blue)
-                }
+                    groupRegularRow(challenge)
                 }
             }
         }
         .navigationTitle(group.title)
         .sheet(item: $edited) { ChallengeForm(challenge: $0) }
+    }
+
+    private func groupAbstinenceRow(_ challenge: ChallengeItem) -> some View {
+        NavigationLink {
+            AbstinenceDetailView(challengeID: challenge.id)
+        } label: {
+            AbstinenceSummary(challenge: challenge)
+        }
+        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+            Button(role: .destructive) {
+                deleteChallenge(challenge)
+            } label: {
+                Label(L("Löschen", "Delete"), systemImage: "trash")
+            }
+        }
+        .swipeActions(edge: .leading, allowsFullSwipe: false) {
+            Button {
+                edited = challenge
+            } label: {
+                Label(L("Bearbeiten", "Edit"), systemImage: "pencil")
+            }
+            .tint(.blue)
+        }
+    }
+
+    private func groupRegularRow(_ challenge: ChallengeItem) -> some View {
+        let doneToday = ChallengeService.isCompleted(challenge, on: AppClock.now, completions: completions)
+        let gray = ChallengeActivity.dimsActiveRow(recurrence: challenge.recurrence, completedToday: doneToday)
+        return Button {
+            ChallengeService.toggleCompletion(
+                challenge: challenge,
+                date: AppClock.now,
+                completions: completions,
+                transactions: transactions,
+                events: calendarEvents,
+                context: context
+            )
+        } label: {
+            HStack {
+                Image(systemName: IconPreferenceStore.icon(for: challenge.id, fallback: "target"))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(challenge.title)
+                        .foregroundStyle(gray ? Color.secondary : Color.primary)
+                    if let caption = groupCalendarCaption(challenge) {
+                        Text(caption)
+                            .font(.caption2)
+                            .foregroundStyle(Color.green)
+                    }
+                    if gray {
+                        Text(L("Heute erledigt", "Done today"))
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                Spacer()
+                Image(systemName: doneToday ? "checkmark.circle.fill" : "circle")
+                    .foregroundStyle(gray ? Color.secondary : Color.green)
+            }
+            .opacity(gray ? 0.55 : 1)
+        }
+        .buttonStyle(.plain)
+        .disabled(challenge.isReadOnly)
+        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+            Button(role: .destructive) {
+                deleteChallenge(challenge)
+            } label: {
+                Label(L("Löschen", "Delete"), systemImage: "trash")
+            }
+        }
+        .swipeActions(edge: .leading, allowsFullSwipe: false) {
+            Button {
+                edited = challenge
+            } label: {
+                Label(L("Bearbeiten", "Edit"), systemImage: "pencil")
+            }
+            .tint(.blue)
+        }
     }
 
     private func groupCalendarCaption(_ challenge: ChallengeItem) -> String? {

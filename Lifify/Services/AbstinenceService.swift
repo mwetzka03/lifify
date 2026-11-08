@@ -41,14 +41,23 @@ enum AbstinenceService {
                         multiplier: AbstinenceSettings.multiplier(for: difficulty, milestone: milestone)
                     )
                     awarded.insert(milestone.rawValue)
+                    let due = milestone.due(from: start, calendar: calendar)
                     if coins > 0 {
                         context.insert(CoinTransaction(
-                            date: milestone.due(from: start, calendar: calendar),
+                            date: due,
                             title: "\(L("Bonus", "Bonus")): \(challenge.title) · \(milestone.label)",
                             amount: coins,
                             referenceID: challenge.id
                         ))
                     }
+                    AbstinenceSettings.postNotice(AbstinenceNotice(
+                        id: "\(challenge.id.uuidString)|\(milestone.rawValue)|\(start.timeIntervalSince1970)",
+                        challengeID: challenge.id,
+                        title: challenge.title,
+                        milestone: milestone.rawValue,
+                        coins: coins,
+                        date: due
+                    ))
                 }
                 AbstinenceSettings.setAwarded(awarded, for: challenge.id)
                 changed = true
@@ -60,6 +69,11 @@ enum AbstinenceService {
     /// Starts the timer again. Coins already paid stay. Bonuses of the new run can be earned again.
     static func relapse(_ challenge: ChallengeItem, context: ModelContext, now: Date = AppClock.now) {
         guard challenge.category == .abstinence else { return }
+        let start = challenge.startDate ?? challenge.createdAt
+        AbstinenceSettings.recordRelapse(
+            AbstinenceRelapse(id: UUID(), date: now, lasted: AbstinenceRules.elapsed(from: start, to: now)),
+            for: challenge.id
+        )
         challenge.startDate = now
         AbstinenceSettings.clearAwarded(for: challenge.id)
         try? context.save()

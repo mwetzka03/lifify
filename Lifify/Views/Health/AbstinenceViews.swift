@@ -125,6 +125,7 @@ struct AbstinenceDetailView: View {
         let start = challenge.startDate ?? challenge.createdAt
         let elapsed = AbstinenceRules.elapsed(from: start, to: now)
         let difficulty = AbstinenceSettings.difficulty(for: challenge.id)
+        let relapses = AbstinenceSettings.relapses(for: challenge.id)
         return List {
             Section {
                 VStack(alignment: .leading, spacing: 6) {
@@ -152,7 +153,7 @@ struct AbstinenceDetailView: View {
                     )
                     HStack {
                         Image(systemName: reached ? "checkmark.circle.fill" : "circle")
-                            .foregroundStyle(reached ? .green : .secondary)
+                            .foregroundStyle(reached ? Color.green : Color.secondary)
                         Text(milestone.label)
                         Spacer()
                         CoinAmountView(amount: coins, showsPlus: true)
@@ -166,6 +167,23 @@ struct AbstinenceDetailView: View {
                     "Ein Bonus ist der Faktor dieser Stufe mal die Coins pro Tag. Es zählt jede erreichte Stufe, nicht nur die höchste.",
                     "A bonus is that step’s factor times the coins per day. Every reached step counts, not only the highest one."
                 ))
+            }
+            if !relapses.isEmpty {
+                Section {
+                    ForEach(relapses) { relapse in
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("\(AppDate.numeric(relapse.date)) · \(AppDate.time(relapse.date))")
+                            Text(L(
+                                "Der Lauf dauerte \(AbstinenceClockText.string(relapse.lasted))",
+                                "That run lasted \(AbstinenceClockText.string(relapse.lasted))"
+                            ))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        }
+                    }
+                } header: {
+                    Text(L("Rückfälle", "Relapses"))
+                }
             }
             Section {
                 Button(L("Rückfall", "Relapse"), role: .destructive) {

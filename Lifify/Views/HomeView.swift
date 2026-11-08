@@ -23,6 +23,7 @@ struct HomeView: View {
     @AppStorage("userName") private var userName = ""
     @AppStorage("dashboardPeriodMode") private var dashboardPeriod = DashboardPeriodMode.calendarMonth.rawValue
     @AppStorage(StreakSettings.revisionKey) private var streakRevision = 0
+    @AppStorage(AbstinenceSettings.revisionKey) private var abstinenceRevision = 0
 
     var body: some View {
         ScrollView {
@@ -335,6 +336,9 @@ struct HomeView: View {
             case .freeze:
                 Label(L("Streak-Freeze", "Streak freeze"), systemImage: "snowflake")
                     .font(.headline)
+            case .abstinence:
+                Label(L("Abstinenz-Bonus", "Abstinence bonus"), systemImage: "lungs.fill")
+                    .font(.headline)
             }
             popupRows(popup)
         }
@@ -426,6 +430,32 @@ struct HomeView: View {
                         .font(.subheadline.weight(.semibold))
                 }
             }
+        case .abstinence(let notices):
+            VStack(alignment: .leading, spacing: 8) {
+                ForEach(notices) { notice in
+                    HStack(alignment: .center, spacing: 8) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(notice.title)
+                                .foregroundStyle(.primary)
+                            Text(AbstinenceMilestone(rawValue: notice.milestone)?.label ?? notice.milestone)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer(minLength: 8)
+                        if notice.coins > 0 {
+                            CoinAmountView(amount: notice.coins, showsPlus: true)
+                                .font(.caption)
+                        }
+                        Button {
+                            AbstinenceSettings.dismissNotice(notice.id)
+                        } label: {
+                            Image(systemName: "checkmark.circle")
+                                .foregroundStyle(Color.green)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
         }
     }
 
@@ -471,6 +501,11 @@ struct HomeView: View {
         }
         if !freezeWarnings.isEmpty {
             popups.append(HomePopup(id: "freeze", kind: .freeze(freezeWarnings)))
+        }
+        let _ = abstinenceRevision
+        let abstinenceNotices = AbstinenceSettings.notices()
+        if !abstinenceNotices.isEmpty {
+            popups.append(HomePopup(id: "abstinence", kind: .abstinence(abstinenceNotices)))
         }
         return popups
     }
@@ -745,6 +780,7 @@ private struct HomePopup: Identifiable {
         case morning([(event: ChallengeCalendarEvent, challenge: ChallengeItem)])
         case reward(ChallengeCalendarEvent, RewardItem, Int)
         case freeze([(challenge: ChallengeItem, done: Int, required: Int)])
+        case abstinence([AbstinenceNotice])
     }
 
     let id: String

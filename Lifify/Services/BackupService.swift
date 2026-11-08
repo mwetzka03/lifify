@@ -86,12 +86,14 @@ enum BackupService {
         "challengeEvent", "challenge", "reminderRecurrence", "eventRecurrence", "completion",
         "challengeGroup", "coin", "reward", "rewardPolicy", "reminderSync", "purchase", "bucket",
         "workoutChallengeLink", "workoutEventLink", "streakState", "streakMultiplier", "streakFreezeFactor",
-        "abstinenceDifficulty", "abstinenceAwarded", "abstinenceMultiplier"
+        "abstinenceDifficulty", "abstinenceAwarded", "abstinenceMultiplier",
+        "abstinenceRelapse", "abstinenceNotice"
     ]
     private static let sideTypes: Set<String> = [
         "iconPreference", "reminderRecurrence", "eventRecurrence", "marketSymbol", "previousClose", "purchaseDate",
         "rewardPolicy", "reminderSync", "streakState", "streakMultiplier", "streakFreezeFactor",
         "abstinenceDifficulty", "abstinenceAwarded", "abstinenceMultiplier",
+        "abstinenceRelapse", "abstinenceNotice",
         "primaryIncome", "secondaryIncome", "incomeAssignment", "expenseGroupAssignment",
         "workoutChallengeLink", "workoutEventLink", "appPreferences", "backupScope", "workoutSnapshot"
     ]
@@ -762,6 +764,10 @@ enum BackupService {
             AbstinenceSettings.restoreAwarded(r)
         case "abstinenceMultiplier":
             AbstinenceSettings.restoreMultiplier(r)
+        case "abstinenceRelapse":
+            AbstinenceSettings.restoreRelapse(r)
+        case "abstinenceNotice":
+            AbstinenceSettings.restoreNotice(r)
         default:
             break
         }

@@ -9,7 +9,7 @@ is built with SwiftUI and SwiftData, and it needs neither a backend nor a user
 account. German and English, and light, dark, and system appearance, can be
 switched in Settings.
 
-The finance rules are in [FINANZEN.md](FINANZEN.md).
+The finance rules are in [FINANZEN.md](FINANZEN.md). What changed in 0.3.0 is in [AENDERUNGEN-0.3.0.md](AENDERUNGEN-0.3.0.md).
 
 ### Areas
 
@@ -95,7 +95,7 @@ through the system. It does not store passwords for that.
 Lifify 0.3.0 ist eine lokale iPhone-App für Finanzen, Challenges und Training.
 Sie ist mit SwiftUI und SwiftData gebaut, braucht kein Backend und kein
 Benutzerkonto. Deutsch und Englisch sowie Hell, Dunkel und System lassen sich
-in den Einstellungen umschalten.
+in den Einstellungen umschalten. Was sich in 0.3.0 geändert hat, steht in [AENDERUNGEN-0.3.0.md](AENDERUNGEN-0.3.0.md).
 
 Die Finanzregeln stehen in [FINANZEN.md](FINANZEN.md).
 

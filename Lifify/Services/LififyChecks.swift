@@ -604,24 +604,25 @@ enum LififyChecks {
         let start = calendar.date(from: DateComponents(year: 2026, month: 10, day: 25, hour: 12)) ?? .distantPast
         let almostHour = start.addingTimeInterval(3_599)
         let hour = start.addingTimeInterval(3_600)
-        let almost78 = start.addingTimeInterval(78 * 3_600 - 1)
-        let at78 = start.addingTimeInterval(78 * 3_600)
+        let almost72 = start.addingTimeInterval(72 * 3_600 - 1)
+        let at72 = start.addingTimeInterval(72 * 3_600)
         let week = AbstinenceMilestone.day7.due(from: start, calendar: calendar)
         let year = AbstinenceMilestone.year1.due(from: start, calendar: calendar)
         let beforeHour = AbstinenceRules.reached(start: start, now: almostHour, calendar: calendar)
         let atHour = AbstinenceRules.reached(start: start, now: hour, calendar: calendar)
-        let before78 = AbstinenceRules.reached(start: start, now: almost78, calendar: calendar)
-        let reached78 = AbstinenceRules.reached(start: start, now: at78, calendar: calendar)
+        let before72 = AbstinenceRules.reached(start: start, now: almost72, calendar: calendar)
+        let reached72 = AbstinenceRules.reached(start: start, now: at72, calendar: calendar)
         let atWeek = AbstinenceRules.reached(start: start, now: week, calendar: calendar)
         let beforeYear = AbstinenceRules.reached(start: start, now: year.addingTimeInterval(-1), calendar: calendar)
         let atYear = AbstinenceRules.reached(start: start, now: year, calendar: calendar)
         let passed = beforeHour.isEmpty
             && atHour == [.hour1]
-            && !before78.contains(.hour78) && before78.contains(.hour24)
-            && reached78.contains(.hour78) && !reached78.contains(.day7)
+            && !before72.contains(.hour72) && before72.contains(.hour24)
+            && reached72.contains(.hour72) && !reached72.contains(.day7)
             && atWeek.contains(.day7) && !atWeek.contains(.day14)
             && !beforeYear.contains(.year1) && atYear.contains(.year1)
-        return result("Boni sitzen auf 1, 2, 4, 8, 24 und 78 Stunden, dann 7, 14, 30 Tage und 1 Jahr", .abstinence, .unit, passed, "78h \(reached78.contains(.hour78))")
+            && AbstinenceMilestone(rawValue: "78h") == nil
+        return result("Boni sitzen auf 1, 2, 4, 8, 24 und 72 Stunden, dann 7, 14, 30 Tage und 1 Jahr", .abstinence, .unit, passed, "72h \(reached72.contains(.hour72))")
     }
 
     private static func abstinenceRunPaysDaysAndStepsOnce() -> LififyCheckResult {
@@ -640,7 +641,7 @@ enum LififyChecks {
         let passed = first.days.count == 11
             && first.milestones.contains(.day7)
             && !first.milestones.contains(.day14)
-            && first.milestones.contains(.hour78)
+            && first.milestones.contains(.hour72)
             && again.days.isEmpty && again.milestones.isEmpty
             && relapsed.milestones == [.hour1, .hour2]
             && future.days.isEmpty && future.milestones.isEmpty
