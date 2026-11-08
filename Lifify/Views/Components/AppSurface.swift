@@ -249,11 +249,11 @@ extension View {
     }
 
     func appTintedPlate(radius: CGFloat = 14) -> some View {
-        background(AppTintedShape(shape: RoundedRectangle(cornerRadius: radius, style: .continuous)))
+        background(AppTintedPlate(radius: radius))
     }
 
     func appTintedCapsule() -> some View {
-        background(AppTintedShape(shape: Capsule()))
+        background(AppTintedCapsuleFill())
     }
 
     /// Tinted page. The fill follows the chosen style.
@@ -312,17 +312,31 @@ struct AppGlassRowFill: View {
     }
 }
 
-private struct AppTintedShape<S: Shape>: View {
-    var shape: S
+private struct AppTintedPlate: View {
+    var radius: CGFloat
     @Environment(\.colorScheme) private var scheme
     @AppStorage(AppPalette.storageKey) private var paletteRaw = AppPalette.green.rawValue
 
     var body: some View {
         let appearance = AppAppearance(scheme)
         let palette = AppPalette.resolved(paletteRaw)
-        shape
-            .fill(AppLook.cardFill(appearance, palette: palette).color())
-            .overlay(shape.strokeBorder(AppLook.cardStroke(appearance, palette: palette).color(), lineWidth: 1))
+        let fill = AppLook.cardFill(appearance, palette: palette).color()
+        let stroke = AppLook.cardStroke(appearance, palette: palette).color()
+        let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
+        return shape.fill(fill).overlay(shape.strokeBorder(stroke, lineWidth: 1))
+    }
+}
+
+private struct AppTintedCapsuleFill: View {
+    @Environment(\.colorScheme) private var scheme
+    @AppStorage(AppPalette.storageKey) private var paletteRaw = AppPalette.green.rawValue
+
+    var body: some View {
+        let appearance = AppAppearance(scheme)
+        let palette = AppPalette.resolved(paletteRaw)
+        let fill = AppLook.cardFill(appearance, palette: palette).color()
+        let stroke = AppLook.cardStroke(appearance, palette: palette).color()
+        return Capsule().fill(fill).overlay(Capsule().strokeBorder(stroke, lineWidth: 1))
     }
 }
 
