@@ -12,23 +12,23 @@ enum ChallengeTimeService {
         for event in events where !event.isAllDay && !event.isReminderSuggestion {
             let ids = ChallengeTimeStore.memberIDs(for: event.id)
             guard !ids.isEmpty else { continue }
-            let linked = ids.compactMap { id -> Int? in
+            var open: [Int] = []
+            var actuals: [Int] = []
+            for id in ids {
                 guard let challenge = challenges.first(where: { $0.id == id }),
                       ChallengeTimeRules.allowsTime(challenge.category)
-                else { return nil }
-                return ChallengeTimeStore.minutes(for: id)
-            }
-            let completed = ids.compactMap { id -> Int? in
-                guard let challenge = challenges.first(where: { $0.id == id }),
-                      ChallengeTimeRules.allowsTime(challenge.category),
-                      let minutes = ChallengeTimeStore.minutes(for: id),
-                      ChallengeService.isCompleted(challenge, on: event.startDate, completions: tracked)
-                else { return nil }
-                return minutes
+                else { continue }
+                let estimate = ChallengeTimeStore.minutes(for: id) ?? 0
+                if ChallengeService.isCompleted(challenge, on: event.startDate, completions: tracked) {
+                    let actual = ChallengeTimeStore.actualMinutes(for: id) ?? estimate
+                    if actual > 0 { actuals.append(actual) }
+                } else if estimate > 0 {
+                    open.append(estimate)
+                }
             }
             let planned = ChallengeTimeStore.plannedMinutes(for: event.id)
                 ?? ChallengeTimeRules.minutes(from: event.startDate, to: event.endDate)
-            let shown = ChallengeTimeRules.displayedMinutes(planned: planned, linked: linked, completed: completed)
+            let shown = ChallengeTimeRules.displayedMinutes(planned: planned, linked: open, completed: actuals)
             guard shown > 0 else { continue }
             let newEnd = event.startDate.addingTimeInterval(TimeInterval(shown * 60))
             guard abs(newEnd.timeIntervalSince(event.endDate)) > 30 else { continue }

@@ -73,15 +73,67 @@ enum ChallengeTimeRules {
         return minutes <= remaining
     }
 
-    /// One timed challenge makes the event that long.
-    /// Several, with some finished, shrink the event to the finished minutes.
-    /// Several, with none finished, keep the planned slot.
+    /// The event keeps its planned length until a challenge is checked off.
+    /// `linked` holds the estimates that are still open.
+    /// `completed` holds the actual minutes entered for the finished ones.
+    /// With no actual minutes, the planned slot stays, even for a single challenge.
     static func displayedMinutes(planned: Int, linked: [Int], completed: [Int]) -> Int {
-        let timed = linked.filter { $0 > 0 }
-        if timed.count == 1 { return timed[0] }
-        let done = completed.filter { $0 > 0 }.reduce(0, +)
-        if done > 0 { return done }
-        return max(planned, 0)
+        let actuals = completed.filter { $0 > 0 }
+        guard !actuals.isEmpty else { return max(planned, 0) }
+        let open = linked.filter { $0 > 0 }.reduce(0, +)
+        return max(actuals.reduce(0, +) + open, 1)
+    }
+
+    /// Checking off a timed challenge that sits on an event asks for the real minutes.
+    static func asksForActualDuration(hasEstimate: Bool, linkedToEvent: Bool, completing: Bool) -> Bool {
+        completing && hasEstimate && linkedToEvent
+    }
+
+    static func durationParts(_ minutes: Int) -> (hours: Int, minutes: Int) {
+        let safe = max(minutes, 0)
+        return (safe / 60, safe % 60)
+    }
+
+    static func durationText(_ minutes: Int) -> String {
+        let parts = durationParts(minutes)
+        if parts.hours > 0, parts.minutes > 0 {
+            return L("\(parts.hours) Std \(parts.minutes) Min", "\(parts.hours) h \(parts.minutes) min")
+        }
+        if parts.hours > 0 {
+            return L("\(parts.hours) Std", "\(parts.hours) h")
+        }
+        return L("\(parts.minutes) Min", "\(parts.minutes) min")
+    }
+
+    /// Date and start stay. A free event shows its length. A filled event shows only the time still left.
+    static func scheduleCaption(
+        allDay: Bool,
+        dateText: String,
+        timeText: String,
+        slotMinutes: Int,
+        linkedMinutes: [Int]
+    ) -> String {
+        if allDay { return L("Ganztägig", "All day") }
+        let used = linkedMinutes.filter { $0 > 0 }
+        if used.isEmpty {
+            return "\(dateText) · \(timeText) · \(durationText(slotMinutes))"
+        }
+        let left = remaining(slotMinutes: slotMinutes, linkedMinutes: used)
+        return "\(dateText) · \(timeText) · \(durationText(left))"
+    }
+
+    /// Oldest first. A challenge is listed with or without a duration when its switch is on.
+    static func offeredSuggestions(
+        candidates: [(id: UUID, minutes: Int?, createdAt: Date, offered: Bool)],
+        already: Set<UUID>
+    ) -> [UUID] {
+        candidates
+            .filter { $0.offered && !already.contains($0.id) }
+            .sorted { lhs, rhs in
+                if lhs.createdAt != rhs.createdAt { return lhs.createdAt < rhs.createdAt }
+                return lhs.id.uuidString < rhs.id.uuidString
+            }
+            .map(\.id)
     }
 
     static func suggestions(
@@ -97,5 +149,31 @@ enum ChallengeTimeRules {
             guard canAdd(minutes: item.minutes, remaining: remaining) else { return nil }
             return item.id
         }
+    }
+}
+
+/// Several challenges on one event share a group named after that event and its day.
+enum EventGroupName {
+    static func title(event: String, day: String) -> String {
+        "\(event) – \(day)"
+    }
+}
+
+/// The challenge switch that offers it when an event is looking for work. Missing means on.
+enum EventOffer {
+    static func enabled(stored: Bool?) -> Bool { stored ?? true }
+
+    static func isEnabled(for id: UUID, defaults: UserDefaults = .standard) -> Bool {
+        let key = storageKey(id)
+        guard defaults.object(forKey: key) != nil else { return enabled(stored: nil) }
+        return enabled(stored: defaults.bool(forKey: key))
+    }
+
+    static func set(_ value: Bool, for id: UUID, defaults: UserDefaults = .standard) {
+        defaults.set(value, forKey: storageKey(id))
+    }
+
+    private static func storageKey(_ id: UUID) -> String {
+        "lifify.eventOffer.\(id.uuidString)"
     }
 }

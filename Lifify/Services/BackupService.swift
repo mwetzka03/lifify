@@ -97,7 +97,7 @@ enum BackupService {
         "workoutChallengeLink", "workoutEventLink", "streakState", "streakMultiplier", "streakFreezeFactor",
         "abstinenceDifficulty", "abstinenceAwarded", "abstinenceMultiplier",
         "abstinenceRelapse", "abstinenceNotice", "abstinenceException", "abstinenceRewardLink",
-        "challengeDuration", "challengeTimeMembers", "challengeTimePlanned",
+        "challengeDuration", "challengeActual", "challengeTimeMembers", "challengeTimePlanned",
         "customCategory"
     ]
     private static let sideTypes: Set<String> = [
@@ -105,7 +105,7 @@ enum BackupService {
         "rewardPolicy", "reminderSync", "streakState", "streakMultiplier", "streakFreezeFactor",
         "abstinenceDifficulty", "abstinenceAwarded", "abstinenceMultiplier",
         "abstinenceRelapse", "abstinenceNotice", "abstinenceException", "abstinenceRewardLink",
-        "challengeDuration", "challengeTimeMembers", "challengeTimePlanned",
+        "challengeDuration", "challengeActual", "challengeTimeMembers", "challengeTimePlanned",
         "customCategory", "briefingWeekday",
         "primaryIncome", "secondaryIncome", "incomeAssignment", "expenseGroupAssignment",
         "workoutChallengeLink", "workoutEventLink", "appPreferences", "backupScope", "workoutSnapshot"
@@ -829,6 +829,8 @@ enum BackupService {
             AbstinenceSettings.restoreRewardLink(r)
         case "challengeDuration":
             ChallengeTimeStore.restoreDuration(r)
+        case "challengeActual":
+            ChallengeTimeStore.restoreActual(r)
         case "challengeTimeMembers":
             ChallengeTimeStore.restoreMembers(r)
         case "challengeTimePlanned":

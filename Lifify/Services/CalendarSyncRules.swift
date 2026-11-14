@@ -32,6 +32,24 @@ enum CalendarSyncWindow {
     }
 }
 
+/// The challenge calendar opens on today. Earlier days sit above it, later days below it.
+enum AgendaScroll {
+    static let pastDays = 30
+    static let futureDays = 45
+
+    static func days(around today: Date, calendar: Calendar = .current) -> [Date] {
+        let start = calendar.startOfDay(for: today)
+        let first = calendar.date(byAdding: .day, value: -pastDays, to: start) ?? start
+        return (0..<(pastDays + 1 + futureDays)).compactMap { offset in
+            calendar.date(byAdding: .day, value: offset, to: first)
+        }
+    }
+
+    static func todayIndex(in days: [Date], today: Date, calendar: Calendar = .current) -> Int? {
+        days.firstIndex { calendar.isDate($0, inSameDayAs: today) }
+    }
+}
+
 /// A new occurrence of a series keeps the challenge already linked to that series.
 enum CalendarSeriesLink {
     struct Event {

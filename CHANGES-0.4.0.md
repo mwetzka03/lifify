@@ -37,7 +37,9 @@ This file is in English and in German. The finance calculations stay in
   debts, pools, expense groups, variable budgets, and the shopping list use
   that same tinted card instead of a plain black or white list.
 - Nutrition is a day board under Health. It shows the calorie target, what was
-  eaten, and protein, and it keeps the other nutrients on the meal. Today is
+  eaten, and every nutrient. Protein, carbohydrate, and fat are large. The
+  others are smaller, each with the suggested daily amount in a quieter line.
+  Today is
   the default. The arrows move one day, and tapping the date opens a calendar.
   A future day cannot be selected. A photo can be taken or chosen from the
   library. A new photo stays in the app unless Health, Nutrition, saves it to
@@ -45,11 +47,15 @@ This file is in English and in German. The finance calculations stay in
   under Health, Gemini 2.5 Flash reads the meal and picks a kind: whole food,
   balanced, hearty, sweet, fast food, or alcohol. Without a key the photo stays
   on the device. Fast food buys the Fast Food shop reward for 25 coins and
-  refunds it if the kind changes or the meal is deleted. Staying at or under
-  the calorie target pays the daily challenge Calorie deficit, under
-  More, with streaks, pinned the first time it is created. A clean day of whole
-  and balanced meals pays 30 coins before the streak multiplier, any other day
-  under the target pays 20, and a day over the target pays nothing. The board
+  refunds it if the kind changes or the meal is deleted. The daily challenge
+  follows the goal: Calorie deficit stays at or under the target, Hold calories
+  stays within 90 to 110 percent, and Build muscle pays once the target is
+  reached. It sits under More, with streaks, pinned the first time it is
+  created. It cannot be checked off by hand, and its card has no check circle.
+  A meal logged on an earlier day takes the coins back, and the balance can
+  go below zero. A clean day of whole
+  and balanced meals pays 30 coins before the streak multiplier, any other
+  qualifying day pays 20, and a day that misses the goal pays nothing. The board
   shows that amount. Settings starts with the name and a profile photo. The
   line under the name is User settings. That page holds the date of birth, height in
   centimetres, weight in kilograms, sex, and the goal (lose fat, maintain,
@@ -60,7 +66,16 @@ This file is in English and in German. The finance calculations stay in
   left unpinned disappears, including its create button. The plus menu offers
   an abstinence challenge, a sport challenge, another challenge, and a group.
   A sport challenge linked to a workout cannot be checked off by hand, and its
-  card has no check circle. It counts when that workout is finished. Exercise
+  card has no check circle. It counts when that workout is finished. The
+  nutrition challenge has no check circle either. Category, and the switch
+  Suggest for events, sit under More settings. That switch starts on. An event
+  keeps its slot until a timed challenge is checked off. The minutes entered
+  then revise that event in the calendar. The event row shows the duration, or
+  only the time still left when timed challenges are already linked. Several
+  challenges on one event become a group named after the event and the day.
+  Picking existing challenges and creating a new one both sit under More
+  settings on the event. The calendar opens on today: the past is above it
+  and the future is below it. Exercise
   pictures drop a near-white background and sit on a tinted rounded tile.
 - Finance keeps the account choice pinned at the top. The choices are bubbles
   in a row. A long name wraps to the next row, and that row shares the space
@@ -171,8 +186,9 @@ This file is in English and in German. The finance calculations stay in
   Schulden, Pools, Ausgabengruppen, variable Budgets und der Einkaufszettel
   nutzen dieselbe Karte statt einer schwarz-weißen Liste.
 - Ernährung ist eine Tagesansicht unter Gesundheit. Sie zeigt das Kalorienziel,
-  das Gegessene und das Eiweiß, und sie merkt die übrigen Nährstoffe an der
-  Mahlzeit. Heute ist voreingestellt. Die Pfeile wechseln einen Tag, und ein
+  das Gegessene und jeden Nährstoff. Eiweiß, Kohlenhydrate und Fett sind groß.
+  Die übrigen sind kleiner, jeweils mit der Empfehlung für den Tag in einer
+  ruhigeren Zeile. Heute ist voreingestellt. Die Pfeile wechseln einen Tag, und ein
   Tipp auf das Datum öffnet einen Kalender. Ein späterer Tag geht nicht. Ein
   Foto kann aufgenommen oder aus der Galerie gewählt werden. Eine Aufnahme
   bleibt in der App, solange unter Gesundheit, Ernährung, das Sichern in die
@@ -180,12 +196,16 @@ This file is in English and in German. The finance calculations stay in
   Gemini 2.5 Flash die Mahlzeit und wählt eine Art: unverarbeitet, ausgewogen,
   deftig, süß, Fast Food oder Alkohol. Ohne Schlüssel bleibt das Foto auf dem
   Gerät. Fast Food kauft die Shop-Belohnung Fast Food für 25 Coins und erstattet
-  sie, wenn die Art sich ändert oder die Mahlzeit gelöscht wird. Wer am oder
-  unter dem Kalorienziel bleibt, bekommt die tägliche Challenge
-  Kaloriendefizit unter Weitere, mit Streaks, beim ersten Anlegen angepinnt. Ein
+  sie, wenn die Art sich ändert oder die Mahlzeit gelöscht wird. Die tägliche
+  Challenge folgt dem Ziel: Kaloriendefizit bleibt am oder unter dem Ziel,
+  Kalorien halten bleibt zwischen 90 und 110 Prozent, und Muskelaufbau zahlt,
+  sobald das Ziel erreicht ist. Sie steht unter Weitere, mit Streaks, beim
+  ersten Anlegen angepinnt. Sie lässt sich nicht von Hand abhaken, und ihre
+  Karte hat keinen Haken-Kreis. Eine Mahlzeit an einem früheren Tag zieht die
+  Coins wieder ab, und das Guthaben kann unter null fallen. Ein
   sauberer Tag aus unverarbeiteten und ausgewogenen Mahlzeiten zahlt 30 Coins
-  vor dem Streak-Faktor, jeder andere Tag unter dem Ziel zahlt 20, und ein Tag
-  darüber zahlt nichts. Die Ansicht zeigt diesen Betrag. Die Einstellungen
+  vor dem Streak-Faktor, jeder andere passende Tag zahlt 20, und ein Tag, der
+  das Ziel verfehlt, zahlt nichts. Die Ansicht zeigt diesen Betrag. Die Einstellungen
   beginnen mit dem Namen und einem Profilbild. Darunter steht
   Nutzereinstellungen. Diese Seite hält Geburtsdatum, Größe in Zentimetern, Gewicht in
   Kilogramm, Geschlecht und das Ziel (Fett verlieren, Halten, Muskeln
@@ -198,7 +218,17 @@ This file is in English and in German. The finance calculations stay in
   Plus bietet eine Abstinenz-Challenge, eine Sport-Challenge, eine sonstige
   Challenge und eine Gruppe. Eine Sport-Challenge mit einem verknüpften
   Training lässt sich nicht von Hand abhaken, und ihre Kachel hat keinen
-  Hakenkreis. Sie zählt, wenn dieses Training beendet ist. Übungsbilder
+  Hakenkreis. Sie zählt, wenn dieses Training beendet ist. Die
+  Ernährungs-Challenge hat ebenfalls keinen Hakenkreis. Kategorie und der
+  Schalter Für Termine vorschlagen stehen unter Weitere Einstellungen. Der
+  Schalter startet an. Ein Termin behält seinen Slot, bis eine Challenge mit
+  Dauer abgehakt wird. Die eingetragenen Minuten schreiben den Termin im
+  Kalender dann rückwirkend um. Die Terminzeile zeigt die Dauer, oder nur die
+  übrige Zeit, wenn schon Challenges mit Dauer verknüpft sind. Mehrere
+  Challenges an einem Termin werden eine Gruppe aus Terminname und Tag.
+  Vorhandene Challenges und eine neue Challenge stehen beide unter Weitere
+  Einstellungen am Termin. Der Kalender öffnet beim heutigen Tag: die
+  Vergangenheit liegt darüber, die Zukunft darunter. Übungsbilder
   verlieren einen fast weißen Grund und liegen auf einer gefärbten,
   abgerundeten Kachel.
 - Finanzen behält die Kontoauswahl oben fest. Die Auswahl sind Blasen in einer

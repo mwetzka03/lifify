@@ -359,10 +359,26 @@ enum NutritionCopy {
     }
 
     static var calorieChallenge: String {
-        L("Kaloriendefizit", "Calorie deficit")
+        challengeTitle(for: .loseFat)
+    }
+
+    static func challengeTitle(for goal: BodyGoal) -> String {
+        switch goal {
+        case .loseFat: L("Kaloriendefizit", "Calorie deficit")
+        case .maintain: L("Kalorien halten", "Hold calories")
+        case .gainMuscle: L("Muskelaufbau", "Build muscle")
+        }
     }
 
     static let previousCalorieTitles = ["Unter dem Kalorienziel", "Under the calorie target"]
+
+    static var automaticTitles: [String] {
+        previousCalorieTitles + [
+            "Kaloriendefizit", "Calorie deficit",
+            "Kalorien halten", "Hold calories",
+            "Muskelaufbau", "Build muscle"
+        ]
+    }
 }
 
 /// A camera shot is kept in the app. It reaches the photo library only when this is on.
@@ -405,12 +421,102 @@ enum MealScore {
         kinds.contains(.fastFood)
     }
 
-    /// Zero when the day has no confirmed food, no target, or sits over the target.
-    /// A day of only whole and balanced meals adds the clean bonus.
-    static func coins(eaten: Int, target: Int?, kinds: [MealKind]) -> Int {
-        guard let target, target > 0, eaten > 0, eaten <= target else { return 0 }
+    /// Lose fat stays at or under the target. Build muscle has to reach it.
+    /// Maintain stays inside 90 to 110 percent. An empty day never qualifies.
+    static func qualifies(eaten: Int, target: Int?, goal: BodyGoal) -> Bool {
+        guard let target, target > 0, eaten > 0 else { return false }
+        switch goal {
+        case .loseFat:
+            return eaten <= target
+        case .gainMuscle:
+            return eaten >= target
+        case .maintain:
+            let low = NutritionPlan.percent(target, 90)
+            let high = NutritionPlan.percent(target, 110)
+            return eaten >= low && eaten <= high
+        }
+    }
+
+    /// Taking an award back subtracts it from the balance, even below zero.
+    static func balance(afterRemoving awarded: Int, from balance: Int) -> Int {
+        balance - awarded
+    }
+
+    /// Zero when the day misses the goal. A day of only whole and balanced meals adds the clean bonus.
+    static func coins(eaten: Int, target: Int?, kinds: [MealKind], goal: BodyGoal = .loseFat) -> Int {
+        guard qualifies(eaten: eaten, target: target, goal: goal) else { return 0 }
         let clean = !kinds.isEmpty && kinds.allSatisfy { points(for: $0) > 0 }
         return baseCoins + (clean ? cleanBonus : 0)
+    }
+}
+
+/// Daily amounts shown beside what was eaten. Protein, carbohydrate, and fat are the large rows.
+enum NutrientGuide {
+    static let headlines: [Nutrient] = [.protein, .carbohydrate, .fat]
+
+    static func daily(
+        _ nutrient: Nutrient,
+        weightKg: Double,
+        sex: BodySex,
+        goal: BodyGoal,
+        calorieTarget: Int?
+    ) -> Int {
+        switch nutrient {
+        case .calories:
+            return calorieTarget ?? 0
+        case .protein:
+            let gramsPerKg = goal == .maintain ? 1.2 : 1.6
+            return Int((max(weightKg, 0) * gramsPerKg).rounded())
+        case .carbohydrate:
+            return share(calorieTarget, percent: 45, perUnit: 4)
+        case .fat:
+            return share(calorieTarget, percent: 30, perUnit: 9)
+        case .saturatedFat:
+            return share(calorieTarget, percent: 10, perUnit: 9)
+        case .fiber:
+            return 30
+        case .omega3:
+            switch sex {
+            case .male: return 2
+            case .female: return 1
+            case .unspecified: return 2
+            }
+        case .omega6:
+            switch sex {
+            case .male: return 17
+            case .female: return 12
+            case .unspecified: return 14
+            }
+        case .vitaminD:
+            return 20
+        case .vitaminB12:
+            return 4
+        case .vitaminC:
+            switch sex {
+            case .male: return 110
+            case .female: return 95
+            case .unspecified: return 100
+            }
+        case .calcium:
+            return 1000
+        case .iron:
+            switch sex {
+            case .male: return 10
+            case .female: return 15
+            case .unspecified: return 12
+            }
+        case .magnesium:
+            switch sex {
+            case .male: return 350
+            case .female: return 300
+            case .unspecified: return 325
+            }
+        }
+    }
+
+    private static func share(_ calories: Int?, percent: Int, perUnit: Int) -> Int {
+        guard let calories, calories > 0, perUnit > 0 else { return 0 }
+        return Int((Double(calories) * Double(percent) / 100 / Double(perUnit)).rounded())
     }
 }
 

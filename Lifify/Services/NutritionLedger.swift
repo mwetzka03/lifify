@@ -37,18 +37,20 @@ enum NutritionLedger {
 
     private static func ensureChallenge(context: ModelContext) -> ChallengeItem {
         let stored = (try? context.fetch(FetchDescriptor<ChallengeItem>())) ?? []
+        let goal = UserBody.current().goal
+        let wanted = NutritionCopy.challengeTitle(for: goal)
         if let existing = stored.first(where: { $0.externalIdentifier == challengeMark }) {
-            if NutritionCopy.previousCalorieTitles.contains(existing.title) {
-                existing.title = NutritionCopy.calorieChallenge
+            if NutritionCopy.automaticTitles.contains(existing.title), existing.title != wanted {
+                existing.title = wanted
                 try? context.save()
             }
             return existing
         }
         let challenge = ChallengeItem(
-            title: NutritionCopy.calorieChallenge,
+            title: wanted,
             details: L(
-                "Ein Tag zählt, wenn die bestätigten Mahlzeiten das Kalorienziel nicht übersteigen. Eine Reihe aus unverarbeiteten und ausgewogenen Mahlzeiten zahlt mehr. Fast Food wird im Shop gekauft.",
-                "A day counts when the confirmed meals stay within the calorie target. A run of whole and balanced meals pays more. Fast food is bought in the shop."
+                "Ein Tag zählt, wenn die bestätigten Mahlzeiten zum Ziel passen. Fett verlieren bleibt am oder unter dem Ziel, Halten bleibt nah am Ziel, Muskeln aufbauen erreichen das Ziel. Eine Reihe aus unverarbeiteten und ausgewogenen Mahlzeiten zahlt mehr.",
+                "A day counts when the confirmed meals match the goal. Lose fat stays at or under the target, maintain stays near it, and build muscle reaches it. A run of whole and balanced meals pays more."
             ),
             category: .other,
             recurrence: .daily,
@@ -126,7 +128,7 @@ enum NutritionLedger {
             let eaten = NutritionPlan.rounded(.calories, meals: confirmed)
             let trained = NutritionPlan.trained(on: day, sessions: sessions, calendar: calendar)
             let target = NutritionPlan.dayTarget(measures: measures, birth: birth, on: day, trained: trained, calendar: calendar)
-            let base = MealScore.coins(eaten: eaten, target: target, kinds: confirmed.map(\.kind))
+            let base = MealScore.coins(eaten: eaten, target: target, kinds: confirmed.map(\.kind), goal: measures.goal)
             let existing = tracked.first {
                 $0.challengeID == challenge.id && calendar.isDate($0.date, inSameDayAs: day)
             }

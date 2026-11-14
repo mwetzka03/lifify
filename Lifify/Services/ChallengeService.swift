@@ -242,13 +242,15 @@ enum ChallengeService {
         guard !challenge.isReadOnly, challenge.category != .abstinence else { return }
         guard ChallengeCheckoff.allowsHand(
             category: challenge.category,
-            linkedWorkouts: WorkoutLinkStore.planIDs(forChallenge: challenge.id).count
+            linkedWorkouts: WorkoutLinkStore.planIDs(forChallenge: challenge.id).count,
+            followsNutrition: ChallengeCheckoff.followsNutrition(challenge.externalIdentifier)
         ) else { return }
         let isNowCompleted: Bool
         let tracked: [ChallengeCompletion]
         if let completion = completions.first(where: {
             $0.challengeID == challenge.id && Calendar.current.isDate($0.date, inSameDayAs: date)
         }) {
+            ChallengeTimeStore.setActualMinutes(nil, for: challenge.id)
             transactions.filter { $0.referenceID == completion.id }.forEach { context.delete($0) }
             context.delete(completion)
             tracked = completions.filter { $0.id != completion.id }
@@ -514,5 +516,52 @@ enum ChallengeService {
                 calendar.date(byAdding: .day, value: day - 1, to: first)
             }
         }
+    }
+}
+
+/// A timed challenge on an event asks for the real minutes before it is marked done.
+@MainActor
+enum ChallengeFinish {
+    static func suggestedMinutes(
+        challenge: ChallengeItem,
+        on date: Date,
+        completions: [ChallengeCompletion],
+        events: [ChallengeCalendarEvent]
+    ) -> Int? {
+        let completing = !ChallengeService.isCompleted(challenge, on: date, completions: completions)
+        let minutes = ChallengeTimeStore.minutes(for: challenge.id) ?? 0
+        let linked = ChallengeTimeStore.eventID(containing: challenge.id) != nil
+            || events.contains { !$0.isReminderSuggestion && $0.linkedChallengeID == challenge.id }
+        guard ChallengeTimeRules.allowsTime(challenge.category),
+              ChallengeTimeRules.asksForActualDuration(
+                hasEstimate: minutes > 0,
+                linkedToEvent: linked,
+                completing: completing
+              )
+        else { return nil }
+        return minutes
+    }
+
+    static func commit(
+        challenge: ChallengeItem,
+        date: Date,
+        actualMinutes: Int?,
+        completions: [ChallengeCompletion],
+        transactions: [CoinTransaction],
+        events: [ChallengeCalendarEvent],
+        context: ModelContext
+    ) {
+        let completing = !ChallengeService.isCompleted(challenge, on: date, completions: completions)
+        if completing, let actualMinutes, actualMinutes > 0 {
+            ChallengeTimeStore.setActualMinutes(actualMinutes, for: challenge.id)
+        }
+        ChallengeService.toggleCompletion(
+            challenge: challenge,
+            date: date,
+            completions: completions,
+            transactions: transactions,
+            events: events,
+            context: context
+        )
     }
 }

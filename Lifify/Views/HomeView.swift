@@ -17,6 +17,7 @@ struct HomeView: View {
     @Query private var rewards: [RewardItem]
     @State private var mode = ChallengeCalendarViewMode.day
     @State private var selectedDate = AppClock.now
+    @State private var pendingDuration: PendingDuration?
     @AppStorage(AppClock.modeKey) private var developerMode = false
     @AppStorage(AppClock.dayKey) private var developerDay = 0.0
     @State private var expandedWeekday: Date?
@@ -139,6 +140,43 @@ struct HomeView: View {
             ChallengeService.commitFreezes(for: challenges, completions: completions, events: calendarEvents, on: AppClock.now)
             AbstinenceService.settle(context: context)
         }
+        .sheet(item: $pendingDuration) { pending in
+            ActualDurationSheet(suggested: pending.suggested) { minutes in
+                ChallengeFinish.commit(
+                    challenge: pending.challenge,
+                    date: pending.date,
+                    actualMinutes: minutes,
+                    completions: completions,
+                    transactions: transactions,
+                    events: calendarEvents,
+                    context: context
+                )
+                pendingDuration = nil
+            } onCancel: {
+                pendingDuration = nil
+            }
+        }
+    }
+
+    private func finish(_ challenge: ChallengeItem, on date: Date) {
+        if let minutes = ChallengeFinish.suggestedMinutes(
+            challenge: challenge,
+            on: date,
+            completions: completions,
+            events: calendarEvents
+        ) {
+            pendingDuration = PendingDuration(challenge: challenge, date: date, suggested: minutes)
+            return
+        }
+        ChallengeFinish.commit(
+            challenge: challenge,
+            date: date,
+            actualMinutes: nil,
+            completions: completions,
+            transactions: transactions,
+            events: calendarEvents,
+            context: context
+        )
     }
 
     private var dayView: some View {
@@ -203,8 +241,16 @@ struct HomeView: View {
                                 Spacer()
                                 CoinAmountView(amount: challenge.rewardCoins, showsPlus: true)
                                     .font(.caption)
-                                Image(systemName: ChallengeService.isCompleted(challenge, on: selectedDate, completions: completions) ? "checkmark.circle.fill" : "circle")
-                                    .foregroundStyle(ChallengeService.isCompleted(challenge, on: selectedDate, completions: completions) ? .green : .secondary)
+                                let followsNutrition = ChallengeCheckoff.followsNutrition(challenge.externalIdentifier)
+                                let allowsHand = ChallengeCheckoff.allowsHand(
+                                    category: challenge.category,
+                                    linkedWorkouts: WorkoutLinkStore.planIDs(forChallenge: challenge.id).count,
+                                    followsNutrition: followsNutrition
+                                )
+                                if ChallengeBoard.showsCheckCircle(allowsHand: allowsHand) {
+                                    Image(systemName: ChallengeService.isCompleted(challenge, on: selectedDate, completions: completions) ? "checkmark.circle.fill" : "circle")
+                                        .foregroundStyle(ChallengeService.isCompleted(challenge, on: selectedDate, completions: completions) ? .green : .secondary)
+                                }
                             }
                         }
                     }
@@ -389,14 +435,7 @@ struct HomeView: View {
         case .morning(let items):
             ForEach(items, id: \.challenge.id) { item in
                 Button {
-                    ChallengeService.toggleCompletion(
-                        challenge: item.challenge,
-                        date: AppClock.now,
-                        completions: completions,
-                        transactions: transactions,
-                        events: calendarEvents,
-                        context: context
-                    )
+                    finish(item.challenge, on: AppClock.now)
                 } label: {
                     HStack(alignment: .center, spacing: 8) {
                         VStack(alignment: .leading, spacing: 2) {
@@ -589,7 +628,8 @@ struct HomeView: View {
                       let challenge = challenges.first(where: { $0.id == challengeID }),
                       ChallengeCheckoff.allowsHand(
                           category: challenge.category,
-                          linkedWorkouts: WorkoutLinkStore.planIDs(forChallenge: challenge.id).count
+                          linkedWorkouts: WorkoutLinkStore.planIDs(forChallenge: challenge.id).count,
+                          followsNutrition: ChallengeCheckoff.followsNutrition(challenge.externalIdentifier)
                       ),
                       !ChallengeService.isCompleted(challenge, on: AppClock.now, completions: completions)
                 else { return nil }

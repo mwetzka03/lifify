@@ -41,8 +41,9 @@ tinted rounded tile. Nutrition is a day board for meals, calories, and the other
 nutrients. The arrows move one day, and tapping the date jumps to another day.
 A photo can be attached. With a Gemini key under Settings, Health, the photo
 is read and classified. Without a key it stays on the device. Fast food buys
-the Fast Food reward for 25 coins. Staying at or under the calorie target pays
-the pinned challenge Calorie deficit. The requirements are in
+the Fast Food reward for 25 coins. The pinned nutrition challenge follows the
+goal: Calorie deficit, Hold calories, or Build muscle. It cannot be checked
+off by hand, and a later meal can take the coins back below zero. The requirements are in
 [ERNAEHRUNG.md](ERNAEHRUNG.md). Abstinence lives with the challenges. A sport
 challenge linked to a workout is completed only by finishing that workout.
 Up to four challenges can be pinned to the top of the challenges page.
@@ -157,9 +158,10 @@ Tagesansicht für Mahlzeiten, Kalorien und die übrigen Nährstoffe. Die Pfeile
 wechseln einen Tag, ein Tipp auf das Datum springt zu einem anderen Tag. Ein
 Foto kann angehängt werden. Mit einem Gemini-Schlüssel unter Einstellungen,
 Gesundheit, wird das Foto gelesen und eingeordnet. Ohne Schlüssel bleibt es
-auf dem Gerät. Fast Food kauft die Belohnung Fast Food für 25 Coins. Wer am
-oder unter dem Kalorienziel bleibt, bekommt die angepinnte Challenge
-Kaloriendefizit. Die Anforderungen stehen in [ERNAEHRUNG.md](ERNAEHRUNG.md).
+auf dem Gerät. Fast Food kauft die Belohnung Fast Food für 25 Coins. Die
+angepinnte Ernährungs-Challenge folgt dem Ziel: Kaloriendefizit, Kalorien
+halten oder Muskelaufbau. Sie lässt sich nicht von Hand abhaken, und eine
+spätere Mahlzeit kann die Coins wieder unter null abziehen. Die Anforderungen stehen in [ERNAEHRUNG.md](ERNAEHRUNG.md).
 Abstinenz liegt bei den Challenges. Eine Sport-Challenge mit einem verknüpften
 Training gilt nur als erledigt, wenn dieses Training beendet wurde. Bis zu
 vier Challenges lassen sich oben auf der Challenges-Seite anpinnen.

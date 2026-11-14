@@ -291,17 +291,17 @@ enum CheckStories {
             ("Das Zeitfenster und die Dauer werden gegeneinander gerechnet.", "The time slot and the duration are compared.", "ChallengeTimeRules.swift"),
             ("Vier passen, eine fünfte nicht mehr.", "Four fit, and a fifth does not.", "LififyChecks.swift"),
         ),
-        "Drei erledigte Challenges à 30 Minuten machen den Termin zu 90 Minuten": make(
-            "Erledigte Challenges mit Dauer verkürzen oder setzen die Terminlänge auf die erledigte Zeit.",
-            "Completed challenges with a duration set the event length to the completed time.",
-            ("Drei Challenges zu 30 Minuten sind erledigt.", "Three challenges of 30 minutes are completed.", "ChallengeTimeRules.swift"),
-            ("Der Termin wird zu 90 Minuten, ein einzelner bleibt bei seiner eigenen Dauer.", "The event becomes 90 minutes, and a single one stays at its own duration.", "LififyChecks.swift"),
+        "Der Termin behält den Slot, bis die echte Dauer steht": make(
+            "Ein Termin behält seine geplante Länge, bis eine verknüpfte Challenge abgehakt und die echte Dauer eingetragen ist.",
+            "An event keeps its planned length until a linked challenge is checked off and the actual duration is entered.",
+            ("Ohne echte Dauer bleibt der Slot bei 120 Minuten.", "Without an actual duration the slot stays at 120 minutes.", "ChallengeTimeRules.swift"),
+            ("Drei echte Dauern von 20 Minuten und eine offene Schätzung von 30 Minuten ergeben 90.", "Three actual durations of 20 minutes and one open estimate of 30 minutes make 90.", "LififyChecks.swift"),
         ),
-        "Ältere Challenges werden vorgeschlagen, wenn sie in die Zeit passen": make(
-            "Vorschläge sind ältere Challenges, deren Dauer noch in den Termin passt.",
-            "Suggestions are older challenges whose duration still fits the event.",
-            ("Ein Termin hat noch freie Minuten.", "An event still has free minutes.", "ChallengeTimeRules.swift"),
-            ("Nur Challenges, die in die Restzeit passen, werden vorgeschlagen.", "Only challenges that fit the remaining time are suggested.", "LififyChecks.swift"),
+        "Vorschläge beginnen bei der ältesten Challenge": make(
+            "Beim Zuweisen stehen die angebotenen Challenges mit der ältesten zuerst, mit oder ohne Dauer.",
+            "When assigning, the offered challenges start with the oldest, with or without a duration.",
+            ("Eine ausgeschaltete Challenge wird nicht angeboten.", "A switched-off challenge is not offered.", "ChallengeTimeRules.swift"),
+            ("Die älteste angebotene Challenge steht vor der neueren.", "The oldest offered challenge comes before the newer one.", "LififyChecks.swift"),
         ),
         "Das Tagesbriefing nennt Termine, Coins, Belohnung, Gehalt und Ausgaben": make(
             "Der Text des Tagesbriefings nennt Termine, Challenges mit Coins, Belohnungen, Gehalt und Ausgaben.",
@@ -579,6 +579,24 @@ enum CheckStories {
             "A category with no unpinned challenge disappears, including its create button. A sport challenge that only counts the workout shows no check circle.",
             ("Null ungepinnte Karten verstecken die Kategorie, eine Karte zeigt sie.", "Zero unpinned cards hide the category, and one card shows it.", "AppChrome.swift"),
             ("Ohne Hand-Abhaken gibt es keinen Kreis, mit Hand-Abhaken bleibt er.", "Without a hand check there is no circle, and with a hand check it stays.", "ChallengesView.swift"),
+        ),
+        "Ein Ziel entscheidet die Ernährungs-Coins": make(
+            "Die Ernährungs-Challenge folgt dem Ziel. Fett verlieren zahlt am oder unter dem Ziel, Muskeln aufbauen erst ab dem Ziel, Halten nur nah am Ziel. Ein Abzug kann den Stand unter null ziehen.",
+            "The nutrition challenge follows the goal. Lose fat pays at or under the target, build muscle pays once the target is reached, and maintain pays only near the target. A reversal can take the balance below zero.",
+            ("Über dem Ziel bei Fett verlieren und unter dem Ziel beim Muskelaufbau zahlt nichts.", "Over the target while losing fat, and under the target while building muscle, pays nothing.", "NutritionPlan.swift"),
+            ("Die Messung ist 0, -20. Die Challenge lässt sich nicht von Hand abhaken.", "The reading is 0, -20. The challenge cannot be checked off by hand.", "LififyFeatureChecks.swift"),
+        ),
+        "Der Kalender öffnet beim heutigen Tag": make(
+            "Der Kalender beginnt beim heutigen Tag. Darüber liegen 30 vergangene Tage, darunter die Zukunft. Ein belegter Termin zeigt die Restzeit, und mehrere Challenges bilden eine Gruppe aus Terminname und Tag.",
+            "The calendar starts on today. Thirty past days sit above it, and the future sits below. A filled event shows the time left, and several challenges form a group from the event name and the day.",
+            ("Der Index des heutigen Tags ist 30.", "The index of today is 30.", "CalendarSyncRules.swift"),
+            ("Die Messung ist 30, 45. 45 ist die Restzeit eines 120-Minuten-Slots nach 75 Minuten.", "The reading is 30, 45. 45 is the time left in a 120-minute slot after 75 minutes.", "LififyFeatureChecks.swift"),
+        ),
+        "Eiweiß, Kohlenhydrate und Fett stehen groß": make(
+            "Die Ernährungskachel zeigt alle Nährstoffe. Eiweiß, Kohlenhydrate und Fett stehen groß, die übrigen kleiner, jeweils mit der Empfehlung für den Tag.",
+            "The nutrition card shows every nutrient. Protein, carbohydrate, and fat are large, and the others are smaller, each with the suggested amount for the day.",
+            ("Bei 70 kg und Fett verlieren sind 112 g Eiweiß empfohlen.", "At 70 kg while losing fat, 112 g of protein is suggested.", "NutritionPlan.swift"),
+            ("Die Messung ist 112, 30. 30 g sind die Ballaststoffe.", "The reading is 112, 30. 30 g is the fiber.", "LififyFeatureChecks.swift"),
         ),
         "Profil, Galerie und Kaloriendefizit": make(
             "Die Einstellungen beginnen mit dem Profil und der Zeile Nutzereinstellungen. Eine Aufnahme kommt nur mit eingeschaltetem Schalter in die Galerie. Die Kalorien-Challenge heißt Kaloriendefizit. Das Plus bietet Abstinenz, Sport, Sonstige und Gruppe.",

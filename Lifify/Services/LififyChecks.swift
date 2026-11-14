@@ -783,12 +783,12 @@ enum LififyChecks {
     }
 
     private static func finishedChallengesShrinkTheSlot() -> LififyCheckResult {
-        let single = ChallengeTimeRules.displayedMinutes(planned: 120, linked: [30], completed: [])
+        let kept = ChallengeTimeRules.displayedMinutes(planned: 120, linked: [30], completed: [])
         let waiting = ChallengeTimeRules.displayedMinutes(planned: 120, linked: [30, 30, 30, 30], completed: [])
-        let partial = ChallengeTimeRules.displayedMinutes(planned: 120, linked: [30, 30, 30, 30], completed: [30, 30, 30])
-        let full = ChallengeTimeRules.displayedMinutes(planned: 120, linked: [30, 30, 30, 30], completed: [30, 30, 30, 30])
-        let passed = single == 30 && waiting == 120 && partial == 90 && full == 120
-        return result("Drei erledigte Challenges à 30 Minuten machen den Termin zu 90 Minuten", .challenge, .integration, passed, "einzeln \(single), teil \(partial)")
+        let partial = ChallengeTimeRules.displayedMinutes(planned: 120, linked: [30], completed: [20, 20, 20])
+        let full = ChallengeTimeRules.displayedMinutes(planned: 120, linked: [], completed: [30, 30, 30, 30])
+        let passed = kept == 120 && waiting == 120 && partial == 90 && full == 120
+        return result("Der Termin behält den Slot, bis die echte Dauer steht", .challenge, .integration, passed, "gehalten \(kept), teil \(partial)")
     }
 
     private static func oldChallengesAreSuggested() -> LififyCheckResult {
@@ -800,18 +800,16 @@ enum LififyChecks {
             UUID(uuidString: "00000000-0000-0000-0000-000000000002")!,
             UUID(uuidString: "00000000-0000-0000-0000-000000000003")!
         ]
-        let suggested = ChallengeTimeRules.suggestions(
+        let suggested = ChallengeTimeRules.offeredSuggestions(
             candidates: [
-                (id: ids[0], minutes: 30, createdAt: old),
-                (id: ids[1], minutes: 30, createdAt: fresh),
-                (id: ids[2], minutes: 90, createdAt: old)
+                (id: ids[1], minutes: nil, createdAt: fresh, offered: true),
+                (id: ids[0], minutes: 90, createdAt: old, offered: true),
+                (id: ids[2], minutes: 10, createdAt: old.addingTimeInterval(-86_400), offered: false)
             ],
-            now: now,
-            remaining: 40,
             already: []
         )
-        let passed = suggested == [ids[0]]
-        return result("Ältere Challenges werden vorgeschlagen, wenn sie in die Zeit passen", .challenge, .unit, passed, "\(suggested.count)")
+        let passed = suggested == [ids[0], ids[1]]
+        return result("Vorschläge beginnen bei der ältesten Challenge", .challenge, .unit, passed, "\(suggested.count)")
     }
 
     private static func briefingNamesTheDay() -> LififyCheckResult {

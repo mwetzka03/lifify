@@ -37,7 +37,7 @@ struct ChallengeEventPicker: View {
                     HStack {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(event.title)
-                            Text("\(AppDate.numeric(event.startDate)) · \(AppDate.time(event.startDate))")
+                            Text(eventCaption(event))
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
@@ -56,5 +56,18 @@ struct ChallengeEventPicker: View {
         .navigationTitle(L("Termin", "Event"))
         .navigationBarTitleDisplayMode(.inline)
         .searchable(text: $query, prompt: L("Termin suchen", "Search events"))
+    }
+
+    private func eventCaption(_ event: ChallengeCalendarEvent) -> String {
+        let slot = ChallengeTimeStore.plannedMinutes(for: event.id)
+            ?? ChallengeTimeRules.minutes(from: event.startDate, to: event.endDate)
+        let linked = ChallengeTimeStore.memberIDs(for: event.id).compactMap { ChallengeTimeStore.minutes(for: $0) }
+        return ChallengeTimeRules.scheduleCaption(
+            allDay: event.isAllDay,
+            dateText: AppDate.numeric(event.startDate),
+            timeText: AppDate.time(event.startDate),
+            slotMinutes: slot,
+            linkedMinutes: linked
+        )
     }
 }

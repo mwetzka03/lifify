@@ -15,6 +15,7 @@ struct ChallengeCalendarView: View {
     @State private var mode: ChallengeCalendarViewMode
     @State private var showingNewEvent = false
     @State private var editedEvent: ChallengeCalendarEvent?
+    @State private var pendingDuration: PendingDuration?
 
     init(initialDate: Date = AppClock.now, initialMode: ChallengeCalendarViewMode = .week) {
         _selectedDate = State(initialValue: initialDate)
@@ -24,49 +25,53 @@ struct ChallengeCalendarView: View {
     var body: some View {
         let _ = developerMode
         let _ = developerDay
+        let _ = mode
+        let today = Calendar.current.startOfDay(for: AppClock.now)
+        let agenda = AgendaScroll.days(around: today)
         return VStack(spacing: 10) {
-            Picker(L("Ansicht", "View"), selection: $mode) {
-                ForEach(ChallengeCalendarViewMode.allCases) { Text($0.label).tag($0) }
-            }
-            .pickerStyle(.segmented)
-            .padding(.horizontal)
-
             HStack {
-                Button { move(-1) } label: { Image(systemName: "chevron.left") }
+                Text(L("Heute steht oben. Weiter oben liegt die Vergangenheit, darunter die Zukunft.", "Today sits at the top. The past is further up, and the future is below."))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 Spacer()
-                Button(L("Heute", "Today")) { selectedDate = AppClock.now }
-                Spacer()
-                Button { move(1) } label: { Image(systemName: "chevron.right") }
+                Button(L("Heute", "Today")) {
+                    selectedDate = today
+                }
             }
             .padding(.horizontal)
 
-            ScrollView {
-                LazyVStack(spacing: 12) {
-                    ForEach(days, id: \.self) { day in
-                        DayAgendaCard(
-                            day: day,
-                            events: eventsForDay(day),
-                            scheduleEvents: events,
-                            challenges: challengesForDay(day),
-                            allChallenges: challenges,
-                            groups: groups,
-                            rewards: rewards,
-                            completions: completions,
-                            onEvent: { editedEvent = $0 },
-                            onChallenge: {
-                                ChallengeService.toggleCompletion(
-                                    challenge: $0,
-                                    date: day,
-                                    completions: completions,
-                                    transactions: transactions,
-                                    events: events,
-                                    context: context
-                                )
-                            }
-                        )
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(spacing: 12) {
+                        ForEach(agenda, id: \.timeIntervalSinceReferenceDate) { day in
+                            DayAgendaCard(
+                                day: day,
+                                events: eventsForDay(day),
+                                scheduleEvents: events,
+                                challenges: challengesForDay(day),
+                                allChallenges: challenges,
+                                groups: groups,
+                                rewards: rewards,
+                                completions: completions,
+                                onEvent: { editedEvent = $0 },
+                                onChallenge: { finish($0, on: day) }
+                            )
+                            .id(day.timeIntervalSinceReferenceDate)
+                            .opacity(day < today ? 0.72 : 1)
+                        }
+                    }
+                    .padding()
+                }
+                .onAppear {
+                    let identifier = today.timeIntervalSinceReferenceDate
+                    Task { @MainActor in
+                        proxy.scrollTo(identifier, anchor: .top)
                     }
                 }
-                .padding()
+                .onChange(of: selectedDate) {
+                    let start = Calendar.current.startOfDay(for: selectedDate)
+                    proxy.scrollTo(start.timeIntervalSinceReferenceDate, anchor: .top)
+                }
             }
         }
         .appGlassCanvas()
@@ -82,12 +87,22 @@ struct ChallengeCalendarView: View {
         .sheet(item: $editedEvent) {
             ChallengeEventForm(event: $0, initialDate: $0.startDate)
         }
-        .simultaneousGesture(
-            DragGesture(minimumDistance: 40).onEnded { value in
-                if value.translation.width < -60 { move(1) }
-                if value.translation.width > 60 { move(-1) }
+        .sheet(item: $pendingDuration) { pending in
+            ActualDurationSheet(suggested: pending.suggested) { minutes in
+                ChallengeFinish.commit(
+                    challenge: pending.challenge,
+                    date: pending.date,
+                    actualMinutes: minutes,
+                    completions: completions,
+                    transactions: transactions,
+                    events: events,
+                    context: context
+                )
+                pendingDuration = nil
+            } onCancel: {
+                pendingDuration = nil
             }
-        )
+        }
         .onChange(of: developerDay) {
             if developerMode { selectedDate = AppClock.now }
         }
@@ -96,8 +111,25 @@ struct ChallengeCalendarView: View {
         }
     }
 
-    private var days: [Date] {
-        ChallengeService.days(for: mode, around: selectedDate)
+    private func finish(_ challenge: ChallengeItem, on date: Date) {
+        if let minutes = ChallengeFinish.suggestedMinutes(
+            challenge: challenge,
+            on: date,
+            completions: completions,
+            events: events
+        ) {
+            pendingDuration = PendingDuration(challenge: challenge, date: date, suggested: minutes)
+            return
+        }
+        ChallengeFinish.commit(
+            challenge: challenge,
+            date: date,
+            actualMinutes: nil,
+            completions: completions,
+            transactions: transactions,
+            events: events,
+            context: context
+        )
     }
 
     private func eventsForDay(_ day: Date) -> [ChallengeCalendarEvent] {
@@ -110,13 +142,6 @@ struct ChallengeCalendarView: View {
 
     private func challengesForDay(_ day: Date) -> [ChallengeItem] {
         challenges.filter { ChallengeService.isDue($0, on: day) }
-    }
-
-    private func move(_ value: Int) {
-        let component: Calendar.Component = mode == .day ? .day : (mode == .week ? .weekOfYear : .month)
-        if let date = Calendar.current.date(byAdding: component, value: value, to: selectedDate) {
-            withAnimation { selectedDate = date }
-        }
     }
 }
 
@@ -223,8 +248,16 @@ private struct DayAgendaCard: View {
                             .font(.caption)
                             .foregroundStyle(.orange)
                         }
-                        Image(systemName: completed ? "checkmark.circle.fill" : "circle")
-                            .foregroundStyle(completed ? .green : .secondary)
+                        let followsNutrition = ChallengeCheckoff.followsNutrition(challenge.externalIdentifier)
+                        let allowsHand = ChallengeCheckoff.allowsHand(
+                            category: challenge.category,
+                            linkedWorkouts: WorkoutLinkStore.planIDs(forChallenge: challenge.id).count,
+                            followsNutrition: followsNutrition
+                        )
+                        if ChallengeBoard.showsCheckCircle(allowsHand: allowsHand) {
+                            Image(systemName: completed ? "checkmark.circle.fill" : "circle")
+                                .foregroundStyle(completed ? .green : .secondary)
+                        }
                     }
                 }
                 .buttonStyle(.plain)
@@ -274,7 +307,6 @@ private struct ChallengeEventForm: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
     @Query(sort: \ChallengeItem.title) private var challenges: [ChallengeItem]
-    @Query(sort: \ChallengeGroup.title) private var groups: [ChallengeGroup]
     @Query(sort: \RewardItem.title) private var rewards: [RewardItem]
     private let existing: ChallengeCalendarEvent?
     @State private var savedEvent: ChallengeCalendarEvent?
@@ -333,6 +365,9 @@ private struct ChallengeEventForm: View {
                 Section {
                     MoreSettingsToggle(isExpanded: $showsMoreSettings)
                     if showsMoreSettings {
+                    Text(L("Vorhandene Challenges", "Existing challenges"))
+                        .font(.caption.bold())
+                        .foregroundStyle(.secondary)
                     optionalPicker(
                         L("Sport-Challenge", "Sport challenge"),
                         selection: $linkedChallengeID,
@@ -343,15 +378,24 @@ private struct ChallengeEventForm: View {
                         slotMinutes: max(ChallengeTimeRules.minutes(from: start, to: end), 1),
                         challenges: challenges
                     )
-                    optionalPicker(L("Gruppe", "Group"), selection: $linkedGroupID, values: groups.map { ($0.id, $0.title) })
+                    Text(L("Neue Challenge", "New challenge"))
+                        .font(.caption.bold())
+                        .foregroundStyle(.secondary)
+                        .padding(.top, 6)
+                    Button(L("Als neue Challenge anlegen", "Create as a new challenge")) {
+                        Task { await adoptAsChallenge() }
+                    }
+                    .disabled(title.isEmpty || isSaving)
+                    Text(L(
+                        "Das legt eine Challenge aus diesem Termin an. Eine Wiederholung verknüpft die Serie.",
+                        "This creates a challenge from this event. A repeat links the series."
+                    ))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                     optionalPicker(L("Belohnung", "Reward"), selection: $linkedRewardID, values: rewards.map { ($0.id, $0.title) })
                     }
                 }
                 .appGlassRow()
-                Button(L("Als Challenge übernehmen", "Adopt as challenge")) {
-                    Task { await adoptAsChallenge() }
-                }
-                .disabled(title.isEmpty || isSaving)
                 if let statusMessage {
                     Text(statusMessage)
                         .font(.caption)
@@ -448,7 +492,12 @@ private struct ChallengeEventForm: View {
             return ChallengeTimeRules.allowsTime(category)
         }
         ChallengeTimeStore.setMembers(allDay ? [] : timedMembers, for: event.id)
-        event.linkedChallengeGroupID = linkedGroupID
+        let assigned = assignedChallengeIDs(timed: timedMembers)
+        if assigned.count >= 2 {
+            event.linkedChallengeGroupID = syncEventGroup(event: event, challengeIDs: assigned)
+        } else {
+            event.linkedChallengeGroupID = linkedGroupID
+        }
         event.linkedRewardID = linkedRewardID
         if let identifier {
             event.externalIdentifier = identifier
@@ -465,6 +514,30 @@ private struct ChallengeEventForm: View {
         ChallengeTimeService.resize(context: context)
         syncWorkoutLinks()
         return event
+    }
+
+    private func assignedChallengeIDs(timed: [UUID]) -> [UUID] {
+        var ids = timed
+        if let linkedChallengeID, !ids.contains(linkedChallengeID) {
+            ids.append(linkedChallengeID)
+        }
+        return ids
+    }
+
+    private func syncEventGroup(event: ChallengeCalendarEvent, challengeIDs: [UUID]) -> UUID {
+        let name = EventGroupName.title(event: event.title, day: AppDate.numeric(event.startDate))
+        let stored = (try? context.fetch(FetchDescriptor<ChallengeGroup>())) ?? []
+        let group = stored.first { $0.id == event.linkedChallengeGroupID }
+            ?? stored.first { $0.title == name }
+            ?? ChallengeGroup(title: name, startDate: event.startDate)
+        group.title = name
+        group.startDate = event.startDate
+        if group.modelContext == nil { context.insert(group) }
+        let people = (try? context.fetch(FetchDescriptor<ChallengeItem>())) ?? []
+        for challenge in people where challengeIDs.contains(challenge.id) {
+            challenge.groupID = group.id
+        }
+        return group.id
     }
 
     private func syncWorkoutLinks() {

@@ -16,6 +16,7 @@ struct ChallengesView: View {
     @State private var acceptedRecommendation: ChallengeCalendarEvent?
     @State private var showingShop = false
     @State private var showingWallet = false
+    @State private var pendingDuration: PendingDuration?
     @AppStorage(StreakSettings.revisionKey) private var streakRevision = 0
     @AppStorage(ChallengeCategoryStore.revisionKey) private var categoryRevision = 0
     @AppStorage(AppClock.modeKey) private var developerMode = false
@@ -76,6 +77,22 @@ struct ChallengesView: View {
         }
         .sheet(isPresented: $showingNewGroup) { ChallengeGroupForm() }
         .sheet(item: $edited) { ChallengeForm(challenge: $0) }
+        .sheet(item: $pendingDuration) { pending in
+            ActualDurationSheet(suggested: pending.suggested) { minutes in
+                ChallengeFinish.commit(
+                    challenge: pending.challenge,
+                    date: pending.date,
+                    actualMinutes: minutes,
+                    completions: completions,
+                    transactions: transactions,
+                    events: calendarEvents,
+                    context: context
+                )
+                pendingDuration = nil
+            } onCancel: {
+                pendingDuration = nil
+            }
+        }
         .sheet(item: $acceptedRecommendation) {
             ChallengeForm(challenge: nil, recommendation: $0)
         }
@@ -473,14 +490,7 @@ struct ChallengesView: View {
         let challenge = challenges.first { $0.id == entry.challengeID }
         return Button {
             guard let challenge, !challenge.isReadOnly else { return }
-            ChallengeService.toggleCompletion(
-                challenge: challenge,
-                date: entry.date,
-                completions: completions,
-                transactions: transactions,
-                events: calendarEvents,
-                context: context
-            )
+            finish(challenge, on: entry.date)
         } label: {
             VStack(alignment: .leading, spacing: 6) {
                 Image(systemName: "checkmark.circle.fill")
@@ -562,6 +572,27 @@ struct ChallengesView: View {
         }
     }
 
+    private func finish(_ challenge: ChallengeItem, on date: Date) {
+        if let minutes = ChallengeFinish.suggestedMinutes(
+            challenge: challenge,
+            on: date,
+            completions: completions,
+            events: calendarEvents
+        ) {
+            pendingDuration = PendingDuration(challenge: challenge, date: date, suggested: minutes)
+            return
+        }
+        ChallengeFinish.commit(
+            challenge: challenge,
+            date: date,
+            actualMinutes: nil,
+            completions: completions,
+            transactions: transactions,
+            events: calendarEvents,
+            context: context
+        )
+    }
+
     private func pinButton(_ challenge: ChallengeItem) -> some View {
         let pinned = ChallengePinStore.contains(challenge.id)
         let full = ChallengePinStore.ids().count >= ChallengePinStore.limit
@@ -581,21 +612,17 @@ struct ChallengesView: View {
         let _ = workoutLinkRevision
         let doneToday = ChallengeService.isCompleted(challenge, on: AppClock.now, completions: completions)
         let gray = ChallengeActivity.dimsActiveRow(recurrence: challenge.recurrence, completedToday: doneToday)
+        let workouts = WorkoutLinkStore.planIDs(forChallenge: challenge.id).count
+        let followsNutrition = ChallengeCheckoff.followsNutrition(challenge.externalIdentifier)
         let handLocked = !ChallengeCheckoff.allowsHand(
             category: challenge.category,
-            linkedWorkouts: WorkoutLinkStore.planIDs(forChallenge: challenge.id).count
+            linkedWorkouts: workouts,
+            followsNutrition: followsNutrition
         )
         let pinned = ChallengePinStore.contains(challenge.id)
         return Button {
             guard !handLocked else { return }
-            ChallengeService.toggleCompletion(
-                challenge: challenge,
-                date: AppClock.now,
-                completions: completions,
-                transactions: transactions,
-                events: calendarEvents,
-                context: context
-            )
+            finish(challenge, on: AppClock.now)
         } label: {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(alignment: .center, spacing: 10) {
@@ -616,8 +643,8 @@ struct ChallengesView: View {
                     }
                 }
                 challengeMeta(challenge)
-                if handLocked {
-                    Text(L("Zählt, wenn das Training beendet ist.", "Counts when the workout is finished."))
+                if let caption = ChallengeCheckoff.lockCaption(followsNutrition: followsNutrition, linkedWorkouts: workouts) {
+                    Text(caption)
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
@@ -760,6 +787,7 @@ struct ChallengeForm: View {
     @State private var groupID: UUID?
     @State private var icon: String
     @State private var syncToReminders: Bool
+    @State private var offersEvents: Bool
     @State private var isSaving = false
     @State private var savedChallenge: ChallengeItem?
     @State private var saveMessage: String?
@@ -796,6 +824,7 @@ struct ChallengeForm: View {
         }
         _icon = State(initialValue: challenge.map { IconPreferenceStore.icon(for: $0.id, fallback: presetIcon) } ?? (recommendation == nil ? presetIcon : "lightbulb"))
         _syncToReminders = State(initialValue: challenge.map { ReminderSyncPreference.isEnabled(for: $0.id) } ?? true)
+        _offersEvents = State(initialValue: challenge.map { EventOffer.isEnabled(for: $0.id) } ?? true)
         _showsMoreSettings = State(initialValue: !EditorCopy.moreStartsClosed)
     }
 
@@ -812,13 +841,6 @@ struct ChallengeForm: View {
                 TextField(L("Beschreibung", "Description"), text: $details, axis: .vertical)
                 SymbolPicker(title: L("Symbol", "Icon"), selection: $icon)
                 let _ = categoryRevision
-                Picker(L("Kategorie", "Category"), selection: $categoryKey) {
-                    ForEach(ChallengeCategory.offered) { Text($0.label).tag($0.rawValue) }
-                    ForEach(ChallengeCategoryStore.all()) { custom in
-                        Text(custom.name).tag(ChallengeCategoryStore.raw(custom.id))
-                    }
-                }
-                Button(L("Kategorie anlegen", "Add category")) { showingNewCategory = true }
                 if categoryKey == ChallengeCategory.abstinence.rawValue {
                     AppDateField(title: L("Abstinent seit", "Abstinent since"), selection: $startDate, includesTime: true)
                     Picker(L("Schwierigkeit", "Difficulty"), selection: $difficulty) {
@@ -858,6 +880,13 @@ struct ChallengeForm: View {
                 Section {
                     MoreSettingsToggle(isExpanded: $showsMoreSettings)
                     if showsMoreSettings {
+                    Picker(L("Kategorie", "Category"), selection: $categoryKey) {
+                        ForEach(ChallengeCategory.offered) { Text($0.label).tag($0.rawValue) }
+                        ForEach(ChallengeCategoryStore.all()) { custom in
+                            Text(custom.name).tag(ChallengeCategoryStore.raw(custom.id))
+                        }
+                    }
+                    Button(L("Kategorie anlegen", "Add category")) { showingNewCategory = true }
                     if categoryKey != ChallengeCategory.abstinence.rawValue && categoryKey != ChallengeCategory.sport.rawValue {
                         LabeledContent(L("Dauer in Minuten", "Duration in minutes")) {
                             TextField(L("Optional", "Optional"), text: $durationText)
@@ -892,6 +921,15 @@ struct ChallengeForm: View {
                     Picker(L("Gruppe", "Group"), selection: $groupID) {
                         Text(L("Keine", "None")).tag(Optional<UUID>.none)
                         ForEach(groups) { Text($0.title).tag(Optional($0.id)) }
+                    }
+                    if ChallengeTimeRules.allowsTime(ChallengeCategory(rawValue: categoryKey) ?? .other) {
+                        Toggle(L("Für Termine vorschlagen", "Suggest for events"), isOn: $offersEvents)
+                        Text(L(
+                            "Eingeschaltet heißt, die Challenge erscheint beim Zuweisen zu einem Termin. Die älteste steht oben.",
+                            "On means the challenge appears when you assign work to an event. The oldest one is listed first."
+                        ))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                     }
                     }
                 }
@@ -934,12 +972,21 @@ struct ChallengeForm: View {
         guard let linkedEventID, let event = formEvents.first(where: { $0.id == linkedEventID }) else {
             return L("Keiner", "None")
         }
-        return "\(event.title) · \(AppDate.numeric(event.startDate))"
+        let slot = ChallengeTimeStore.plannedMinutes(for: event.id)
+            ?? ChallengeTimeRules.minutes(from: event.startDate, to: event.endDate)
+        let linked = ChallengeTimeStore.memberIDs(for: event.id).compactMap { ChallengeTimeStore.minutes(for: $0) }
+        let when = ChallengeTimeRules.scheduleCaption(
+            allDay: event.isAllDay,
+            dateText: AppDate.numeric(event.startDate),
+            timeText: AppDate.time(event.startDate),
+            slotMinutes: slot,
+            linkedMinutes: linked
+        )
+        return "\(event.title) · \(when)"
     }
 
     private var linkableEvents: [ChallengeCalendarEvent] {
-        let minutes = Int(durationText.trimmingCharacters(in: .whitespaces))
-        return formEvents.filter { event in
+        formEvents.filter { event in
             guard !event.isReminderSuggestion else { return false }
             let selected = event.id == linkedEventID
             if !selected {
@@ -948,33 +995,14 @@ struct ChallengeForm: View {
                     return false
                 }
             }
-            if selected { return true }
-            let planned = ChallengeTimeStore.plannedMinutes(for: event.id)
-                ?? ChallengeTimeRules.minutes(from: event.startDate, to: event.endDate)
-            let others = ChallengeTimeStore.memberIDs(for: event.id).filter { $0 != existing?.id }
-            let used = others.compactMap { ChallengeTimeStore.minutes(for: $0) }
-            let left = ChallengeTimeRules.remaining(slotMinutes: planned, linkedMinutes: used)
-            return ChallengeTimeRules.canAdd(minutes: minutes, remaining: left)
+            return true
         }
         .sorted { $0.startDate < $1.startDate }
     }
 
-    private func assignEvent(_ challengeID: UUID, minutes: Int?) {
+    private func assignEvent(_ challengeID: UUID, minutes _: Int?) {
         if let eventID = linkedEventID {
             var members = ChallengeTimeStore.memberIDs(for: eventID).filter { $0 != challengeID }
-            let event = formEvents.first { $0.id == eventID }
-            let planned = ChallengeTimeStore.plannedMinutes(for: eventID)
-                ?? event.map { ChallengeTimeRules.minutes(from: $0.startDate, to: $0.endDate) }
-                ?? 0
-            let used = members.compactMap { ChallengeTimeStore.minutes(for: $0) }
-            let left = ChallengeTimeRules.remaining(slotMinutes: max(planned, 1), linkedMinutes: used)
-            guard ChallengeTimeRules.canAdd(minutes: minutes, remaining: left) else {
-                saveMessage = L(
-                    "Die Dauer passt nicht mehr in den Termin.",
-                    "The duration no longer fits in the event."
-                )
-                return
-            }
             members.append(challengeID)
             ChallengeTimeStore.setMembers(members, for: eventID)
         } else if let current = ChallengeTimeStore.eventID(containing: challengeID) {
@@ -1032,6 +1060,7 @@ struct ChallengeForm: View {
         if abstinence { syncToReminders = false }
         IconPreferenceStore.set(icon, for: challenge.id)
         ReminderSyncPreference.set(syncToReminders, for: challenge.id)
+        EventOffer.set(offersEvents, for: challenge.id)
         try? context.save()
         if abstinence {
             AbstinenceService.settle(context: context)
@@ -1124,6 +1153,7 @@ private struct ChallengeGroupDetailView: View {
     @AppStorage(AppClock.modeKey) private var developerMode = false
     @AppStorage(AppClock.dayKey) private var developerDay = 0.0
     @State private var edited: ChallengeItem?
+    @State private var pendingDuration: PendingDuration?
     @AppStorage(ChallengePinStore.revisionKey) private var pinRevision = 0
     let group: ChallengeGroup
 
@@ -1152,6 +1182,43 @@ private struct ChallengeGroupDetailView: View {
         .appGlassList()
         .navigationTitle(group.title)
         .sheet(item: $edited) { ChallengeForm(challenge: $0) }
+        .sheet(item: $pendingDuration) { pending in
+            ActualDurationSheet(suggested: pending.suggested) { minutes in
+                ChallengeFinish.commit(
+                    challenge: pending.challenge,
+                    date: pending.date,
+                    actualMinutes: minutes,
+                    completions: completions,
+                    transactions: transactions,
+                    events: calendarEvents,
+                    context: context
+                )
+                pendingDuration = nil
+            } onCancel: {
+                pendingDuration = nil
+            }
+        }
+    }
+
+    private func finish(_ challenge: ChallengeItem, on date: Date) {
+        if let minutes = ChallengeFinish.suggestedMinutes(
+            challenge: challenge,
+            on: date,
+            completions: completions,
+            events: calendarEvents
+        ) {
+            pendingDuration = PendingDuration(challenge: challenge, date: date, suggested: minutes)
+            return
+        }
+        ChallengeFinish.commit(
+            challenge: challenge,
+            date: date,
+            actualMinutes: nil,
+            completions: completions,
+            transactions: transactions,
+            events: calendarEvents,
+            context: context
+        )
     }
 
     private func groupAbstinenceRow(_ challenge: ChallengeItem) -> some View {
@@ -1182,21 +1249,17 @@ private struct ChallengeGroupDetailView: View {
         let _ = pinRevision
         let doneToday = ChallengeService.isCompleted(challenge, on: AppClock.now, completions: completions)
         let gray = ChallengeActivity.dimsActiveRow(recurrence: challenge.recurrence, completedToday: doneToday)
+        let workouts = WorkoutLinkStore.planIDs(forChallenge: challenge.id).count
+        let followsNutrition = ChallengeCheckoff.followsNutrition(challenge.externalIdentifier)
         let handLocked = !ChallengeCheckoff.allowsHand(
             category: challenge.category,
-            linkedWorkouts: WorkoutLinkStore.planIDs(forChallenge: challenge.id).count
+            linkedWorkouts: workouts,
+            followsNutrition: followsNutrition
         )
         let pinned = ChallengePinStore.contains(challenge.id)
         return Button {
             guard !handLocked else { return }
-            ChallengeService.toggleCompletion(
-                challenge: challenge,
-                date: AppClock.now,
-                completions: completions,
-                transactions: transactions,
-                events: calendarEvents,
-                context: context
-            )
+            finish(challenge, on: AppClock.now)
         } label: {
             HStack {
                 AppSymbolImage(name: IconPreferenceStore.icon(for: challenge.id, fallback: "target"))
@@ -1215,8 +1278,8 @@ private struct ChallengeGroupDetailView: View {
                             .font(.caption2)
                             .foregroundStyle(Color.green)
                     }
-                    if handLocked {
-                        Text(L("Zählt, wenn das Training beendet ist.", "Counts when the workout is finished."))
+                    if let caption = ChallengeCheckoff.lockCaption(followsNutrition: followsNutrition, linkedWorkouts: workouts) {
+                        Text(caption)
                             .font(.caption2)
                             .foregroundStyle(.secondary)
                     }

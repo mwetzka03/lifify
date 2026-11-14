@@ -188,15 +188,15 @@ enum CheckGuides {
             "Die erste Zahl ist, wie viele Challenges von 30 Minuten in 120 Minuten passen. Vier passen, die fünfte nicht. Sport und Abstinenz bekommen keine Dauer, eine Gewohnheit schon.",
             "The first number is how many challenges of 30 minutes fit into 120 minutes. Four fit, and the fifth does not. Sport and abstinence do not take a duration, and a habit does."
         ),
-        "Drei erledigte Challenges à 30 Minuten machen den Termin zu 90 Minuten": g(
+        "Der Termin behält den Slot, bis die echte Dauer steht": g(
             "ChallengeTimeRules.displayedMinutes(planned:linked:completed:)",
-            "Einzeln ist die angezeigte Dauer, wenn nur eine Challenge verknüpft und keine erledigt ist. Teil ist die Dauer, wenn drei von vier Challenges zu 30 Minuten erledigt sind, also 90 Minuten. Alle vier würden den Termin auf 120 Minuten setzen.",
-            "Single is the displayed duration when only one challenge is linked and none is completed. Partial is the duration when three of four challenges of 30 minutes are completed, which is 90 minutes. All four would set the event to 120 minutes."
+            "Gehalten ist die Dauer, solange noch keine echte Zeit eingetragen ist: der Slot bleibt 120 Minuten, auch bei einer einzelnen Challenge. Teil ist 90 Minuten, wenn drei echte Dauern von 20 Minuten und eine offene Schätzung von 30 Minuten zusammenkommen.",
+            "Kept is the duration while no actual time has been entered: the slot stays 120 minutes, even for a single challenge. Partial is 90 minutes when three actual durations of 20 minutes meet one open estimate of 30 minutes."
         ),
-        "Ältere Challenges werden vorgeschlagen, wenn sie in die Zeit passen": g(
-            "ChallengeTimeRules.suggestions(candidates:now:remaining:already:minimumAge:)",
-            "Die Zahl ist die Anzahl der Vorschläge. Nur ältere Challenges, deren Dauer in die Restzeit des Termins passt, werden vorgeschlagen.",
-            "The number is how many suggestions there are. Only older challenges whose duration still fits the remaining time of the event are suggested."
+        "Vorschläge beginnen bei der ältesten Challenge": g(
+            "ChallengeTimeRules.offeredSuggestions(candidates:already:)",
+            "Die Zahl ist die Anzahl der Vorschläge. Die älteste angebotene Challenge steht zuerst, mit oder ohne Dauer. Eine ausgeschaltete Challenge fehlt.",
+            "The number is how many suggestions there are. The oldest offered challenge comes first, with or without a duration. A switched-off challenge is missing."
         ),
         "Das Tagesbriefing nennt Termine, Coins, Belohnung, Gehalt und Ausgaben": g(
             "DailyBriefing.text(events:challenges:rewards:salary:expenses:)",
@@ -427,6 +427,21 @@ enum CheckGuides {
             "ChallengeBoard.showsCategory(unpinned:), ChallengeBoard.showsCheckCircle(allowsHand:)",
             "Die Messung ist 0, weg. Null ungepinnte Challenges verstecken die Kategorie und den Anlegen-Knopf. Eine übrige Challenge zeigt die Kategorie. Ein gesperrter Hakenkreis bleibt weg, ein normaler bleibt da.",
             "The reading is 0, weg. Zero unpinned challenges hide the category and the create button. One remaining challenge shows the category. A locked check circle stays away, and a normal one stays."
+        ),
+        "Ein Ziel entscheidet die Ernährungs-Coins": g(
+            "MealScore.coins(eaten:target:kinds:goal:), MealScore.balance(afterRemoving:from:), ChallengeCheckoff.allowsHand(category:linkedWorkouts:followsNutrition:), NutritionCopy.challengeTitle(for:)",
+            "Die Messung ist 0, -20. 0 ist die Zahlung über dem Ziel beim Fett verlieren. -20 ist der Stand, wenn 20 bereits ausgezahlte Coins von einem Stand von 0 wieder abgezogen werden.",
+            "The reading is 0, -20. 0 is the payment when lose fat goes over the target. -20 is the balance when 20 coins already paid are taken back from a balance of 0."
+        ),
+        "Der Kalender öffnet beim heutigen Tag": g(
+            "AgendaScroll.todayIndex(in:today:calendar:), ChallengeTimeRules.remaining(slotMinutes:linkedMinutes:), EventGroupName.title(event:day:), EventOffer.enabled(stored:)",
+            "Die Messung ist 30, 45. 30 ist die Position des heutigen Tags, darüber liegt die Vergangenheit. 45 ist die übrige Zeit, wenn von 120 Minuten schon 75 Minuten verplant sind.",
+            "The reading is 30, 45. 30 is today’s position, with the past above it. 45 is the time left when 75 minutes of a 120-minute slot are already planned."
+        ),
+        "Eiweiß, Kohlenhydrate und Fett stehen groß": g(
+            "NutrientGuide.headlines, NutrientGuide.daily(_:weightKg:sex:goal:calorieTarget:)",
+            "Die Messung ist 112, 30. 112 g Eiweiß sind der Tageswert bei 70 kg und Fett verlieren. 30 g sind die Ballaststoffe. Kohlenhydrate und Fett stehen mit Eiweiß in der großen Reihe.",
+            "The reading is 112, 30. 112 g of protein is the daily amount at 70 kg while losing fat. 30 g is the fiber. Carbohydrate and fat sit with protein in the large row."
         ),
         "Profil, Galerie und Kaloriendefizit": g(
             "SettingsDirectory.rows(), MealCapture.keepsInLibrary(_:), NutritionCopy.calorieChallenge, ChallengeCreateMenu.labels",

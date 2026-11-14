@@ -25,7 +25,10 @@ enum LififyFeatureChecks {
             linkedSportCannotBeCheckedByHand(),
             nutritionKeyDepotAndMealsFollowOneRule(),
             emptyCategoryHidesTheCheckCircle(),
-            profileLibraryAndCalorieDeficit()
+            profileLibraryAndCalorieDeficit(),
+            goalDecidesNutritionCoins(),
+            calendarOpensOnToday(),
+            nutrientCardNamesTheMainThree()
         ]
     }
 
@@ -473,6 +476,82 @@ enum LififyFeatureChecks {
             name: "Profil, Galerie und Kaloriendefizit",
             passed: passed,
             detail: passed ? nil : reading,
+            reading: reading,
+            kind: .integration,
+            topic: .training
+        )
+    }
+
+    private static func goalDecidesNutritionCoins() -> LififyCheckResult {
+        let over = MealScore.coins(eaten: 2000, target: 1400, kinds: [.hearty], goal: .loseFat)
+        let underMuscle = MealScore.coins(eaten: 1000, target: 1400, kinds: [.hearty], goal: .gainMuscle)
+        let reached = MealScore.coins(eaten: 1400, target: 1400, kinds: [.hearty], goal: .gainMuscle)
+        let held = MealScore.coins(eaten: 1400, target: 1400, kinds: [.hearty], goal: .maintain)
+        let away = MealScore.coins(eaten: 900, target: 1400, kinds: [.hearty], goal: .maintain)
+        let reversed = MealScore.balance(afterRemoving: 20, from: 0)
+        let locked = ChallengeCheckoff.allowsHand(category: .other, linkedWorkouts: 0, followsNutrition: true)
+        let passed = over == 0
+            && underMuscle == 0
+            && reached == 20
+            && held == 20
+            && away == 0
+            && reversed == -20
+            && !locked
+            && ChallengeCheckoff.followsNutrition("nutrition:calories")
+            && NutritionCopy.challengeTitle(for: .gainMuscle) == L("Muskelaufbau", "Build muscle")
+            && NutritionCopy.challengeTitle(for: .maintain) == L("Kalorien halten", "Hold calories")
+        let reading = "0, -20"
+        return LififyCheckResult(
+            name: "Ein Ziel entscheidet die Ernährungs-Coins",
+            passed: passed,
+            detail: passed ? nil : "\(over), \(underMuscle), \(reached), \(reversed)",
+            reading: reading,
+            kind: .unit,
+            topic: .training
+        )
+    }
+
+    private static func calendarOpensOnToday() -> LififyCheckResult {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .gmt
+        let today = calendar.date(from: DateComponents(year: 2026, month: 11, day: 14)) ?? .now
+        let days = AgendaScroll.days(around: today, calendar: calendar)
+        let index = AgendaScroll.todayIndex(in: days, today: today, calendar: calendar)
+        let left = ChallengeTimeRules.remaining(slotMinutes: 120, linkedMinutes: [75])
+        let parts = ChallengeTimeRules.durationParts(125)
+        let group = EventGroupName.title(event: "Zahnarzt", day: "14.11.2026")
+        let passed = index == AgendaScroll.pastDays
+            && days.count == AgendaScroll.pastDays + 1 + AgendaScroll.futureDays
+            && left == 45
+            && parts.hours == 2
+            && parts.minutes == 5
+            && group == "Zahnarzt – 14.11.2026"
+            && EventOffer.enabled(stored: nil)
+            && !EventOffer.enabled(stored: false)
+        let reading = "30, 45"
+        return LififyCheckResult(
+            name: "Der Kalender öffnet beim heutigen Tag",
+            passed: passed,
+            detail: passed ? nil : "\(index ?? -1), \(left), \(group)",
+            reading: reading,
+            kind: .unit,
+            topic: .training
+        )
+    }
+
+    private static func nutrientCardNamesTheMainThree() -> LififyCheckResult {
+        let protein = NutrientGuide.daily(.protein, weightKg: 70, sex: .female, goal: .loseFat, calorieTarget: 1698)
+        let fiber = NutrientGuide.daily(.fiber, weightKg: 70, sex: .female, goal: .loseFat, calorieTarget: 1698)
+        let passed = NutrientGuide.headlines == [.protein, .carbohydrate, .fat]
+            && protein == 112
+            && fiber == 30
+            && NutrientGuide.daily(.carbohydrate, weightKg: 70, sex: .female, goal: .loseFat, calorieTarget: 2000) == 225
+            && NutrientGuide.daily(.fat, weightKg: 70, sex: .female, goal: .loseFat, calorieTarget: 2000) == 67
+        let reading = "112, 30"
+        return LififyCheckResult(
+            name: "Eiweiß, Kohlenhydrate und Fett stehen groß",
+            passed: passed,
+            detail: passed ? nil : "\(protein), \(fiber)",
             reading: reading,
             kind: .integration,
             topic: .training

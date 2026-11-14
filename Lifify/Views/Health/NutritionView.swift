@@ -145,7 +145,8 @@ struct NutritionBoard: View {
 
     private func targetCard(target: Int?, meals: [MealRecord], trained: Bool, measures: BodyMeasures) -> some View {
         let eaten = NutritionPlan.rounded(.calories, meals: meals)
-        let protein = NutritionPlan.rounded(.protein, meals: meals)
+        let goal = BodyGoal.resolved(goalRaw)
+        let sex = BodySex.resolved(sexRaw)
         return VStack(alignment: .leading, spacing: 8) {
             if let target {
                 HStack(alignment: .firstTextBaseline) {
@@ -161,7 +162,7 @@ struct NutritionBoard: View {
                     Spacer()
                     nutrientLine(L("Übrig", "Left"), "\(target - eaten) kcal")
                 }
-                nutrientLine(Nutrient.protein.label, "\(protein) \(Nutrient.protein.unit)")
+                nutrientBoard(meals: meals, measures: measures, sex: sex, goal: goal, calorieTarget: target)
                 calorieReward(target: target, meals: meals)
                 if trained {
                     Text(L(
@@ -195,6 +196,61 @@ struct NutritionBoard: View {
                 .foregroundStyle(.secondary)
             Text(value)
                 .font(.body.weight(.semibold))
+        }
+    }
+
+    private func nutrientBoard(
+        meals: [MealRecord],
+        measures: BodyMeasures,
+        sex: BodySex,
+        goal: BodyGoal,
+        calorieTarget: Int
+    ) -> some View {
+        let headlines = NutrientGuide.headlines
+        let rest = Nutrient.allCases.filter { $0 != .calories && !headlines.contains($0) }
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .top, spacing: 8) {
+                ForEach(headlines) { nutrient in
+                    nutrientFigure(nutrient, meals: meals, measures: measures, sex: sex, goal: goal, calorieTarget: calorieTarget, prominent: true)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], alignment: .leading, spacing: 8) {
+                ForEach(rest) { nutrient in
+                    nutrientFigure(nutrient, meals: meals, measures: measures, sex: sex, goal: goal, calorieTarget: calorieTarget, prominent: false)
+                }
+            }
+        }
+    }
+
+    private func nutrientFigure(
+        _ nutrient: Nutrient,
+        meals: [MealRecord],
+        measures: BodyMeasures,
+        sex: BodySex,
+        goal: BodyGoal,
+        calorieTarget: Int,
+        prominent: Bool
+    ) -> some View {
+        let eaten = NutritionPlan.rounded(nutrient, meals: meals)
+        let recommended = NutrientGuide.daily(
+            nutrient,
+            weightKg: measures.weightKg,
+            sex: sex,
+            goal: goal,
+            calorieTarget: calorieTarget
+        )
+        let over = recommended > 0 && eaten > recommended
+        return VStack(alignment: .leading, spacing: 1) {
+            Text(nutrient.label)
+                .font(prominent ? .caption : .caption2)
+                .foregroundStyle(.secondary)
+            Text("\(eaten) \(nutrient.unit)")
+                .font(prominent ? .body.weight(.semibold) : .caption.weight(.semibold))
+                .foregroundStyle(over ? Color.orange : Color.primary)
+            Text(L("\(recommended) \(nutrient.unit) empfohlen", "\(recommended) \(nutrient.unit) suggested"))
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
         }
     }
 

@@ -218,6 +218,7 @@ private struct GeneralSettingsView: View {
 
 private struct UserSettingsView: View {
     @Environment(\.modelContext) private var context
+    @EnvironmentObject private var workouts: WorkoutStore
     @AppStorage("userName") private var userName = ""
     @AppStorage(UserProfile.birthKey) private var birthRaw = ""
     @AppStorage(ProfilePhotoStore.revisionKey) private var photoRevision = 0
@@ -325,6 +326,7 @@ private struct UserSettingsView: View {
 
     private func storeBody() {
         UserBody.save(heightText: heightText, weightText: weightText, sex: sex, goal: goal)
+        NutritionLedger.settle(context: context, sessions: workouts.sessions)
     }
 }
 

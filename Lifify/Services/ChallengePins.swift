@@ -51,9 +51,34 @@ enum ChallengePinStore {
     }
 }
 
-/// A sport challenge tied to a workout is finished only by starting and ending that workout.
+/// A sport challenge tied to a workout, and the nutrition challenge, finish on their own.
 enum ChallengeCheckoff {
-    static func allowsHand(category: ChallengeCategory, linkedWorkouts: Int) -> Bool {
-        category != .sport || linkedWorkouts == 0
+    static func allowsHand(
+        category: ChallengeCategory,
+        linkedWorkouts: Int,
+        followsNutrition: Bool = false
+    ) -> Bool {
+        if followsNutrition { return false }
+        return category != .sport || linkedWorkouts == 0
+    }
+
+    static func followsNutrition(_ identifier: String?) -> Bool {
+        identifier == "nutrition:calories"
+    }
+
+    static func lockCaption(followsNutrition: Bool, linkedWorkouts: Int) -> String? {
+        if followsNutrition {
+            return L(
+                "Zählt mit den Mahlzeiten dieses Tages.",
+                "Counts from the meals of that day."
+            )
+        }
+        if linkedWorkouts > 0 {
+            return L(
+                "Zählt, wenn das Training beendet ist.",
+                "Counts when the workout is finished."
+            )
+        }
+        return nil
     }
 }

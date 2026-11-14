@@ -13,9 +13,11 @@ Health. Without that key, the photo stays on the device.
 Health has Training and Nutrition. Nutrition is one day at a time. Today is
 the start, and earlier days can be filled in. A later day cannot.
 
-A day shows the calorie target, what was eaten, what is left, and protein.
-The goal is lose fat, maintain, or build muscle. A finished workout on that
-day adds 250 kcal.
+A day shows the calorie target, what was eaten, and what is left. Every
+nutrient is listed with the suggested amount for the day in a quieter line.
+Protein, carbohydrate, and fat are large. The others are smaller. The goal
+is lose fat, maintain, or build muscle. A finished workout on that day adds
+250 kcal.
 
 A meal can be added by hand. A photo can be taken or chosen from the library.
 A new photo stays in the app and is not saved to the library unless Health,
@@ -34,13 +36,19 @@ alcohol. The model picks one. The person can change it. Fast food buys the
 Fast Food reward in the shop for 25 coins, even if the balance goes negative.
 Changing the kind, or deleting the meal, refunds that purchase.
 
-Staying at or under the calorie target pays the challenge Calorie deficit.
-It lives under More, is daily, uses streaks, and is pinned the first
-time it is created. The day pays 20 coins, or 30 when every confirmed meal
-is whole food or balanced. Over the target, or a day with no confirmed meal,
-pays nothing. The board shows that amount, including the streak multiplier,
-and the fast-food debit in red. Archiving or unpinning the challenge does
-not create a second one. Deleting it does.
+The nutrition challenge follows the goal. Lose fat is named Calorie deficit
+and pays when the day stays at or under the target. Maintain is named Hold
+calories and pays inside 90 to 110 percent of the target. Build muscle is
+named Build muscle and pays once the day reaches the target. It lives under
+More, is daily, uses streaks, and is pinned the first time it is created.
+It cannot be checked off by hand, and its card has no check circle. The day
+pays 20 coins, or 30 when every confirmed meal is whole food or balanced.
+A day that misses the goal, or a day with no confirmed meal, pays nothing.
+Logging a meal on an earlier day can take those coins back, and the balance
+can go below zero. The board shows the amount, including the streak
+multiplier, and the fast-food debit in red. Archiving or unpinning the
+challenge does not create a second one. Deleting it does. A custom title is
+left as it is.
 
 Each meal can hold calories, protein, carbohydrates, fat, saturated fat,
 omega-3, omega-6, fiber, vitamin D, vitamin B12, vitamin C, calcium, iron,
@@ -124,8 +132,10 @@ Gesundheit hat Training und Ernährung. Ernährung gilt immer für einen Tag.
 Heute ist der Anfang, frühere Tage lassen sich nachtragen. Ein späterer Tag
 geht nicht.
 
-Ein Tag zeigt das Kalorienziel, das Gegessene, das Übrige und das Eiweiß.
-Das Ziel ist Fett verlieren, Halten oder Muskeln aufbauen. Ein abgeschlossenes
+Ein Tag zeigt das Kalorienziel, das Gegessene und das Übrige. Jeder
+Nährstoff steht mit der Empfehlung für den Tag in einer ruhigeren Zeile.
+Eiweiß, Kohlenhydrate und Fett sind groß. Die übrigen sind kleiner. Das Ziel
+ist Fett verlieren, Halten oder Muskeln aufbauen. Ein abgeschlossenes
 Training an dem Tag gibt 250 kcal dazu.
 
 Eine Mahlzeit lässt sich von Hand anlegen. Ein Foto kann aufgenommen oder
@@ -147,13 +157,19 @@ kauft die Belohnung Fast Food im Shop für 25 Coins, auch wenn das Guthaben
 dabei negativ wird. Ändert man die Art oder löscht die Mahlzeit, wird der
 Kauf erstattet.
 
-Wer am oder unter dem Kalorienziel bleibt, bekommt die Challenge
-Kaloriendefizit. Sie steht unter Weitere, ist täglich, nutzt Streaks und wird
-beim ersten Anlegen angepinnt. Der Tag zahlt 20 Coins, oder 30, wenn jede
-bestätigte Mahlzeit unverarbeitet oder ausgewogen ist. Über dem Ziel, oder
-ein Tag ohne bestätigte Mahlzeit, zahlt nichts. Die Ansicht zeigt diesen
-Betrag inklusive Streak-Faktor und den Fast-Food-Abzug in Rot. Archivieren
-oder Lösen legt keine zweite Challenge an. Löschen schon.
+Die Ernährungs-Challenge folgt dem Ziel. Fett verlieren heißt
+Kaloriendefizit und zahlt, wenn der Tag am oder unter dem Ziel bleibt.
+Halten heißt Kalorien halten und zahlt zwischen 90 und 110 Prozent des
+Ziels. Muskeln aufbauen heißt Muskelaufbau und zahlt, sobald der Tag das
+Ziel erreicht. Sie steht unter Weitere, ist täglich, nutzt Streaks und wird
+beim ersten Anlegen angepinnt. Sie lässt sich nicht von Hand abhaken, und
+ihre Karte hat keinen Haken-Kreis. Der Tag zahlt 20 Coins, oder 30, wenn
+jede bestätigte Mahlzeit unverarbeitet oder ausgewogen ist. Ein Tag, der
+das Ziel verfehlt, oder ein Tag ohne bestätigte Mahlzeit, zahlt nichts.
+Eine Mahlzeit an einem früheren Tag kann diese Coins wieder abziehen, und
+das Guthaben kann unter null fallen. Die Ansicht zeigt den Betrag inklusive
+Streak-Faktor und den Fast-Food-Abzug in Rot. Archivieren oder Lösen legt
+keine zweite Challenge an. Löschen schon. Ein selbst gesetzter Titel bleibt.
 
 Jede Mahlzeit kann Kalorien, Eiweiß, Kohlenhydrate, Fett, gesättigte
 Fettsäuren, Omega-3, Omega-6, Ballaststoffe, Vitamin D, Vitamin B12,
