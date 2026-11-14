@@ -3,16 +3,28 @@ import Foundation
 /// The private web session Trade Republic uses: phone, PIN, then confirmation in the app.
 /// The PIN is not stored. A saved session is used only when a button asks for it.
 struct TradeRepublicClient: Sendable {
+    private let session: URLSession
+
+    /// One cookie jar for the whole sign-in. A new session on the next call drops the cookie the confirmation needs.
+    init() {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.httpCookieAcceptPolicy = .always
+        configuration.httpShouldSetCookies = true
+        session = URLSession(configuration: configuration)
+    }
+
+    func invalidate() {
+        session.invalidateAndCancel()
+    }
+
     func begin(phone: String, pin: String) async throws -> TradeRepublicChallenge {
-        let session = Self.makeSession()
-        defer { session.invalidateAndCancel() }
         var request = URLRequest(url: TradeRepublicRequest.loginURL)
         request.httpMethod = "POST"
         request.timeoutInterval = 20
         request.httpBody = TradeRepublicRequest.body(phone: TradeRepublicRequest.canonicalPhone(phone), pin: pin)
         TradeRepublicRequest.headers().forEach { request.setValue($0.value, forHTTPHeaderField: $0.key) }
         let (data, http) = try await Self.response(for: request, session: session)
-        let cookies = TradeRepublicCookies.header(from: http, url: request.url ?? TradeRepublicRequest.loginURL, storage: session.configuration.httpCookieStorage)
+        let cookies = keptCookies(http, url: TradeRepublicRequest.loginURL)
         if http.statusCode >= 400 {
             throw TradeRepublicRequest.failure(statusCode: http.statusCode, errorCode: TradeRepublicRequest.errorCode(from: data))
                 ?? .rejected
@@ -38,22 +50,20 @@ struct TradeRepublicClient: Sendable {
         guard let url = TradeRepublicRequest.codeURL(processId) else {
             throw TradeRepublicFailure.unreadable
         }
-        let session = Self.makeSession()
-        defer { session.invalidateAndCancel() }
+        install(cookies, url: url)
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.timeoutInterval = 20
         request.httpBody = TradeRepublicRequest.codeBody(code)
         TradeRepublicRequest.headers().forEach { request.setValue($0.value, forHTTPHeaderField: $0.key) }
-        if !cookies.isEmpty {
-            request.setValue(cookies, forHTTPHeaderField: "Cookie")
-        }
         let (data, http) = try await Self.response(for: request, session: session)
-        let merged = TradeRepublicCookies.header(from: http, url: url, storage: session.configuration.httpCookieStorage)
-        let kept = TradeRepublicCookies.merging(previous: cookies, fresh: merged)
+        let kept = keptCookies(http, url: url, previous: cookies)
         if http.statusCode >= 400 {
-            throw TradeRepublicRequest.failure(statusCode: http.statusCode, errorCode: TradeRepublicRequest.errorCode(from: data))
-                ?? .invalidCode
+            throw TradeRepublicRequest.failure(
+                statusCode: http.statusCode,
+                errorCode: TradeRepublicRequest.errorCode(from: data),
+                duringProcess: true
+            ) ?? .invalidCode
         }
         return kept
     }
@@ -65,25 +75,44 @@ struct TradeRepublicClient: Sendable {
     }
 
     private func get(_ url: URL, cookies: String) async throws -> TradeRepublicPoll {
-        let session = Self.makeSession()
-        defer { session.invalidateAndCancel() }
+        install(cookies, url: url)
         var request = URLRequest(url: url)
+        request.httpMethod = "GET"
         request.timeoutInterval = 20
-        TradeRepublicRequest.headers().forEach { request.setValue($0.value, forHTTPHeaderField: $0.key) }
-        if !cookies.isEmpty {
-            request.setValue(cookies, forHTTPHeaderField: "Cookie")
+        TradeRepublicRequest.headers().forEach { key, value in
+            if key.caseInsensitiveCompare("Content-Type") == .orderedSame { return }
+            request.setValue(value, forHTTPHeaderField: key)
         }
         let (data, http) = try await Self.response(for: request, session: session)
-        let merged = TradeRepublicCookies.header(from: http, url: url, storage: session.configuration.httpCookieStorage)
-        let kept = TradeRepublicCookies.merging(previous: cookies, fresh: merged)
+        let kept = keptCookies(http, url: url, previous: cookies)
         if http.statusCode >= 400 {
-            throw TradeRepublicRequest.failure(statusCode: http.statusCode, errorCode: TradeRepublicRequest.errorCode(from: data))
-                ?? .rejected
+            throw TradeRepublicRequest.failure(
+                statusCode: http.statusCode,
+                errorCode: TradeRepublicRequest.errorCode(from: data),
+                duringProcess: true
+            ) ?? .rejected
         }
         guard let poll = TradeRepublicRequest.poll(from: data, cookies: kept) else {
             throw TradeRepublicFailure.unreadable
         }
         return poll
+    }
+
+    /// Puts a saved cookie header into an empty jar. A jar that already has the login cookie is left as the server set it.
+    private func install(_ header: String, url: URL) {
+        let storage = session.configuration.httpCookieStorage
+        if storage?.cookies(for: url)?.isEmpty == false { return }
+        TradeRepublicCookies.store(header, url: url, storage: storage)
+    }
+
+    /// The jar is the source of the cookie. An explicit Cookie header would replace it.
+    private func keptCookies(_ response: HTTPURLResponse, url: URL, previous: String = "") -> String {
+        let fromResponse = TradeRepublicCookies.header(
+            from: response,
+            url: url,
+            storage: session.configuration.httpCookieStorage
+        )
+        return TradeRepublicCookies.merging(previous: previous, fresh: fromResponse)
     }
 
     private static func loadSnapshot(cookies: String) async throws -> TradeRepublicSnapshot {
@@ -169,6 +198,8 @@ struct TradeRepublicClient: Sendable {
             return (data, http)
         } catch let failure as TradeRepublicFailure {
             throw failure
+        } catch let urlError as URLError where urlError.code == .cancelled {
+            throw CancellationError()
         } catch {
             throw TradeRepublicFailure.transport
         }

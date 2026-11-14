@@ -25,6 +25,7 @@ enum TradeRepublicFailure: Error, Equatable {
     case notConfirmed
     case sessionDead
     case notStarted
+    case sessionNotKept
     case rejected
     case busy
     case invalidCode
@@ -49,6 +50,11 @@ enum TradeRepublicFailure: Error, Equatable {
             L(
                 "Trade Republic hat die Anmeldung nicht gestartet. Es kam keine Bestätigung. Die PIN ist dieselbe wie beim Öffnen der App.",
                 "Trade Republic did not start the sign-in. No confirmation was sent. The PIN is the same one that opens the app."
+            )
+        case .sessionNotKept:
+            L(
+                "Die Bestätigung in der App ist da, die Sitzung kam aber nicht an. Bitte noch einmal anmelden.",
+                "The confirmation in the app arrived, but the session did not. Please sign in again."
             )
         case .rejected:
             L("Die Anmeldung wurde abgelehnt.", "The sign-in was rejected.")
@@ -101,7 +107,6 @@ enum TradeRepublicCopy {
             "The depot is being updated. This takes a moment."
         )
     }
-    static var next: String { L("Weiter", "Next") }
     static var close: String { L("Schließen", "Close") }
     static var footnote: String {
         L(
@@ -137,6 +142,26 @@ enum PortfolioRead: Equatable {
 }
 
 enum TradeRepublicCookies {
+    static func store(_ header: String, url: URL, storage: HTTPCookieStorage?) {
+        guard let storage else { return }
+        let host = url.host ?? "api.traderepublic.com"
+        for part in header.split(separator: ";") {
+            let piece = part.trimmingCharacters(in: .whitespaces)
+            guard let eq = piece.firstIndex(of: "=") else { continue }
+            let name = String(piece[..<eq])
+            let value = String(piece[piece.index(after: eq)...])
+            guard !name.isEmpty,
+                  let cookie = HTTPCookie(properties: [
+                    .name: name,
+                    .value: value,
+                    .domain: host,
+                    .path: "/"
+                  ])
+            else { continue }
+            storage.setCookie(cookie)
+        }
+    }
+
     static func header(from storage: HTTPCookieStorage?) -> String {
         let cookies = (storage?.cookies ?? []).filter {
             $0.domain.isEmpty || $0.domain.localizedCaseInsensitiveContains("traderepublic.com")
@@ -192,7 +217,7 @@ enum TradeRepublicCookies {
             let name = part.split(separator: "=").first?
                 .trimmingCharacters(in: .whitespaces)
                 .lowercased() ?? ""
-            return name == "tr_session" || (name.contains("session") && !name.contains("waf"))
+            return name == "tr_session" || name == "tr_refresh"
         }
     }
 }
@@ -314,7 +339,7 @@ enum TradeRepublicRequest {
         guard let object = jsonObject(data) else { return nil }
         let status = (object["status"] as? String) ?? ""
         let action = object["requiredAction"] as? String
-        let confirmed = status == "CONFIRMED" || status == "COMPLETED"
+        let confirmed = status == "CONFIRMED" || status == "COMPLETED" || TradeRepublicCookies.keepsSession(cookies)
         return TradeRepublicPoll(
             status: status,
             needsCode: action == "AUTHENTICATOR_VERIFICATION" && !confirmed,
@@ -331,7 +356,12 @@ enum TradeRepublicRequest {
         return code
     }
 
-    static func failure(statusCode: Int, errorCode: String?, savedSession: Bool = false) -> TradeRepublicFailure? {
+    static func failure(
+        statusCode: Int,
+        errorCode: String?,
+        savedSession: Bool = false,
+        duringProcess: Bool = false
+    ) -> TradeRepublicFailure? {
         switch errorCode {
         case "NUMBER_INVALID": return .invalidPhone
         case "PIN_INVALID", "WRONG_PIN", "INVALID_PIN": return .invalidPin
@@ -343,7 +373,8 @@ enum TradeRepublicRequest {
         default: break
         }
         if statusCode == 401 || statusCode == 403 {
-            return savedSession ? .sessionDead : .notStarted
+            if savedSession { return .sessionDead }
+            return duringProcess ? .sessionNotKept : .notStarted
         }
         return statusCode >= 400 ? .rejected : nil
     }

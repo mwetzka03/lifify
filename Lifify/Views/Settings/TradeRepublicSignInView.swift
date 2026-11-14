@@ -17,6 +17,7 @@ struct TradeRepublicSignInControls: View {
     @State private var deadline = Date()
     @State private var task: Task<Void, Never>?
     @State private var advance = false
+    @State private var client = TradeRepublicClient()
 
     var body: some View {
         Section {
@@ -26,11 +27,11 @@ struct TradeRepublicSignInControls: View {
             )
             Button(sessionSaved ? TradeRepublicCopy.signInAgain : TradeRepublicCopy.signIn) {
                 clearSecrets()
-                phase = .phone
+                phase = .credentials
             }
             Button(TradeRepublicCopy.refresh) { refresh() }
                 .disabled(!sessionSaved || phase == .loading)
-            if let note {
+            if let note, phase == .idle {
                 Text(note)
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -65,7 +66,7 @@ struct TradeRepublicSignInControls: View {
 
     private var popup: some View {
         ZStack {
-            Color.black.opacity(0.35).ignoresSafeArea()
+            Color.black.opacity(0.45).ignoresSafeArea()
             VStack(alignment: .leading, spacing: 16) {
                 Text(popupTitle)
                     .font(.headline)
@@ -73,19 +74,16 @@ struct TradeRepublicSignInControls: View {
             }
             .padding(20)
             .frame(maxWidth: 360)
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .appGlassCard(radius: 22)
             .padding(28)
         }
+        .appAccentTint()
     }
 
     private var popupTitle: String {
         switch phase {
-        case .phone: TradeRepublicCopy.phone
-        case .pin: TradeRepublicCopy.pin
-        case .waiting: TradeRepublicCopy.signIn
+        case .credentials, .waiting, .loading, .message: TradeRepublicCopy.signIn
         case .code: TradeRepublicCopy.codePrompt
-        case .loading: "Trade Republic"
-        case .message: TradeRepublicCopy.signIn
         case .idle: ""
         }
     }
@@ -93,24 +91,24 @@ struct TradeRepublicSignInControls: View {
     @ViewBuilder
     private var popupBody: some View {
         switch phase {
-        case .phone:
-            TextField(TradeRepublicCopy.phone, text: $phone)
-                .textContentType(.telephoneNumber)
-                .keyboardType(.phonePad)
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
-            popupActions(
-                confirm: TradeRepublicCopy.next,
-                enabled: !phone.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            ) {
-                phase = .pin
+        case .credentials:
+            field(TradeRepublicCopy.phone) {
+                TextField(TradeRepublicCopy.phone, text: $phone)
+                    .textContentType(.telephoneNumber)
+                    .keyboardType(.phonePad)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
             }
-        case .pin:
-            SecureField(TradeRepublicCopy.pin, text: $pin)
-                .textContentType(.password)
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
-            popupActions(confirm: TradeRepublicCopy.signIn, enabled: !pin.isEmpty) {
+            field(TradeRepublicCopy.pin) {
+                SecureField(TradeRepublicCopy.pin, text: $pin)
+                    .keyboardType(.numberPad)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+            }
+            popupActions(
+                confirm: TradeRepublicCopy.signIn,
+                enabled: !phone.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !pin.isEmpty
+            ) {
                 start()
             }
         case .waiting:
@@ -121,9 +119,12 @@ struct TradeRepublicSignInControls: View {
                 .foregroundStyle(.secondary)
             Button(TradeRepublicCopy.cancel, action: close)
         case .code:
-            SecureField(TradeRepublicCopy.codePrompt, text: $code)
-                .textContentType(.oneTimeCode)
-                .autocorrectionDisabled()
+            field(TradeRepublicCopy.codePrompt) {
+                SecureField(TradeRepublicCopy.codePrompt, text: $code)
+                    .textContentType(.oneTimeCode)
+                    .keyboardType(.numberPad)
+                    .autocorrectionDisabled()
+            }
             popupActions(
                 confirm: TradeRepublicCopy.confirmCode,
                 enabled: !code.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -141,18 +142,34 @@ struct TradeRepublicSignInControls: View {
                 Text(note)
                     .font(.subheadline)
             }
-            Button(TradeRepublicCopy.close, action: close)
-                .frame(maxWidth: .infinity, alignment: .trailing)
+            HStack {
+                Spacer()
+                Button(TradeRepublicCopy.close, action: close)
+                    .buttonStyle(.borderedProminent)
+            }
         case .idle:
             EmptyView()
         }
     }
 
+    private func field<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            content()
+        }
+        .padding(12)
+        .appTintedPlate(radius: 14)
+    }
+
     private func popupActions(confirm: String, enabled: Bool, action: @escaping () -> Void) -> some View {
         HStack {
             Button(TradeRepublicCopy.cancel, action: close)
+                .foregroundStyle(.secondary)
             Spacer()
             Button(confirm, action: action)
+                .buttonStyle(.borderedProminent)
                 .disabled(!enabled)
         }
     }
@@ -163,11 +180,13 @@ struct TradeRepublicSignInControls: View {
         self.pin = ""
         phase = .waiting
         task?.cancel()
-        task = Task { await run(phone: phone, pin: pin) }
+        client.invalidate()
+        let fresh = TradeRepublicClient()
+        client = fresh
+        task = Task { await run(client: fresh, phone: phone, pin: pin) }
     }
 
-    private func run(phone: String, pin: String) async {
-        let client = TradeRepublicClient()
+    private func run(client: TradeRepublicClient, phone: String, pin: String) async {
         do {
             let challenge = try await client.begin(phone: phone, pin: pin)
             processId = challenge.processId
@@ -204,12 +223,12 @@ struct TradeRepublicSignInControls: View {
         let entered = code
         code = ""
         phase = .waiting
-        let client = TradeRepublicClient()
+        let current = client
         task?.cancel()
         task = Task {
             do {
-                cookies = try await client.submit(code: entered, processId: processId, cookies: cookies)
-                try await poll(client)
+                cookies = try await current.submit(code: entered, processId: processId, cookies: cookies)
+                try await poll(current)
             } catch is CancellationError {
                 return
             } catch let failure as TradeRepublicFailure {
@@ -221,7 +240,8 @@ struct TradeRepublicSignInControls: View {
     }
 
     private func finish(_ header: String) async throws {
-        guard TradeRepublicCookies.keepsSession(header) else { throw TradeRepublicFailure.unreadable }
+        guard TradeRepublicCookies.keepsSession(header) else { throw TradeRepublicFailure.sessionNotKept }
+        client.invalidate()
         TradeRepublicSessionStore.save(header)
         cookies = ""
         phase = .loading
@@ -257,6 +277,7 @@ struct TradeRepublicSignInControls: View {
 
     private func close() {
         task?.cancel()
+        client.invalidate()
         let shouldAdvance = advance
         advance = false
         phase = .idle
@@ -273,8 +294,7 @@ struct TradeRepublicSignInControls: View {
 
     private enum Phase {
         case idle
-        case phone
-        case pin
+        case credentials
         case waiting
         case code
         case loading

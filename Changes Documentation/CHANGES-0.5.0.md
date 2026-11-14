@@ -13,7 +13,7 @@ unchanged and stay in [FINANZEN.md](../FINANZEN.md). What changed in 0.4.0 is in
 
 Setup has one more optional step, after the PDF statement. You enter the phone
 number and the PIN that opens the Trade Republic app, then confirm in that app.
-The steps are popups, and a loading popup holds the screen while the depot updates.
+The steps are popups in the same colors as the rest of the app. Phone number and PIN are one step, and a loading popup holds the screen while the depot updates. The sign-in keeps one connection, so the confirmation in the app is the same session that gets saved.
 A leading 0 is sent as +49. A position the session no longer returns is booked as a sale, with the date and proceeds from that sale, and then removed. When the session has no sale row, the remaining shares are sold at their cost basis so the position does not vanish without a booking.
 A later purchase of a stock already held is added, with its date, on the stock
 and as a booking on the Trade Republic checking account. Card payments and other
@@ -71,8 +71,10 @@ bucht. Die Finanzrechnung ist unverändert und bleibt in
 
 Die Einrichtung hat einen weiteren optionalen Schritt, nach dem PDF-Auszug. Du
 gibst Telefonnummer und die PIN ein, mit der du die Trade-Republic-App öffnest,
-und bestätigst in der App. Die Schritte sind Pop-ups, und ein Lade-Popup hält
-den Bildschirm, solange das Depot aktualisiert wird. Eine 0 am Anfang geht als
+und bestätigst in der App. Die Schritte sind Pop-ups in denselben Farben wie der Rest der App. Telefonnummer
+und PIN sind ein Schritt, und ein Lade-Popup hält den Bildschirm, solange das Depot
+aktualisiert wird. Die Anmeldung bleibt auf einer Verbindung, damit die Bestätigung
+in der App zu derselben Sitzung gehört, die gespeichert wird. Eine 0 am Anfang geht als
 +49 mit. Eine Position, die die Sitzung nicht mehr liefert, wird als Verkauf gebucht,
 mit Datum und Erlös, und verschwindet danach. Fehlt die Verkaufszeile, werden die
 restlichen Stücke zum Einstand verkauft, damit die Position nicht ohne Buchung
