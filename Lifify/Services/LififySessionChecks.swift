@@ -119,11 +119,29 @@ enum LififySessionChecks {
         let positionNow = TradeRepublicPosition(isin: "IE00B4L5Y983", name: "World", quantity: 8, averageBuyInCents: 1000)
         let grown = TradeRepublicSync.changes(positions: [positionNow], holdings: [held], activities: [buy], known: [])
         let again = TradeRepublicSync.changes(positions: [positionNow], holdings: [held], activities: [buy], known: [TradeRepublicTimeline.fingerprint("buy1")])
+        let soldDay = day.addingTimeInterval(86_400)
+        let soldActivity = TradeRepublicActivity(
+            id: "sale1",
+            date: soldDay,
+            title: "Apple",
+            eventType: "ORDER_EXECUTED",
+            amountCents: 1800,
+            isin: "US0378331005",
+            trade: true,
+            status: "EXECUTED"
+        )
         let sold = TradeRepublicSync.changes(
             positions: [],
             holdings: [HeldPosition(symbol: "US0378331005", name: "Apple", quantity: 2, purchasePriceCents: 500, latestLotDate: nil)],
-            activities: [],
+            activities: [soldActivity],
             known: []
+        )
+        let soldWithoutEvent = TradeRepublicSync.changes(
+            positions: [],
+            holdings: [HeldPosition(symbol: "US0378331005", name: "Apple", quantity: 2, purchasePriceCents: 500, latestLotDate: nil)],
+            activities: [],
+            known: [],
+            now: day
         )
         let buyQuantity: Double
         if case .buy(_, _, _, _, _, let quantity, let amount) = grown.first(where: { if case .buy = $0 { return true }; return false }) {
@@ -138,7 +156,9 @@ enum LififySessionChecks {
             && parsed.after == "next"
             && buyQuantity == 4
             && !again.contains { if case .buy(let id, _, _, _, _, _, _) = $0 { return id == "buy1" }; return false }
+            && sold.contains { if case .sale(_, let date, _, let isin, _, let quantity, let amount) = $0 { return isin == "US0378331005" && quantity == 2 && amount == 1800 && date == soldDay }; return false }
             && sold.contains { if case .drop(let isin) = $0 { return isin == "US0378331005" }; return false }
+            && soldWithoutEvent.contains { if case .sale(_, _, _, let isin, _, let quantity, let amount) = $0 { return isin == "US0378331005" && quantity == 2 && amount == 1000 }; return false }
         return result("Ein Depotstand setzt Menge und Einstand und erfindet nichts", .portfolio, .unit, passed && synced, reading)
     }
 

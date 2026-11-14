@@ -129,20 +129,25 @@ enum TradeRepublicSync {
         now: Date = .now
     ) -> [TradeRepublicMove] {
         let fresh = activities.filter { !known.contains(TradeRepublicTimeline.fingerprint($0.id)) }
+        let live = Dictionary(grouping: positions.filter { $0.quantity > 0.0000005 }, by: { $0.isin.uppercased() })
+            .compactMapValues(\.first)
+        let leaving = holdings.filter { holding in
+            let symbol = holding.symbol.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+            return !symbol.isEmpty && live[symbol] == nil && holding.quantity > 0.0000005
+        }
         var moves: [TradeRepublicMove] = []
         for item in fresh where !item.trade {
+            if item.amountCents > 0 && leaving.contains(where: { claimsSale($0, item: item) }) { continue }
             let title = item.title.isEmpty ? "Trade Republic" : item.title
             moves.append(.cash(id: item.id, date: item.date, title: title, amountCents: item.amountCents))
         }
-        let live = Dictionary(grouping: positions.filter { $0.quantity > 0.0000005 }, by: { $0.isin.uppercased() })
-            .compactMapValues(\.first)
         var seen = Set<String>()
         for holding in holdings {
             let symbol = holding.symbol.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
             guard !symbol.isEmpty else { continue }
             seen.insert(symbol)
             guard let position = live[symbol] else {
-                appendExit(holding, symbol: symbol, activities: fresh, into: &moves)
+                appendExit(holding, symbol: symbol, activities: activities, known: known, now: now, into: &moves)
                 continue
             }
             let delta = position.quantity - holding.quantity
@@ -158,25 +163,63 @@ enum TradeRepublicSync {
         return moves
     }
 
+    /// A position the session no longer returns was sold. Book that sale, then remove it.
+    /// The timeline's proceeds and date are used when a matching sale is present.
+    /// Otherwise the remaining shares are sold at their cost basis, so the position does not vanish without a booking.
     private static func appendExit(
         _ holding: HeldPosition,
         symbol: String,
         activities: [TradeRepublicActivity],
+        known: Set<String>,
+        now: Date,
         into moves: inout [TradeRepublicMove]
     ) {
-        let sales = trades(isin: symbol, activities: activities, buying: false, after: holding.latestLotDate)
-        if holding.quantity > 0.0000005, let sale = sales.last {
-            moves.append(.sale(
-                id: sale.id,
-                date: sale.date,
-                title: sale.title.isEmpty ? holding.name : sale.title,
+        guard holding.quantity > 0.0000005 else {
+            moves.append(.drop(isin: symbol))
+            return
+        }
+        let sales = exitSales(symbol: symbol, name: holding.name, activities: activities)
+        let unseen = sales.filter { !known.contains(TradeRepublicTimeline.fingerprint($0.id)) }
+        if !unseen.isEmpty {
+            appendLots(
+                delta: holding.quantity,
+                events: unseen,
+                buying: false,
                 isin: symbol,
                 name: holding.name,
-                quantity: holding.quantity,
-                amountCents: sale.amountCents
-            ))
+                cost: holding.purchasePriceCents,
+                now: now,
+                into: &moves
+            )
+        } else if sales.isEmpty {
+            appendLots(
+                delta: holding.quantity,
+                events: [],
+                buying: false,
+                isin: symbol,
+                name: holding.name,
+                cost: holding.purchasePriceCents,
+                now: now,
+                into: &moves
+            )
         }
         moves.append(.drop(isin: symbol))
+    }
+
+    private static func exitSales(symbol: String, name: String, activities: [TradeRepublicActivity]) -> [TradeRepublicActivity] {
+        activities.filter { claimsSale(symbol: symbol, name: name, item: $0) }.sorted { $0.date < $1.date }
+    }
+
+    private static func claimsSale(_ holding: HeldPosition, item: TradeRepublicActivity) -> Bool {
+        let symbol = holding.symbol.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        return claimsSale(symbol: symbol, name: holding.name, item: item)
+    }
+
+    private static func claimsSale(symbol: String, name: String, item: TradeRepublicActivity) -> Bool {
+        guard item.amountCents > 0 else { return false }
+        if !item.isin.isEmpty && item.isin.caseInsensitiveCompare(symbol) == .orderedSame { return true }
+        let named = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        return !named.isEmpty && item.title.localizedCaseInsensitiveContains(named)
     }
 
     private static func appendBuys(

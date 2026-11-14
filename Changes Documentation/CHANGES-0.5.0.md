@@ -14,7 +14,7 @@ unchanged and stay in [FINANZEN.md](../FINANZEN.md). What changed in 0.4.0 is in
 Setup has one more optional step, after the PDF statement. You enter the phone
 number and the PIN that opens the Trade Republic app, then confirm in that app.
 The steps are popups, and a loading popup holds the screen while the depot updates.
-A leading 0 is sent as +49. A position the session no longer returns is removed.
+A leading 0 is sent as +49. A position the session no longer returns is booked as a sale, with the date and proceeds from that sale, and then removed. When the session has no sale row, the remaining shares are sold at their cost basis so the position does not vanish without a booking.
 A later purchase of a stock already held is added, with its date, on the stock
 and as a booking on the Trade Republic checking account. Card payments and other
 cash movements are booked there too. The existing price update then runs, so the
@@ -73,7 +73,10 @@ Die Einrichtung hat einen weiteren optionalen Schritt, nach dem PDF-Auszug. Du
 gibst Telefonnummer und die PIN ein, mit der du die Trade-Republic-App öffnest,
 und bestätigst in der App. Die Schritte sind Pop-ups, und ein Lade-Popup hält
 den Bildschirm, solange das Depot aktualisiert wird. Eine 0 am Anfang geht als
-+49 mit. Eine Position, die die Sitzung nicht mehr liefert, verschwindet. Ein
++49 mit. Eine Position, die die Sitzung nicht mehr liefert, wird als Verkauf gebucht,
+mit Datum und Erlös, und verschwindet danach. Fehlt die Verkaufszeile, werden die
+restlichen Stücke zum Einstand verkauft, damit die Position nicht ohne Buchung
+weg ist. Ein
 späterer Kauf einer Aktie, die schon im Depot liegt, kommt mit Datum dazu, an
 der Aktie und als Buchung auf dem Trade-Republic-Girokonto. Kartenzahlungen und
 andere Geldbewegungen werden dort ebenfalls gebucht. Danach läuft die bisherige
