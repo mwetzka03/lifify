@@ -277,8 +277,16 @@ enum EventRewrite {
     }
 }
 
-/// Several challenges on one event share a group named after that event and its day.
-/// The green calendar line sits on an event's group, not on each member.
+/// A normal group takes every challenge. A group tied to an event takes one-time challenges until the slot is full.
+enum GroupJoin {
+    static func canJoin(linkedToEvent: Bool, oneTime: Bool, minutes: Int?, remaining: Int) -> Bool {
+        guard linkedToEvent else { return true }
+        guard oneTime else { return false }
+        return ChallengeTimeRules.canAdd(minutes: minutes, remaining: remaining)
+    }
+}
+
+/// The calendar line sits on an event's group, not on each member. Its color follows the style.
 enum GroupCalendarLine {
     static func belongsOnGroup(eventGroupID: UUID?, membership: [UUID]) -> Bool {
         guard let eventGroupID else { return false }

@@ -113,8 +113,13 @@ enum CardBoard {
 }
 
 enum ChallengeCardCopy {
-    static func duration(minutes: Int) -> String {
-        L("Dauer \(minutes) min", "Duration \(minutes) min")
+    static func minutesLabel(_ minutes: Int) -> String {
+        L("\(minutes) Minuten", "\(minutes) minutes")
+    }
+
+    static func scheduleLine(recurrence: String, minutes: Int?) -> String {
+        guard let minutes, minutes > 0 else { return recurrence }
+        return "\(recurrence) - \(minutesLabel(minutes))"
     }
 }
 

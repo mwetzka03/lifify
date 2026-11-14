@@ -32,7 +32,8 @@ enum LififyFeatureChecks {
             finishedChallengeStaysInItsGroup(),
             singleFilterShowsGroupedChallenges(),
             pinnedChallengesStayAboveTheFilter(),
-            deletingAGroupCanLeaveTheChallenges()
+            deletingAGroupCanLeaveTheChallenges(),
+            eventGroupStopsWhenTheSlotIsFull()
         ]
     }
 
@@ -249,7 +250,7 @@ enum LififyFeatureChecks {
     private static func cardsUseTwoColumns() -> LififyCheckResult {
         let titles = HealthScreen.sectionTitles()
         let symbols = titles.map(CardBoard.healthSymbol(matching:))
-        let duration = ChallengeCardCopy.duration(minutes: 30)
+        let duration = ChallengeCardCopy.scheduleLine(recurrence: L("Einmalig", "Once"), minutes: 30)
         let bubbles = AccountBubbleBar.titles(accountNames: ["Sparkasse", "Trade Republic"], includesDepot: true)
         let passed = CardBoard.challengeColumnCount == 2
             && CardBoard.challengeColumns().count == 2
@@ -263,7 +264,7 @@ enum LififyFeatureChecks {
             && CardBoard.toolbarVerticalPadding == 3
             && (ChallengeCreateCopy.abstinence == "Abstinenz anlegen" || ChallengeCreateCopy.abstinence == "Create abstinence")
             && (ChallengeCreateCopy.sport == "Sport anlegen" || ChallengeCreateCopy.sport == "Create sport")
-            && (duration == "Dauer 30 min" || duration == "Duration 30 min")
+            && (duration == "Einmalig - 30 Minuten" || duration == "Once - 30 minutes")
             && bubbles.first == L("Alle Konten", "All accounts")
             && bubbles.last == L("Depot", "Portfolio")
             && CardBoard.spansFullWidth(index: 0, count: 1)
@@ -642,6 +643,25 @@ enum LififyFeatureChecks {
             name: "Nur die Gruppe löschen lässt die Challenges einzeln",
             passed: passed,
             detail: passed ? nil : "\(kept.count)",
+            reading: reading,
+            kind: .integration,
+            topic: .challenge
+        )
+    }
+
+    private static func eventGroupStopsWhenTheSlotIsFull() -> LififyCheckResult {
+        let line = ChallengeCardCopy.scheduleLine(recurrence: L("Einmalig", "Once"), minutes: 30)
+        let open = GroupJoin.canJoin(linkedToEvent: false, oneTime: true, minutes: 200, remaining: 0)
+        let fits = GroupJoin.canJoin(linkedToEvent: true, oneTime: true, minutes: 30, remaining: 30)
+        let over = GroupJoin.canJoin(linkedToEvent: true, oneTime: true, minutes: 31, remaining: 30)
+        let weekly = GroupJoin.canJoin(linkedToEvent: true, oneTime: false, minutes: nil, remaining: 90)
+        let lineOK = line == "Einmalig - 30 Minuten" || line == "Once - 30 minutes"
+        let passed = lineOK && open && fits && !over && !weekly
+        let reading = open && !over ? "offen, voll" : "zu"
+        return LififyCheckResult(
+            name: "Eine Termin-Gruppe nimmt Challenges nur bis der Slot voll ist",
+            passed: passed,
+            detail: passed ? nil : line,
             reading: reading,
             kind: .integration,
             topic: .challenge

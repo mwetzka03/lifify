@@ -219,7 +219,7 @@ struct HomeView: View {
                                     if let text = eventChallengeCaption(event) {
                                         Text(text)
                                             .font(.caption2)
-                                            .foregroundStyle(.green)
+                                            .appAccentForeground()
                                     }
                                 }
                                 Spacer()
@@ -235,7 +235,7 @@ struct HomeView: View {
                                     if let caption = homeCalendarCaption(challenge) {
                                         Text(caption)
                                             .font(.caption2)
-                                            .foregroundStyle(.green)
+                                            .appAccentForeground()
                                     }
                                 }
                                 Spacer()
@@ -248,8 +248,9 @@ struct HomeView: View {
                                     followsNutrition: followsNutrition
                                 )
                                 if ChallengeBoard.showsCheckCircle(allowsHand: allowsHand) {
-                                    Image(systemName: ChallengeService.isCompleted(challenge, on: selectedDate, completions: completions) ? "checkmark.circle.fill" : "circle")
-                                        .foregroundStyle(ChallengeService.isCompleted(challenge, on: selectedDate, completions: completions) ? .green : .secondary)
+                                    let done = ChallengeService.isCompleted(challenge, on: selectedDate, completions: completions)
+                                    Image(systemName: done ? "checkmark.circle.fill" : "circle")
+                                        .foregroundStyle(done ? paletteAccent : Color.secondary)
                                 }
                             }
                         }
@@ -359,7 +360,7 @@ struct HomeView: View {
                                         Circle().fill(paletteAccent).frame(width: 4, height: 4)
                                     }
                                     if !dueChallenges(on: date).isEmpty {
-                                        Circle().fill(.green).frame(width: 4, height: 4)
+                                        Circle().stroke(paletteAccent, lineWidth: 1).frame(width: 4, height: 4)
                                     }
                                 }
                                 .frame(height: 5)
@@ -374,7 +375,7 @@ struct HomeView: View {
             }
             HStack(spacing: 14) {
                 Label(L("Termine", "Events"), systemImage: "circle.fill").foregroundStyle(paletteAccent)
-                Label(L("Challenges", "Challenges"), systemImage: "circle.fill").foregroundStyle(.green)
+                Label(L("Challenges", "Challenges"), systemImage: "circle").foregroundStyle(paletteAccent)
                 Spacer()
             }
             .font(.caption)
@@ -471,7 +472,7 @@ struct HomeView: View {
                             .foregroundStyle(.orange)
                         }
                         Image(systemName: "circle")
-                            .foregroundStyle(.green)
+                            .foregroundStyle(paletteAccent)
                     }
                 }
                 .buttonStyle(.plain)

@@ -14,8 +14,9 @@ This file is in English and in German. The finance calculations stay in
   a leftover card, uses the full width. Two cards in one row share the height
   of the taller card. The title sits to the right of the symbol and lines up
   with its middle. Coins and the streak sit on the right. The note under the
-  recurrence sits beside them, in the same tight stack as a linked event. A duration shows in
-  the same green caption as a linked event. An abstinence card also shows the
+  recurrence sits beside them, in the same tight stack as a linked event. Recurrence and
+  duration share one line, such as Once - 20 minutes. That duration, the calendar
+  link, the check circle, and the challenge marks on the month view use the chosen style color. An abstinence card also shows the
   difficulty, the elapsed time, and the next bonus. Under the abstinence cards
   and the sport cards there is a button that creates a challenge of that
   category. A group is one wide card above those. Health switches Training and
@@ -85,10 +86,12 @@ This file is in English and in German. The finance calculations stay in
   challenges fill the slot is hidden too. The row already chosen stays, so it
   can be cleared. Suggestions leave out a finished challenge. The event editor
   uses the same tinted rows as the other forms. Groups have their own section
-  and fold open on the page. A long press pins or deletes the group. Deleting
+  and fold open on the page. A long press edits, pins, or deletes the group.
+  Editing a group with no event can add any challenge. A group tied to an event
+  can add one-time challenges only while time remains in the slot. Deleting
   asks whether the challenges go too. Keeping them leaves them on their own,
   and a group made from an event also drops the calendar link. That link is
-  the green line under the group. While open, a group shows the same details as a A group reaches the pinned area only after you pin it. A
+  the style-colored line under the group. While open, a group shows the same details as a challenge card. A group reaches the pinned area only after you pin it. A
   finished challenge stays in its group. A challenge linked afterwards joins
   that group, and it can also keep a second group. The Single filter shows
   those challenges one by one. Up to four pinned challenges sit above the
@@ -180,8 +183,9 @@ This file is in English and in German. The finance calculations stay in
   Reihe sind so hoch wie die höhere Karte. Der Titel steht rechts neben dem
   Symbol und auf dessen Mitte. Coins und die Serie stehen rechts. Der Hinweis
   unter der Wiederholung steht daneben, im selben engen Stapel wie ein
-  verknüpfter Termin. Eine Dauer
-  erscheint in derselben grünen Zeile wie ein verknüpfter Termin. Eine
+  verknüpfter Termin. Wiederholung und Dauer stehen in einer Zeile, zum
+  Beispiel Einmalig - 20 Minuten. Diese Dauer, die Kalenderzeile, der
+  Hakenkreis und die Challenge-Punkte in der Monatsansicht nutzen die gewählte Stilfarbe. Eine
   Abstinenzkarte zeigt zusätzlich Schwierigkeit, vergangene Zeit und den
   nächsten Bonus. Unter den Abstinenzkarten und den Sportkarten liegt ein
   Knopf, der eine Challenge dieser Kategorie anlegt. Eine Gruppe ist eine
@@ -259,11 +263,13 @@ This file is in English and in German. The finance calculations stay in
   verborgen. Die schon gewählte Zeile bleibt, damit man sie lösen kann.
   Vorschläge lassen eine erledigte Challenge aus. Der Termineditor nutzt
   dieselben gefärbten Zeilen wie die anderen Formulare. Gruppen haben einen
-  eigenen Abschnitt und klappen auf der Seite auf. Ein langes Drücken pinnt
-  die Gruppe an oder löscht sie. Beim Löschen wird gefragt, ob die Challenges
+  eigenen Abschnitt und klappen auf der Seite auf. Ein langes Drücken
+  bearbeitet die Gruppe, pinnt sie an oder löscht sie. Eine Gruppe ohne Termin
+  nimmt jede Challenge. Eine Gruppe an einem Termin nimmt einmalige Challenges
+  nur, solange im Slot noch Zeit ist. Beim Löschen wird gefragt, ob die Challenges
   mit weg sollen. Behält man sie, stehen sie einzeln, und eine Gruppe aus einem
   Termin löst zusätzlich die Kalenderverknüpfung. Diese Verknüpfung ist die
-  grüne Zeile unter der Gruppe. Aufgeklappt zeigt eine
+  Zeile in der Stilfarbe unter der Gruppe. Aufgeklappt zeigt eine
   Gruppe dieselben Angaben wie eine Challenge-Karte. Eine Gruppe landet im
   angepinnten Bereich nur, wenn man sie anpinnt. Eine erledigte Challenge
   bleibt in ihrer Gruppe. Eine später verknüpfte Challenge kommt in diese

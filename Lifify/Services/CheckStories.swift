@@ -303,11 +303,17 @@ enum CheckStories {
             ("Ohne Mahlzeiten zählt der Tag nicht. Mit Mahlzeiten und ohne Ziel ist es ein Fehlversuch.", "Without meals the day does not count. With meals and a missed goal it is a miss.", "ChallengeService.swift"),
             ("Die Messung ist ohne 2, mit 0. Ohne Mahlzeiten bleiben zwei Freezes, nach Fehlversuchen bleibt keiner.", "The reading is ohne 2, mit 0. Without meals two freezes remain, and after misses none remain.", "LififyChecks.swift"),
         ),
-        "Die grüne Kalenderzeile steht an der Gruppe": make(
-            "Die grüne Zeile eines automatisch angelegten Termins steht an der Gruppe, nicht an jedem Mitglied.",
-            "The green line of an automatically created event sits on the group, not on every member.",
+        "Die Kalenderzeile steht in der Stilfarbe an der Gruppe": make(
+            "Die Zeile eines automatisch angelegten Termins steht an der Gruppe, nicht an jedem Mitglied, und folgt der Stilfarbe.",
+            "The line of an automatically created event sits on the group, not on every member, and follows the style color.",
             ("Gehört der Termin zur Gruppe des Mitglieds, wandert die Zeile an die Gruppe.", "When the event belongs to the member's group, the line moves to the group.", "ChallengeTimeRules.swift"),
             ("Die Messung ist auf der Gruppe. Eine eigene Verknüpfung ohne Gruppe bleibt an der Challenge.", "The reading is auf der Gruppe. A link of its own, without a group, stays on the challenge.", "LififyChecks.swift"),
+        ),
+        "Einmalig und die Dauer stehen in einer Zeile": make(
+            "Wiederholung und Dauer stehen in einer Zeile, zum Beispiel Einmalig - 20 Minuten. Eine freie Gruppe nimmt jede Challenge. Eine Termin-Gruppe nimmt eine einmalige Challenge nur, solange die Zeit reicht.",
+            "Recurrence and duration share one line, for example Once - 20 minutes. A free group takes any challenge. An event group takes a one-time challenge only while time remains.",
+            ("Die Zeile setzt Wiederholung, Bindestrich und Minuten zusammen. Ohne Dauer bleibt nur die Wiederholung.", "The line joins recurrence, a hyphen, and the minutes. Without a duration only the recurrence remains.", "AppChrome.swift"),
+            ("Die Messung ist Einmalig - 20 Minuten, offen, voll oder Once - 20 minutes, offen, voll. Offen heißt, die freie Gruppe und die passende Zeit lassen die Challenge zu. Voll heißt, 40 Minuten passen nicht in 30.", "The reading is Einmalig - 20 Minuten, offen, voll or Once - 20 minutes, offen, voll. Open means the free group and the fitting time allow the challenge. Full means 40 minutes do not fit into 30.", "LififyChecks.swift"),
         ),
         "Eine Challenge bleibt in Termin und Gruppe": make(
             "Eine Challenge, die einen Termin und zusätzlich eine Gruppe hat, gehört zu beiden.",
@@ -357,6 +363,12 @@ enum CheckStories {
             "A linked challenge takes the day and time of the event. Another challenge joins the same group. The reminder gets a time only for an event that has a time.",
             ("Ein wöchentlicher Termin am 18.11. um 19:15 ersetzt einen früheren Tag. Eine dritte Challenge kommt dazu.", "A weekly event on 18 Nov at 19:15 replaces an earlier day. A third challenge is added.", "ChallengeTimeRules.swift"),
             ("Die Messung ist 19:15, 3. Die Uhrzeit ist die des Termins, und die Gruppe hat drei Challenges.", "The reading is 19:15, 3. The time is the event's, and the group has three challenges.", "LififyChecks.swift"),
+        ),
+        "Eine Termin-Gruppe nimmt Challenges nur bis der Slot voll ist": make(
+            "Eine Gruppe ohne Termin nimmt jede Challenge. Eine Gruppe an einem Termin nimmt eine einmalige Challenge nur, solange die Restzeit reicht.",
+            "A group with no event takes any challenge. A group on an event takes a one-time challenge only while time remains.",
+            ("30 Minuten passen in 30 Minuten Restzeit. 31 Minuten und eine Wiederholung passen nicht.", "30 minutes fit into 30 minutes left. 31 minutes and a repeat do not fit.", "ChallengeTimeRules.swift"),
+            ("Die Messung ist offen, voll. Die Zeile dazu lautet Einmalig - 30 Minuten oder Once - 30 minutes.", "The reading is offen, voll. The line beside it reads Einmalig - 30 Minuten or Once - 30 minutes.", "LififyFeatureChecks.swift"),
         ),
         "Nur die Gruppe löschen lässt die Challenges einzeln": make(
             "Beim Löschen einer Gruppe kann man die Challenges behalten. Eine Kalendergruppe löst die Verknüpfung in beiden Fällen.",

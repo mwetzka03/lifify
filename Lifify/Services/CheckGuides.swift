@@ -198,10 +198,15 @@ enum CheckGuides {
             "Die Messung ist ohne 2, mit 0. Ohne bestätigte Mahlzeiten bleiben die zwei Start-Freezes. Drei Tage mit Mahlzeiten und ohne Ziel verbrauchen beide Freezes.",
             "The reading is ohne 2, mit 0. Without confirmed meals the two starting freezes remain. Three days with meals and a missed goal spend both freezes."
         ),
-        "Die grüne Kalenderzeile steht an der Gruppe": g(
+        "Die Kalenderzeile steht in der Stilfarbe an der Gruppe": g(
             "GroupCalendarLine.belongsOnGroup(eventGroupID:membership:)",
-            "Die Messung ist auf der Gruppe. Die Zeile des Termins, der die Gruppe angelegt hat, steht an der Gruppe. Eine Verknüpfung ohne Gruppe bleibt an der Challenge.",
-            "The reading is auf der Gruppe. The line of the event that created the group sits on the group. A link without a group stays on the challenge."
+            "Die Messung ist auf der Gruppe. Die Zeile des Termins, der die Gruppe angelegt hat, steht an der Gruppe und nutzt die Stilfarbe. Eine Verknüpfung ohne Gruppe bleibt an der Challenge.",
+            "The reading is auf der Gruppe. The line of the event that created the group sits on the group and uses the style color. A link without a group stays on the challenge."
+        ),
+        "Einmalig und die Dauer stehen in einer Zeile": g(
+            "ChallengeCardCopy.scheduleLine(recurrence:minutes:), GroupJoin.canJoin(linkedToEvent:oneTime:minutes:remaining:)",
+            "Die Messung ist Einmalig - 20 Minuten, offen, voll oder Once - 20 minutes, offen, voll. Die Zeile nennt Wiederholung und Minuten ohne das Wort Dauer. Eine freie Gruppe bleibt offen, 40 Minuten in 30 Minuten Restzeit sind voll.",
+            "The reading is Einmalig - 20 Minuten, offen, voll or Once - 20 minutes, offen, voll. The line names recurrence and minutes without the word Duration. A free group stays open, and 40 minutes into 30 minutes left is full."
         ),
         "Eine Challenge bleibt in Termin und Gruppe": g(
             "ChallengeGroups.membership(chosen:eventGroup:), ChallengeGroups.ids(primary:stored:), ChallengeGroups.contains(_:_:)",
@@ -242,6 +247,11 @@ enum CheckGuides {
             "EventChallengeLink.placement(eventStart:recurrence:weekdays:end:calendar:), EventChallengeLink.members(already:linked:adding:), EventChallengeLink.reminderIncludesTime(allDay:)",
             "Die Messung ist 19:15, 3. 19:15 ist die Uhrzeit des Termins, die den bisherigen Tag ersetzt. 3 ist die Gruppe, nachdem eine weitere Challenge dazugekommen ist. Ein ganztägiger Termin schreibt keine Uhrzeit in die Erinnerung.",
             "The reading is 19:15, 3. 19:15 is the event time, which replaces the previous day. 3 is the group after one more challenge joins. An all-day event does not write a time into the reminder."
+        ),
+        "Eine Termin-Gruppe nimmt Challenges nur bis der Slot voll ist": g(
+            "GroupJoin.canJoin(linkedToEvent:oneTime:minutes:remaining:), ChallengeCardCopy.scheduleLine(recurrence:minutes:)",
+            "Die Messung ist offen, voll. Eine freie Gruppe nimmt auch 200 Minuten. 30 von 30 passen, 31 nicht, und eine Wiederholung bleibt draußen.",
+            "The reading is offen, voll. A free group also takes 200 minutes. 30 of 30 fit, 31 do not, and a repeat stays out."
         ),
         "Nur die Gruppe löschen lässt die Challenges einzeln": g(
             "GroupRemoval.remaining(_:removing:), GroupRemoval.clearsCalendarLink(generatedFromEvent:)",
@@ -430,8 +440,8 @@ enum CheckGuides {
         ),
         "Challenges und Gesundheit nutzen ein Kartenraster": g(
             "CardBoard.challengeColumns(), CardBoard.healthSymbol(matching:), HealthScreen.sectionTitles()",
-            "Die Messung nennt die Symbole figure.run und fork.knife, die Dauer-Beschriftung und die Kontoblasen. Ein einzelner Plan oder der dritte Plan nimmt die ganze Reihe ein. Die Shop-Kapsel ist 36 Punkt hoch.",
-            "The reading names the symbols figure.run and fork.knife, the duration caption, and the account bubbles. One plan, or the third plan, takes the whole row. The shop capsule is 36 points tall."
+            "Die Messung nennt die Symbole figure.run und fork.knife, die Zeile Einmalig - 30 Minuten oder Once - 30 minutes und die Kontoblasen. Ein einzelner Plan oder der dritte Plan nimmt die ganze Reihe ein. Die Shop-Kapsel ist 36 Punkt hoch.",
+            "The reading names the symbols figure.run and fork.knife, the line Einmalig - 30 Minuten or Once - 30 minutes, and the account bubbles. One plan, or the third plan, takes the whole row. The shop capsule is 36 points tall."
         ),
         "Die erste und die letzte Zeile runden die Kachel": g(
             "ListCardEdge.edge(index:count:)",

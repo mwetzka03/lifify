@@ -13,6 +13,7 @@ struct ChallengesView: View {
     @State private var createCategory: ChallengeCategory?
     @State private var showingNewGroup = false
     @State private var edited: ChallengeItem?
+    @State private var editedGroup: ChallengeGroup?
     @State private var acceptedRecommendation: ChallengeCalendarEvent?
     @State private var showingShop = false
     @State private var showingWallet = false
@@ -26,6 +27,8 @@ struct ChallengesView: View {
     @AppStorage(ChallengePinStore.revisionKey) private var pinRevision = 0
     @AppStorage(ChallengeGroupPinStore.revisionKey) private var groupPinRevision = 0
     @AppStorage(WorkoutLinkStore.revisionKey) private var workoutLinkRevision = 0
+    @AppStorage(AppPalette.storageKey) private var paletteRaw = AppPalette.green.rawValue
+    @Environment(\.colorScheme) private var scheme
 
     var body: some View {
         ScrollView {
@@ -77,6 +80,7 @@ struct ChallengesView: View {
             ChallengeForm(challenge: nil, presetCategory: category)
         }
         .sheet(isPresented: $showingNewGroup) { ChallengeGroupForm() }
+        .sheet(item: $editedGroup) { ChallengeGroupForm(group: $0) }
         .sheet(item: $edited) { ChallengeForm(challenge: $0) }
         .sheet(item: $pendingDuration) { pending in
             ActualDurationSheet(suggested: pending.suggested) { minutes in
@@ -438,7 +442,7 @@ struct ChallengesView: View {
                 if let calendarCaption {
                     Text(calendarCaption)
                         .font(.caption)
-                        .foregroundStyle(.green)
+                        .foregroundStyle(themeAccent)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 if !open {
@@ -465,6 +469,11 @@ struct ChallengesView: View {
                 }
             }
             .contextMenu {
+                Button {
+                    editedGroup = group
+                } label: {
+                    Label(L("Bearbeiten", "Edit"), systemImage: "pencil")
+                }
                 groupPinButton(group)
                 Button(role: .destructive) {
                     if listed.isEmpty {
@@ -796,7 +805,7 @@ struct ChallengesView: View {
                 Spacer(minLength: 8)
                 if ChallengeBoard.showsCheckCircle(allowsHand: !handLocked) {
                     Image(systemName: doneToday ? "checkmark.circle.fill" : "circle")
-                        .foregroundStyle(gray ? Color.secondary : Color.green)
+                        .foregroundStyle(gray ? Color.secondary : themeAccent)
                 }
             }
             challengeMeta(
@@ -915,20 +924,17 @@ struct ChallengesView: View {
             !GroupCalendarLine.belongsOnGroup(eventGroupID: event.linkedChallengeGroupID, membership: challenge.groupIDs)
         }
         let minutes = ChallengeTimeStore.minutes(for: challenge.id)
+        let schedule = ChallengeCardCopy.scheduleLine(recurrence: challenge.recurrence.label, minutes: minutes)
         return HStack(alignment: .top, spacing: 8) {
             VStack(alignment: .leading, spacing: 2) {
-                Text(challenge.recurrence.label)
-                if let minutes {
-                    Text(ChallengeCardCopy.duration(minutes: minutes))
-                        .foregroundStyle(.green)
-                }
+                scheduleText(schedule, minutes: minutes)
                 if let caption = LinkCaption.calendar(
                     titles: linked.map(\.title),
                     count: linked.count,
                     singleDate: linked.count == 1 ? linked.first?.startDate : nil
                 ) {
                     Text(caption)
-                        .foregroundStyle(.green)
+                        .foregroundStyle(themeAccent)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 if let note {
@@ -966,6 +972,26 @@ struct ChallengesView: View {
         }
         .font(.caption)
         .foregroundStyle(.secondary)
+    }
+
+    private var themeAccent: Color {
+        AppLook.accent(AppAppearance(scheme), palette: AppPalette.resolved(paletteRaw)).color()
+    }
+
+    @ViewBuilder
+    private func scheduleText(_ schedule: String, minutes: Int?) -> some View {
+        let marker = " - "
+        if (minutes ?? 0) > 0, let range = schedule.range(of: marker) {
+            let head = String(schedule[..<range.lowerBound])
+            let tail = String(schedule[range.lowerBound...])
+            HStack(alignment: .firstTextBaseline, spacing: 0) {
+                Text(head)
+                Text(tail)
+                    .foregroundStyle(themeAccent)
+            }
+        } else {
+            Text(schedule)
+        }
     }
 }
 
@@ -1450,8 +1476,21 @@ private struct WeekdayPicker: View {
 private struct ChallengeGroupForm: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
-    @State private var title = ""
-    @State private var details = ""
+    @Query(sort: \ChallengeItem.title) private var challenges: [ChallengeItem]
+    @Query(sort: \ChallengeCalendarEvent.startDate) private var events: [ChallengeCalendarEvent]
+    private let existingID: UUID?
+    @State private var title: String
+    @State private var details: String
+    @State private var selected: Set<UUID>
+    @State private var loadedMembers = false
+    @State private var isSaving = false
+
+    init(group: ChallengeGroup? = nil) {
+        existingID = group?.id
+        _title = State(initialValue: group?.title ?? "")
+        _details = State(initialValue: group?.details ?? "")
+        _selected = State(initialValue: [])
+    }
 
     var body: some View {
         NavigationStack {
@@ -1461,20 +1500,194 @@ private struct ChallengeGroupForm: View {
                     TextField(L("Beschreibung", "Description"), text: $details, axis: .vertical)
                 }
                 .appGlassRow()
+                Section {
+                    Text(slotNote)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    if offered.isEmpty {
+                        Text(L("Keine Challenges", "No challenges"))
+                            .foregroundStyle(.secondary)
+                    }
+                    ForEach(offered) { challenge in
+                        challengeToggle(challenge)
+                    }
+                } header: {
+                    Text(L("Challenges", "Challenges"))
+                }
+                .appGlassRow()
             }
             .appGlassList()
-            .navigationTitle(L("Neue Gruppe", "New group"))
+            .navigationTitle(existingID == nil ? L("Neue Gruppe", "New group") : L("Gruppe bearbeiten", "Edit group"))
+            .onAppear(perform: loadMembers)
+            .onChange(of: challenges.count) { _, _ in loadMembers() }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button(L("Abbrechen", "Cancel")) { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(L("Speichern", "Save")) {
-                        guard !title.isEmpty else { return }
-                        context.insert(ChallengeGroup(title: title, details: details))
-                        try? context.save()
-                        dismiss()
+                        Task { await save() }
+                    }
+                    .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isSaving)
+                }
+            }
+        }
+    }
+
+    private var linkedEvent: ChallengeCalendarEvent? {
+        guard let existingID else { return nil }
+        return events.first { $0.linkedChallengeGroupID == existingID && !$0.isReminderSuggestion }
+    }
+
+    private var slotMinutes: Int {
+        guard let event = linkedEvent else { return 0 }
+        return ChallengeTimeStore.plannedMinutes(for: event.id)
+            ?? ChallengeTimeRules.minutes(from: event.startDate, to: event.endDate)
+            ?? 0
+    }
+
+    private var usedMinutes: Int {
+        selected.reduce(0) { sum, id in
+            sum + (ChallengeTimeStore.minutes(for: id) ?? 0)
+        }
+    }
+
+    private var remainingMinutes: Int {
+        ChallengeTimeRules.remaining(slotMinutes: slotMinutes, linkedMinutes: [usedMinutes])
+    }
+
+    private var slotNote: String {
+        guard linkedEvent != nil else {
+            return L("Jede Challenge kann in diese Gruppe.", "Any challenge can join this group.")
+        }
+        return L(
+            "Noch \(remainingMinutes) Minuten frei. Challenges mit Dauer passen nur, solange diese Zeit reicht.",
+            "\(remainingMinutes) minutes still free. Challenges with a duration fit only while that time lasts."
+        )
+    }
+
+    private var offered: [ChallengeItem] {
+        challenges.filter { challenge in
+            if challenge.isArchived { return false }
+            if selected.contains(challenge.id) { return true }
+            guard linkedEvent != nil else { return true }
+            return ChallengeTimeRules.allowsTime(challenge.category)
+                && !ChallengeCheckoff.followsNutrition(challenge.externalIdentifier)
+                && EventRewrite.acceptsSharedEvent(challenge.recurrence)
+        }
+    }
+
+    private func loadMembers() {
+        guard !loadedMembers, let existingID, !challenges.isEmpty else { return }
+        loadedMembers = true
+        selected = Set(challenges.filter { $0.belongs(to: existingID) }.map(\.id))
+    }
+
+    private func challengeToggle(_ challenge: ChallengeItem) -> some View {
+        let minutes = ChallengeTimeStore.minutes(for: challenge.id)
+        let chosen = selected.contains(challenge.id)
+        let canAdd = GroupJoin.canJoin(
+            linkedToEvent: linkedEvent != nil,
+            oneTime: challenge.recurrence == .none,
+            minutes: minutes,
+            remaining: remainingMinutes
+        )
+        return Button {
+            if chosen {
+                selected.remove(challenge.id)
+            } else if canAdd {
+                selected.insert(challenge.id)
+            }
+        } label: {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(challenge.title)
+                    Text(ChallengeCardCopy.scheduleLine(recurrence: challenge.recurrence.label, minutes: minutes))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Group {
+                    if chosen {
+                        Image(systemName: "checkmark.circle.fill")
+                            .appAccentForeground()
+                    } else {
+                        Image(systemName: "circle")
+                            .foregroundStyle(Color.secondary)
                     }
                 }
             }
         }
+        .buttonStyle(.plain)
+        .disabled(!chosen && !canAdd)
+    }
+
+    private func save() async {
+        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, !isSaving else { return }
+        isSaving = true
+        defer { isSaving = false }
+        let group: ChallengeGroup
+        if let existingID,
+           let found = (try? context.fetch(FetchDescriptor<ChallengeGroup>()))?.first(where: { $0.id == existingID }) {
+            group = found
+        } else {
+            group = ChallengeGroup(title: trimmed, details: details)
+            context.insert(group)
+        }
+        group.title = trimmed
+        group.details = details
+        guard existingID == nil || loadedMembers else {
+            try? context.save()
+            dismiss()
+            return
+        }
+        let previous = Set(challenges.filter { $0.belongs(to: group.id) }.map(\.id))
+        for challenge in challenges {
+            let wants = selected.contains(challenge.id)
+            let has = challenge.groupIDs.contains(group.id)
+            if wants && !has {
+                var ids = challenge.groupIDs
+                ids.append(group.id)
+                challenge.groupIDs = ids
+            } else if !wants && has {
+                challenge.groupIDs = GroupRemoval.remaining(challenge.groupIDs, removing: group.id)
+            }
+        }
+        if let event = linkedEvent {
+            let already = Set(ChallengeTimeStore.memberIDs(for: event.id))
+            let timed = challenges.filter { challenge in
+                guard selected.contains(challenge.id) else { return false }
+                if already.contains(challenge.id) { return true }
+                return ChallengeTimeRules.allowsTime(challenge.category)
+                    && !ChallengeCheckoff.followsNutrition(challenge.externalIdentifier)
+                    && EventRewrite.acceptsSharedEvent(challenge.recurrence)
+            }
+            ChallengeTimeStore.setMembers(timed.map(\.id), for: event.id)
+            if let linked = event.linkedChallengeID, !timed.contains(where: { $0.id == linked }) {
+                event.linkedChallengeID = timed.first?.id
+            }
+            let fresh = timed.filter { !previous.contains($0.id) }
+            for challenge in fresh {
+                EventGroupSync.place(challenge, on: event)
+            }
+            try? context.save()
+            for challenge in fresh where ReminderSyncPreference.isEnabled(for: challenge.id)
+                && !ChallengeTimeRules.isAdopted(challenge.externalIdentifier) {
+                if let identifier = await EventKitSyncService.saveReminder(
+                    externalIdentifier: challenge.externalIdentifier,
+                    title: challenge.title,
+                    notes: challenge.details,
+                    startDate: challenge.startDate ?? event.startDate,
+                    endDate: challenge.endDate,
+                    recurrence: challenge.recurrence,
+                    recurrenceInterval: 1,
+                    weekdays: challenge.weekdaySet,
+                    includesTime: EventChallengeLink.reminderIncludesTime(allDay: event.isAllDay)
+                ) {
+                    challenge.externalIdentifier = identifier
+                }
+            }
+        }
+        try? context.save()
+        dismiss()
     }
 }

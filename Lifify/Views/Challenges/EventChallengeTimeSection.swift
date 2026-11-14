@@ -94,8 +94,15 @@ struct EventChallengeTimeSection: View {
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
-                Image(systemName: selected ? "checkmark.circle.fill" : "circle")
-                    .foregroundStyle(selected ? Color.green : Color.secondary)
+                Group {
+                    if selected {
+                        Image(systemName: "checkmark.circle.fill")
+                            .appAccentForeground()
+                    } else {
+                        Image(systemName: "circle")
+                            .foregroundStyle(Color.secondary)
+                    }
+                }
             }
         }
         .disabled(!selected && !allowsAdding)

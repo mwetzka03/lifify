@@ -139,6 +139,7 @@ enum LififyChecks {
             challengeBelongsToEventAndGroup(),
             emptyNutritionDayKeepsStartingFreezes(),
             calendarLineSitsOnTheGroup(),
+            scheduleLineAndOpenGroup(),
             oldChallengesAreSuggested(),
             briefingNamesTheDay(),
             todaysAbstinenceNoticeOnly(),
@@ -865,7 +866,30 @@ enum LififyChecks {
         let ownLink = !GroupCalendarLine.belongsOnGroup(eventGroupID: nil, membership: [eventGroup])
         let other = !GroupCalendarLine.belongsOnGroup(eventGroupID: chosen, membership: [eventGroup])
         let passed = onGroup && ownLink && other
-        return result("Die grüne Kalenderzeile steht an der Gruppe", .challenge, .unit, passed, "auf der Gruppe")
+        return result("Die Kalenderzeile steht in der Stilfarbe an der Gruppe", .challenge, .unit, passed, "auf der Gruppe")
+    }
+
+    private static func scheduleLineAndOpenGroup() -> LififyCheckResult {
+        let line = ChallengeCardCopy.scheduleLine(recurrence: L("Einmalig", "Once"), minutes: 20)
+        let weekly = ChallengeCardCopy.scheduleLine(recurrence: L("Wöchentlich", "Weekly"), minutes: 30)
+        let bare = ChallengeCardCopy.scheduleLine(recurrence: L("Täglich", "Daily"), minutes: nil)
+        let zero = ChallengeCardCopy.scheduleLine(recurrence: L("Einmalig", "Once"), minutes: 0)
+        let open = GroupJoin.canJoin(linkedToEvent: false, oneTime: false, minutes: 90, remaining: 0)
+        let fits = GroupJoin.canJoin(linkedToEvent: true, oneTime: true, minutes: 20, remaining: 30)
+        let full = GroupJoin.canJoin(linkedToEvent: true, oneTime: true, minutes: 40, remaining: 30)
+        let repeating = GroupJoin.canJoin(linkedToEvent: true, oneTime: false, minutes: 10, remaining: 30)
+        let timeless = GroupJoin.canJoin(linkedToEvent: true, oneTime: true, minutes: nil, remaining: 0)
+        let german = line == "Einmalig - 20 Minuten"
+            && weekly == "Wöchentlich - 30 Minuten"
+            && bare == "Täglich"
+            && zero == "Einmalig"
+        let english = line == "Once - 20 minutes"
+            && weekly == "Weekly - 30 minutes"
+            && bare == "Daily"
+            && zero == "Once"
+        let passed = (german || english) && open && fits && !full && !repeating && timeless
+        let reading = "\(line), \(open && fits ? "offen" : "zu"), \(full ? "leer" : "voll")"
+        return result("Einmalig und die Dauer stehen in einer Zeile", .challenge, .unit, passed, reading)
     }
 
     private static func oldChallengesAreSuggested() -> LififyCheckResult {

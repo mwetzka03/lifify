@@ -53,8 +53,12 @@ its group. A challenge linked afterwards joins that group and can keep a second
 group. Single shows those challenges one by one. Linking sets the challenge's
 day and time to the event. Several challenges share an event only when each of
 them happens once, and the event is replaced after every one of them is checked off.
-A long press on a group pins or deletes it. Deleting asks whether to delete the
-challenges too. A calorie day with no meals does not spend the two starting freezes.
+A long press on a group edits, pins, or deletes it. A group with no event can
+take any challenge. A group tied to an event takes one-time challenges only
+while time remains in the slot. Recurrence and duration share one line, such
+as Once - 20 minutes, and that line, the calendar link, the check circle,
+and the challenge marks on the month view use the chosen style color. Deleting asks whether to delete the challenges too.
+A calorie day with no meals does not spend the two starting freezes.
 
 **Settings** start with your name and profile photo. The line under the name
 is User settings. That page holds the date of birth, height in centimetres, weight
@@ -180,9 +184,13 @@ verknüpfte Challenge kommt in diese Gruppe und kann eine zweite Gruppe
 behalten. Einzeln zeigt diese Challenges einzeln. Die Verknüpfung setzt Tag
 und Uhrzeit der Challenge auf den Termin. Mehrere Challenges teilen sich einen
 Termin nur, wenn jede einmalig ist, und der Termin wird ersetzt, sobald alle
-abgehakt sind. Ein langes Drücken auf eine Gruppe pinnt sie an oder löscht sie.
-Beim Löschen wird gefragt, ob die Challenges mit weg sollen. Ein Tag ohne
-Mahlzeiten verbraucht die zwei Start-Freezes nicht.
+abgehakt sind. Ein langes Drücken auf eine Gruppe bearbeitet sie, pinnt sie
+an oder löscht sie. Eine Gruppe ohne Termin nimmt jede Challenge. Eine Gruppe
+an einem Termin nimmt einmalige Challenges nur, solange im Slot noch Zeit ist.
+Wiederholung und Dauer stehen in einer Zeile, zum Beispiel Einmalig - 20
+Minuten, und diese Zeile, die Kalenderverknüpfung, der Hakenkreis und die
+Challenge-Punkte in der Monatsansicht nutzen die Stilfarbe. Beim Löschen wird gefragt, ob die Challenges mit weg sollen.
+Ein Tag ohne Mahlzeiten verbraucht die zwei Start-Freezes nicht.
 
 **Einstellungen** beginnen mit dem Namen und dem Profilbild. Darunter steht
 Nutzereinstellungen. Diese Seite hält Geburtsdatum, Größe in Zentimetern,

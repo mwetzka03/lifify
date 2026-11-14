@@ -99,7 +99,7 @@ struct ChallengeEventPicker: View {
                 Spacer()
                 if selection == nil {
                     Image(systemName: "checkmark")
-                        .foregroundStyle(Color.green)
+                        .appAccentForeground()
                 }
             }
         }
@@ -120,7 +120,7 @@ struct ChallengeEventPicker: View {
                 Spacer()
                 if selection == event.id {
                     Image(systemName: "checkmark")
-                        .foregroundStyle(Color.green)
+                        .appAccentForeground()
                 }
             }
         }

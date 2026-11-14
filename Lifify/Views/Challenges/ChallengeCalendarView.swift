@@ -156,6 +156,12 @@ private struct DayAgendaCard: View {
     let completions: [ChallengeCompletion]
     let onEvent: (ChallengeCalendarEvent) -> Void
     let onChallenge: (ChallengeItem) -> Void
+    @Environment(\.colorScheme) private var scheme
+    @AppStorage(AppPalette.storageKey) private var paletteRaw = AppPalette.green.rawValue
+
+    private var styleAccent: Color {
+        AppLook.accent(AppAppearance(scheme), palette: AppPalette.resolved(paletteRaw)).color()
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 9) {
@@ -191,7 +197,7 @@ private struct DayAgendaCard: View {
                             if let caption = eventLinkCaption(event) {
                                 Label(caption.text, systemImage: caption.symbol)
                                     .font(.caption2)
-                                    .foregroundStyle(caption.color)
+                                    .foregroundStyle(caption.followsStyle ? styleAccent : Color.orange)
                             }
                         }
                         Spacer()
@@ -219,7 +225,7 @@ private struct DayAgendaCard: View {
                             if let caption = challengeCalendarCaption(challenge) {
                                 Text(caption)
                                     .font(.caption2)
-                                    .foregroundStyle(.green)
+                                    .appAccentForeground()
                             }
                         }
                         Spacer()
@@ -256,7 +262,7 @@ private struct DayAgendaCard: View {
                         )
                         if ChallengeBoard.showsCheckCircle(allowsHand: allowsHand) {
                             Image(systemName: completed ? "checkmark.circle.fill" : "circle")
-                                .foregroundStyle(completed ? .green : .secondary)
+                                .foregroundStyle(completed ? styleAccent : Color.secondary)
                         }
                     }
                 }
@@ -276,13 +282,13 @@ private struct DayAgendaCard: View {
             allChallenges.first(where: { $0.id == id })?.title
         }
         if let text = LinkCaption.challenges(memberTitles, fallback: sportTitle) {
-            return EventLinkCaption(text: text, symbol: "target", color: .green)
+            return EventLinkCaption(text: text, symbol: "target", followsStyle: true)
         }
         if let id = event.linkedChallengeGroupID, let title = groups.first(where: { $0.id == id })?.title {
-            return EventLinkCaption(text: LinkCaption.group(title), symbol: "target", color: .green)
+            return EventLinkCaption(text: LinkCaption.group(title), symbol: "target", followsStyle: true)
         }
         if let id = event.linkedRewardID, let title = rewards.first(where: { $0.id == id })?.title {
-            return EventLinkCaption(text: LinkCaption.reward(title), symbol: "gift", color: .orange)
+            return EventLinkCaption(text: LinkCaption.reward(title), symbol: "gift", followsStyle: false)
         }
         return nil
     }
@@ -300,7 +306,7 @@ private struct DayAgendaCard: View {
 private struct EventLinkCaption {
     var text: String
     var symbol: String
-    var color: Color
+    var followsStyle: Bool
 }
 
 private struct ChallengeEventForm: View {
