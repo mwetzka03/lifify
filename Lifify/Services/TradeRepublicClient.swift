@@ -11,7 +11,7 @@ struct TradeRepublicClient: Sendable {
         request.timeoutInterval = 20
         request.httpBody = TradeRepublicRequest.body(phone: phone, pin: pin)
         TradeRepublicRequest.headers().forEach { request.setValue($0.value, forHTTPHeaderField: $0.key) }
-        let (data, http) = try await send(request, session: session)
+        let (data, http) = try await Self.response(for: request, session: session)
         let cookies = TradeRepublicCookies.header(from: session.configuration.httpCookieStorage)
         if http.statusCode >= 400 {
             throw TradeRepublicRequest.failure(statusCode: http.statusCode, errorCode: TradeRepublicRequest.errorCode(from: data))
@@ -48,7 +48,7 @@ struct TradeRepublicClient: Sendable {
         if !cookies.isEmpty {
             request.setValue(cookies, forHTTPHeaderField: "Cookie")
         }
-        let (data, http) = try await send(request, session: session)
+        let (data, http) = try await Self.response(for: request, session: session)
         let merged = TradeRepublicCookies.merging(previous: cookies, storage: session.configuration.httpCookieStorage)
         if http.statusCode >= 400 {
             throw TradeRepublicRequest.failure(statusCode: http.statusCode, errorCode: TradeRepublicRequest.errorCode(from: data))
@@ -72,7 +72,7 @@ struct TradeRepublicClient: Sendable {
         if !cookies.isEmpty {
             request.setValue(cookies, forHTTPHeaderField: "Cookie")
         }
-        let (data, http) = try await send(request, session: session)
+        let (data, http) = try await Self.response(for: request, session: session)
         let merged = TradeRepublicCookies.merging(previous: cookies, storage: session.configuration.httpCookieStorage)
         if http.statusCode >= 400 {
             throw TradeRepublicRequest.failure(statusCode: http.statusCode, errorCode: TradeRepublicRequest.errorCode(from: data))
@@ -123,7 +123,7 @@ struct TradeRepublicClient: Sendable {
         request.setValue(cookies, forHTTPHeaderField: "Cookie")
         request.setValue(TradeRepublicRequest.userAgent, forHTTPHeaderField: "User-Agent")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
-        let (data, http) = try await send(request, session: session)
+        let (data, http) = try await Self.response(for: request, session: session)
         if http.statusCode == 401 || http.statusCode == 403 { return (true, nil) }
         if http.statusCode == 200 {
             return (false, TradeRepublicPortfolio.securitiesAccountNumber(from: data))
@@ -131,7 +131,7 @@ struct TradeRepublicClient: Sendable {
         return (false, nil)
     }
 
-    private static func send(_ request: URLRequest, session: URLSession) async throws -> (Data, HTTPURLResponse) {
+    private static func response(for request: URLRequest, session: URLSession) async throws -> (Data, HTTPURLResponse) {
         do {
             let (data, response) = try await session.data(for: request)
             guard let http = response as? HTTPURLResponse else { throw TradeRepublicFailure.transport }

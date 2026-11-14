@@ -202,7 +202,7 @@ enum LififySessionChecks {
             && !TradeRepublicRefresh.usesStoredPIN
             && TradeRepublicGap.probedStatus == 400
             && TradeRepublicGap.probedCode == "NUMBER_INVALID"
-            && KeychainStore.deviceOnly == kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+            && KeychainStore.deviceOnly == (kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly as String)
             && KeychainStore.tradeRepublicService == "lifify.traderepublic"
             && AppChrome.version == "0.5.0"
         let reading = "9 manual 400"
