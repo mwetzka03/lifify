@@ -10,7 +10,7 @@ enum AppTextRole: String, Equatable, CaseIterable {
 }
 
 enum AppChrome {
-    static let version = "0.4.0"
+    static let version = "0.5.0"
 
     /// Screens that use the painted canvas. Finance keeps its own card arrangement.
     static let glassScreens = ["home", "challenges", "health", "settings", "onboarding", "finance"]

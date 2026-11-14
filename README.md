@@ -4,7 +4,7 @@
 
 ## English
 
-Lifify 0.4.0 is a local iPhone app for finance, challenges, and training. It
+Lifify 0.5.0 is a local iPhone app for finance, challenges, and training. It
 is built with SwiftUI and SwiftData, and it needs neither a backend nor a user
 account. German and English, and light, dark, and system appearance, can be
 switched in Settings. Style adds Green, Blue, Bordeaux, and Violet, each with
@@ -13,7 +13,7 @@ wash and the same card fill, and it keeps its tile arrangement. Positive
 amounts stay green and negative amounts stay red. The links under More are
 a step larger than the tile titles.
 
-The finance rules are in [FINANZEN.md](FINANZEN.md). What changed in 0.4.0 is in [CHANGES-0.4.0.md](Changes%20Documentation/CHANGES-0.4.0.md). What changed in 0.3.0 is in [CHANGES-0.3.0.md](Changes%20Documentation/CHANGES-0.3.0.md). Both are in English and German. How changes, checks, and the visual style are kept is in [RULES.md](RULES.md).
+The finance rules are in [FINANZEN.md](FINANZEN.md). What changed in 0.5.0 is in [CHANGES-0.5.0.md](Changes%20Documentation/CHANGES-0.5.0.md). What changed in 0.4.0 is in [CHANGES-0.4.0.md](Changes%20Documentation/CHANGES-0.4.0.md). What changed in 0.3.0 is in [CHANGES-0.3.0.md](Changes%20Documentation/CHANGES-0.3.0.md). Each file is in English and German. How changes, checks, and the visual style are kept is in [RULES.md](RULES.md).
 
 ### Areas
 
@@ -67,8 +67,9 @@ Gemini key and the switch that saves a new photo to the library. The switch is
 off. General holds language, appearance, style, a daily
 briefing with its own time for each weekday, the workout chime, the default
 account and fee for the portfolio, accounts, import, backup, and calendar and
-reminders. The birthday pays 500 coins once that year. The version shown there
-is 0.4.0.
+reminders. Finance also holds the manual Trade Republic sign-in and the button
+that refreshes the depot from the saved session. The birthday pays 500 coins once that year. The version shown there
+is 0.5.0.
 
 ### First launch
 
@@ -83,7 +84,11 @@ On the first launch Lifify asks, in order:
 6. Optional CSV or CAMT for the main account. This import defines the first
    period.
 7. Optional Trade Republic statement, as its own step. This creates a checking
-   account with a linked portfolio.
+   account with a linked portfolio. The PDF import stays.
+8. Optional sign-in to Trade Republic. You enter the phone number and the PIN,
+   then confirm in the Trade Republic app. Positions, quantities, and the cost
+   basis, when the session returns it, go into the existing depot. You can
+   skip this step. The PIN is not saved.
 
 “Delete all data” clears finance, challenge, and workout content and keeps
 accounts and settings. “Reset app” also removes accounts and settings and
@@ -122,13 +127,33 @@ prices**. A German listing is preferred. If the request fails, the manual
 price stays. For this, the ISIN is sent to those public endpoints. A meal photo
 is sent to Gemini only when a key is saved under Health. The key stays in the
 keychain and is not part of a backup. Without a key, no photo leaves the device.
+The Trade Republic session is stored the same way: in the keychain, on this
+device only, and out of backups. The PIN is not stored.
 
 Lifify reads calendars and reminders only after you explicitly allow it,
 through the system. It does not store passwords for that.
 
+### Shortcuts
+
+On the iPhone, create two shortcuts in the Shortcuts app. iOS may still ask
+you to tap Run.
+
+1. **Sparkasse.** When a notification from Sparkasse arrives, run the Lifify
+   action **Bankmitteilung buchen**. Set **Konto** to Sparkasse and
+   **Mitteilung** to the notification text.
+2. **Trade Republic.** Do the same for a notification from Trade Republic, and
+   set **Konto** to Trade Republic.
+
+The same call is the URL `lifify://notice?account=sparkasse&text=` with the
+notification text in `text`. For Trade Republic the account is
+`traderepublic`. Lifify reads the amount, the direction, and a short title,
+then books it on that checking account. The same account, amount, and
+direction inside six hours becomes one booking, so a Wallet notice and a bank
+notice do not both count.
+
 ## Deutsch
 
-Lifify 0.4.0 ist eine lokale iPhone-App für Finanzen, Challenges und Training.
+Lifify 0.5.0 ist eine lokale iPhone-App für Finanzen, Challenges und Training.
 Sie ist mit SwiftUI und SwiftData gebaut, braucht kein Backend und kein
 Benutzerkonto. Deutsch und Englisch sowie Hell, Dunkel und System lassen sich
 in den Einstellungen umschalten. Der Stil ergänzt Grün, Blau, Bordeaux und
@@ -136,8 +161,9 @@ Violett, jeweils mit eigener heller und dunkler Fläche. Die Karten behalten
 eine eigene Füllung. Finanzen nutzt dieselbe Fläche und dieselbe Kartenfarbe
 und behält die Anordnung der Kacheln. Positive Beträge bleiben grün, negative
 rot. Die Links unter Weitere Bereiche sind eine Stufe größer als die Kacheltitel.
-Was sich in 0.4.0 geändert hat, steht in [CHANGES-0.4.0.md](Changes%20Documentation/CHANGES-0.4.0.md),
-was sich in 0.3.0 geändert hat in [CHANGES-0.3.0.md](Changes%20Documentation/CHANGES-0.3.0.md). Beides auf Englisch und Deutsch.
+Was sich in 0.5.0 geändert hat, steht in [CHANGES-0.5.0.md](Changes%20Documentation/CHANGES-0.5.0.md),
+was sich in 0.4.0 geändert hat in [CHANGES-0.4.0.md](Changes%20Documentation/CHANGES-0.4.0.md),
+was sich in 0.3.0 geändert hat in [CHANGES-0.3.0.md](Changes%20Documentation/CHANGES-0.3.0.md). Jede Datei auf Englisch und Deutsch.
 Wie Änderungen, Prüfungen und der Stil gehalten werden, steht in [RULES.md](RULES.md).
 
 Die Finanzregeln stehen in [FINANZEN.md](FINANZEN.md).
@@ -200,8 +226,10 @@ Aufnahme in die Galerie kommt. Der Schalter ist aus. Allgemein hält Sprache,
 Erscheinungsbild, den Stil, das
 tägliche Briefing mit einer eigenen Uhrzeit je Wochentag, den
 Trainingsklingelton, Standardkonto und Gebühr fürs Depot, Konten, Import,
-Sicherung sowie Kalender und Erinnerungen. Am Geburtstag gibt es einmal im
-Jahr 500 Coins. Die angezeigte Version ist 0.4.0.
+Sicherung sowie Kalender und Erinnerungen. Unter Finanzen liegt außerdem die
+manuelle Anmeldung bei Trade Republic und der Knopf, der das Depot aus der
+gespeicherten Sitzung aktualisiert. Am Geburtstag gibt es einmal im
+Jahr 500 Coins. Die angezeigte Version ist 0.5.0.
 
 ### Ersteinrichtung
 
@@ -216,7 +244,11 @@ Beim ersten Start fragt Lifify nacheinander:
 6. Optional CSV oder CAMT für das Hauptkonto. Dieser Import legt den ersten
    Zeitraum fest.
 7. Optional ein Trade-Republic-Kontoauszug als eigener Schritt. Daraus entsteht
-   ein Girokonto mit verknüpftem Depot.
+   ein Girokonto mit verknüpftem Depot. Der PDF-Import bleibt.
+8. Optional die Anmeldung bei Trade Republic. Du gibst Telefonnummer und PIN
+   ein und bestätigst in der Trade-Republic-App. Positionen, Mengen und der
+   Einstand, wenn die Sitzung ihn liefert, kommen ins vorhandene Depot. Den
+   Schritt kannst du überspringen. Die PIN wird nicht gespeichert.
 
 „Alle Daten löschen“ räumt Finanz-, Challenge- und Trainingsinhalte ab und
 behält Konten und Einstellungen. „App zurücksetzen“ entfernt auch Konten und
@@ -256,7 +288,27 @@ Eine deutsche Notierung wird bevorzugt. Schlägt der Abruf fehl, bleibt der
 manuelle Kurs. Dafür wird die ISIN an diese öffentlichen Endpunkte geschickt.
 Ein Essensfoto geht nur dann an Gemini, wenn unter Gesundheit ein Schlüssel
 steht. Der Schlüssel bleibt im Schlüsselbund und gehört nicht zur Sicherung.
-Ohne Schlüssel verlässt kein Foto das Gerät.
+Ohne Schlüssel verlässt kein Foto das Gerät. Die Trade-Republic-Sitzung liegt
+genauso: im Schlüsselbund, nur auf diesem Gerät, und nicht in der Sicherung.
+Die PIN wird nicht gespeichert.
 
 Kalender und Erinnerungen liest Lifify nur nach ausdrücklicher Freigabe über
 das System. Dafür werden keine Passwörter gespeichert.
+
+### Kurzbefehle
+
+Auf dem iPhone legst du in der Kurzbefehle-App zwei Kurzbefehle an. iOS kann
+trotzdem nach Tippen auf Ausführen fragen.
+
+1. **Sparkasse.** Kommt eine Mitteilung der Sparkasse, führe die Lifify-Aktion
+   **Bankmitteilung buchen** aus. Setze **Konto** auf Sparkasse und
+   **Mitteilung** auf den Text der Mitteilung.
+2. **Trade Republic.** Dasselbe für eine Mitteilung von Trade Republic, und
+   setze **Konto** auf Trade Republic.
+
+Derselbe Aufruf ist die URL `lifify://notice?account=sparkasse&text=` mit dem
+Mitteilungstext in `text`. Bei Trade Republic ist das Konto `traderepublic`.
+Lifify liest Betrag, Richtung und einen kurzen Titel und bucht auf dieses
+Girokonto. Dasselbe Konto, derselbe Betrag und dieselbe Richtung innerhalb
+von sechs Stunden werden eine Buchung, damit eine Wallet-Mitteilung und eine
+Bankmitteilung nicht doppelt zählen.

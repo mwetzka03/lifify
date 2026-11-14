@@ -5,7 +5,7 @@
 ## English
 
 This file describes how Lifify calculates accounts, periods, income, expenses,
-the portfolio, and the home budget. The calculations are unchanged in 0.4.0.
+the portfolio, and the home budget. The calculations are unchanged in 0.5.0.
 This is the 0.3.0 rule set, and it still applies.
 
 Period and account are one shared filter. A change applies in the finance
@@ -535,10 +535,18 @@ in, money out, and balance.
 For the purchase-to-sale difference of names that have already been sold in
 full to be right, the statement has to be imported again after a rule change.
 
+### Trade Republic session
+
+A manual sign-in can place positions from the private web session into the
+depot. It sets the quantity, and the cost basis when the session returns one.
+It does not change the calculations above. PDF import stays. A refresh runs
+only from the button in Finance. Other holdings stay when the session does
+not mention them.
+
 ## Deutsch
 
 Diese Datei beschreibt, wie Lifify Konten, Zeiträume, Einnahmen, Ausgaben,
-Depot und das Home-Budget rechnet. Die Rechnung ist in 0.4.0 unverändert.
+Depot und das Home-Budget rechnet. Die Rechnung ist in 0.5.0 unverändert.
 Das ist der Regelstand von 0.3.0, und er gilt weiter.
 
 Zeitraum und Konto sind ein gemeinsamer Filter. Eine Änderung gilt in der
@@ -1075,3 +1083,11 @@ Zahlungsausgang und Saldo.
 
 Damit die Kursdifferenz bereits vollständig verkaufter Papiere stimmt, muss der
 Auszug nach einer Regeländerung neu importiert werden.
+
+### Trade-Republic-Sitzung
+
+Eine manuelle Anmeldung kann Positionen aus der privaten Web-Sitzung ins Depot
+legen. Sie setzt die Menge und den Einstand, wenn die Sitzung ihn liefert. Die
+Rechnung oben ändert sich nicht. Der PDF-Import bleibt. Eine Aktualisierung
+läuft nur über den Knopf unter Finanzen. Andere Positionen bleiben stehen,
+wenn die Sitzung sie nicht nennt.

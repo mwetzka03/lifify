@@ -13,6 +13,10 @@ enum OnboardingSteps {
     static var account: String { L("Hauptkonto", "Main account") }
     static var bank: String { L("Hauptkonto importieren (optional)", "Import the main account (optional)") }
     static var tradeRepublic: String { "Trade Republic" }
+    static var tradeRepublicSignIn: String {
+        L("Trade Republic anmelden (optional)", "Sign in to Trade Republic (optional)")
+    }
+    static let count = 9
     static var secondaryIncome: String { L("Nebeneinnahmen (optional)", "Secondary income (optional)") }
 }
 
@@ -80,7 +84,7 @@ struct OnboardingView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                ProgressView(value: Double(step + 1), total: 8)
+                ProgressView(value: Double(step + 1), total: Double(OnboardingSteps.count))
                     .padding()
                 Form {
                     switch step {
@@ -91,6 +95,7 @@ struct OnboardingView: View {
                     case 4: accountStep
                     case 5: bankImportStep
                     case 6: tradeRepublicStep
+                    case 7: tradeRepublicSignInStep
                     default: incomeStep
                     }
                 }
@@ -420,6 +425,11 @@ struct OnboardingView: View {
             .disabled(tradeRepublicImported)
         }
         .appGlassRow()
+    }
+
+    @ViewBuilder
+    private var tradeRepublicSignInStep: some View {
+        TradeRepublicSignInControls(showsSkip: true) { step = 8 }
     }
 
     @ViewBuilder

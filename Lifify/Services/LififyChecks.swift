@@ -154,7 +154,7 @@ enum LififyChecks {
             birthdayPaysFiveHundredOnce(),
             birthdayFollowsTheYear(),
             developerDayKeepsClockTime()
-        ] + LififyFeatureChecks.run() + LififyCoverageChecks.run()
+        ] + LififyFeatureChecks.run() + LififyCoverageChecks.run() + LififySessionChecks.run()
         return results + [storiesExplainEveryCheck(results)]
     }
 
