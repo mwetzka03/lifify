@@ -546,15 +546,10 @@ private struct DeveloperTestsView: View {
 }
 
 private struct FinanceSettingsView: View {
-    @Environment(\.modelContext) private var context
     @Query(sort: \Account.name) private var accounts: [Account]
     @AppStorage(TradeFeePreference.storageKey) private var defaultTradeFeeCents = TradeFeePreference.defaultCents
     @AppStorage(TradeAccountPreference.storageKey) private var defaultCheckingAccountID = ""
     @State private var feeText = ""
-    @State private var sessionSaved = false
-    @State private var showingTradeRepublic = false
-    @State private var tradeRepublicNote: String?
-    @State private var refreshingTradeRepublic = false
 
     var body: some View {
         Form {
@@ -592,42 +587,7 @@ private struct FinanceSettingsView: View {
                 ))
             }
             .appGlassRow()
-            Section {
-                LabeledContent(
-                    "Trade Republic",
-                    value: sessionSaved ? TradeRepublicCopy.sessionSaved : TradeRepublicCopy.noSession
-                )
-                Button(sessionSaved ? TradeRepublicCopy.signInAgain : TradeRepublicCopy.signIn) {
-                    showingTradeRepublic = true
-                }
-                Button(TradeRepublicCopy.refresh) { refreshTradeRepublic() }
-                    .disabled(!sessionSaved || refreshingTradeRepublic)
-                if let tradeRepublicNote {
-                    Text(tradeRepublicNote)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            } footer: {
-                Text(TradeRepublicCopy.footnote)
-            }
-            .appGlassRow()
-        }
-        .sheet(isPresented: $showingTradeRepublic, onDismiss: refreshSessionFlag) {
-            NavigationStack {
-                Form {
-                    TradeRepublicSignInControls(showsSkip: false, title: "Trade Republic") {
-                        showingTradeRepublic = false
-                    }
-                }
-                .appGlassList()
-                .navigationTitle(TradeRepublicCopy.signIn)
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button(TradeRepublicCopy.cancel) { showingTradeRepublic = false }
-                    }
-                }
-            }
+            TradeRepublicSignInControls(showsSkip: false) {}
         }
         .appGlassList()
         .navigationTitle(L("Finanzen", "Finance"))
@@ -636,7 +596,6 @@ private struct FinanceSettingsView: View {
             if feeText.isEmpty {
                 feeText = TradeFeePreference.editString(cents: defaultTradeFeeCents)
             }
-            refreshSessionFlag()
         }
         .onChange(of: feeText) {
             guard let cents = Money.cents(from: feeText), cents >= 0 else { return }
@@ -644,19 +603,6 @@ private struct FinanceSettingsView: View {
         }
     }
 
-    private func refreshSessionFlag() {
-        sessionSaved = TradeRepublicSessionStore.hasSession
-    }
-
-    private func refreshTradeRepublic() {
-        guard !refreshingTradeRepublic else { return }
-        refreshingTradeRepublic = true
-        Task {
-            tradeRepublicNote = await TradeRepublicActions.refresh(context: context)
-            refreshSessionFlag()
-            refreshingTradeRepublic = false
-        }
-    }
 }
 
 private struct ChallengeSettingsView: View {

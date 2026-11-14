@@ -13,9 +13,12 @@ unchanged and stay in [FINANZEN.md](../FINANZEN.md). What changed in 0.4.0 is in
 
 Setup has one more optional step, after the PDF statement. You enter the phone
 number and the PIN that opens the Trade Republic app, then confirm in that app.
-A leading 0 is sent as +49. When that session
-returns positions, Lifify puts the quantity, and the cost basis when it is
-present, into the existing depot. The PDF import stays. You can skip the step.
+The steps are popups, and a loading popup holds the screen while the depot updates.
+A leading 0 is sent as +49. A position the session no longer returns is removed.
+A later purchase of a stock already held is added, with its date, on the stock
+and as a booking on the Trade Republic checking account. Card payments and other
+cash movements are booked there too. The existing price update then runs, so the
+prices are not left at zero. The PDF import stays. You can skip the step.
 
 Finance in Settings has the same sign-in, and a button that refreshes the depot
 from the saved session. Nothing refreshes on a timer, at launch, or when
@@ -52,7 +55,6 @@ not executed. Swift braces were balanced locally.
 
 ### Ideas, not built
 
-- Should a position that the session no longer returns be removed from the depot? Today the other holdings stay.
 - Should a shortcut create the Trade Republic checking account when it is missing?
 - Should the six-hour window be longer when the bank notice arrives the next morning?
 - Should a market price from the session be stored, or should the existing price update stay the only source?
@@ -69,10 +71,14 @@ bucht. Die Finanzrechnung ist unverändert und bleibt in
 
 Die Einrichtung hat einen weiteren optionalen Schritt, nach dem PDF-Auszug. Du
 gibst Telefonnummer und die PIN ein, mit der du die Trade-Republic-App öffnest,
-und bestätigst in der App. Eine 0 am Anfang geht als +49 mit. Liefert
-die Sitzung Positionen, übernimmt Lifify die Menge und den Einstand, wenn er
-dabei ist, ins vorhandene Depot. Der PDF-Import bleibt. Den Schritt kannst du
-überspringen.
+und bestätigst in der App. Die Schritte sind Pop-ups, und ein Lade-Popup hält
+den Bildschirm, solange das Depot aktualisiert wird. Eine 0 am Anfang geht als
++49 mit. Eine Position, die die Sitzung nicht mehr liefert, verschwindet. Ein
+späterer Kauf einer Aktie, die schon im Depot liegt, kommt mit Datum dazu, an
+der Aktie und als Buchung auf dem Trade-Republic-Girokonto. Kartenzahlungen und
+andere Geldbewegungen werden dort ebenfalls gebucht. Danach läuft die bisherige
+Kursaktualisierung, damit die Kurse nicht auf null stehen bleiben. Der
+PDF-Import bleibt. Den Schritt kannst du überspringen.
 
 Unter Finanzen in den Einstellungen liegt dieselbe Anmeldung und ein Knopf, der
 das Depot aus der gespeicherten Sitzung aktualisiert. Nichts aktualisiert sich
@@ -112,7 +118,6 @@ Prüfungen wurden nicht ausgeführt. Die Swift-Klammern wurden lokal geprüft.
 
 ### Ideen, nicht umgesetzt
 
-- Soll eine Position, die die Sitzung nicht mehr liefert, aus dem Depot verschwinden? Heute bleiben die anderen Positionen stehen.
 - Soll ein Kurzbefehl das Trade-Republic-Girokonto anlegen, wenn es fehlt?
 - Soll das Fenster von sechs Stunden länger sein, wenn die Bankmitteilung erst am nächsten Morgen kommt?
 - Soll ein Kurs aus der Sitzung gespeichert werden, oder bleibt die bisherige Kursaktualisierung die einzige Quelle?

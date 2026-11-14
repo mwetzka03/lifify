@@ -4,71 +4,163 @@ import SwiftUI
 struct TradeRepublicSignInControls: View {
     @Environment(\.modelContext) private var context
     var showsSkip: Bool
-    var title: String = OnboardingSteps.tradeRepublicSignIn
     var onContinue: () -> Void
 
     @State private var phone = ""
     @State private var pin = ""
     @State private var code = ""
-    @State private var phase: Phase = .form
+    @State private var phase: Phase = .idle
     @State private var note: String?
+    @State private var sessionSaved = false
     @State private var processId = ""
     @State private var cookies = ""
     @State private var deadline = Date()
     @State private var task: Task<Void, Never>?
+    @State private var advance = false
 
     var body: some View {
         Section {
-            if phase == .done {
-                if let note {
-                    Text(note)
-                        .foregroundStyle(.green)
-                }
-                Button(L("Weiter", "Continue"), action: onContinue)
-            } else if phase == .code {
-                SecureField(TradeRepublicCopy.codePrompt, text: $code)
-                    .textContentType(.oneTimeCode)
-                Button(TradeRepublicCopy.confirmCode) { submitCode() }
-                    .disabled(code.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                Button(TradeRepublicCopy.cancel, action: reset)
-            } else if phase == .waiting {
-                ProgressView(TradeRepublicCopy.waiting)
-                Button(TradeRepublicCopy.cancel, action: reset)
-            } else {
-                TextField(TradeRepublicCopy.phone, text: $phone)
-                    .textContentType(.telephoneNumber)
-                    .keyboardType(.phonePad)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-                SecureField(TradeRepublicCopy.pin, text: $pin)
-                    .textContentType(.password)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-                Button(TradeRepublicCopy.signIn, action: start)
-                    .disabled(phone.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || pin.isEmpty)
-                if let note {
-                    Text(note)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                if showsSkip {
-                    Button(TradeRepublicCopy.skip, action: onContinue)
-                }
+            LabeledContent(
+                "Trade Republic",
+                value: sessionSaved ? TradeRepublicCopy.sessionSaved : TradeRepublicCopy.noSession
+            )
+            Button(sessionSaved ? TradeRepublicCopy.signInAgain : TradeRepublicCopy.signIn) {
+                clearSecrets()
+                phase = .phone
+            }
+            Button(TradeRepublicCopy.refresh) { refresh() }
+                .disabled(!sessionSaved || phase == .loading)
+            if let note {
+                Text(note)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            if showsSkip {
+                Button(TradeRepublicCopy.skip, action: onContinue)
             }
         } header: {
-            Text(title)
+            if showsSkip {
+                Text(OnboardingSteps.tradeRepublicSignIn)
+            }
         } footer: {
             Text(TradeRepublicCopy.footnote)
         }
         .appGlassRow()
-        .onDisappear(perform: clearSecrets)
+        .onAppear { sessionSaved = TradeRepublicSessionStore.hasSession }
+        .fullScreenCover(isPresented: coverShown) {
+            popup
+                .presentationBackground(.clear)
+                .interactiveDismissDisabled(phase == .waiting || phase == .loading)
+        }
+    }
+
+    private var coverShown: Binding<Bool> {
+        Binding(
+            get: { phase != .idle },
+            set: { shown in
+                if !shown, phase != .waiting, phase != .loading { close() }
+            }
+        )
+    }
+
+    private var popup: some View {
+        ZStack {
+            Color.black.opacity(0.35).ignoresSafeArea()
+            VStack(alignment: .leading, spacing: 16) {
+                Text(popupTitle)
+                    .font(.headline)
+                popupBody
+            }
+            .padding(20)
+            .frame(maxWidth: 360)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .padding(28)
+        }
+    }
+
+    private var popupTitle: String {
+        switch phase {
+        case .phone: TradeRepublicCopy.phone
+        case .pin: TradeRepublicCopy.pin
+        case .waiting: TradeRepublicCopy.signIn
+        case .code: TradeRepublicCopy.codePrompt
+        case .loading: "Trade Republic"
+        case .message: TradeRepublicCopy.signIn
+        case .idle: ""
+        }
+    }
+
+    @ViewBuilder
+    private var popupBody: some View {
+        switch phase {
+        case .phone:
+            TextField(TradeRepublicCopy.phone, text: $phone)
+                .textContentType(.telephoneNumber)
+                .keyboardType(.phonePad)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+            popupActions(
+                confirm: TradeRepublicCopy.next,
+                enabled: !phone.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ) {
+                phase = .pin
+            }
+        case .pin:
+            SecureField(TradeRepublicCopy.pin, text: $pin)
+                .textContentType(.password)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+            popupActions(confirm: TradeRepublicCopy.signIn, enabled: !pin.isEmpty) {
+                start()
+            }
+        case .waiting:
+            ProgressView()
+                .frame(maxWidth: .infinity)
+            Text(TradeRepublicCopy.waiting)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            Button(TradeRepublicCopy.cancel, action: close)
+        case .code:
+            SecureField(TradeRepublicCopy.codePrompt, text: $code)
+                .textContentType(.oneTimeCode)
+                .autocorrectionDisabled()
+            popupActions(
+                confirm: TradeRepublicCopy.confirmCode,
+                enabled: !code.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ) {
+                submitCode()
+            }
+        case .loading:
+            ProgressView()
+                .frame(maxWidth: .infinity)
+            Text(TradeRepublicCopy.loading)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+        case .message:
+            if let note {
+                Text(note)
+                    .font(.subheadline)
+            }
+            Button(TradeRepublicCopy.close, action: close)
+                .frame(maxWidth: .infinity, alignment: .trailing)
+        case .idle:
+            EmptyView()
+        }
+    }
+
+    private func popupActions(confirm: String, enabled: Bool, action: @escaping () -> Void) -> some View {
+        HStack {
+            Button(TradeRepublicCopy.cancel, action: close)
+            Spacer()
+            Button(confirm, action: action)
+                .disabled(!enabled)
+        }
     }
 
     private func start() {
         let phone = phone.trimmingCharacters(in: .whitespacesAndNewlines)
         let pin = pin
         self.pin = ""
-        note = TradeRepublicCopy.waiting
         phase = .waiting
         task?.cancel()
         task = Task { await run(phone: phone, pin: pin) }
@@ -97,7 +189,6 @@ struct TradeRepublicSignInControls: View {
             cookies = step.cookies
             if step.needsCode {
                 phase = .code
-                note = TradeRepublicCopy.codePrompt
                 return
             }
             if step.confirmed {
@@ -113,7 +204,6 @@ struct TradeRepublicSignInControls: View {
         let entered = code
         code = ""
         phase = .waiting
-        note = TradeRepublicCopy.waiting
         let client = TradeRepublicClient()
         task?.cancel()
         task = Task {
@@ -134,30 +224,44 @@ struct TradeRepublicSignInControls: View {
         guard TradeRepublicCookies.keepsSession(header) else { throw TradeRepublicFailure.unreadable }
         TradeRepublicSessionStore.save(header)
         cookies = ""
-        do {
-            let positions = try await TradeRepublicClient().positions(cookies: header)
-            let count = try TradeRepublicDepotApplier.apply(positions: positions, context: context)
-            note = positions.isEmpty
-                ? TradeRepublicCopy.noPositions
-                : String(format: TradeRepublicCopy.importedFormat, count)
-            phase = .done
-        } catch let failure as TradeRepublicFailure {
-            if failure == .sessionDead { TradeRepublicSessionStore.clear() }
-            throw failure
+        phase = .loading
+        let snapshot = try await TradeRepublicClient().snapshot(cookies: header)
+        let count = try await TradeRepublicDepotApplier.apply(snapshot: snapshot, context: context)
+        sessionSaved = true
+        note = snapshot.positions.isEmpty && count == 0
+            ? TradeRepublicCopy.noPositions
+            : String(format: TradeRepublicCopy.importedFormat, count)
+        advance = true
+        phase = .message
+    }
+
+    private func refresh() {
+        guard phase != .loading else { return }
+        phase = .loading
+        task?.cancel()
+        task = Task {
+            let text = await TradeRepublicActions.refresh(context: context)
+            guard !Task.isCancelled else { return }
+            note = text
+            sessionSaved = TradeRepublicSessionStore.hasSession
+            phase = .message
         }
     }
 
     private func fail(_ failure: TradeRepublicFailure) {
+        guard !Task.isCancelled else { return }
         note = failure.message
-        phase = .form
+        phase = .message
         clearSecrets()
     }
 
-    private func reset() {
+    private func close() {
         task?.cancel()
-        note = nil
-        phase = .form
+        let shouldAdvance = advance
+        advance = false
+        phase = .idle
         clearSecrets()
+        if shouldAdvance { onContinue() }
     }
 
     private func clearSecrets() {
@@ -168,10 +272,13 @@ struct TradeRepublicSignInControls: View {
     }
 
     private enum Phase {
-        case form
+        case idle
+        case phone
+        case pin
         case waiting
         case code
-        case done
+        case loading
+        case message
     }
 }
 
@@ -186,9 +293,9 @@ enum TradeRepublicActions {
             return TradeRepublicCopy.noSession
         }
         do {
-            let positions = try await TradeRepublicClient().positions(cookies: cookies)
-            let count = try TradeRepublicDepotApplier.apply(positions: positions, context: context)
-            if positions.isEmpty { return TradeRepublicCopy.noPositions }
+            let snapshot = try await TradeRepublicClient().snapshot(cookies: cookies)
+            let count = try await TradeRepublicDepotApplier.apply(snapshot: snapshot, context: context)
+            if snapshot.positions.isEmpty && count == 0 { return TradeRepublicCopy.noPositions }
             return String(format: TradeRepublicCopy.importedFormat, count)
         } catch let failure as TradeRepublicFailure {
             if failure == .sessionDead { TradeRepublicSessionStore.clear() }

@@ -95,6 +95,14 @@ enum TradeRepublicCopy {
     static var confirmCode: String { L("Code senden", "Send code") }
     static var phone: String { L("Telefonnummer", "Phone number") }
     static var pin: String { L("PIN", "PIN") }
+    static var loading: String {
+        L(
+            "Das Depot wird aktualisiert. Das dauert einen Moment.",
+            "The depot is being updated. This takes a moment."
+        )
+    }
+    static var next: String { L("Weiter", "Next") }
+    static var close: String { L("Schließen", "Close") }
     static var footnote: String {
         L(
             "Die PIN ist dieselbe wie beim Öffnen der Trade-Republic-App, kein Code per SMS. Eine 0 am Anfang wird zu +49. Nur wenn du hier tippst. Die PIN wird nicht gespeichert.",

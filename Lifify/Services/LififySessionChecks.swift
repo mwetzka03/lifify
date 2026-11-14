@@ -102,8 +102,44 @@ enum LififySessionChecks {
             && TradeRepublicDepotTarget.choose(accounts: [one], linkedPortfolioID: nil) == .existing(one.id)
             && TradeRepublicDepotTarget.choose(accounts: [], linkedPortfolioID: nil) == .create
             && TradeRepublicDepotTarget.choose(accounts: [one, other], linkedPortfolioID: nil) == .ambiguous
+        let day = Date(timeIntervalSince1970: 1_700_000_000)
+        let aldi = #"{"items":[{"id":"aldi","timestamp":"2024-05-27T13:51:55.167+0000","title":"Aldi","eventType":"card_successful_transaction","status":"EXECUTED","amount":{"currency":"EUR","fractionDigits":2,"value":-5.95}}],"cursors":{"after":"next"}}"#
+        let parsed = TradeRepublicTimeline.read(Data(aldi.utf8))
+        let buy = TradeRepublicActivity(
+            id: "buy1",
+            date: day,
+            title: "World",
+            eventType: "ORDER_EXECUTED",
+            amountCents: -4000,
+            isin: "IE00B4L5Y983",
+            trade: true,
+            status: "EXECUTED"
+        )
+        let held = HeldPosition(symbol: "IE00B4L5Y983", name: "World", quantity: 4, purchasePriceCents: 1000, latestLotDate: day.addingTimeInterval(-86400))
+        let positionNow = TradeRepublicPosition(isin: "IE00B4L5Y983", name: "World", quantity: 8, averageBuyInCents: 1000)
+        let grown = TradeRepublicSync.changes(positions: [positionNow], holdings: [held], activities: [buy], known: [])
+        let again = TradeRepublicSync.changes(positions: [positionNow], holdings: [held], activities: [buy], known: [TradeRepublicTimeline.fingerprint("buy1")])
+        let sold = TradeRepublicSync.changes(
+            positions: [],
+            holdings: [HeldPosition(symbol: "US0378331005", name: "Apple", quantity: 2, purchasePriceCents: 500, latestLotDate: nil)],
+            activities: [],
+            known: []
+        )
+        let buyQuantity: Double
+        if case .buy(_, _, _, _, _, let quantity, let amount) = grown.first(where: { if case .buy = $0 { return true }; return false }) {
+            buyQuantity = quantity
+            _ = amount
+        } else {
+            buyQuantity = 0
+        }
         let reading = "\(position?.quantity ?? 0), \(position?.averageBuyInCents ?? 0), \(kept.first?.purchasePriceCents == 1000 ? "behalten" : "neu")"
-        return result("Ein Depotstand setzt Menge und Einstand und erfindet nichts", .portfolio, .unit, passed, reading)
+        let synced = parsed.items.first?.amountCents == -595
+            && parsed.items.first?.title == "Aldi"
+            && parsed.after == "next"
+            && buyQuantity == 4
+            && !again.contains { if case .buy(let id, _, _, _, _, _, _) = $0 { return id == "buy1" }; return false }
+            && sold.contains { if case .drop(let isin) = $0 { return isin == "US0378331005" }; return false }
+        return result("Ein Depotstand setzt Menge und Einstand und erfindet nichts", .portfolio, .unit, passed && synced, reading)
     }
 
     private static func deadSessionDoesNotStartAnotherLogin() -> LififyCheckResult {

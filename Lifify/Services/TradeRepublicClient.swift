@@ -58,9 +58,9 @@ struct TradeRepublicClient: Sendable {
         return kept
     }
 
-    func positions(cookies: String) async throws -> [TradeRepublicPosition] {
-        try await Self.withTimeout(seconds: 25) {
-            try await Self.loadPositions(cookies: cookies)
+    func snapshot(cookies: String) async throws -> TradeRepublicSnapshot {
+        try await Self.withTimeout(seconds: 60) {
+            try await Self.loadSnapshot(cookies: cookies)
         }
     }
 
@@ -86,7 +86,7 @@ struct TradeRepublicClient: Sendable {
         return poll
     }
 
-    private static func loadPositions(cookies: String) async throws -> [TradeRepublicPosition] {
+    private static func loadSnapshot(cookies: String) async throws -> TradeRepublicSnapshot {
         let session = makeSession()
         defer { session.invalidateAndCancel() }
         let account = try await accountLookup(cookies: cookies, session: session)
@@ -111,12 +111,41 @@ struct TradeRepublicClient: Sendable {
         ])))
         let payload = try await text(from: socket)
         if payload.contains(" E ") { throw TradeRepublicFailure.unreadable }
+        let positions: [TradeRepublicPosition]
         switch TradeRepublicPortfolio.read(text: payload) {
-        case .positions(let positions):
-            return positions
+        case .positions(let rows):
+            positions = rows
         case .unreadable:
             throw TradeRepublicFailure.unreadable
         }
+        let activities = await timeline(on: socket, startingAt: 3)
+        return TradeRepublicSnapshot(positions: positions, activities: activities)
+    }
+
+    private static func timeline(on socket: URLSessionWebSocketTask, startingAt first: Int) async -> [TradeRepublicActivity] {
+        var page = first
+        var after: String?
+        var seen = Set<String>()
+        var all: [TradeRepublicActivity] = []
+        for _ in 0..<20 {
+            var payload = ["type": "timelineTransactions"]
+            if let after { payload["after"] = after }
+            do {
+                try await socket.send(.string(subscribe(page, payload)))
+                let text = try await text(from: socket)
+                if text.contains(" E ") { break }
+                let parsed = TradeRepublicTimeline.read(text: text)
+                for item in parsed.items where seen.insert(item.id).inserted {
+                    all.append(item)
+                }
+                guard let next = parsed.after, !next.isEmpty, next != after else { break }
+                after = next
+                page += 1
+            } catch {
+                break
+            }
+        }
+        return all
     }
 
     private static func accountLookup(cookies: String, session: URLSession) async throws -> (dead: Bool, number: String?) {
