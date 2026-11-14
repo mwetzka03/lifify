@@ -48,7 +48,9 @@ off by hand, and a later meal can take the coins back below zero. The requiremen
 challenge linked to a workout is completed only by finishing that workout.
 Up to four challenges can be pinned to the top of the challenges page.
 The event picker opens on today. Groups have their own section and are pinned
-only when you pin them. A finished challenge stays in its group.
+only when you pin them. A finished challenge stays in its group. A challenge
+linked afterwards joins that group, and Single shows those challenges one by
+one. Linking sets the challenge's day and time to the event.
 
 **Settings** start with your name and profile photo. The line under the name
 is User settings. That page holds the date of birth, height in centimetres, weight
@@ -169,7 +171,9 @@ Training gilt nur als erledigt, wenn dieses Training beendet wurde. Bis zu
 vier Challenges lassen sich oben auf der Challenges-Seite anpinnen.
 Die Terminauswahl öffnet beim heutigen Tag. Gruppen haben einen eigenen
 Abschnitt und werden nur angepinnt, wenn man sie anpinnt. Eine erledigte
-Challenge bleibt in ihrer Gruppe.
+Challenge bleibt in ihrer Gruppe. Eine später verknüpfte Challenge kommt in
+diese Gruppe, und Einzeln zeigt diese Challenges einzeln. Die Verknüpfung
+setzt Tag und Uhrzeit der Challenge auf den Termin.
 
 **Einstellungen** beginnen mit dem Namen und dem Profilbild. Darunter steht
 Nutzereinstellungen. Diese Seite hält Geburtsdatum, Größe in Zentimetern,

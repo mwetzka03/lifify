@@ -331,7 +331,8 @@ final class EventKitSyncService: ObservableObject {
         endDate: Date?,
         recurrence: ChallengeRecurrence,
         recurrenceInterval: Int,
-        weekdays: Set<Int>
+        weekdays: Set<Int>,
+        includesTime: Bool = false
     ) async -> String? {
         do {
             let eventStore = EKEventStore()
@@ -352,10 +353,10 @@ final class EventKitSyncService: ObservableObject {
 
             reminder.title = title
             reminder.notes = notes
-            var dueComponents = Calendar.current.dateComponents(
-                [.year, .month, .day],
-                from: startDate
-            )
+            let fields: Set<Calendar.Component> = includesTime
+                ? [.year, .month, .day, .hour, .minute]
+                : [.year, .month, .day]
+            var dueComponents = Calendar.current.dateComponents(fields, from: startDate)
             dueComponents.calendar = Calendar.current
             reminder.dueDateComponents = dueComponents
 

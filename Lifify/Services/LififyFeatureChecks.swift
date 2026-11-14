@@ -29,7 +29,8 @@ enum LififyFeatureChecks {
             goalDecidesNutritionCoins(),
             calendarOpensOnToday(),
             nutrientCardNamesTheMainThree(),
-            finishedChallengeStaysInItsGroup()
+            finishedChallengeStaysInItsGroup(),
+            singleFilterShowsGroupedChallenges()
         ]
     }
 
@@ -583,6 +584,26 @@ enum LififyFeatureChecks {
             name: "Eine erledigte Challenge bleibt in der Gruppe",
             passed: passed,
             detail: passed ? nil : suggested.map(\.uuidString).joined(separator: ", "),
+            reading: reading,
+            kind: .integration,
+            topic: .challenge
+        )
+    }
+
+    private static func singleFilterShowsGroupedChallenges() -> LififyCheckResult {
+        let first = UUID(uuidString: "00000000-0000-0000-0000-000000000051")!
+        let late = UUID(uuidString: "00000000-0000-0000-0000-000000000052")!
+        let members = EventChallengeLink.members(already: [first], linked: nil, adding: late)
+        let passed = EventChallengeLink.showsIndividual(inGroup: true, singleFilter: true)
+            && !EventChallengeLink.showsIndividual(inGroup: true, singleFilter: false)
+            && EventChallengeLink.showsIndividual(inGroup: false, singleFilter: false)
+            && members == [first, late]
+            && EventChallengeLink.makesGroup(count: members.count)
+        let reading = "einzeln, \(members.count)"
+        return LififyCheckResult(
+            name: "Einzeln zeigt die Challenges einer Gruppe",
+            passed: passed,
+            detail: passed ? nil : "\(members.count)",
             reading: reading,
             kind: .integration,
             topic: .challenge

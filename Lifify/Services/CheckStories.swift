@@ -334,6 +334,18 @@ enum CheckStories {
             ("Ein älterer Termin, der heutige und ein späterer werden gezählt. Ein belegter Termin wird geprüft.", "One older event, today’s event, and a later one are counted. A taken event is checked.", "ChallengeTimeRules.swift"),
             ("Die Messung ist 1, zu. Keiner sitzt nach dem einen älteren Termin, und der belegte Termin bleibt zu.", "The reading is 1, zu. None sits after the one older event, and the taken event stays closed.", "LififyChecks.swift"),
         ),
+        "Ein Termin setzt den Tag der Challenge": make(
+            "Eine verknüpfte Challenge übernimmt Tag und Uhrzeit des Termins. Eine weitere Challenge kommt in dieselbe Gruppe. Die Erinnerung bekommt die Uhrzeit nur bei einem Termin mit Uhrzeit.",
+            "A linked challenge takes the day and time of the event. Another challenge joins the same group. The reminder gets a time only for an event that has a time.",
+            ("Ein wöchentlicher Termin am 18.11. um 19:15 ersetzt einen früheren Tag. Eine dritte Challenge kommt dazu.", "A weekly event on 18 Nov at 19:15 replaces an earlier day. A third challenge is added.", "ChallengeTimeRules.swift"),
+            ("Die Messung ist 19:15, 3. Die Uhrzeit ist die des Termins, und die Gruppe hat drei Challenges.", "The reading is 19:15, 3. The time is the event's, and the group has three challenges.", "LififyChecks.swift"),
+        ),
+        "Einzeln zeigt die Challenges einer Gruppe": make(
+            "Der Filter Einzeln zeigt die Challenges aus einer Gruppe einzeln, nicht die Gruppenkarte. Eine nachträglich verknüpfte Challenge gehört zur Gruppe des Termins.",
+            "The Single filter shows the challenges from a group one by one, not the group card. A challenge linked afterwards belongs to the event's group.",
+            ("Eine Challenge steckt in einer Gruppe, und eine weitere wird mit dem Termin verknüpft.", "One challenge sits in a group, and another is linked to the event.", "ChallengeTimeRules.swift"),
+            ("Die Messung ist einzeln, 2. Einzeln blendet die Challenge ein, und die Gruppe hat beide.", "The reading is einzeln, 2. Single includes the challenge, and the group has both.", "LififyFeatureChecks.swift"),
+        ),
         "Eine erledigte Challenge bleibt in der Gruppe": make(
             "Eine erledigte Einzel-Challenge bleibt in ihrer Gruppe stehen. Die Gruppe selbst liegt im Abschnitt Gruppen und kommt nur durch Anpinnen nach oben. In den Terminvorschlägen fehlt sie.",
             "A finished one-time challenge stays in its group. The group itself sits in the Groups section and reaches the top only when pinned. It is missing from the event suggestions.",

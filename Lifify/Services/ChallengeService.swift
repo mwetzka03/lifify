@@ -565,3 +565,44 @@ enum ChallengeFinish {
         )
     }
 }
+
+/// Two or more challenges on one event share its group. A later link joins the same group.
+@MainActor
+enum EventGroupSync {
+    static func join(
+        event: ChallengeCalendarEvent,
+        challengeIDs: [UUID],
+        context: ModelContext
+    ) -> UUID? {
+        let ids = challengeIDs.reduce(into: [UUID]()) { result, id in
+            if !result.contains(id) { result.append(id) }
+        }
+        guard EventChallengeLink.makesGroup(count: ids.count) else { return nil }
+        let name = EventGroupName.title(event: event.title, day: AppDate.numeric(event.startDate))
+        let stored = (try? context.fetch(FetchDescriptor<ChallengeGroup>())) ?? []
+        let group = stored.first { $0.id == event.linkedChallengeGroupID }
+            ?? stored.first { $0.title == name }
+            ?? ChallengeGroup(title: name, startDate: event.startDate)
+        group.title = name
+        group.startDate = event.startDate
+        if group.modelContext == nil { context.insert(group) }
+        let people = (try? context.fetch(FetchDescriptor<ChallengeItem>())) ?? []
+        for challenge in people where ids.contains(challenge.id) {
+            challenge.groupID = group.id
+        }
+        return group.id
+    }
+
+    static func place(_ challenge: ChallengeItem, on event: ChallengeCalendarEvent) {
+        guard challenge.category != .abstinence else { return }
+        let placed = EventChallengeLink.placement(
+            eventStart: event.startDate,
+            recurrence: challenge.recurrence,
+            weekdays: challenge.weekdaySet,
+            end: challenge.endDate
+        )
+        challenge.startDate = placed.start
+        challenge.weekdaySet = placed.weekdays
+        challenge.endDate = placed.end
+    }
+}

@@ -185,7 +185,10 @@ struct ChallengesView: View {
 
     private var filteredChallenges: [ChallengeItem] {
         challenges.filter { challenge in
-            guard challenge.groupID == nil, !challenge.isArchived else { return false }
+            guard !challenge.isArchived else { return false }
+            guard EventChallengeLink.showsIndividual(inGroup: challenge.groupID != nil, singleFilter: filter == .single) else {
+                return false
+            }
             return ChallengeActivity.staysOnActiveList(
                 recurrence: challenge.recurrence,
                 hasCompletion: completions.contains { $0.challengeID == challenge.id }
@@ -200,7 +203,7 @@ struct ChallengesView: View {
             switch filter {
             case .all: return true
             case .groups: return challenge.groupID != nil
-            case .single: return challenge.groupID == nil
+            case .single: return true
             }
         }
         let titles = Dictionary(uniqueKeysWithValues: allowed.map { ($0.id, $0.title) })
@@ -308,7 +311,7 @@ struct ChallengesView: View {
     }
 
     private var showsPinnedBoard: Bool {
-        !pinnedChallenges.isEmpty || !pinnedGroups.isEmpty
+        !pinnedChallenges.isEmpty || (filter != .single && !pinnedGroups.isEmpty)
     }
 
     private var pinnedBoard: some View {
@@ -330,7 +333,7 @@ struct ChallengesView: View {
                     }
                 }
             }
-            if !pinnedGroups.isEmpty {
+            if filter != .single, !pinnedGroups.isEmpty {
                 VStack(spacing: 10) {
                     ForEach(pinnedGroups) { group in
                         groupCard(group)
@@ -1090,14 +1093,29 @@ struct ChallengeForm: View {
         .sorted { $0.startDate < $1.startDate }
     }
 
-    private func assignEvent(_ challengeID: UUID, minutes _: Int?) {
-        if let eventID = linkedEventID {
-            var members = ChallengeTimeStore.memberIDs(for: eventID).filter { $0 != challengeID }
-            members.append(challengeID)
+    private func assignEvent(_ challenge: ChallengeItem) {
+        if let eventID = linkedEventID, let event = formEvents.first(where: { $0.id == eventID }) {
+            var members = ChallengeTimeStore.memberIDs(for: eventID).filter { $0 != challenge.id }
+            members.append(challenge.id)
             ChallengeTimeStore.setMembers(members, for: eventID)
-        } else if let current = ChallengeTimeStore.eventID(containing: challengeID) {
+            let ids = EventChallengeLink.members(already: members, linked: event.linkedChallengeID, adding: challenge.id)
+            if let joined = EventGroupSync.join(event: event, challengeIDs: ids, context: context) {
+                event.linkedChallengeGroupID = joined
+                challenge.groupID = joined
+                groupID = joined
+            }
+            EventGroupSync.place(challenge, on: event)
+            if let placed = challenge.startDate { startDate = placed }
+            weekdays = challenge.weekdaySet
+            if let end = challenge.endDate {
+                endDate = end
+                hasEndDate = true
+            } else if recurrence != .none {
+                hasEndDate = false
+            }
+        } else if let current = ChallengeTimeStore.eventID(containing: challenge.id) {
             var members = ChallengeTimeStore.memberIDs(for: current)
-            members.removeAll { $0 == challengeID }
+            members.removeAll { $0 == challenge.id }
             ChallengeTimeStore.setMembers(members, for: current)
         }
     }
@@ -1143,7 +1161,7 @@ struct ChallengeForm: View {
         if !abstinence && categoryKey != ChallengeCategory.sport.rawValue {
             let minutes = Int(durationText.trimmingCharacters(in: .whitespaces))
             ChallengeTimeStore.setMinutes(minutes, for: challenge.id)
-            assignEvent(challenge.id, minutes: minutes)
+            assignEvent(challenge)
         } else {
             ChallengeTimeStore.removeChallenge(challenge.id)
         }
@@ -1190,6 +1208,7 @@ struct ChallengeForm: View {
             dismiss()
             return
         }
+        let linkedEvent = linkedEventID.flatMap { id in formEvents.first { $0.id == id } }
         guard let externalIdentifier = await EventKitSyncService.saveReminder(
             externalIdentifier: challenge.externalIdentifier,
             title: challenge.title,
@@ -1198,7 +1217,8 @@ struct ChallengeForm: View {
             endDate: challenge.endDate,
             recurrence: challenge.recurrence,
             recurrenceInterval: 1,
-            weekdays: challenge.weekdaySet
+            weekdays: challenge.weekdaySet,
+            includesTime: EventChallengeLink.reminderIncludesTime(allDay: linkedEvent?.isAllDay ?? true)
         ) else {
             saveMessage = L(
                 "Die Challenge wurde lokal gespeichert, konnte aber nicht mit Apple Erinnerungen synchronisiert werden.",

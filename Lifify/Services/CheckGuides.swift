@@ -223,6 +223,16 @@ enum CheckGuides {
             "Die Messung ist 1, zu. 1 ist die Stelle von Keiner: ein älterer Termin liegt darüber, der heutige und die späteren darunter. zu heißt, ein Termin mit Sport, Abstinenz oder eigener Challenge wird nicht mehr angeboten. Ein voller Slot ebenfalls nicht. Die schon gewählte Zeile bleibt.",
             "The reading is 1, zu. 1 is where None sits: one older event is above it, and today and the later events are below. zu means an event tied to sport, abstinence, or its own challenge is no longer offered. A full slot is not offered either. The row already chosen stays."
         ),
+        "Ein Termin setzt den Tag der Challenge": g(
+            "EventChallengeLink.placement(eventStart:recurrence:weekdays:end:calendar:), EventChallengeLink.members(already:linked:adding:), EventChallengeLink.reminderIncludesTime(allDay:)",
+            "Die Messung ist 19:15, 3. 19:15 ist die Uhrzeit des Termins, die den bisherigen Tag ersetzt. 3 ist die Gruppe, nachdem eine weitere Challenge dazugekommen ist. Ein ganztägiger Termin schreibt keine Uhrzeit in die Erinnerung.",
+            "The reading is 19:15, 3. 19:15 is the event time, which replaces the previous day. 3 is the group after one more challenge joins. An all-day event does not write a time into the reminder."
+        ),
+        "Einzeln zeigt die Challenges einer Gruppe": g(
+            "EventChallengeLink.showsIndividual(inGroup:singleFilter:), EventChallengeLink.members(already:linked:adding:)",
+            "Die Messung ist einzeln, 2. Einzeln zeigt eine Challenge auch dann, wenn sie in einer Gruppe steckt. 2 ist die Gruppe, sobald die nachträglich verknüpfte Challenge dazukommt.",
+            "The reading is einzeln, 2. Single shows a challenge even when it sits in a group. 2 is the group once the challenge linked afterwards joins."
+        ),
         "Eine erledigte Challenge bleibt in der Gruppe": g(
             "ChallengeTimeRules.offeredSuggestions(candidates:already:), ChallengeGroupBoard.showsInOwnSection(pinned:), ChallengeGroupBoard.keepsFinishedMember(archived:), ChallengeActivity.staysOnActiveList(recurrence:hasCompletion:)",
             "Die Messung ist Gruppe, aus. Gruppe heißt, eine nicht angepinnte Gruppe steht im eigenen Abschnitt. aus heißt, eine erledigte Challenge fehlt in den Vorschlägen und bleibt trotzdem in der Gruppe, solange sie nicht archiviert ist.",

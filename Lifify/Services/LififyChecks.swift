@@ -142,6 +142,7 @@ enum LififyChecks {
             openChallengesGetEveningAndClock(),
             streakWarningAndBirthdayFollowTheClock(),
             recentEventsCanBeAssigned(),
+            linkingSetsTheChallengeDay(),
             categoriesSplitTheActiveList(),
             briefingClockFollowsTheWeekday(),
             shopTilesShareARow(),
@@ -1043,6 +1044,35 @@ enum LififyChecks {
             && !ChallengeTimeRules.isExclusiveLink(category: .other, identifier: nil)
         let reading = "\(anchor), \(closed ? "auf" : "zu")"
         return result("Die Terminauswahl öffnet beim heutigen Tag", .challenge, .unit, passed, reading)
+    }
+
+    private static func linkingSetsTheChallengeDay() -> LififyCheckResult {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .gmt
+        let eventStart = calendar.date(from: DateComponents(year: 2026, month: 11, day: 18, hour: 19, minute: 15)) ?? .now
+        let earlier = calendar.date(from: DateComponents(year: 2026, month: 11, day: 1)) ?? .distantPast
+        let placed = EventChallengeLink.placement(
+            eventStart: eventStart,
+            recurrence: .weekly,
+            weekdays: [2],
+            end: earlier,
+            calendar: calendar
+        )
+        let weekday = calendar.component(.weekday, from: eventStart)
+        let first = UUID(uuidString: "00000000-0000-0000-0000-000000000041")!
+        let second = UUID(uuidString: "00000000-0000-0000-0000-000000000042")!
+        let late = UUID(uuidString: "00000000-0000-0000-0000-000000000043")!
+        let members = EventChallengeLink.members(already: [first, second], linked: nil, adding: late)
+        let passed = placed.start == eventStart
+            && placed.weekdays == [weekday]
+            && placed.end == nil
+            && members == [first, second, late]
+            && EventChallengeLink.makesGroup(count: members.count)
+            && !EventChallengeLink.makesGroup(count: 1)
+            && EventChallengeLink.reminderIncludesTime(allDay: false)
+            && !EventChallengeLink.reminderIncludesTime(allDay: true)
+        let reading = "19:15, \(members.count)"
+        return result("Ein Termin setzt den Tag der Challenge", .challenge, .unit, passed, reading)
     }
 
     private static func categoriesSplitTheActiveList() -> LififyCheckResult {

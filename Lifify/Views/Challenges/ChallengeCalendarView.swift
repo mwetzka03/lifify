@@ -561,11 +561,13 @@ private struct ChallengeEventForm: View {
         }
         ChallengeTimeStore.setMembers(allDay ? [] : timedMembers, for: event.id)
         let assigned = assignedChallengeIDs(timed: timedMembers)
-        if assigned.count >= 2 {
-            event.linkedChallengeGroupID = syncEventGroup(event: event, challengeIDs: assigned)
+        if let groupID = EventGroupSync.join(event: event, challengeIDs: assigned, context: context) {
+            event.linkedChallengeGroupID = groupID
+            linkedGroupID = groupID
         } else {
             event.linkedChallengeGroupID = linkedGroupID
         }
+        await placeLinkedChallenges(assigned, on: event)
         event.linkedRewardID = linkedRewardID
         if let identifier {
             event.externalIdentifier = identifier
@@ -592,20 +594,28 @@ private struct ChallengeEventForm: View {
         return ids
     }
 
-    private func syncEventGroup(event: ChallengeCalendarEvent, challengeIDs: [UUID]) -> UUID {
-        let name = EventGroupName.title(event: event.title, day: AppDate.numeric(event.startDate))
-        let stored = (try? context.fetch(FetchDescriptor<ChallengeGroup>())) ?? []
-        let group = stored.first { $0.id == event.linkedChallengeGroupID }
-            ?? stored.first { $0.title == name }
-            ?? ChallengeGroup(title: name, startDate: event.startDate)
-        group.title = name
-        group.startDate = event.startDate
-        if group.modelContext == nil { context.insert(group) }
-        let people = (try? context.fetch(FetchDescriptor<ChallengeItem>())) ?? []
-        for challenge in people where challengeIDs.contains(challenge.id) {
-            challenge.groupID = group.id
+    private func placeLinkedChallenges(_ ids: [UUID], on event: ChallengeCalendarEvent) async {
+        let people = (try? context.fetch(FetchDescriptor<ChallengeItem>())) ?? challenges
+        for challenge in people where ids.contains(challenge.id) {
+            EventGroupSync.place(challenge, on: event)
+            guard challenge.category != .abstinence,
+                  ReminderSyncPreference.isEnabled(for: challenge.id),
+                  !ChallengeTimeRules.isAdopted(challenge.externalIdentifier)
+            else { continue }
+            if let identifier = await EventKitSyncService.saveReminder(
+                externalIdentifier: challenge.externalIdentifier,
+                title: challenge.title,
+                notes: challenge.details,
+                startDate: challenge.startDate ?? event.startDate,
+                endDate: challenge.endDate,
+                recurrence: challenge.recurrence,
+                recurrenceInterval: 1,
+                weekdays: challenge.weekdaySet,
+                includesTime: EventChallengeLink.reminderIncludesTime(allDay: event.isAllDay)
+            ) {
+                challenge.externalIdentifier = identifier
+            }
         }
-        return group.id
     }
 
     private func syncWorkoutLinks() {

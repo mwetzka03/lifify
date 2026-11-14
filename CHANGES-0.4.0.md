@@ -83,7 +83,10 @@ This file is in English and in German. The finance calculations stay in
   can be cleared. Suggestions leave out a finished challenge. The event editor
   uses the same tinted rows as the other forms. Groups have their own section.
   A group reaches the pinned area only after you pin it. A finished challenge
-  stays in its group. Exercise
+  stays in its group. A challenge linked afterwards joins that group. The
+  Single filter shows those challenges one by one. Linking a challenge to an
+  event sets its day and time to the event, and the Apple reminder follows
+  when reminder sync is on. Exercise
   pictures drop a near-white background and sit on a tinted rounded tile.
 - Finance keeps the account choice pinned at the top. The choices are bubbles
   in a row. A long name wraps to the next row, and that row shares the space
@@ -245,7 +248,11 @@ This file is in English and in German. The finance calculations stay in
   Vorschläge lassen eine erledigte Challenge aus. Der Termineditor nutzt
   dieselben gefärbten Zeilen wie die anderen Formulare. Gruppen haben einen
   eigenen Abschnitt. Eine Gruppe landet im angepinnten Bereich nur, wenn man
-  sie anpinnt. Eine erledigte Challenge bleibt in ihrer Gruppe. Übungsbilder
+  sie anpinnt. Eine erledigte Challenge bleibt in ihrer Gruppe. Eine später
+  verknüpfte Challenge kommt in diese Gruppe. Der Filter Einzeln zeigt diese
+  Challenges einzeln. Die Verknüpfung setzt Tag und Uhrzeit der Challenge auf
+  den Termin, und die Apple-Erinnerung folgt mit, wenn die Erinnerungen an
+  sind. Übungsbilder
   verlieren einen fast weißen Grund und liegen auf einer gefärbten,
   abgerundeten Kachel.
 - Finanzen behält die Kontoauswahl oben fest. Die Auswahl sind Blasen in einer

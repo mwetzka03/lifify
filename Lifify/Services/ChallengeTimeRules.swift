@@ -179,6 +179,53 @@ enum ChallengeTimeRules {
     }
 }
 
+/// Linking a challenge to an event puts it on that event's day and into the shared group.
+enum EventChallengeLink {
+    struct Placement: Equatable {
+        var start: Date
+        var weekdays: Set<Int>
+        var end: Date?
+    }
+
+    /// The event start replaces the challenge day. A weekly challenge moves onto that weekday.
+    /// An end that would fall before the new day is cleared.
+    static func placement(
+        eventStart: Date,
+        recurrence: ChallengeRecurrence,
+        weekdays: Set<Int>,
+        end: Date?,
+        calendar: Calendar = .current
+    ) -> Placement {
+        var days = weekdays
+        if recurrence == .weekly {
+            days = [calendar.component(.weekday, from: eventStart)]
+        }
+        var keptEnd = end
+        if let end, calendar.startOfDay(for: end) < calendar.startOfDay(for: eventStart) {
+            keptEnd = nil
+        }
+        return Placement(start: eventStart, weekdays: days, end: keptEnd)
+    }
+
+    /// Everyone already on the event, plus the challenge linked afterwards.
+    static func members(already: [UUID], linked: UUID?, adding: UUID?) -> [UUID] {
+        var ids = already
+        if let linked, !ids.contains(linked) { ids.append(linked) }
+        if let adding, !ids.contains(adding) { ids.append(adding) }
+        return ids
+    }
+
+    static func makesGroup(count: Int) -> Bool { count >= 2 }
+
+    /// A timed event writes the clock into the reminder. An all-day event keeps the date only.
+    static func reminderIncludesTime(allDay: Bool) -> Bool { !allDay }
+
+    /// Einzeln shows every challenge, including the ones that sit in a group.
+    static func showsIndividual(inGroup: Bool, singleFilter: Bool) -> Bool {
+        singleFilter || !inGroup
+    }
+}
+
 /// Several challenges on one event share a group named after that event and its day.
 enum EventGroupName {
     static func title(event: String, day: String) -> String {
