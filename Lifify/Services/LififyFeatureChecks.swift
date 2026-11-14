@@ -31,7 +31,8 @@ enum LififyFeatureChecks {
             nutrientCardNamesTheMainThree(),
             finishedChallengeStaysInItsGroup(),
             singleFilterShowsGroupedChallenges(),
-            pinnedChallengesStayAboveTheFilter()
+            pinnedChallengesStayAboveTheFilter(),
+            deletingAGroupCanLeaveTheChallenges()
         ]
     }
 
@@ -623,6 +624,24 @@ enum LififyFeatureChecks {
             name: "Angepinnte Challenges stehen über dem Filter",
             passed: passed,
             detail: passed ? nil : "\(below.count)",
+            reading: reading,
+            kind: .integration,
+            topic: .challenge
+        )
+    }
+
+    private static func deletingAGroupCanLeaveTheChallenges() -> LififyCheckResult {
+        let eventGroup = UUID(uuidString: "00000000-0000-0000-0000-000000000093")!
+        let chosen = UUID(uuidString: "00000000-0000-0000-0000-000000000094")!
+        let kept = GroupRemoval.remaining([chosen, eventGroup], removing: eventGroup)
+        let passed = kept == [chosen]
+            && GroupRemoval.clearsCalendarLink(generatedFromEvent: true)
+            && !GroupRemoval.clearsCalendarLink(generatedFromEvent: false)
+        let reading = "einzeln, \(kept.count)"
+        return LififyCheckResult(
+            name: "Nur die Gruppe löschen lässt die Challenges einzeln",
+            passed: passed,
+            detail: passed ? nil : "\(kept.count)",
             reading: reading,
             kind: .integration,
             topic: .challenge

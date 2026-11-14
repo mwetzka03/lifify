@@ -278,6 +278,35 @@ enum EventRewrite {
 }
 
 /// Several challenges on one event share a group named after that event and its day.
+/// The green calendar line sits on an event's group, not on each member.
+enum GroupCalendarLine {
+    static func belongsOnGroup(eventGroupID: UUID?, membership: [UUID]) -> Bool {
+        guard let eventGroupID else { return false }
+        return membership.contains(eventGroupID)
+    }
+}
+
+/// Deleting a group can keep its challenges. A calendar group always drops the link.
+enum GroupRemoval {
+    static func remaining(_ groups: [UUID], removing: UUID) -> [UUID] {
+        groups.filter { $0 != removing }
+    }
+
+    static func clearsCalendarLink(generatedFromEvent: Bool) -> Bool {
+        generatedFromEvent
+    }
+}
+
+/// A challenge starts with two freezes. A nutrition day with no meals is not a miss.
+enum StreakFreeze {
+    static let startingCount = 2
+
+    static func countsDay(followsNutrition: Bool, confirmedMeals: Int) -> Bool {
+        if followsNutrition { return confirmedMeals > 0 }
+        return true
+    }
+}
+
 enum EventGroupName {
     static func title(event: String, day: String) -> String {
         "\(event) – \(day)"

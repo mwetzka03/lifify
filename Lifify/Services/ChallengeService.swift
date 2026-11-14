@@ -89,7 +89,8 @@ enum ChallengeService {
         completions: [ChallengeCompletion],
         events: [ChallengeCalendarEvent],
         streakState: StreakSettings.State? = nil,
-        usesStoredState: Bool = true
+        usesStoredState: Bool = true,
+        confirmedMeals: ((Date) -> Int)? = nil
     ) -> StreakStatus {
         let state = usesStoredState
             ? (StreakSettings.isEnabled(for: challenge.id) ? StreakSettings.state(for: challenge.id) : nil)
@@ -116,10 +117,17 @@ enum ChallengeService {
         let schedule = scheduleEvents(for: challenge, events: events)
         let interval = max(ReminderLinkStore.metadata(for: challenge.externalIdentifier)?.interval ?? 1, 1)
         var streak = 0
-        var freezesLeft = 2 + max(state.purchased, 0)
+        var freezesLeft = StreakFreeze.startingCount + max(state.purchased, 0)
         var used: [String] = []
         var currentRequired = 0
         var currentDone = 0
+        let followsNutrition = ChallengeCheckoff.followsNutrition(challenge.externalIdentifier)
+        let mealsOn: (Date) -> Int = { day in
+            if let confirmedMeals { return confirmedMeals(day) }
+            guard followsNutrition else { return 0 }
+            let key = NutritionPlan.dayKey(day, calendar: calendar)
+            return NutritionPlan.onDay(key, meals: MealLog.all()).filter { $0.status == .confirmed }.count
+        }
 
         for period in periods(from: origin, through: horizon, kind: kind, calendar: calendar) {
             if let rangeEnd, period.start >= rangeEnd { continue }
@@ -136,6 +144,14 @@ enum ChallengeService {
             let windowEnd = rangeEnd.map { min(period.end, $0) } ?? period.end
             let done = completedDays.filter { $0 >= max(period.start, rangeStart) && $0 < windowEnd }.count
             let isOpen = period.start <= date && date < period.end
+            if followsNutrition, kind == .day, !StreakFreeze.countsDay(followsNutrition: true, confirmedMeals: mealsOn(period.start)) {
+                if isOpen {
+                    currentRequired = 0
+                    currentDone = done
+                }
+                streak += done
+                continue
+            }
             if required <= 0 {
                 if isOpen {
                     currentRequired = 0
@@ -198,7 +214,7 @@ enum ChallengeService {
     ) -> Int {
         guard let state = StreakSettings.state(for: challenge.id), state.enabled else { return 0 }
         let used = status(for: challenge, endingOn: date, completions: completions, events: events).freezeKeys.count
-        return max(0, 2 + state.purchased - used)
+        return max(0, StreakFreeze.startingCount + state.purchased - used)
     }
 
     static func commitFreezes(

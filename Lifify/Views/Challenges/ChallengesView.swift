@@ -18,6 +18,7 @@ struct ChallengesView: View {
     @State private var showingWallet = false
     @State private var pendingDuration: PendingDuration?
     @State private var expandedGroups: Set<UUID> = []
+    @State private var groupPendingDelete: ChallengeGroup?
     @AppStorage(StreakSettings.revisionKey) private var streakRevision = 0
     @AppStorage(ChallengeCategoryStore.revisionKey) private var categoryRevision = 0
     @AppStorage(AppClock.modeKey) private var developerMode = false
@@ -99,6 +100,24 @@ struct ChallengesView: View {
         .navigationDestination(isPresented: $showingShop) { ShopView() }
         .navigationDestination(isPresented: $showingWallet) { WalletView() }
         .appGlassCanvas()
+        .alert(
+            L("Gruppe löschen?", "Delete the group?"),
+            isPresented: Binding(
+                get: { groupPendingDelete != nil },
+                set: { if !$0 { groupPendingDelete = nil } }
+            ),
+            presenting: groupPendingDelete
+        ) { group in
+            Button(L("Challenges mitlöschen", "Delete challenges too"), role: .destructive) {
+                removeGroup(group, challengesToo: true)
+            }
+            Button(L("Nur die Gruppe", "Group only")) {
+                removeGroup(group, challengesToo: false)
+            }
+            Button(L("Abbrechen", "Cancel"), role: .cancel) {}
+        } message: { group in
+            Text(groupDeleteMessage(group))
+        }
         .onAppear { commitSimulatedDay() }
         .onChange(of: developerDay) { commitSimulatedDay() }
         .onChange(of: developerMode) { commitSimulatedDay() }
@@ -397,49 +416,66 @@ struct ChallengesView: View {
         let _ = groupPinRevision
         let listed = listedGroupMembers(group)
         let open = expandedGroups.contains(group.id)
+        let calendarCaption = groupCalendarCaption(group)
         return VStack(alignment: .leading, spacing: 10) {
-            Button {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Text(group.title)
+                        .font(.headline)
+                    if ChallengeGroupPinStore.contains(group.id) {
+                        Image(systemName: "pin.fill")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    CoinAmountView(
+                        amount: activeGroupMembers(group).reduce(0) { $0 + $1.rewardCoins }
+                    )
+                    Image(systemName: open ? "chevron.up" : "chevron.down")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                }
+                if let calendarCaption {
+                    Text(calendarCaption)
+                        .font(.caption)
+                        .foregroundStyle(.green)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                if !open {
+                    ForEach(listed.prefix(3)) { challenge in
+                        let done = isFinished(challenge)
+                        Label(challenge.title, systemImage: done ? "checkmark" : "arrow.turn.down.right")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .opacity(done ? 0.65 : 1)
+                    }
+                    if listed.count > 3 {
+                        Text("+\(listed.count - 3)")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+            .contentShape(Rectangle())
+            .onTapGesture {
                 if open {
                     expandedGroups.remove(group.id)
                 } else {
                     expandedGroups.insert(group.id)
                 }
-            } label: {
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack {
-                        Text(group.title)
-                            .font(.headline)
-                        if ChallengeGroupPinStore.contains(group.id) {
-                            Image(systemName: "pin.fill")
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                        CoinAmountView(
-                            amount: activeGroupMembers(group).reduce(0) { $0 + $1.rewardCoins }
-                        )
-                        Image(systemName: open ? "chevron.up" : "chevron.down")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.secondary)
+            }
+            .contextMenu {
+                groupPinButton(group)
+                Button(role: .destructive) {
+                    if listed.isEmpty {
+                        removeGroup(group, challengesToo: false)
+                    } else {
+                        groupPendingDelete = group
                     }
-                    if !open {
-                        ForEach(listed.prefix(3)) { challenge in
-                            let done = isFinished(challenge)
-                            Label(challenge.title, systemImage: done ? "checkmark" : "arrow.turn.down.right")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                                .opacity(done ? 0.65 : 1)
-                        }
-                        if listed.count > 3 {
-                            Text("+\(listed.count - 3)")
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
+                } label: {
+                    Label(L("Löschen", "Delete"), systemImage: "trash")
                 }
             }
-            .buttonStyle(.plain)
-            .contextMenu { groupPinButton(group) }
             if open {
                 ForEach(listed) { challenge in
                     groupMemberCard(challenge)
@@ -744,46 +780,39 @@ struct ChallengesView: View {
             followsNutrition: followsNutrition
         )
         let pinned = ChallengePinStore.contains(challenge.id)
-        return Button {
-            guard !handLocked else { return }
-            finish(challenge, on: AppClock.now)
-        } label: {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(alignment: .center, spacing: 10) {
-                    AppSymbolImage(name: IconPreferenceStore.icon(for: challenge.id, fallback: "target"))
-                        .frame(width: 28, height: 28)
-                    Text(challenge.title)
-                        .foregroundStyle(gray ? Color.secondary : Color.primary)
-                        .lineLimit(2)
-                    if pinned {
-                        Image(systemName: "pin.fill")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
-                    Spacer(minLength: 8)
-                    if ChallengeBoard.showsCheckCircle(allowsHand: !handLocked) {
-                        Image(systemName: doneToday ? "checkmark.circle.fill" : "circle")
-                            .foregroundStyle(gray ? Color.secondary : Color.green)
-                    }
-                }
-                challengeMeta(challenge)
-                if let caption = ChallengeCheckoff.lockCaption(followsNutrition: followsNutrition, linkedWorkouts: workouts) {
-                    Text(caption)
+        let note = ChallengeCheckoff.lockCaption(followsNutrition: followsNutrition, linkedWorkouts: workouts)
+        return VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .center, spacing: 10) {
+                AppSymbolImage(name: IconPreferenceStore.icon(for: challenge.id, fallback: "target"))
+                    .frame(width: 28, height: 28)
+                Text(challenge.title)
+                    .foregroundStyle(gray ? Color.secondary : Color.primary)
+                    .lineLimit(2)
+                if pinned {
+                    Image(systemName: "pin.fill")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
-                if gray {
-                    Text(L("Heute erledigt", "Done today"))
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
+                Spacer(minLength: 8)
+                if ChallengeBoard.showsCheckCircle(allowsHand: !handLocked) {
+                    Image(systemName: doneToday ? "checkmark.circle.fill" : "circle")
+                        .foregroundStyle(gray ? Color.secondary : Color.green)
                 }
             }
-            .padding(12)
-            .equalPairCard(radius: 18)
-            .opacity(gray ? 0.55 : 1)
+            challengeMeta(
+                challenge,
+                note: note,
+                doneNote: gray ? L("Heute erledigt", "Done today") : nil
+            )
         }
-        .buttonStyle(.plain)
-        .disabled(challenge.isReadOnly)
+        .padding(12)
+        .equalPairCard(radius: 18)
+        .opacity(gray ? 0.55 : 1)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            guard !challenge.isReadOnly, !handLocked else { return }
+            finish(challenge, on: AppClock.now)
+        }
         .contextMenu {
             Button {
                 edited = challenge
@@ -819,7 +848,59 @@ struct ChallengesView: View {
         Task { await LififyNotifications.cancel(idPrefix: challengeID) }
     }
 
-    private func challengeMeta(_ challenge: ChallengeItem) -> some View {
+    private func groupCalendarCaption(_ group: ChallengeGroup) -> String? {
+        let events = calendarEvents
+            .filter { !$0.isReminderSuggestion && $0.linkedChallengeGroupID == group.id }
+            .sorted { $0.startDate < $1.startDate }
+        return LinkCaption.calendar(
+            titles: events.map(\.title),
+            count: events.count,
+            singleDate: events.count == 1 ? events.first?.startDate : nil
+        )
+    }
+
+    private func groupDeleteMessage(_ group: ChallengeGroup) -> String {
+        let calendar = calendarEvents.contains { !$0.isReminderSuggestion && $0.linkedChallengeGroupID == group.id }
+        if calendar {
+            return L(
+                "Die Verknüpfung zum Kalender wird entfernt. Sollen die Challenges in der Gruppe mit gelöscht werden? Sonst bleiben sie einzeln.",
+                "The link to the calendar is removed. Should the challenges in the group be deleted too? Otherwise they stay on their own."
+            )
+        }
+        return L(
+            "Sollen die Challenges in der Gruppe mit gelöscht werden? Sonst bleiben sie einzeln.",
+            "Should the challenges in the group be deleted too? Otherwise they stay on their own."
+        )
+    }
+
+    private func removeGroup(_ group: ChallengeGroup, challengesToo: Bool) {
+        let members = challenges.filter { $0.belongs(to: group.id) }
+        let memberIDs = Set(members.map(\.id))
+        for event in calendarEvents where event.linkedChallengeGroupID == group.id {
+            event.linkedChallengeGroupID = nil
+            if let linked = event.linkedChallengeID, memberIDs.contains(linked) {
+                event.linkedChallengeID = nil
+            }
+            let remaining = ChallengeTimeStore.memberIDs(for: event.id).filter { !memberIDs.contains($0) }
+            ChallengeTimeStore.setMembers(remaining, for: event.id)
+        }
+        if challengesToo {
+            for member in members {
+                deleteChallenge(member)
+            }
+        } else {
+            for member in members {
+                member.groupIDs = GroupRemoval.remaining(member.groupIDs, removing: group.id)
+            }
+        }
+        ChallengeGroupPinStore.unpin(group.id)
+        expandedGroups.remove(group.id)
+        groupPendingDelete = nil
+        context.delete(group)
+        try? context.save()
+    }
+
+    private func challengeMeta(_ challenge: ChallengeItem, note: String? = nil, doneNote: String? = nil) -> some View {
         let _ = streakRevision
         let _ = developerMode
         let _ = developerDay
@@ -830,7 +911,9 @@ struct ChallengesView: View {
             completions: completions,
             events: calendarEvents
         ).count
-        let linked = ChallengeTimeStore.linkedEvents(for: challenge.id, in: calendarEvents)
+        let linked = ChallengeTimeStore.linkedEvents(for: challenge.id, in: calendarEvents).filter { event in
+            !GroupCalendarLine.belongsOnGroup(eventGroupID: event.linkedChallengeGroupID, membership: challenge.groupIDs)
+        }
         let minutes = ChallengeTimeStore.minutes(for: challenge.id)
         return HStack(alignment: .top, spacing: 8) {
             VStack(alignment: .leading, spacing: 2) {
@@ -847,6 +930,17 @@ struct ChallengesView: View {
                     Text(caption)
                         .foregroundStyle(.green)
                         .fixedSize(horizontal: false, vertical: true)
+                }
+                if let note {
+                    Text(note)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                if let doneNote {
+                    Text(doneNote)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
                 }
             }
             Spacer(minLength: 8)

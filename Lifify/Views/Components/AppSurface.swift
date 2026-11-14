@@ -478,7 +478,12 @@ struct EqualHeightPair<Content: View>: View {
             content()
         }
         .environment(\.pairRowHeight, height)
-        .onPreferenceChange(PairHeightPreference.self) { height = $0 }
+        .onPreferenceChange(PairHeightPreference.self) { newValue in
+            guard newValue > 1, abs(newValue - height) > 0.5 else { return }
+            var transaction = Transaction()
+            transaction.disablesAnimations = true
+            withTransaction(transaction) { height = newValue }
+        }
     }
 }
 

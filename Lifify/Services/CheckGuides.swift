@@ -193,6 +193,16 @@ enum CheckGuides {
             "Die Messung ist 17:00, 2. 17:00 ist der neue Start: der letzte Haken war um 18:00, und 20 plus 40 Minuten liegen davor. 2 heißt, beide Challenges müssen abgehakt sein. Eine wöchentliche Challenge kommt nicht zu einer anderen dazu.",
             "The reading is 17:00, 2. 17:00 is the new start: the last check-off was at 18:00, and 20 plus 40 minutes come before it. 2 means both challenges have to be checked off. A weekly challenge does not join another one."
         ),
+        "Ein Tag ohne Mahlzeiten lässt die zwei Freezes": g(
+            "StreakFreeze.countsDay(followsNutrition:confirmedMeals:), StreakFreeze.startingCount, ChallengeService.status(for:endingOn:completions:events:streakState:usesStoredState:confirmedMeals:)",
+            "Die Messung ist ohne 2, mit 0. Ohne bestätigte Mahlzeiten bleiben die zwei Start-Freezes. Drei Tage mit Mahlzeiten und ohne Ziel verbrauchen beide Freezes.",
+            "The reading is ohne 2, mit 0. Without confirmed meals the two starting freezes remain. Three days with meals and a missed goal spend both freezes."
+        ),
+        "Die grüne Kalenderzeile steht an der Gruppe": g(
+            "GroupCalendarLine.belongsOnGroup(eventGroupID:membership:)",
+            "Die Messung ist auf der Gruppe. Die Zeile des Termins, der die Gruppe angelegt hat, steht an der Gruppe. Eine Verknüpfung ohne Gruppe bleibt an der Challenge.",
+            "The reading is auf der Gruppe. The line of the event that created the group sits on the group. A link without a group stays on the challenge."
+        ),
         "Eine Challenge bleibt in Termin und Gruppe": g(
             "ChallengeGroups.membership(chosen:eventGroup:), ChallengeGroups.ids(primary:stored:), ChallengeGroups.contains(_:_:)",
             "Die Messung ist beide, 2. Die gewählte Gruppe und die Gruppe des Termins bleiben beide erhalten. Ohne eigene Gruppe bleibt die Gruppe des Termins.",
@@ -232,6 +242,11 @@ enum CheckGuides {
             "EventChallengeLink.placement(eventStart:recurrence:weekdays:end:calendar:), EventChallengeLink.members(already:linked:adding:), EventChallengeLink.reminderIncludesTime(allDay:)",
             "Die Messung ist 19:15, 3. 19:15 ist die Uhrzeit des Termins, die den bisherigen Tag ersetzt. 3 ist die Gruppe, nachdem eine weitere Challenge dazugekommen ist. Ein ganztägiger Termin schreibt keine Uhrzeit in die Erinnerung.",
             "The reading is 19:15, 3. 19:15 is the event time, which replaces the previous day. 3 is the group after one more challenge joins. An all-day event does not write a time into the reminder."
+        ),
+        "Nur die Gruppe löschen lässt die Challenges einzeln": g(
+            "GroupRemoval.remaining(_:removing:), GroupRemoval.clearsCalendarLink(generatedFromEvent:)",
+            "Die Messung ist einzeln, 1. Die Challenge bleibt in der anderen Gruppe. Eine vom Termin erzeugte Gruppe löst die Kalenderverknüpfung, eine selbst angelegte nicht.",
+            "The reading is einzeln, 1. The challenge stays in the other group. A group created by an event clears the calendar link, and a group you created does not."
         ),
         "Angepinnte Challenges stehen über dem Filter": g(
             "ChallengePinLayout.below(ids:pinned:), ChallengePinStore.limit",

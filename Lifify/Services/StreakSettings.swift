@@ -50,7 +50,7 @@ enum StreakSettings {
 
     static func balance(for challengeID: UUID) -> Int {
         guard let state = states()[challengeID.uuidString], state.enabled else { return 0 }
-        return max(0, 2 + state.purchased - state.usedPeriodKeys.count)
+        return max(0, StreakFreeze.startingCount + state.purchased - state.usedPeriodKeys.count)
     }
 
     static var freezeFactor: Int {

@@ -297,6 +297,18 @@ enum CheckStories {
             ("Zwei Challenges sind verknüpft. Eine ist abgehakt, die andere noch nicht. Die Haken liegen um 17:10 und 18:00, die Dauern sind 20 und 40 Minuten.", "Two challenges are linked. One is checked off, the other is not. The check-offs are at 17:10 and 18:00, and the durations are 20 and 40 minutes.", "ChallengeTimeRules.swift"),
             ("Die Messung ist 17:00, 2. Der Termin startet um 17:00, und beide Challenges müssen abgehakt sein.", "The reading is 17:00, 2. The event starts at 17:00, and both challenges have to be checked off.", "LififyChecks.swift"),
         ),
+        "Ein Tag ohne Mahlzeiten lässt die zwei Freezes": make(
+            "Jede Challenge mit Streaks startet mit zwei Freezes. Ein Tag ohne bestätigte Mahlzeiten ist beim Kaloriendefizit kein Fehlversuch.",
+            "Every challenge with streaks starts with two freezes. A day without confirmed meals is not a miss for the calorie challenge.",
+            ("Ohne Mahlzeiten zählt der Tag nicht. Mit Mahlzeiten und ohne Ziel ist es ein Fehlversuch.", "Without meals the day does not count. With meals and a missed goal it is a miss.", "ChallengeService.swift"),
+            ("Die Messung ist ohne 2, mit 0. Ohne Mahlzeiten bleiben zwei Freezes, nach Fehlversuchen bleibt keiner.", "The reading is ohne 2, mit 0. Without meals two freezes remain, and after misses none remain.", "LififyChecks.swift"),
+        ),
+        "Die grüne Kalenderzeile steht an der Gruppe": make(
+            "Die grüne Zeile eines automatisch angelegten Termins steht an der Gruppe, nicht an jedem Mitglied.",
+            "The green line of an automatically created event sits on the group, not on every member.",
+            ("Gehört der Termin zur Gruppe des Mitglieds, wandert die Zeile an die Gruppe.", "When the event belongs to the member's group, the line moves to the group.", "ChallengeTimeRules.swift"),
+            ("Die Messung ist auf der Gruppe. Eine eigene Verknüpfung ohne Gruppe bleibt an der Challenge.", "The reading is auf der Gruppe. A link of its own, without a group, stays on the challenge.", "LififyChecks.swift"),
+        ),
         "Eine Challenge bleibt in Termin und Gruppe": make(
             "Eine Challenge, die einen Termin und zusätzlich eine Gruppe hat, gehört zu beiden.",
             "A challenge that has an event and also a group belongs to both.",
@@ -345,6 +357,12 @@ enum CheckStories {
             "A linked challenge takes the day and time of the event. Another challenge joins the same group. The reminder gets a time only for an event that has a time.",
             ("Ein wöchentlicher Termin am 18.11. um 19:15 ersetzt einen früheren Tag. Eine dritte Challenge kommt dazu.", "A weekly event on 18 Nov at 19:15 replaces an earlier day. A third challenge is added.", "ChallengeTimeRules.swift"),
             ("Die Messung ist 19:15, 3. Die Uhrzeit ist die des Termins, und die Gruppe hat drei Challenges.", "The reading is 19:15, 3. The time is the event's, and the group has three challenges.", "LififyChecks.swift"),
+        ),
+        "Nur die Gruppe löschen lässt die Challenges einzeln": make(
+            "Beim Löschen einer Gruppe kann man die Challenges behalten. Eine Kalendergruppe löst die Verknüpfung in beiden Fällen.",
+            "Deleting a group can keep the challenges. A calendar group removes the link either way.",
+            ("Die andere Gruppe bleibt. Die gelöschte Gruppe fällt weg.", "The other group stays. The deleted group is gone.", "ChallengeTimeRules.swift"),
+            ("Die Messung ist einzeln, 1. Eine Gruppe bleibt, und eine Kalendergruppe löst die Verknüpfung.", "The reading is einzeln, 1. One group remains, and a calendar group clears the link.", "LififyFeatureChecks.swift"),
         ),
         "Angepinnte Challenges stehen über dem Filter": make(
             "Bis zu vier angepinnte Challenges stehen über dem Filter. Darunter tauchen sie nicht noch einmal auf.",

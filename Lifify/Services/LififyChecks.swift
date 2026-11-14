@@ -137,6 +137,8 @@ enum LififyChecks {
             challengeSlotFitsFourOfFive(),
             finishedChallengesShrinkTheSlot(),
             challengeBelongsToEventAndGroup(),
+            emptyNutritionDayKeepsStartingFreezes(),
+            calendarLineSitsOnTheGroup(),
             oldChallengesAreSuggested(),
             briefingNamesTheDay(),
             todaysAbstinenceNoticeOnly(),
@@ -816,6 +818,54 @@ enum LififyChecks {
             && ChallengeGroups.membership(chosen: nil, eventGroup: eventGroup) == [eventGroup]
         let reading = "beide, \(both.count)"
         return result("Eine Challenge bleibt in Termin und Gruppe", .challenge, .unit, passed, reading)
+    }
+
+    private static func emptyNutritionDayKeepsStartingFreezes() -> LififyCheckResult {
+        let challenge = ChallengeItem(
+            title: "Kaloriendefizit",
+            recurrence: .daily,
+            startDate: day(2026, 10, 5),
+            externalIdentifier: NutritionLedger.challengeMark
+        )
+        let quiet = ChallengeService.status(
+            for: challenge,
+            endingOn: day(2026, 10, 8),
+            completions: [],
+            events: [],
+            streakState: streakState(purchased: 0),
+            usesStoredState: false,
+            confirmedMeals: { _ in 0 }
+        )
+        let attempted = ChallengeService.status(
+            for: challenge,
+            endingOn: day(2026, 10, 8),
+            completions: [],
+            events: [],
+            streakState: streakState(purchased: 0),
+            usesStoredState: false,
+            confirmedMeals: { _ in 1 }
+        )
+        let leftQuiet = StreakFreeze.startingCount - quiet.freezeKeys.count
+        let leftAttempted = StreakFreeze.startingCount - attempted.freezeKeys.count
+        let passed = !StreakFreeze.countsDay(followsNutrition: true, confirmedMeals: 0)
+            && StreakFreeze.countsDay(followsNutrition: true, confirmedMeals: 1)
+            && StreakFreeze.countsDay(followsNutrition: false, confirmedMeals: 0)
+            && quiet.freezeKeys.isEmpty
+            && leftQuiet == 2
+            && attempted.freezeKeys.count == 2
+            && leftAttempted == 0
+        let reading = "ohne \(leftQuiet), mit \(leftAttempted)"
+        return result("Ein Tag ohne Mahlzeiten lässt die zwei Freezes", .streak, .unit, passed, reading)
+    }
+
+    private static func calendarLineSitsOnTheGroup() -> LififyCheckResult {
+        let eventGroup = UUID(uuidString: "00000000-0000-0000-0000-000000000091")!
+        let chosen = UUID(uuidString: "00000000-0000-0000-0000-000000000092")!
+        let onGroup = GroupCalendarLine.belongsOnGroup(eventGroupID: eventGroup, membership: [chosen, eventGroup])
+        let ownLink = !GroupCalendarLine.belongsOnGroup(eventGroupID: nil, membership: [eventGroup])
+        let other = !GroupCalendarLine.belongsOnGroup(eventGroupID: chosen, membership: [eventGroup])
+        let passed = onGroup && ownLink && other
+        return result("Die grüne Kalenderzeile steht an der Gruppe", .challenge, .unit, passed, "auf der Gruppe")
     }
 
     private static func oldChallengesAreSuggested() -> LififyCheckResult {
