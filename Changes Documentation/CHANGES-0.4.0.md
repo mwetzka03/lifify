@@ -3,7 +3,7 @@
 [English](#english) · [Deutsch](#deutsch)
 
 This file is in English and in German. The finance calculations stay in
-[FINANZEN.md](FINANZEN.md) and are unchanged. What changed in 0.3.0 is in
+[FINANZEN.md](../FINANZEN.md) and are unchanged. What changed in 0.3.0 is in
 [CHANGES-0.3.0.md](CHANGES-0.3.0.md). The displayed version is 0.4.0.
 
 ## English
@@ -69,8 +69,10 @@ This file is in English and in German. The finance calculations stay in
   card has no check circle. It counts when that workout is finished. The
   nutrition challenge has no check circle either. Category, and the switch
   Suggest for events, sit under More settings. That switch starts on. An event
-  keeps its slot until a timed challenge is checked off. The minutes entered
-  then revise that event in the calendar. The event row shows the duration, or
+  keeps its time until every one-time challenge on it is checked off. The
+  real durations are added, the end is the last check-off, the start is that
+  moment minus the total, and the old event is replaced. Only one-time
+  challenges share an event. The event row shows the duration, or
   only the time still left when timed challenges are already linked. Several
   challenges on one event become a group named after the event and the day.
   Picking existing challenges and creating a new one both sit under More
@@ -81,10 +83,13 @@ This file is in English and in German. The finance calculations stay in
   offered again until that challenge is deleted. An event whose timed
   challenges fill the slot is hidden too. The row already chosen stays, so it
   can be cleared. Suggestions leave out a finished challenge. The event editor
-  uses the same tinted rows as the other forms. Groups have their own section.
-  A group reaches the pinned area only after you pin it. A finished challenge
-  stays in its group. A challenge linked afterwards joins that group. The
-  Single filter shows those challenges one by one. Linking a challenge to an
+  uses the same tinted rows as the other forms. Groups have their own section
+  and fold open on the page. While open, a group shows the same details as a
+  challenge card. A group reaches the pinned area only after you pin it. A
+  finished challenge stays in its group. A challenge linked afterwards joins
+  that group, and it can also keep a second group. The Single filter shows
+  those challenges one by one. Up to four pinned challenges sit above the
+  filter and stay out of the lists underneath. Linking a challenge to an
   event sets its day and time to the event, and the Apple reminder follows
   when reminder sync is on. Exercise
   pictures drop a near-white background and sit on a tinted rounded tile.
@@ -146,7 +151,7 @@ This file is in English and in German. The finance calculations stay in
   alphabetical too. Tapping a check opens a page that names the important
   files and the methods, explains what the measured line means, and shows that
   line once. Each step says what should happen and which file it reads.
-- [RULES.md](RULES.md) records that changes are documented in English and in
+- [RULES.md](../RULES.md) records that changes are documented in English and in
   German, that new behavior gets a unit check and an integration check, and
   that the interface uses the selected style.
 
@@ -156,7 +161,7 @@ This file is in English and in German. The finance calculations stay in
 - An empty challenge list can still overlap the recommendations.
 - The week strip on Home can stop responding after one tap.
 - OpenAI is not connected. The wired reader is Gemini, and only when a key is
-  saved. The requirements are in [ERNAEHRUNG.md](ERNAEHRUNG.md).
+  saved. The requirements are in [ERNAEHRUNG.md](../ERNAEHRUNG.md).
 - There is no snapshot test, because this environment has no Xcode.
 - Possible later work: abstinence templates, an iPad layout, widgets, and one
   shared calendar for Home and Challenges.
@@ -232,9 +237,11 @@ This file is in English and in German. The finance calculations stay in
   Hakenkreis. Sie zählt, wenn dieses Training beendet ist. Die
   Ernährungs-Challenge hat ebenfalls keinen Hakenkreis. Kategorie und der
   Schalter Für Termine vorschlagen stehen unter Weitere Einstellungen. Der
-  Schalter startet an. Ein Termin behält seinen Slot, bis eine Challenge mit
-  Dauer abgehakt wird. Die eingetragenen Minuten schreiben den Termin im
-  Kalender dann rückwirkend um. Die Terminzeile zeigt die Dauer, oder nur die
+  Schalter startet an. Ein Termin behält seine Zeit, bis jede einmalige
+  Challenge darauf abgehakt ist. Die echten Dauern werden addiert, das Ende
+  ist der letzte Haken, der Start liegt diese Summe davor, und der alte Termin
+  wird ersetzt. Nur einmalige Challenges teilen sich einen Termin. Die
+  Terminzeile zeigt die Dauer, oder nur die
   übrige Zeit, wenn schon Challenges mit Dauer verknüpft sind. Mehrere
   Challenges an einem Termin werden eine Gruppe aus Terminname und Tag.
   Vorhandene Challenges und eine neue Challenge stehen beide unter Weitere
@@ -247,12 +254,15 @@ This file is in English and in German. The finance calculations stay in
   verborgen. Die schon gewählte Zeile bleibt, damit man sie lösen kann.
   Vorschläge lassen eine erledigte Challenge aus. Der Termineditor nutzt
   dieselben gefärbten Zeilen wie die anderen Formulare. Gruppen haben einen
-  eigenen Abschnitt. Eine Gruppe landet im angepinnten Bereich nur, wenn man
-  sie anpinnt. Eine erledigte Challenge bleibt in ihrer Gruppe. Eine später
-  verknüpfte Challenge kommt in diese Gruppe. Der Filter Einzeln zeigt diese
-  Challenges einzeln. Die Verknüpfung setzt Tag und Uhrzeit der Challenge auf
-  den Termin, und die Apple-Erinnerung folgt mit, wenn die Erinnerungen an
-  sind. Übungsbilder
+  eigenen Abschnitt und klappen auf der Seite auf. Aufgeklappt zeigt eine
+  Gruppe dieselben Angaben wie eine Challenge-Karte. Eine Gruppe landet im
+  angepinnten Bereich nur, wenn man sie anpinnt. Eine erledigte Challenge
+  bleibt in ihrer Gruppe. Eine später verknüpfte Challenge kommt in diese
+  Gruppe und kann zusätzlich eine zweite Gruppe behalten. Der Filter Einzeln
+  zeigt diese Challenges einzeln. Bis zu vier angepinnte Challenges stehen
+  über dem Filter und fehlen in den Listen darunter. Die Verknüpfung setzt
+  Tag und Uhrzeit der Challenge auf den Termin, und die Apple-Erinnerung folgt
+  mit, wenn die Erinnerungen an sind. Übungsbilder
   verlieren einen fast weißen Grund und liegen auf einer gefärbten,
   abgerundeten Kachel.
 - Finanzen behält die Kontoauswahl oben fest. Die Auswahl sind Blasen in einer
@@ -320,7 +330,7 @@ This file is in English and in German. The finance calculations stay in
   Tipp auf eine Prüfung öffnet eine Seite, die die wichtigen Dateien und die
   Methoden nennt, die gemessene Zeile in einem Satz erklärt und diese Zeile
   einmal zeigt. Jeder Schritt sagt, was passieren soll, und nennt die Datei.
-- [RULES.md](RULES.md) hält fest, dass Änderungen auf Englisch und Deutsch
+- [RULES.md](../RULES.md) hält fest, dass Änderungen auf Englisch und Deutsch
   dokumentiert werden, neue Funktionen eine Unit- und eine Integrationsprüfung
   bekommen und die Oberfläche den gewählten Stil verwendet.
 
@@ -331,7 +341,7 @@ This file is in English and in German. The finance calculations stay in
 - Die Wochenleiste auf Home kann nach einem Tippen aufhören zu reagieren.
 - OpenAI ist nicht verbunden. Der angeschlossene Leser ist Gemini, und nur mit
   einem gespeicherten Schlüssel. Die Anforderungen stehen in
-  [ERNAEHRUNG.md](ERNAEHRUNG.md).
+  [ERNAEHRUNG.md](../ERNAEHRUNG.md).
 - Es gibt keinen Snapshot-Test, weil diese Umgebung kein Xcode hat.
 - Möglich später: Abstinenz-Vorlagen, ein iPad-Layout, Widgets und ein
   gemeinsamer Kalender für Home und Challenges.

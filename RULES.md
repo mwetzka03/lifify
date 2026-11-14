@@ -9,8 +9,9 @@ These rules apply to every change in Lifify.
 ### Language
 
 Document a change in English and in German. English comes first. Each version
-has its own changelog, as [CHANGES-0.4.0.md](CHANGES-0.4.0.md) does for 0.4.0.
-The README and the other documents stay bilingual in the same way.
+has its own changelog, as [CHANGES-0.4.0.md](Changes%20Documentation/CHANGES-0.4.0.md) does for 0.4.0.
+Those version files live in Changes Documentation. The README and the other
+documents stay at the top and stay bilingual in the same way.
 
 ### Checks
 
@@ -36,8 +37,9 @@ own colors.
 
 Eine Änderung wird auf Englisch und auf Deutsch dokumentiert. Englisch steht
 zuerst. Jede Version hat ihr eigenes Änderungsprotokoll, so wie
-[CHANGES-0.4.0.md](CHANGES-0.4.0.md) für 0.4.0. Die README und die übrigen
-Dokumente bleiben auf dieselbe Weise zweisprachig.
+[CHANGES-0.4.0.md](Changes%20Documentation/CHANGES-0.4.0.md) für 0.4.0. Diese
+Versionsdateien liegen in Changes Documentation. Die README und die übrigen
+Dokumente bleiben oben und auf dieselbe Weise zweisprachig.
 
 ### Prüfungen
 

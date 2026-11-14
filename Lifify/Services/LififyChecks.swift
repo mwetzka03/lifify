@@ -136,6 +136,7 @@ enum LififyChecks {
             abstinenceExceptionLeavesTheTimer(),
             challengeSlotFitsFourOfFive(),
             finishedChallengesShrinkTheSlot(),
+            challengeBelongsToEventAndGroup(),
             oldChallengesAreSuggested(),
             briefingNamesTheDay(),
             todaysAbstinenceNoticeOnly(),
@@ -784,12 +785,37 @@ enum LififyChecks {
     }
 
     private static func finishedChallengesShrinkTheSlot() -> LififyCheckResult {
-        let kept = ChallengeTimeRules.displayedMinutes(planned: 120, linked: [30], completed: [])
-        let waiting = ChallengeTimeRules.displayedMinutes(planned: 120, linked: [30, 30, 30, 30], completed: [])
-        let partial = ChallengeTimeRules.displayedMinutes(planned: 120, linked: [30], completed: [20, 20, 20])
-        let full = ChallengeTimeRules.displayedMinutes(planned: 120, linked: [], completed: [30, 30, 30, 30])
-        let passed = kept == 120 && waiting == 120 && partial == 90 && full == 120
-        return result("Der Termin behält den Slot, bis die echte Dauer steht", .challenge, .integration, passed, "gehalten \(kept), teil \(partial)")
+        let first = UUID(uuidString: "00000000-0000-0000-0000-000000000061")!
+        let second = UUID(uuidString: "00000000-0000-0000-0000-000000000062")!
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .gmt
+        let end = calendar.date(from: DateComponents(year: 2026, month: 11, day: 18, hour: 18)) ?? .now
+        let earlier = end.addingTimeInterval(-50 * 60)
+        let window = EventRewrite.window(checkedOffAt: [earlier, end], durations: [20, 40])
+        let start = window?.start ?? .distantPast
+        let passed = !EventRewrite.ready(memberIDs: [first, second], completedIDs: [first])
+            && EventRewrite.ready(memberIDs: [first, second], completedIDs: [first, second])
+            && window?.end == end
+            && start == end.addingTimeInterval(-60 * 60)
+            && EventRewrite.canShare(adding: .none, others: [.none])
+            && !EventRewrite.canShare(adding: .weekly, others: [.none])
+            && EventRewrite.canShare(adding: .daily, others: [])
+        let reading = String(format: "%d:%02d, 2", calendar.component(.hour, from: start), calendar.component(.minute, from: start))
+        return result("Der Termin rückt, wenn alle Challenges abgehakt sind", .challenge, .integration, passed, reading)
+    }
+
+    private static func challengeBelongsToEventAndGroup() -> LififyCheckResult {
+        let chosen = UUID(uuidString: "00000000-0000-0000-0000-000000000071")!
+        let eventGroup = UUID(uuidString: "00000000-0000-0000-0000-000000000072")!
+        let both = ChallengeGroups.membership(chosen: chosen, eventGroup: eventGroup)
+        let stored = ChallengeGroups.ids(primary: chosen, stored: ChallengeGroups.stored(both))
+        let passed = both == [chosen, eventGroup]
+            && stored == both
+            && ChallengeGroups.contains(both, eventGroup)
+            && ChallengeGroups.contains(both, chosen)
+            && ChallengeGroups.membership(chosen: nil, eventGroup: eventGroup) == [eventGroup]
+        let reading = "beide, \(both.count)"
+        return result("Eine Challenge bleibt in Termin und Gruppe", .challenge, .unit, passed, reading)
     }
 
     private static func oldChallengesAreSuggested() -> LififyCheckResult {

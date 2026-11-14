@@ -7,7 +7,7 @@ struct PendingDuration: Identifiable {
     let suggested: Int
 }
 
-/// Asks how long the checked-off challenge really took, then the event is revised.
+/// Asks how long the checked-off challenge really took. The event moves once every linked challenge is done.
 struct ActualDurationSheet: View {
     let suggested: Int
     let onSave: (Int) -> Void
@@ -24,17 +24,20 @@ struct ActualDurationSheet: View {
     var body: some View {
         NavigationStack {
             Form {
-                LabeledContent(L("Minuten", "Minutes")) {
-                    TextField("30", text: $text)
-                        .keyboardType(.numberPad)
-                        .multilineTextAlignment(.trailing)
+                Section {
+                    LabeledContent(L("Minuten", "Minutes")) {
+                        TextField("30", text: $text)
+                            .keyboardType(.numberPad)
+                            .multilineTextAlignment(.trailing)
+                    }
+                    Text(L(
+                        "Die Minuten zählen mit. Der Termin wird ersetzt, sobald jede verknüpfte Challenge abgehakt ist.",
+                        "These minutes count. The event is replaced once every linked challenge is checked off."
+                    ))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 }
-                Text(L(
-                    "Der Termin behält seinen Slot, bis du ihn abhakst. Die Minuten hier schreiben die Dauer im Kalender rückwirkend um.",
-                    "The event keeps its slot until you check it off. These minutes revise the duration in the calendar."
-                ))
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                .appGlassRow()
             }
             .appGlassList()
             .navigationTitle(L("Echte Dauer", "Actual duration"))

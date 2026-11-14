@@ -8,8 +8,8 @@ feature set. In 0.4.0, Home, Challenges, Health, Settings, and setup sit on
 a mint wash in light mode and a deep green wash in dark mode, with cards
 that keep their own fill. Finance uses the same wash and keeps its tile arrangement. The
 links under More are a step larger than the tile titles. The symbol picker adds a
-hemp leaf and a cigarette. Nutrition still shows
-“Not available yet”.
+hemp leaf and a cigarette. Nutrition is a day board, and its pinned
+challenge follows the body goal.
 
 ## Deutsch
 
@@ -17,7 +17,7 @@ hemp leaf and a cigarette. Nutrition still shows
 
 Die App ist Version **0.4.0**. Wie Finanzen, Depot und Budget rechnen, steht
 in [FINANZEN.md](FINANZEN.md) und ist unverändert. Der Gesundheit-Tab ist kein
-Platzhalter mehr: Training ist umgesetzt, Ernährung zeigt „Noch nicht verfügbar“.
+Platzhalter mehr: Training und Ernährung sind umgesetzt.
 Home, Challenges, Gesundheit, Einstellungen und die Einrichtung liegen im
 Hellen auf einem Minzgrund und im Dunkeln auf einem tiefen Grün. Finanzen nutzt dieselbe Fläche und behält die Anordnung der Kacheln. Die
 Links unter Weitere Bereiche sind eine Stufe größer als die Kacheltitel. Die
@@ -49,7 +49,8 @@ Symbolauswahl enthält ein Hanfblatt und eine Zigarette.
   stehen getrennt, verknüpfte Termine können morgens abgehakt werden
 - Challenge-Kalender mit lokalen Terminen sowie Challenge- und Belohnungsverknüpfung
 - Challenges und Challenge-Gruppen mit Wiederholungen, Abschlüssen, Streaks und
-  wachsendem Coin-Multiplikator
+  wachsendem Coin-Multiplikator. Eine Gruppe klappt auf der Seite auf. Mehrere
+  einmalige Challenges an einem Termin werden ersetzt, sobald alle abgehakt sind
 - Importierte iOS-Erinnerungen erscheinen zunächst als Empfehlungen und werden
   erst nach ausdrücklicher Übernahme und Konfiguration zu Challenges; ihr
   Erledigt-Status wird anschließend zurück zu Apple Erinnerungen geschrieben
@@ -59,7 +60,7 @@ Symbolauswahl enthält ein Hanfblatt und eine Zigarette.
 - Getrenntes Löschen der Inhaltsdaten sowie vollständiges Zurücksetzen der App
   einschließlich Konten und Ersteinrichtung
 - Gesundheit: Trainingspläne aus der lokalen Übungsdatenbank, mit Sätzen,
-  Pausen und Verlauf. Ernährung ist noch nicht verfügbar
+  Pausen und Verlauf. Ernährung ist eine Tagesansicht und folgt dem Körperziel
 - Mehrstufige Ersteinrichtung für Sprache, Backup/Neustart, Begrüßungsname,
   Dashboard-Zeitraum, Hauptkonto, optionalen Bankimport und Einnahmeprognosen
 - Lokal gespeicherte Bucketlist-Daten; die Oberfläche ist vorerst ausgeblendet

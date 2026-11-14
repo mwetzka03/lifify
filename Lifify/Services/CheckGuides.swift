@@ -188,10 +188,15 @@ enum CheckGuides {
             "Die erste Zahl ist, wie viele Challenges von 30 Minuten in 120 Minuten passen. Vier passen, die fünfte nicht. Sport und Abstinenz bekommen keine Dauer, eine Gewohnheit schon.",
             "The first number is how many challenges of 30 minutes fit into 120 minutes. Four fit, and the fifth does not. Sport and abstinence do not take a duration, and a habit does."
         ),
-        "Der Termin behält den Slot, bis die echte Dauer steht": g(
-            "ChallengeTimeRules.displayedMinutes(planned:linked:completed:)",
-            "Gehalten ist die Dauer, solange noch keine echte Zeit eingetragen ist: der Slot bleibt 120 Minuten, auch bei einer einzelnen Challenge. Teil ist 90 Minuten, wenn drei echte Dauern von 20 Minuten und eine offene Schätzung von 30 Minuten zusammenkommen.",
-            "Kept is the duration while no actual time has been entered: the slot stays 120 minutes, even for a single challenge. Partial is 90 minutes when three actual durations of 20 minutes meet one open estimate of 30 minutes."
+        "Der Termin rückt, wenn alle Challenges abgehakt sind": g(
+            "EventRewrite.ready(memberIDs:completedIDs:), EventRewrite.window(checkedOffAt:durations:), EventRewrite.canShare(adding:others:)",
+            "Die Messung ist 17:00, 2. 17:00 ist der neue Start: der letzte Haken war um 18:00, und 20 plus 40 Minuten liegen davor. 2 heißt, beide Challenges müssen abgehakt sein. Eine wöchentliche Challenge kommt nicht zu einer anderen dazu.",
+            "The reading is 17:00, 2. 17:00 is the new start: the last check-off was at 18:00, and 20 plus 40 minutes come before it. 2 means both challenges have to be checked off. A weekly challenge does not join another one."
+        ),
+        "Eine Challenge bleibt in Termin und Gruppe": g(
+            "ChallengeGroups.membership(chosen:eventGroup:), ChallengeGroups.ids(primary:stored:), ChallengeGroups.contains(_:_:)",
+            "Die Messung ist beide, 2. Die gewählte Gruppe und die Gruppe des Termins bleiben beide erhalten. Ohne eigene Gruppe bleibt die Gruppe des Termins.",
+            "The reading is beide, 2. The chosen group and the event's group both remain. Without a chosen group, the event's group remains."
         ),
         "Vorschläge beginnen bei der ältesten Challenge": g(
             "ChallengeTimeRules.offeredSuggestions(candidates:already:)",
@@ -227,6 +232,11 @@ enum CheckGuides {
             "EventChallengeLink.placement(eventStart:recurrence:weekdays:end:calendar:), EventChallengeLink.members(already:linked:adding:), EventChallengeLink.reminderIncludesTime(allDay:)",
             "Die Messung ist 19:15, 3. 19:15 ist die Uhrzeit des Termins, die den bisherigen Tag ersetzt. 3 ist die Gruppe, nachdem eine weitere Challenge dazugekommen ist. Ein ganztägiger Termin schreibt keine Uhrzeit in die Erinnerung.",
             "The reading is 19:15, 3. 19:15 is the event time, which replaces the previous day. 3 is the group after one more challenge joins. An all-day event does not write a time into the reminder."
+        ),
+        "Angepinnte Challenges stehen über dem Filter": g(
+            "ChallengePinLayout.below(ids:pinned:), ChallengePinStore.limit",
+            "Die Messung ist 4, 2. 4 ist die Obergrenze und die Zahl der angepinnten Challenges über dem Filter. 2 sind die Challenges, die darunter in der gefilterten Liste bleiben.",
+            "The reading is 4, 2. 4 is the limit and the number of pinned challenges above the filter. 2 are the challenges that remain in the filtered list underneath."
         ),
         "Einzeln zeigt die Challenges einer Gruppe": g(
             "EventChallengeLink.showsIndividual(inGroup:singleFilter:), EventChallengeLink.members(already:linked:adding:)",

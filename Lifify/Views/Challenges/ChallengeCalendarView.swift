@@ -559,9 +559,17 @@ private struct ChallengeEventForm: View {
             guard let category = challenges.first(where: { $0.id == id })?.category else { return false }
             return ChallengeTimeRules.allowsTime(category)
         }
-        ChallengeTimeStore.setMembers(allDay ? [] : timedMembers, for: event.id)
-        let assigned = assignedChallengeIDs(timed: timedMembers)
-        if let groupID = EventGroupSync.join(event: event, challengeIDs: assigned, context: context) {
+        let once = timedMembers.filter { id in
+            challenges.first { $0.id == id }.map { EventRewrite.acceptsSharedEvent($0.recurrence) } ?? false
+        }
+        let repeating = timedMembers.filter { !once.contains($0) }
+        let storedMembers = once.isEmpty ? Array(repeating.prefix(1)) : once
+        ChallengeTimeStore.setMembers(allDay ? [] : storedMembers, for: event.id)
+        let assigned = assignedChallengeIDs(timed: storedMembers)
+        let shareable = assigned.filter { id in
+            challenges.first { $0.id == id }.map { EventRewrite.acceptsSharedEvent($0.recurrence) } ?? false
+        }
+        if let groupID = EventGroupSync.join(event: event, challengeIDs: shareable, context: context) {
             event.linkedChallengeGroupID = groupID
             linkedGroupID = groupID
         } else {

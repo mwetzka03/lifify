@@ -51,6 +51,14 @@ enum ChallengePinStore {
     }
 }
 
+/// Pinned challenges sit above the filter. The lists under the filter leave them out.
+enum ChallengePinLayout {
+    static func below(ids: [UUID], pinned: [UUID]) -> [UUID] {
+        let held = Set(pinned)
+        return ids.filter { !held.contains($0) }
+    }
+}
+
 /// Groups stay in their own section until someone pins them.
 enum ChallengeGroupPinStore {
     static let revisionKey = "lifify.challengeGroupPinRevision"

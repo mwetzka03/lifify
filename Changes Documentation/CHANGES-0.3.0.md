@@ -3,7 +3,7 @@
 [English](#english) · [Deutsch](#deutsch)
 
 This file is always in English and in German. Compared with `main`. The finance
-calculations stay in [FINANZEN.md](FINANZEN.md). The displayed version is 0.3.0.
+calculations stay in [FINANZEN.md](../FINANZEN.md). The displayed version is 0.3.0.
 
 ## English
 
@@ -202,7 +202,7 @@ calculations stay in [FINANZEN.md](FINANZEN.md). The displayed version is 0.3.0.
 ## Deutsch
 
 Stand gegenüber `main`. Die Rechenregeln der Finanzen bleiben in
-[FINANZEN.md](FINANZEN.md) beschrieben. Die angezeigte Version ist 0.3.0.
+[FINANZEN.md](../FINANZEN.md) beschrieben. Die angezeigte Version ist 0.3.0.
 
 ### Finanzen
 

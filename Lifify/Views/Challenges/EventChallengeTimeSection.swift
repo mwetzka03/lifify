@@ -16,6 +16,7 @@ struct EventChallengeTimeSection: View {
             !$0.isArchived
                 && ChallengeTimeRules.allowsTime($0.category)
                 && !ChallengeCheckoff.followsNutrition($0.externalIdentifier)
+                && (EventRewrite.acceptsSharedEvent($0.recurrence) || memberIDs.contains($0.id))
         }
     }
 
@@ -67,8 +68,8 @@ struct EventChallengeTimeSection: View {
                 challengeToggle(challenge)
             }
             Text(L(
-                "Der Termin behält seine Länge, bis du eine Challenge abhakst. Dann fragst du die echte Dauer, und der Kalender wird rückwirkend angepasst. Die Restzeit ist nur die Anzeige. Sport und Abstinenz bleiben außen vor.",
-                "The event keeps its length until you check off a challenge. Then you enter the real duration, and the calendar is revised. The time left is only a display. Sport and abstinence stay out of this."
+                "Nur einmalige Challenges teilen sich einen Termin. Er behält seine Länge, bis jede verknüpfte Challenge abgehakt ist. Dann werden die echten Dauern addiert, das Ende ist der letzte Haken, und der alte Termin wird ersetzt. Sport und Abstinenz bleiben außen vor.",
+                "Only one-time challenges share an event. It keeps its length until every linked challenge is checked off. Then the real durations are added, the end is the last check-off, and the old event is replaced. Sport and abstinence stay out of this."
             ))
             .font(.caption)
             .foregroundStyle(.secondary)
@@ -101,7 +102,10 @@ struct EventChallengeTimeSection: View {
     }
 
     private func add(_ challenge: ChallengeItem) {
+        guard EventRewrite.acceptsSharedEvent(challenge.recurrence) else { return }
         guard !memberIDs.contains(challenge.id) else { return }
+        let others = memberIDs.compactMap { id in challenges.first { $0.id == id }?.recurrence }
+        guard EventRewrite.canShare(adding: challenge.recurrence, others: others) else { return }
         memberIDs.append(challenge.id)
     }
 }

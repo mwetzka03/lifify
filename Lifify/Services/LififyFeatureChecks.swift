@@ -30,7 +30,8 @@ enum LififyFeatureChecks {
             calendarOpensOnToday(),
             nutrientCardNamesTheMainThree(),
             finishedChallengeStaysInItsGroup(),
-            singleFilterShowsGroupedChallenges()
+            singleFilterShowsGroupedChallenges(),
+            pinnedChallengesStayAboveTheFilter()
         ]
     }
 
@@ -604,6 +605,24 @@ enum LififyFeatureChecks {
             name: "Einzeln zeigt die Challenges einer Gruppe",
             passed: passed,
             detail: passed ? nil : "\(members.count)",
+            reading: reading,
+            kind: .integration,
+            topic: .challenge
+        )
+    }
+
+    private static func pinnedChallengesStayAboveTheFilter() -> LififyCheckResult {
+        let ids = (1...6).map { UUID(uuidString: String(format: "00000000-0000-0000-0000-00000000008%d", $0))! }
+        let pinned = Array(ids.prefix(ChallengePinStore.limit))
+        let below = ChallengePinLayout.below(ids: ids, pinned: pinned)
+        let passed = pinned.count == 4
+            && below == Array(ids.suffix(2))
+            && ChallengePinStore.limit == 4
+        let reading = "\(pinned.count), \(below.count)"
+        return LififyCheckResult(
+            name: "Angepinnte Challenges stehen über dem Filter",
+            passed: passed,
+            detail: passed ? nil : "\(below.count)",
             reading: reading,
             kind: .integration,
             topic: .challenge

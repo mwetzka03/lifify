@@ -100,17 +100,6 @@ enum ChallengeTimeRules {
         return minutes <= remaining
     }
 
-    /// The event keeps its planned length until a challenge is checked off.
-    /// `linked` holds the estimates that are still open.
-    /// `completed` holds the actual minutes entered for the finished ones.
-    /// With no actual minutes, the planned slot stays, even for a single challenge.
-    static func displayedMinutes(planned: Int, linked: [Int], completed: [Int]) -> Int {
-        let actuals = completed.filter { $0 > 0 }
-        guard !actuals.isEmpty else { return max(planned, 0) }
-        let open = linked.filter { $0 > 0 }.reduce(0, +)
-        return max(actuals.reduce(0, +) + open, 1)
-    }
-
     /// Checking off a timed challenge that sits on an event asks for the real minutes.
     static func asksForActualDuration(hasEstimate: Bool, linkedToEvent: Bool, completing: Bool) -> Bool {
         completing && hasEstimate && linkedToEvent
@@ -223,6 +212,68 @@ enum EventChallengeLink {
     /// Einzeln shows every challenge, including the ones that sit in a group.
     static func showsIndividual(inGroup: Bool, singleFilter: Bool) -> Bool {
         singleFilter || !inGroup
+    }
+}
+
+/// A challenge can sit in the group it picked and in the group of its event.
+enum ChallengeGroups {
+    static func unique(_ ids: [UUID]) -> [UUID] {
+        ids.reduce(into: [UUID]()) { result, id in
+            if !result.contains(id) { result.append(id) }
+        }
+    }
+
+    /// A stored list wins. An older record only has the single group.
+    static func ids(primary: UUID?, stored: String) -> [UUID] {
+        let parsed = stored.split(separator: ",").compactMap { UUID(uuidString: String($0)) }
+        if !parsed.isEmpty { return unique(parsed) }
+        if let primary { return [primary] }
+        return []
+    }
+
+    static func stored(_ ids: [UUID]) -> String {
+        unique(ids).map(\.uuidString).joined(separator: ",")
+    }
+
+    /// The chosen group and the event group both stay.
+    static func membership(chosen: UUID?, eventGroup: UUID?) -> [UUID] {
+        unique([chosen, eventGroup].compactMap { $0 })
+    }
+
+    static func contains(_ ids: [UUID], _ group: UUID) -> Bool {
+        ids.contains(group)
+    }
+}
+
+/// Several challenges share one event only when each of them happens once.
+/// The calendar event is replaced after every one of them is checked off.
+enum EventRewrite {
+    struct Window: Equatable {
+        var start: Date
+        var end: Date
+    }
+
+    static func acceptsSharedEvent(_ recurrence: ChallengeRecurrence) -> Bool {
+        recurrence == .none
+    }
+
+    /// A repeating challenge can take an empty event. It cannot join other challenges.
+    static func canShare(adding: ChallengeRecurrence, others: [ChallengeRecurrence]) -> Bool {
+        if !acceptsSharedEvent(adding) { return others.isEmpty }
+        return others.allSatisfy(acceptsSharedEvent)
+    }
+
+    static func ready(memberIDs: [UUID], completedIDs: Set<UUID>) -> Bool {
+        let ids = ChallengeGroups.unique(memberIDs)
+        guard !ids.isEmpty else { return false }
+        return ids.allSatisfy { completedIDs.contains($0) }
+    }
+
+    /// The end is the last check-off. The start is that moment minus the summed durations.
+    static func window(checkedOffAt: [Date], durations: [Int]) -> Window? {
+        let minutes = durations.filter { $0 > 0 }.reduce(0, +)
+        guard minutes > 0, let end = checkedOffAt.max() else { return nil }
+        return Window(start: end.addingTimeInterval(TimeInterval(-minutes * 60)), end: end)
     }
 }
 

@@ -344,9 +344,13 @@ enum ChallengeService {
     private static func scheduleEvents(for challenge: ChallengeItem, events: [ChallengeCalendarEvent]) -> EventSchedule {
         let own = events.filter { !$0.isReminderSuggestion && $0.linkedChallengeID == challenge.id }
         if !own.isEmpty { return EventSchedule(usesCalendar: true, events: own) }
-        if let groupID = challenge.groupID {
+        let memberships = challenge.groupIDs
+        if !memberships.isEmpty {
             let grouped = events.filter {
-                !$0.isReminderSuggestion && $0.linkedChallengeGroupID == groupID && $0.linkedChallengeID == nil
+                guard !$0.isReminderSuggestion, $0.linkedChallengeID == nil, let groupID = $0.linkedChallengeGroupID else {
+                    return false
+                }
+                return memberships.contains(groupID)
             }
             if !grouped.isEmpty { return EventSchedule(usesCalendar: true, events: grouped) }
         }
@@ -588,7 +592,9 @@ enum EventGroupSync {
         if group.modelContext == nil { context.insert(group) }
         let people = (try? context.fetch(FetchDescriptor<ChallengeItem>())) ?? []
         for challenge in people where ids.contains(challenge.id) {
-            challenge.groupID = group.id
+            var membership = challenge.groupIDs
+            if !membership.contains(group.id) { membership.append(group.id) }
+            challenge.groupIDs = membership
         }
         return group.id
     }

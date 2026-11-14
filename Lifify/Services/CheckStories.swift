@@ -291,11 +291,17 @@ enum CheckStories {
             ("Das Zeitfenster und die Dauer werden gegeneinander gerechnet.", "The time slot and the duration are compared.", "ChallengeTimeRules.swift"),
             ("Vier passen, eine fünfte nicht mehr.", "Four fit, and a fifth does not.", "LififyChecks.swift"),
         ),
-        "Der Termin behält den Slot, bis die echte Dauer steht": make(
-            "Ein Termin behält seine geplante Länge, bis eine verknüpfte Challenge abgehakt und die echte Dauer eingetragen ist.",
-            "An event keeps its planned length until a linked challenge is checked off and the actual duration is entered.",
-            ("Ohne echte Dauer bleibt der Slot bei 120 Minuten.", "Without an actual duration the slot stays at 120 minutes.", "ChallengeTimeRules.swift"),
-            ("Drei echte Dauern von 20 Minuten und eine offene Schätzung von 30 Minuten ergeben 90.", "Three actual durations of 20 minutes and one open estimate of 30 minutes make 90.", "LififyChecks.swift"),
+        "Der Termin rückt, wenn alle Challenges abgehakt sind": make(
+            "Ein Termin behält seine Zeit, bis jede einmalige Challenge darauf abgehakt ist. Dann ist das Ende der letzte Haken, der Start liegt die Summe der Dauern davor, und der alte Termin wird ersetzt. Eine wiederkehrende Challenge teilt sich den Termin nicht.",
+            "An event keeps its time until every one-time challenge on it is checked off. Then the end is the last check-off, the start is the summed durations before that, and the old event is replaced. A repeating challenge does not share the event.",
+            ("Zwei Challenges sind verknüpft. Eine ist abgehakt, die andere noch nicht. Die Haken liegen um 17:10 und 18:00, die Dauern sind 20 und 40 Minuten.", "Two challenges are linked. One is checked off, the other is not. The check-offs are at 17:10 and 18:00, and the durations are 20 and 40 minutes.", "ChallengeTimeRules.swift"),
+            ("Die Messung ist 17:00, 2. Der Termin startet um 17:00, und beide Challenges müssen abgehakt sein.", "The reading is 17:00, 2. The event starts at 17:00, and both challenges have to be checked off.", "LififyChecks.swift"),
+        ),
+        "Eine Challenge bleibt in Termin und Gruppe": make(
+            "Eine Challenge, die einen Termin und zusätzlich eine Gruppe hat, gehört zu beiden.",
+            "A challenge that has an event and also a group belongs to both.",
+            ("Die gewählte Gruppe und die Gruppe des Termins werden zusammengelegt.", "The chosen group and the event's group are combined.", "ChallengeTimeRules.swift"),
+            ("Die Messung ist beide, 2. Die Challenge steht in beiden Gruppen.", "The reading is beide, 2. The challenge sits in both groups.", "LififyChecks.swift"),
         ),
         "Vorschläge beginnen bei der ältesten Challenge": make(
             "Beim Zuweisen stehen die angebotenen Challenges mit der ältesten zuerst, mit oder ohne Dauer.",
@@ -339,6 +345,12 @@ enum CheckStories {
             "A linked challenge takes the day and time of the event. Another challenge joins the same group. The reminder gets a time only for an event that has a time.",
             ("Ein wöchentlicher Termin am 18.11. um 19:15 ersetzt einen früheren Tag. Eine dritte Challenge kommt dazu.", "A weekly event on 18 Nov at 19:15 replaces an earlier day. A third challenge is added.", "ChallengeTimeRules.swift"),
             ("Die Messung ist 19:15, 3. Die Uhrzeit ist die des Termins, und die Gruppe hat drei Challenges.", "The reading is 19:15, 3. The time is the event's, and the group has three challenges.", "LififyChecks.swift"),
+        ),
+        "Angepinnte Challenges stehen über dem Filter": make(
+            "Bis zu vier angepinnte Challenges stehen über dem Filter. Darunter tauchen sie nicht noch einmal auf.",
+            "Up to four pinned challenges sit above the filter. They do not appear again underneath.",
+            ("Sechs Challenges sind da, und vier davon sind angepinnt.", "There are six challenges, and four of them are pinned.", "ChallengePins.swift"),
+            ("Die Messung ist 4, 2. Vier bleiben oben, zwei bleiben in der Liste unter dem Filter.", "The reading is 4, 2. Four stay above, and two stay in the list under the filter.", "LififyFeatureChecks.swift"),
         ),
         "Einzeln zeigt die Challenges einer Gruppe": make(
             "Der Filter Einzeln zeigt die Challenges aus einer Gruppe einzeln, nicht die Gruppenkarte. Eine nachträglich verknüpfte Challenge gehört zur Gruppe des Termins.",

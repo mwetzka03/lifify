@@ -191,7 +191,7 @@ enum BackupService {
             BackupRecord(type: "challengeEvent", id: $0.id, strings: [$0.title, $0.details, $0.colorHex, $0.icon, $0.externalIdentifier ?? ""], booleans: [$0.isAllDay, $0.isReadOnly], dates: [$0.startDate, $0.endDate], uuids: [$0.linkedChallengeID, $0.linkedChallengeGroupID, $0.linkedRewardID])
         }
         records += challenges.map {
-            BackupRecord(type: "challenge", id: $0.id, strings: [$0.title, $0.details, $0.categoryRaw, $0.recurrenceRaw, $0.weeklyDays, $0.externalIdentifier ?? ""], integers: [$0.rewardCoins, $0.streakTarget], booleans: [$0.isArchived, $0.isReadOnly], dates: [$0.startDate, $0.endDate, $0.createdAt], uuids: [$0.groupID])
+            BackupRecord(type: "challenge", id: $0.id, strings: [$0.title, $0.details, $0.categoryRaw, $0.recurrenceRaw, $0.weeklyDays, $0.externalIdentifier ?? "", $0.groupIDsRaw], integers: [$0.rewardCoins, $0.streakTarget], booleans: [$0.isArchived, $0.isReadOnly], dates: [$0.startDate, $0.endDate, $0.createdAt], uuids: [$0.groupID])
         }
         records += challenges.compactMap { challenge in
             guard let externalIdentifier = challenge.externalIdentifier,
@@ -727,6 +727,7 @@ enum BackupService {
         case "challenge":
             let rawCategory = string(2)
             let challenge = ChallengeItem(id: r.id, title: string(0), details: string(1), category: ChallengeCategory(rawValue: rawCategory) ?? .other, recurrence: ChallengeRecurrence(rawValue: string(3)) ?? .none, startDate: date(0), endDate: date(1), weeklyDays: Set(string(4).split(separator: ",").compactMap { Int($0) }), rewardCoins: int(0), streakTarget: int(1), groupID: uuid(0), isArchived: bool(0), externalIdentifier: string(5).isEmpty ? nil : string(5), isReadOnly: bool(1), createdAt: date(2) ?? .now)
+            if !string(6).isEmpty { challenge.groupIDsRaw = string(6) }
             if !rawCategory.isEmpty { challenge.categoryRaw = rawCategory }
             context.insert(challenge)
         case "completion":

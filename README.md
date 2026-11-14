@@ -13,7 +13,7 @@ wash and the same card fill, and it keeps its tile arrangement. Positive
 amounts stay green and negative amounts stay red. The links under More are
 a step larger than the tile titles.
 
-The finance rules are in [FINANZEN.md](FINANZEN.md). What changed in 0.4.0 is in [CHANGES-0.4.0.md](CHANGES-0.4.0.md). What changed in 0.3.0 is in [CHANGES-0.3.0.md](CHANGES-0.3.0.md). Both are in English and German. How changes, checks, and the visual style are kept is in [RULES.md](RULES.md).
+The finance rules are in [FINANZEN.md](FINANZEN.md). What changed in 0.4.0 is in [CHANGES-0.4.0.md](Changes%20Documentation/CHANGES-0.4.0.md). What changed in 0.3.0 is in [CHANGES-0.3.0.md](Changes%20Documentation/CHANGES-0.3.0.md). Both are in English and German. How changes, checks, and the visual style are kept is in [RULES.md](RULES.md).
 
 ### Areas
 
@@ -46,11 +46,13 @@ goal: Calorie deficit, Hold calories, or Build muscle. It cannot be checked
 off by hand, and a later meal can take the coins back below zero. The requirements are in
 [ERNAEHRUNG.md](ERNAEHRUNG.md). Abstinence lives with the challenges. A sport
 challenge linked to a workout is completed only by finishing that workout.
-Up to four challenges can be pinned to the top of the challenges page.
-The event picker opens on today. Groups have their own section and are pinned
-only when you pin them. A finished challenge stays in its group. A challenge
-linked afterwards joins that group, and Single shows those challenges one by
-one. Linking sets the challenge's day and time to the event.
+Up to four challenges can be pinned above the filter on the challenges page.
+The event picker opens on today. Groups have their own section, fold open on
+the page, and are pinned only when you pin them. A finished challenge stays in
+its group. A challenge linked afterwards joins that group and can keep a second
+group. Single shows those challenges one by one. Linking sets the challenge's
+day and time to the event. Several challenges share an event only when each of
+them happens once, and the event is replaced after every one of them is checked off.
 
 **Settings** start with your name and profile photo. The line under the name
 is User settings. That page holds the date of birth, height in centimetres, weight
@@ -128,8 +130,8 @@ Violett, jeweils mit eigener heller und dunkler Fläche. Die Karten behalten
 eine eigene Füllung. Finanzen nutzt dieselbe Fläche und dieselbe Kartenfarbe
 und behält die Anordnung der Kacheln. Positive Beträge bleiben grün, negative
 rot. Die Links unter Weitere Bereiche sind eine Stufe größer als die Kacheltitel.
-Was sich in 0.4.0 geändert hat, steht in [CHANGES-0.4.0.md](CHANGES-0.4.0.md),
-was sich in 0.3.0 geändert hat in [CHANGES-0.3.0.md](CHANGES-0.3.0.md). Beides auf Englisch und Deutsch.
+Was sich in 0.4.0 geändert hat, steht in [CHANGES-0.4.0.md](Changes%20Documentation/CHANGES-0.4.0.md),
+was sich in 0.3.0 geändert hat in [CHANGES-0.3.0.md](Changes%20Documentation/CHANGES-0.3.0.md). Beides auf Englisch und Deutsch.
 Wie Änderungen, Prüfungen und der Stil gehalten werden, steht in [RULES.md](RULES.md).
 
 Die Finanzregeln stehen in [FINANZEN.md](FINANZEN.md).
@@ -168,12 +170,15 @@ halten oder Muskelaufbau. Sie lässt sich nicht von Hand abhaken, und eine
 spätere Mahlzeit kann die Coins wieder unter null abziehen. Die Anforderungen stehen in [ERNAEHRUNG.md](ERNAEHRUNG.md).
 Abstinenz liegt bei den Challenges. Eine Sport-Challenge mit einem verknüpften
 Training gilt nur als erledigt, wenn dieses Training beendet wurde. Bis zu
-vier Challenges lassen sich oben auf der Challenges-Seite anpinnen.
+vier Challenges lassen sich über dem Filter auf der Challenges-Seite anpinnen.
 Die Terminauswahl öffnet beim heutigen Tag. Gruppen haben einen eigenen
-Abschnitt und werden nur angepinnt, wenn man sie anpinnt. Eine erledigte
-Challenge bleibt in ihrer Gruppe. Eine später verknüpfte Challenge kommt in
-diese Gruppe, und Einzeln zeigt diese Challenges einzeln. Die Verknüpfung
-setzt Tag und Uhrzeit der Challenge auf den Termin.
+Abschnitt, klappen auf der Seite auf und werden nur angepinnt, wenn man sie
+anpinnt. Eine erledigte Challenge bleibt in ihrer Gruppe. Eine später
+verknüpfte Challenge kommt in diese Gruppe und kann eine zweite Gruppe
+behalten. Einzeln zeigt diese Challenges einzeln. Die Verknüpfung setzt Tag
+und Uhrzeit der Challenge auf den Termin. Mehrere Challenges teilen sich einen
+Termin nur, wenn jede einmalig ist, und der Termin wird ersetzt, sobald alle
+abgehakt sind.
 
 **Einstellungen** beginnen mit dem Namen und dem Profilbild. Darunter steht
 Nutzereinstellungen. Diese Seite hält Geburtsdatum, Größe in Zentimetern,
