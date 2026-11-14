@@ -34,5 +34,8 @@ struct AppEntryView: View {
         }
         .environment(\.locale, AppDate.locale)
         .id(language)
+        .onOpenURL { url in
+            BankNoticeIntake.open(url, context: modelContext)
+        }
     }
 }

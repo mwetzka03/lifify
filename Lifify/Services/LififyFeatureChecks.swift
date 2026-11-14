@@ -111,7 +111,7 @@ enum LififyFeatureChecks {
             ]
             && AppChrome.glassScreens == ["home", "challenges", "health", "settings", "onboarding", "finance"]
             && AppChrome.glassScreens.contains("finance")
-            && AppChrome.version == "0.4.0"
+            && AppChrome.version == "0.5.0"
             && NutritionCopy.recognitionPending == L("Die Erkennung ist noch nicht verbunden.", "Recognition is not connected yet.")
         return LififyCheckResult(
             name: "Gesundheit, Einstellungen und Glasflächen zeigen dieselben Titel",

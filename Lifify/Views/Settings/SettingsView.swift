@@ -587,6 +587,7 @@ private struct FinanceSettingsView: View {
                 ))
             }
             .appGlassRow()
+            TradeRepublicSignInControls(showsSkip: false) {}
         }
         .appGlassList()
         .navigationTitle(L("Finanzen", "Finance"))
@@ -601,6 +602,7 @@ private struct FinanceSettingsView: View {
             defaultTradeFeeCents = cents
         }
     }
+
 }
 
 private struct ChallengeSettingsView: View {

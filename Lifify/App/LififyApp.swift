@@ -7,6 +7,9 @@ struct LififyApp: App {
     init() {
         UNUserNotificationCenter.current().delegate = NotificationCenterDelegate.shared
         AppClock.resetSimulatedDay()
+        if case .success(let container) = containerResult {
+            LififyDatabase.container = container
+        }
     }
 
     private let containerResult: Result<ModelContainer, Error> = {
@@ -48,4 +51,9 @@ struct LififyApp: App {
             }
         }
     }
+}
+
+@MainActor
+enum LififyDatabase {
+    static var container: ModelContainer?
 }

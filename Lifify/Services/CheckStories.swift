@@ -452,7 +452,7 @@ enum CheckStories {
             "Gesundheit, Einstellungen und die bemalten Flächen zeigen die Titel, die auf dem Bildschirm stehen.",
             "Health, Settings, and the painted screens show the titles that appear on screen.",
             ("Training, Ernährung und die sechs Einstellungszeilen werden gelesen. Nutzereinstellungen steht über Allgemein.", "Training, Nutrition, and the six settings rows are read. User settings sits above General.", "AppChrome.swift"),
-            ("Die bemalten Flächen umfassen Home, Challenges, Gesundheit, Einstellungen, Einrichtung und Finanzen. Die Version ist 0.4.0. Ohne Schlüssel bleibt der Text, dass die Erkennung nicht verbunden ist.", "The painted screens include Home, Challenges, Health, Settings, setup, and Finance. The version is 0.4.0. Without a key the text still says recognition is not connected.", "HealthView.swift"),
+            ("Die bemalten Flächen umfassen Home, Challenges, Gesundheit, Einstellungen, Einrichtung und Finanzen. Die Version ist 0.5.0. Ohne Schlüssel bleibt der Text, dass die Erkennung nicht verbunden ist.", "The painted screens include Home, Challenges, Health, Settings, setup, and Finance. The version is 0.5.0. Without a key the text still says recognition is not connected.", "HealthView.swift"),
         ),
         "Hell und Dunkel haben eigene Flächen": make(
             "Heller und dunkler Modus haben verschiedene Hintergrund- und Kartenfarben.",
@@ -675,6 +675,42 @@ enum CheckStories {
             "Green, blue, bordeaux, and violet each have a light and a dark surface. The accents stay distinct.",
             ("Jeder Stil prüft Helligkeit von Grund und Karte in Hell und Dunkel.", "Each style checks the brightness of the wash and the card in light and dark.", "AppSurface.swift"),
             ("Blau ist blauer, Bordeaux röter und Violett tiefer als Grün.", "Blue is bluer, bordeaux is redder, and violet is deeper than green.", "LififyFeatureChecks.swift"),
+        ),
+        "Eine Mitteilung nennt Betrag, Richtung und Titel": make(
+            "Aus dem Mitteilungstext werden Betrag, Richtung und ein kurzer Titel gelesen.",
+            "Amount, direction, and a short title are read from the notice text.",
+            ("Eine Abbuchung von 12,34 EUR und eine Gutschrift von 1.250,00 € werden gelesen.", "A debit of 12.34 EUR and a credit of 1,250.00 € are read.", "BankNotice.swift"),
+            ("Die Messung ist -1234, aus, REWE, 125000, ein, Gehalt, ungelesen. Ein nackter Betrag bleibt ungelesen.", "The reading is -1234, aus, REWE, 125000, ein, Gehalt, ungelesen. A bare amount stays unread.", "BankNotice.swift"),
+        ),
+        "Dieselbe Buchung im kurzen Fenster zählt einmal": make(
+            "Dieselbe Buchung auf demselben Konto, mit demselben Betrag und derselben Richtung, zählt sechs Stunden lang nur einmal.",
+            "The same booking on the same account, with the same amount and the same direction, counts only once for six hours.",
+            ("Eine Ausgabe von 4,20 und dieselbe Ausgabe eine Stunde später werden verglichen.", "An expense of 4.20 and the same expense one hour later are compared.", "BankNotice.swift"),
+            ("Die zweite ist doppelt. Eine Einnahme und eine Buchung nach sieben Stunden sind neu.", "The second one is a duplicate. An income, and a booking after seven hours, are new.", "BankNotice.swift"),
+        ),
+        "Ein Depotstand setzt Menge und Einstand und erfindet nichts": make(
+            "Eine gelesene Position setzt Menge und, wenn die Sitzung ihn nennt, den Einstand. Eine leere oder unlesbare Antwort erfindet nichts.",
+            "A position that was read sets the quantity and, when the session names it, the cost basis. An empty or unreadable reply invents nothing.",
+            ("Eine Position mit ISIN, Menge 2,5 und Einstand 80 wird gelesen. Eine ohne Einstand trifft eine vorhandene Position.", "A position with an ISIN, quantity 2.5, and cost 80 is read. One without a cost meets an existing position.", "TradeRepublicSession.swift"),
+            ("Die Messung ist 2.5, 8000, behalten. Die leere Liste und die unlesbare Antwort bleiben bei null neuen Positionen.", "The reading is 2.5, 8000, kept. The empty list and the unreadable reply stay at zero new positions.", "TradeRepublicSession.swift"),
+        ),
+        "Eine tote Sitzung startet keine neue Anmeldung": make(
+            "Eine abgelaufene Sitzung wird nicht still erneuert. Die Anmeldung bleibt manuell, und ein Beispielwert kommt nicht in die Meldung.",
+            "An expired session is not renewed quietly. Sign-in stays manual, and an example value does not enter the message.",
+            ("Status 401 und der Fehlercode NUMBER_INVALID werden gelesen.", "Status 401 and the error code NUMBER_INVALID are read.", "TradeRepublicSession.swift"),
+            ("Die Messung ist 401 manual. Die Meldung enthält den Beispielwert nicht.", "The reading is 401 manual. The message does not contain the example value.", "TradeRepublicSession.swift"),
+        ),
+        "Sparkasse und Trade Republic landen auf dem passenden Konto": make(
+            "Eine Sparkassen-Mitteilung bucht auf dem Girokonto Sparkasse, eine Trade-Republic-Mitteilung auf dem Konto Trade Republic. Dieselbe Buchung im Fenster wird nicht doppelt angelegt.",
+            "A Sparkasse notice books on the Sparkasse checking account, and a Trade Republic notice on the Trade Republic account. The same booking inside the window is not created twice.",
+            ("Die URL lifify://notice und zwei Mitteilungen werden gegen die Konten gelesen.", "The URL lifify://notice and two notices are read against the accounts.", "BankNotice.swift"),
+            ("Die Messung ist Sparkasse -420, duplicate, Trade Republic 5000.", "The reading is Sparkasse -420, duplicate, Trade Republic 5000.", "BankNotice.swift"),
+        ),
+        "Anmeldung und Aktualisieren laufen nur von Hand": make(
+            "Die Einrichtung hat neun Schritte, darunter die optionale Anmeldung. Aktualisieren startet nicht beim Öffnen, nicht mit einem Timer und nicht mit einer gespeicherten PIN.",
+            "Setup has nine steps, including the optional sign-in. Refresh does not start on open, on a timer, or with a stored PIN.",
+            ("Die Schrittzahl, die Schalter und der gemessene Anmeldeversuch werden gelesen.", "The step count, the switches, and the measured sign-in attempt are read.", "OnboardingView.swift"),
+            ("Die Messung ist 9 manual 400. Der Schlüsselbund lässt die Sitzung aus der Sicherung.", "The reading is 9 manual 400. The keychain leaves the session out of the backup.", "TradeRepublicSession.swift"),
         ),
         "Jede Prüfung erklärt ihre Schritte": make(
             "Jede Prüfung in der Liste nennt die wichtigen Dateien, die Methoden und eine Lesart der Messung. Dazu kommen mindestens zwei Schritte, und jeder Schritt zeigt auf eine Swift-Datei.",

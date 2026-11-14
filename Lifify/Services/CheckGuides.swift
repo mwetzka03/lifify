@@ -320,8 +320,8 @@ enum CheckGuides {
         ),
         "Gesundheit, Einstellungen und Glasflächen zeigen dieselben Titel": g(
             "HealthScreen.sectionTitles(), SettingsDirectory.rows(), AppChrome.glassScreens, AppChrome.version",
-            "Vor dem Schrägstrich stehen die Titel, die Gesundheit zeigt. Dahinter steht die Version 0.4.0. Die Einstellungen beginnen mit Nutzereinstellungen. Ohne Schlüssel bleibt der Satz, dass die Erkennung nicht verbunden ist.",
-            "Before the slash are the titles Health shows. After it is version 0.4.0. Settings start with User settings. Without a key the sentence still says recognition is not connected."
+            "Vor dem Schrägstrich stehen die Titel, die Gesundheit zeigt. Dahinter steht die Version 0.5.0. Die Einstellungen beginnen mit Nutzereinstellungen. Ohne Schlüssel bleibt der Satz, dass die Erkennung nicht verbunden ist.",
+            "Before the slash are the titles Health shows. After it is version 0.5.0. Settings start with User settings. Without a key the sentence still says recognition is not connected."
         ),
         "Hell und Dunkel haben eigene Flächen": g(
             "AppLook.modesDiffer(palette:), AppLook.canvasTop(_:palette:), AppLook.cardFill(_:palette:)",
@@ -507,6 +507,36 @@ enum CheckGuides {
             "AppLook.modesDiffer(palette:), AppLook.accent(_:palette:)",
             "Jeder Stil, Grün, Blau, Bordeaux und Violett, hat eine helle Fläche über 0,75 und eine dunkle unter 0,2. Die Karten sind deckend. Blau ist blauer, Bordeaux röter und Violett tiefer als Grün.",
             "Each style, green, blue, bordeaux, and violet, has a light wash above 0.75 and a dark wash below 0.2. The cards are opaque. Blue is bluer, bordeaux is redder, and violet is deeper than green."
+        ),
+        "Eine Mitteilung nennt Betrag, Richtung und Titel": g(
+            "BankNotice.parse(_:fallbackTitle:)",
+            "Die Messung ist -1234, aus, REWE, 125000, ein, Gehalt, ungelesen. Ein Betrag ohne Richtung wird nicht gebucht. Die PIN und der Sitzungstoken kommen in dieser Zeile nicht vor.",
+            "The reading is -1234, aus, REWE, 125000, ein, Gehalt, ungelesen. An amount without a direction is not booked. The PIN and the session token do not appear in this line."
+        ),
+        "Dieselbe Buchung im kurzen Fenster zählt einmal": g(
+            "BankNotice.isDuplicate(_:accountID:existing:now:), BankNotice.duplicateWindow",
+            "Die Messung ist 6 Stunden und doppelt. Gleicher Betrag und gleiche Richtung im Fenster sind eine Buchung. Eine andere Richtung oder eine Buchung danach ist eine neue.",
+            "The reading is 6 hours and duplicate. The same amount and direction inside the window are one booking. Another direction, or a booking after the window, is a new one."
+        ),
+        "Ein Depotstand setzt Menge und Einstand und erfindet nichts": g(
+            "TradeRepublicPortfolio.read(_:), TradeRepublicDepotPlan.edits(positions:holdings:)",
+            "Die Messung ist 2.5, 8000, behalten. Eine leere Liste und eine unlesbare Antwort legen keine Position an. Fehlt der Einstand, bleibt der bisherige Preis.",
+            "The reading is 2.5, 8000, kept. An empty list and an unreadable reply create no position. When the cost basis is missing, the previous price stays."
+        ),
+        "Eine tote Sitzung startet keine neue Anmeldung": g(
+            "TradeRepublicRequest.failure(statusCode:errorCode:), TradeRepublicRefresh.manualOnly, TradeRepublicCookies.keepsSession(_:)",
+            "Die Messung ist 401 manual. Ein abgelaufener Stand verlangt eine neue Bestätigung. Es gibt keine Anmeldung mit einer gespeicherten PIN, und ein Beispielwert steht nicht in der Meldung.",
+            "The reading is 401 manual. An expired session asks for a new confirmation. There is no sign-in with a stored PIN, and an example value is not in the message."
+        ),
+        "Sparkasse und Trade Republic landen auf dem passenden Konto": g(
+            "BankNotice.plan(text:bank:accounts:existing:now:), BankNoticeURL.decode(_:)",
+            "Die Messung nennt Sparkasse mit -420, danach doppelt, und Trade Republic mit 5000. Das Depotkonto wird nicht benutzt. Die URL lifify://notice übergibt denselben Text.",
+            "The reading names Sparkasse with -420, then duplicate, and Trade Republic with 5000. The portfolio account is not used. The URL lifify://notice passes the same text."
+        ),
+        "Anmeldung und Aktualisieren laufen nur von Hand": g(
+            "OnboardingSteps.count, TradeRepublicRefresh.manualOnly, TradeRepublicGap.probedStatus, KeychainStore.deviceOnly",
+            "Die Messung ist 9 manual 400. Die Einrichtung hat den optionalen Anmeldeschritt. Aktualisieren startet nicht von allein. Die Sitzung bleibt auf diesem Gerät und außerhalb der Sicherung, so wie der Gemini-Schlüssel.",
+            "The reading is 9 manual 400. Setup has the optional sign-in step. Refresh does not start by itself. The session stays on this device and out of backups, the same way as the Gemini key."
         ),
         "Jede Prüfung erklärt ihre Schritte": g(
             "CheckStories.isComplete(_:), CheckGuides.guide(named:)",

@@ -2,9 +2,11 @@
 
 ## English
 
-Lifify is version **0.4.0**. Finance, portfolio, and budget calculations are in
+Lifify is version **0.5.0**. Finance, portfolio, and budget calculations are in
 [FINANZEN.md](FINANZEN.md) and are unchanged. The German list below is the
-feature set. In 0.4.0, Home, Challenges, Health, Settings, and setup sit on
+feature set. In 0.5.0, setup can sign in to Trade Republic by hand and import
+the depot from that session, and a Shortcut can book a Sparkasse or Trade
+Republic notice. In 0.4.0, Home, Challenges, Health, Settings, and setup sit on
 a mint wash in light mode and a deep green wash in dark mode, with cards
 that keep their own fill. Finance uses the same wash and keeps its tile arrangement. The
 links under More are a step larger than the tile titles. The symbol picker adds a
@@ -15,7 +17,7 @@ challenge follows the body goal.
 
 # Lifify – Funktionsumfang und Annahmen
 
-Die App ist Version **0.4.0**. Wie Finanzen, Depot und Budget rechnen, steht
+Die App ist Version **0.5.0**. Wie Finanzen, Depot und Budget rechnen, steht
 in [FINANZEN.md](FINANZEN.md) und ist unverändert. Der Gesundheit-Tab ist kein
 Platzhalter mehr: Training und Ernährung sind umgesetzt.
 Home, Challenges, Gesundheit, Einstellungen und die Einrichtung liegen im
@@ -152,6 +154,14 @@ Symbolauswahl enthält ein Hanfblatt und eine Zigarette.
     lassen. Lifify verschiebt einen solchen Store einmalig in ein lokales
     Archiv und startet die Einrichtung mit einem neuen Store. Eine vorhandene
     JSON-Sicherung kann anschließend wiederhergestellt werden.
+20. **Trade Republic von Hand:** In der Einrichtung gibt es einen optionalen
+    Anmeldeschritt. Unter Finanzen lässt sich die Sitzung erneut anmelden oder
+    das Depot daraus aktualisieren. Das passiert nicht von allein. Die Sitzung
+    liegt im Schlüsselbund und nicht in der Sicherung. Die PIN wird nicht
+    gespeichert. Der PDF-Import bleibt.
+21. **Kurzbefehle:** Eine Mitteilung der Sparkasse oder von Trade Republic kann
+    eine Buchung auf dem passenden Girokonto anlegen. Dieselbe Buchung im
+    Fenster von sechs Stunden zählt einmal.
 
 ## Technische Leitplanken
 
