@@ -5,15 +5,32 @@ import Foundation
 @MainActor
 enum ChallengeTimeStore {
     private static let durationKey = "lifify.challengeDuration"
+    private static let actualKey = "lifify.challengeActualMinutes"
     private static let memberKey = "lifify.challengeTimeMembers"
     private static let plannedKey = "lifify.challengeTimePlanned"
     private static var cachedDurations: [String: Int]?
+    private static var cachedActuals: [String: Int]?
     private static var cachedMembers: [String: [String]]?
     private static var cachedPlanned: [String: Int]?
 
     static func minutes(for challengeID: UUID) -> Int? {
         let value = durations()[challengeID.uuidString] ?? 0
         return value > 0 ? value : nil
+    }
+
+    static func actualMinutes(for challengeID: UUID) -> Int? {
+        let value = actuals()[challengeID.uuidString] ?? 0
+        return value > 0 ? value : nil
+    }
+
+    static func setActualMinutes(_ minutes: Int?, for challengeID: UUID) {
+        var map = actuals()
+        if let minutes, minutes > 0 {
+            map[challengeID.uuidString] = minutes
+        } else {
+            map.removeValue(forKey: challengeID.uuidString)
+        }
+        saveActuals(map)
     }
 
     static func setMinutes(_ minutes: Int?, for challengeID: UUID) {
@@ -89,6 +106,7 @@ enum ChallengeTimeStore {
 
     static func removeChallenge(_ challengeID: UUID) {
         setMinutes(nil, for: challengeID)
+        setActualMinutes(nil, for: challengeID)
         var map = memberMap()
         var changed = false
         for (key, values) in map {
@@ -112,9 +130,11 @@ enum ChallengeTimeStore {
 
     static func reset() {
         cachedDurations = [:]
+        cachedActuals = [:]
         cachedMembers = [:]
         cachedPlanned = [:]
         UserDefaults.standard.removeObject(forKey: durationKey)
+        UserDefaults.standard.removeObject(forKey: actualKey)
         UserDefaults.standard.removeObject(forKey: memberKey)
         UserDefaults.standard.removeObject(forKey: plannedKey)
     }
@@ -124,6 +144,10 @@ enum ChallengeTimeStore {
         records += durations().compactMap { key, value in
             guard let id = UUID(uuidString: key), value > 0 else { return nil }
             return BackupRecord(type: "challengeDuration", id: id, integers: [value])
+        }
+        records += actuals().compactMap { key, value in
+            guard let id = UUID(uuidString: key), value > 0 else { return nil }
+            return BackupRecord(type: "challengeActual", id: id, integers: [value])
         }
         records += memberMap().compactMap { key, values in
             guard let id = UUID(uuidString: key) else { return nil }
@@ -142,6 +166,10 @@ enum ChallengeTimeStore {
         setMinutes(record.integers.first, for: record.id)
     }
 
+    static func restoreActual(_ record: BackupRecord) {
+        setActualMinutes(record.integers.first, for: record.id)
+    }
+
     static func restoreMembers(_ record: BackupRecord) {
         let ids = record.uuids.compactMap { $0 }
         setMembers(ids, for: record.id)
@@ -155,6 +183,13 @@ enum ChallengeTimeStore {
         if let cachedDurations { return cachedDurations }
         let decoded: [String: Int] = dictionary(durationKey) ?? [:]
         cachedDurations = decoded
+        return decoded
+    }
+
+    private static func actuals() -> [String: Int] {
+        if let cachedActuals { return cachedActuals }
+        let decoded: [String: Int] = dictionary(actualKey) ?? [:]
+        cachedActuals = decoded
         return decoded
     }
 
@@ -180,6 +215,11 @@ enum ChallengeTimeStore {
     private static func saveDurations(_ map: [String: Int]) {
         save(map, key: durationKey)
         cachedDurations = map
+    }
+
+    private static func saveActuals(_ map: [String: Int]) {
+        save(map, key: actualKey)
+        cachedActuals = map
     }
 
     private static func saveMembers(_ map: [String: [String]]) {

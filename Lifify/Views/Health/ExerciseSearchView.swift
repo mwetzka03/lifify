@@ -14,8 +14,8 @@ struct ExerciseSearchView: View {
         NavigationStack {
             List {
                 Section {
-                    TextField(L("Name der Übung", "Exercise name"), text: $manualName)
-                    Button(L("Übung anlegen", "Create exercise")) {
+                    TextField(ExerciseSearchCopy.nameField, text: $manualName)
+                    Button(ExerciseSearchCopy.create) {
                         let name = manualName.trimmingCharacters(in: .whitespacesAndNewlines)
                         guard !name.isEmpty else { return }
                         onPick(WorkoutExerciseInfo(
@@ -31,6 +31,7 @@ struct ExerciseSearchView: View {
                 } header: {
                     Text(L("Eigene Übung", "Custom exercise"))
                 }
+                .appGlassRow()
                 Section {
                     if results.isEmpty {
                         Text(L("Keine Treffer", "No matches"))
@@ -62,7 +63,9 @@ struct ExerciseSearchView: View {
                 } header: {
                     Text(L("Datenbank", "Database"))
                 }
+                .appGlassRow()
             }
+            .appGlassList()
             .navigationTitle(L("Übung suchen", "Search exercise"))
             .navigationBarTitleDisplayMode(.inline)
             .searchable(text: $query, prompt: L("Name, z. B. Bench Press", "Name, for example Bench Press"))
@@ -73,4 +76,9 @@ struct ExerciseSearchView: View {
             }
         }
     }
+}
+
+enum ExerciseSearchCopy {
+    static var create: String { L("Übung anlegen", "Create exercise") }
+    static var nameField: String { L("Name der Übung", "Exercise name") }
 }

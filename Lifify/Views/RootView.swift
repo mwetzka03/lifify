@@ -16,6 +16,25 @@ struct RootView: View {
     @State private var selectedTab = 0
     @State private var financePath = NavigationPath()
 
+    @ViewBuilder
+    private func tabRoot(_ tab: AppTab) -> some View {
+        switch tab.tag {
+        case 1:
+            NavigationStack(path: $financePath) {
+                DashboardView(isMainTab: true, path: $financePath)
+                    .navigationDestination(for: FinanceRoute.self) { FinanceRouteScreen(route: $0) }
+            }
+        case 2:
+            NavigationStack { ChallengesView() }
+        case 3:
+            NavigationStack { HealthView() }
+        case 4:
+            NavigationStack { SettingsView() }
+        default:
+            NavigationStack { HomeView() }
+        }
+    }
+
     private var colorScheme: ColorScheme? {
         switch AppTheme(rawValue: theme) ?? .system {
         case .system: nil
@@ -26,37 +45,34 @@ struct RootView: View {
 
     var body: some View {
         TabView(selection: $selectedTab) {
-            NavigationStack { HomeView() }
-                .tabItem { Image(systemName: "house").accessibilityLabel(L("Home", "Home")) }
-                .tag(0)
-            NavigationStack(path: $financePath) {
-                DashboardView(isMainTab: true, path: $financePath)
-                    .navigationDestination(for: FinanceRoute.self) { FinanceRouteScreen(route: $0) }
+            ForEach(AppTabs.items(), id: \.tag) { tab in
+                tabRoot(tab)
+                    .tabItem { Image(systemName: tab.symbol).accessibilityLabel(tab.title) }
+                    .tag(tab.tag)
             }
-                .tabItem { Image(systemName: "eurosign.circle").accessibilityLabel(L("Finanzen", "Finance")) }
-                .tag(1)
-            NavigationStack { ChallengesView() }
-                .tabItem { Image(systemName: "target").accessibilityLabel(L("Challenges", "Challenges")) }
-                .tag(2)
-            NavigationStack { HealthView() }
-                .tabItem { Image(systemName: "leaf.fill").accessibilityLabel(L("Gesundheit", "Health")) }
-                .tag(3)
-            NavigationStack { SettingsView() }
-                .tabItem { Image(systemName: "gear").accessibilityLabel(L("Einstellungen", "Settings")) }
-                .tag(4)
         }
         .id(language)
         .environmentObject(workouts)
         .environmentObject(financeFilters)
         .preferredColorScheme(colorScheme)
+        .appAccentTint()
         .task {
             SavingsPlanRunner.bookDue(context: context)
             SavingsPlanFixedCosts.sync(context: context)
+            NutritionLedger.settle(context: context, sessions: workouts.sessions)
             await MarketDataService.refresh(holdings: holdings, context: context)
         }
         .onAppear { BirthdayBonusService.settle(context: context) }
         .onChange(of: developerMode) { BirthdayBonusService.settle(context: context) }
         .onChange(of: developerDay) { BirthdayBonusService.settle(context: context) }
+        .onReceive(NotificationCenter.default.publisher(for: Notification.Name.NSSystemTimeZoneDidChange)) { _ in
+            AppClock.rebaseSimulatedDayToCurrentTimeZone()
+            Task {
+                await DailyBriefingService.refresh(context: context)
+                await DailyBriefingService.scheduleAbstinence(context: context)
+                await DailyBriefingService.scheduleFollowUps(context: context)
+            }
+        }
         .task(id: scenePhase) {
             guard scenePhase == .active else { return }
             await EventKitSyncService().sync(
@@ -69,6 +85,7 @@ struct RootView: View {
             BirthdayBonusService.settle(context: context)
             await DailyBriefingService.refresh(context: context)
             await DailyBriefingService.scheduleAbstinence(context: context)
+            await DailyBriefingService.scheduleFollowUps(context: context)
         }
     }
 }

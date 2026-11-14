@@ -152,15 +152,17 @@ enum AbstinenceRules {
         return AbstinenceAwardPlan(days: days, milestones: milestones)
     }
 
-    /// The home card shows only the latest bonus whose date falls on this day.
-    /// Earlier steps, including ones nobody dismissed, stay off the card.
+    /// The home card shows the last bonus already reached today.
+    /// A later step on the same day stays hidden until its time has passed.
     static func currentNotices(
         _ notices: [AbstinenceNotice],
         on day: Date,
         calendar: Calendar = .current
     ) -> [AbstinenceNotice] {
-        let todays = notices.filter { calendar.isDate($0.date, inSameDayAs: day) }
-        let grouped = Dictionary(grouping: todays, by: \.challengeID)
+        let reached = notices.filter {
+            $0.date <= day && calendar.isDate($0.date, inSameDayAs: day)
+        }
+        let grouped = Dictionary(grouping: reached, by: \.challengeID)
         return grouped.keys.sorted { $0.uuidString < $1.uuidString }.compactMap { id in
             grouped[id]?.max { $0.date < $1.date }
         }

@@ -37,6 +37,7 @@ struct BudgetBreakdownView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+            .appGlassRow()
             Section(L("Einnahmen", "Income")) {
                 if snapshot.incomeLines.isEmpty {
                     Text(L("Keine passenden Einnahmen.", "No matching income."))
@@ -47,6 +48,7 @@ struct BudgetBreakdownView: View {
                 }
                 totalRow(snapshot.incomeLines.reduce(0) { $0 + $1.cents }, expense: false)
             }
+            .appGlassRow()
             Section(L("Einnahmeprognosen", "Income forecasts")) {
                 if snapshot.forecastLines.isEmpty {
                     Text(L("Keine offenen Prognosen.", "No open forecasts."))
@@ -64,6 +66,7 @@ struct BudgetBreakdownView: View {
                     }
                 }
             }
+            .appGlassRow()
             if snapshot.countsAllExpenses {
                 Section(L("Ausgaben", "Expenses")) {
                     if snapshot.expenseLines.isEmpty {
@@ -75,6 +78,7 @@ struct BudgetBreakdownView: View {
                     }
                     totalRow(snapshot.expenseLines.reduce(0) { $0 + $1.cents }, expense: true)
                 }
+                .appGlassRow()
             } else {
                 Section(L("Variable Budgets", "Variable budgets")) {
                     if snapshot.variableLines.isEmpty {
@@ -85,6 +89,7 @@ struct BudgetBreakdownView: View {
                         lineRow(line, color: .red)
                     }
                 }
+                .appGlassRow()
                 Section(L("Budgetpools", "Budget pools")) {
                     if snapshot.poolLines.isEmpty {
                         Text(L("Nichts verbraucht.", "Nothing spent."))
@@ -94,6 +99,7 @@ struct BudgetBreakdownView: View {
                         lineRow(line, color: .red)
                     }
                 }
+                .appGlassRow()
             }
             Section(L("Käufe und Sparpläne", "Purchases and savings plans")) {
                 if snapshot.purchaseLines.isEmpty {
@@ -105,7 +111,9 @@ struct BudgetBreakdownView: View {
                 }
                 totalRow(snapshot.purchaseLines.reduce(0) { $0 + $1.cents }, expense: true)
             }
+            .appGlassRow()
         }
+        .appGlassList()
         .navigationTitle(L("Budget", "Budget"))
         .navigationBarTitleDisplayMode(.inline)
         .sheet(item: $selected) { TransactionDetailView(entry: $0) }

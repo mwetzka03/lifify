@@ -12,98 +12,23 @@ enum HealthRoute: Hashable {
 struct HealthView: View {
     @Environment(\.modelContext) private var context
     @EnvironmentObject private var store: WorkoutStore
-    @Query(sort: \ChallengeItem.title) private var challenges: [ChallengeItem]
     @State private var editorPlan: WorkoutPlan?
-    @State private var showingAbstinence = false
-
-    private var abstinences: [ChallengeItem] {
-        challenges.filter { $0.category == .abstinence && !$0.isArchived }
-    }
+    @State private var selectedTile = 0
+    @State private var historyOpen = false
+    @Environment(\.colorScheme) private var scheme
+    @AppStorage(AppPalette.storageKey) private var paletteRaw = AppPalette.green.rawValue
 
     var body: some View {
-        List {
-            Section {
-                if store.plans.isEmpty {
-                    Text(L("Noch kein Trainingsplan.", "No workout plan yet."))
-                        .foregroundStyle(.secondary)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                if CardBoard.healthFiltersShareOneRow {
+                    healthFilter
                 }
-                ForEach(store.plans) { plan in
-                    NavigationLink(value: HealthRoute.plan(plan.id)) {
-                        HStack(spacing: 12) {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(plan.name)
-                                    .font(.body.weight(.semibold))
-                                Text(planSummary(plan))
-                                    .font(.subheadline)
-                                    .foregroundStyle(.secondary)
-                            }
-                            Spacer(minLength: 8)
-                            HStack(spacing: -10) {
-                                ForEach(plan.exercises.prefix(3)) { exercise in
-                                    ExerciseArtwork(code: exercise.code, name: exercise.name, side: 36, playsVideo: false)
-                                }
-                            }
-                        }
-                        .padding(.vertical, 4)
-                    }
-                    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                        Button(role: .destructive) {
-                            WorkoutLinkStore.removePlan(plan.id)
-                            store.deletePlan(id: plan.id)
-                        } label: {
-                            Label(L("Löschen", "Delete"), systemImage: "trash")
-                        }
-                    }
-                    .swipeActions(edge: .leading, allowsFullSwipe: false) {
-                        Button {
-                            editorPlan = plan
-                        } label: {
-                            Label(L("Bearbeiten", "Edit"), systemImage: "pencil")
-                        }
-                        .tint(.blue)
-                    }
-                }
-                Button {
-                    editorPlan = WorkoutPlan(name: "")
-                } label: {
-                    Label(L("Training anlegen", "Create workout"), systemImage: "plus")
-                }
-                NavigationLink(value: HealthRoute.historyList) {
-                    Label(L("Trainingsverlauf", "Workout history"), systemImage: "clock")
-                }
-            } header: {
-                sectionTitle(L("Training", "Training"))
+                selectedBoard
             }
-            Section {
-                if abstinences.isEmpty {
-                    Text(L("Noch keine Abstinenz.", "No abstinence yet."))
-                        .foregroundStyle(.secondary)
-                }
-                ForEach(abstinences) { challenge in
-                    NavigationLink(value: HealthRoute.abstinence(challenge.id)) {
-                        AbstinenceSummary(challenge: challenge)
-                    }
-                }
-                Button {
-                    showingAbstinence = true
-                } label: {
-                    Label(L("Abstinenz anlegen", "Create abstinence"), systemImage: "plus")
-                }
-            } header: {
-                sectionTitle(L("Abstinenz", "Abstinence"))
-            } footer: {
-                Text(L(
-                    "Der Timer zählt, wie lange du etwas lässt. Jeder Tag zahlt die Coins der Challenge, und die Zeitstufen zahlen einen Bonus.",
-                    "The timer counts how long you have gone without something. Each day pays the challenge’s coins, and the time steps pay a bonus."
-                ))
-            }
-            Section {
-                Text(L("Noch nicht verfügbar", "Not available yet"))
-                    .foregroundStyle(.secondary)
-            } header: {
-                sectionTitle(L("Ernährung", "Nutrition"))
-            }
+            .padding(16)
         }
+        .appGlassCanvas()
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         .navigationDestination(for: HealthRoute.self) { HealthRouteScreen(route: $0) }
@@ -111,19 +36,182 @@ struct HealthView: View {
             WorkoutEditorView(plan: plan)
                 .environmentObject(store)
         }
-        .sheet(isPresented: $showingAbstinence) {
-            ChallengeForm(challenge: nil, presetCategory: .abstinence)
-        }
         .onAppear {
             Task { await WorkoutCalendarSync.cleanup(context: context, sessions: store.sessions) }
         }
     }
 
-    private func sectionTitle(_ title: String) -> some View {
-        Text(title)
-            .font(.title3.weight(.semibold))
-            .foregroundStyle(.primary)
-            .textCase(nil)
+    private var healthFilter: some View {
+        let titles = HealthScreen.sectionTitles()
+        let appearance = AppAppearance(scheme)
+        let palette = AppPalette.resolved(paletteRaw)
+        let accent = AppLook.accent(appearance, palette: palette).color()
+        return HStack(spacing: 4) {
+            ForEach(Array(titles.enumerated()), id: \.offset) { index, title in
+                let selected = selectedTile == index
+                Button {
+                    selectedTile = index
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: CardBoard.healthSymbol(matching: title))
+                        Text(title)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
+                    }
+                    .font(.subheadline.weight(.semibold))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 8)
+                    .foregroundStyle(selected ? accent : Color.secondary)
+                    .background(selected ? accent.opacity(0.18) : Color.clear, in: Capsule())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(4)
+        .background(AppLook.cardFill(appearance, palette: palette).color(), in: Capsule())
+        .overlay(Capsule().strokeBorder(AppLook.cardStroke(appearance, palette: palette).color(), lineWidth: 1))
+    }
+
+    @ViewBuilder
+    private var selectedBoard: some View {
+        if selectedTile == 1 {
+            NutritionBoard()
+        } else {
+            trainingBoard
+        }
+    }
+
+    private var trainingBoard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Button {
+                editorPlan = WorkoutPlan(name: "")
+            } label: {
+                Label(L("Training anlegen", "Create workout"), systemImage: "plus")
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(14)
+                    .appGlassCard(radius: 18)
+            }
+            .buttonStyle(.plain)
+            if store.plans.isEmpty {
+                Text(L("Noch kein Trainingsplan.", "No workout plan yet."))
+                    .foregroundStyle(.secondary)
+            }
+            trainingPlans
+            workoutHistory
+        }
+    }
+
+    private var workoutHistory: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Button {
+                withAnimation { historyOpen.toggle() }
+            } label: {
+                HStack {
+                    Label(L("Trainingsverlauf", "Workout history"), systemImage: "clock")
+                    Spacer()
+                    Image(systemName: historyOpen ? "chevron.up" : "chevron.down")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(14)
+                .appGlassCard(radius: 18)
+            }
+            .buttonStyle(.plain)
+            if historyOpen {
+                if store.sessions.isEmpty {
+                    Text(L("Noch kein abgeschlossenes Training.", "No finished workout yet."))
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 4)
+                }
+                ForEach(store.sessions) { session in
+                    historyRow(session)
+                }
+            }
+        }
+    }
+
+    private func historyRow(_ session: WorkoutSession) -> some View {
+        NavigationLink(value: HealthRoute.history(session.id)) {
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(session.planName)
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(.primary)
+                    Text("\(AppDate.numeric(session.finishedAt)) · \(WorkoutFormat.duration(seconds: session.durationSeconds)) · \(WorkoutProgress.volumeText(WorkoutProgress.volume(of: session)))")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 8)
+                if !WorkoutProgress.personalRecords(in: session, sessions: store.sessions).isEmpty {
+                    RecordBadge()
+                }
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .appGlassCard(radius: 18)
+        }
+        .buttonStyle(.plain)
+        .contextMenu {
+            Button(role: .destructive) {
+                store.deleteSession(id: session.id)
+            } label: {
+                Label(L("Löschen", "Delete"), systemImage: "trash")
+            }
+        }
+    }
+
+    private var trainingPlans: some View {
+        let plans = store.plans
+        let columns = CardBoard.challengeColumnCount
+        let pairCount = plans.count - plans.count % columns
+        return VStack(spacing: 10) {
+            ForEach(Array(stride(from: 0, to: pairCount, by: columns)), id: \.self) { start in
+                EqualHeightPair {
+                    planCard(plans[start], sharesRow: true)
+                    planCard(plans[start + 1], sharesRow: true)
+                }
+            }
+            if let last = plans.last, CardBoard.spansFullWidth(index: plans.count - 1, count: plans.count) {
+                planCard(last, sharesRow: false)
+            }
+        }
+    }
+
+    private func planCard(_ plan: WorkoutPlan, sharesRow: Bool) -> some View {
+        NavigationLink(value: HealthRoute.plan(plan.id)) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text(plan.name)
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(.primary)
+                    .lineLimit(2)
+                Text(planSummary(plan))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                HStack(spacing: -8) {
+                    ForEach(plan.exercises.prefix(3)) { exercise in
+                        ExerciseArtwork(code: exercise.code, name: exercise.name, side: 28, playsVideo: false)
+                    }
+                }
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, minHeight: 120, alignment: .topLeading)
+            .modifier(PlanCardChrome(sharesRow: sharesRow))
+        }
+        .buttonStyle(.plain)
+        .contextMenu {
+            Button {
+                editorPlan = plan
+            } label: {
+                Label(L("Bearbeiten", "Edit"), systemImage: "pencil")
+            }
+            Button(role: .destructive) {
+                WorkoutLinkStore.removePlan(plan.id)
+                store.deletePlan(id: plan.id)
+            } label: {
+                Label(L("Löschen", "Delete"), systemImage: "trash")
+            }
+        }
     }
 
     private func planSummary(_ plan: WorkoutPlan) -> String {
@@ -219,12 +307,12 @@ struct WorkoutPlanDetailView: View {
                             }
                             .padding(14)
                             .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(AppSurface.card, in: RoundedRectangle(cornerRadius: 16))
+                            .appGlassCard(radius: 16)
                         }
                     }
                     .padding(12)
                 }
-                .appCanvas()
+                .appGlassCanvas()
                 .navigationTitle(plan.name)
                 .toolbar {
                     Button(L("Bearbeiten", "Edit")) { editorPlan = plan }
@@ -296,12 +384,12 @@ struct WorkoutHistoryView: View {
                             }
                             .padding(14)
                             .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(AppSurface.card, in: RoundedRectangle(cornerRadius: 16))
+                            .appGlassCard(radius: 16)
                         }
                     }
                     .padding(12)
                 }
-                .appCanvas()
+                .appGlassCanvas()
                 .navigationTitle(session.planName)
             } else {
                 ContentUnavailableView(L("Training nicht gefunden", "Workout not found"), systemImage: "clock")
@@ -318,6 +406,7 @@ struct WorkoutHistoryListView: View {
             if store.sessions.isEmpty {
                 Text(L("Noch kein abgeschlossenes Training.", "No finished workout yet."))
                     .foregroundStyle(.secondary)
+                    .appGlassRow()
             }
             ForEach(store.sessions) { session in
                 NavigationLink(value: HealthRoute.history(session.id)) {
@@ -344,9 +433,24 @@ struct WorkoutHistoryListView: View {
                     }
                 }
             }
+            .appGlassRow()
         }
+        .appGlassList()
         .navigationTitle(L("Trainingsverlauf", "Workout history"))
         .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+private struct PlanCardChrome: ViewModifier {
+    var sharesRow: Bool
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if sharesRow {
+            content.equalPairCard(radius: 18)
+        } else {
+            content.appGlassCard(radius: 18)
+        }
     }
 }
 

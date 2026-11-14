@@ -54,9 +54,11 @@ struct FixedCostsView: View {
                 NavigationLink(value: FinanceRoute.savingsPlans) {
                     savingsSummaryRow
                 }
+                .appGlassRow()
             }
             ForEach(regularCosts) { cost in
                 costRow(cost)
+                    .appGlassRow()
             }
             .onDelete { offsets in
                 offsets.map { regularCosts[$0] }.forEach(delete)
@@ -67,6 +69,7 @@ struct FixedCostsView: View {
                 ContentUnavailableView(L("Keine Fixkosten", "No fixed costs"), systemImage: "repeat")
             }
         }
+        .appGlassList()
         .navigationTitle(L("Fixkosten", "Fixed costs"))
         .toolbar {
             Button { showingNew = true } label: { Image(systemName: "plus") }
@@ -86,7 +89,7 @@ struct FixedCostsView: View {
             selected = cost
         } label: {
             HStack {
-                Image(systemName: savings ? BookingCategory.savingsPlan.systemImage : IconPreferenceStore.icon(for: cost.id, fallback: "repeat"))
+                AppSymbolImage(name: savings ? BookingCategory.savingsPlan.systemImage : IconPreferenceStore.icon(for: cost.id, fallback: "repeat"))
                     .frame(width: 28)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(savings ? SavingsPlanFixedCosts.planName(inFixedCostName: cost.name) : cost.name)
@@ -107,7 +110,7 @@ struct FixedCostsView: View {
             } label: {
                 Label(L("Bearbeiten", "Edit"), systemImage: "pencil")
             }
-            .tint(.blue)
+            .appAccentTint()
         }
     }
 
@@ -239,6 +242,7 @@ struct FixedCostForm: View {
                 }
                 Toggle(L("Aktiv", "Active"), isOn: $active)
             }
+            .appGlassList()
             .navigationTitle(existing == nil ? L("Neue Fixkosten", "New fixed cost") : L("Fixkosten bearbeiten", "Edit fixed cost"))
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button(L("Abbrechen", "Cancel")) { dismiss() } }

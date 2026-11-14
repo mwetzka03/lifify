@@ -3,6 +3,19 @@ import SwiftData
 import SwiftUI
 import UniformTypeIdentifiers
 
+enum OnboardingSteps {
+    static var title: String { L("Lifify einrichten", "Set up Lifify") }
+    static var start: String { L("Wie möchtest du starten?", "How would you like to start?") }
+    static var newSetup: String { L("Neu einrichten", "Set up as new") }
+    static var restore: String { L("JSON-Sicherung laden", "Restore JSON backup") }
+    static var welcome: String { L("Willkommen", "Welcome") }
+    static var period: String { L("Budgetzeitraum", "Budget period") }
+    static var account: String { L("Hauptkonto", "Main account") }
+    static var bank: String { L("Hauptkonto importieren (optional)", "Import the main account (optional)") }
+    static var tradeRepublic: String { "Trade Republic" }
+    static var secondaryIncome: String { L("Nebeneinnahmen (optional)", "Secondary income (optional)") }
+}
+
 private struct SecondaryIncomeDraft: Identifiable {
     let id = UUID()
     var rowID: UUID?
@@ -29,6 +42,10 @@ struct OnboardingView: View {
     @State private var birthDate = UserProfile.birthDate() ?? UserProfile.suggestedDate()
     @State private var initialBirth = UserProfile.birthDate() ?? UserProfile.suggestedDate()
     @State private var birthConfirmed = UserProfile.birth() != nil
+    @State private var heightText = UserBody.heightText()
+    @State private var weightText = UserBody.weightText()
+    @State private var sex = UserBody.current().sex
+    @State private var goal = UserBody.current().goal
     @State private var periodMode = DashboardPeriodMode.calendarMonth
     @State private var accountName = ""
     @State private var accountIBAN = ""
@@ -77,8 +94,9 @@ struct OnboardingView: View {
                     default: incomeStep
                     }
                 }
+                .appGlassList()
             }
-            .navigationTitle(L("Lifify einrichten", "Set up Lifify"))
+            .navigationTitle(OnboardingSteps.title)
             .navigationBarTitleDisplayMode(.inline)
             .fileImporter(
                 isPresented: $importingBackup,
@@ -137,9 +155,11 @@ struct OnboardingView: View {
             .pickerStyle(.inline)
             .labelsHidden()
         }
+        .appGlassRow()
         Section {
             nextButton { step = 1 }
         }
+        .appGlassRow()
     }
 
     @ViewBuilder
@@ -148,16 +168,17 @@ struct OnboardingView: View {
             Button {
                 step = 2
             } label: {
-                Label(L("Neu einrichten", "Set up as new"), systemImage: "sparkles")
+                Label(OnboardingSteps.newSetup, systemImage: "sparkles")
             }
             Button {
                 importingBackup = true
             } label: {
-                Label(L("JSON-Sicherung laden", "Restore JSON backup"), systemImage: "square.and.arrow.down")
+                Label(OnboardingSteps.restore, systemImage: "square.and.arrow.down")
             }
         } header: {
-            Text(L("Wie möchtest du starten?", "How would you like to start?"))
+            Text(OnboardingSteps.start)
         }
+        .appGlassRow()
     }
 
     @ViewBuilder
@@ -175,41 +196,64 @@ struct OnboardingView: View {
                     birthConfirmed = true
                 }
             }
+            HStack {
+                TextField("0", text: $heightText)
+                    .keyboardType(.decimalPad)
+                Text(L("Zentimeter", "Centimetres"))
+                    .foregroundStyle(.secondary)
+            }
+            HStack {
+                TextField("0", text: $weightText)
+                    .keyboardType(.decimalPad)
+                Text(L("Kilogramm", "Kilograms"))
+                    .foregroundStyle(.secondary)
+            }
+            Picker(L("Geschlecht", "Sex"), selection: $sex) {
+                ForEach(BodySex.allCases) { Text($0.label).tag($0) }
+            }
+            Picker(L("Ziel", "Goal"), selection: $goal) {
+                ForEach(BodyGoal.allCases) { Text($0.label).tag($0) }
+            }
         } header: {
-            Text(L("Willkommen", "Welcome"))
+            Text(OnboardingSteps.welcome)
         } footer: {
             Text(L(
-                "Der Name wird nur lokal für deine Begrüßung verwendet. Stell das Geburtsdatum auf deinen Tag, dann geht es weiter. Am Geburtstag gibt es einmal im Jahr 500 Coins. Der 29. Februar fällt in einem Jahr ohne diesen Tag auf den 28. Februar.",
-                "The name is stored locally only for your greeting. Set the date of birth to your day, then you can continue. Your birthday pays 500 coins once each year. In a year without 29 February, that birthday falls on 28 February."
+                "Der Name wird nur lokal für deine Begrüßung verwendet. Stell das Geburtsdatum auf deinen Tag, dann geht es weiter. Größe, Gewicht und Ziel kannst du auch später unter Nutzereinstellungen setzen. Sie bestimmen das Kalorienziel. Am Geburtstag gibt es einmal im Jahr 500 Coins.",
+                "The name is stored locally only for your greeting. Set the date of birth to your day, then you can continue. Height, weight, and the goal can also be set later under User settings. They set the calorie target. Your birthday pays 500 coins once each year."
             ))
         }
+        .appGlassRow()
         Section {
             nextButton {
                 storedName = userName.trimmingCharacters(in: .whitespacesAndNewlines)
                 UserProfile.setBirthDate(birthDate)
+                UserBody.save(heightText: heightText, weightText: weightText, sex: sex, goal: goal)
                 step = 3
             }
             .disabled(userName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !birthConfirmed)
         }
+        .appGlassRow()
     }
 
     @ViewBuilder
     private var periodStep: some View {
         Section {
-            Picker(L("Budgetzeitraum", "Budget period"), selection: $periodMode) {
+            Picker(OnboardingSteps.period, selection: $periodMode) {
                 ForEach(DashboardPeriodMode.allCases) { Text($0.label).tag($0) }
             }
             .pickerStyle(.inline)
             .labelsHidden()
         } header: {
-            Text(L("Budgetzeitraum", "Budget period"))
+            Text(OnboardingSteps.period)
         }
+        .appGlassRow()
         Section {
             nextButton {
                 storedPeriod = periodMode.rawValue
                 step = 4
             }
         }
+        .appGlassRow()
     }
 
     @ViewBuilder
@@ -220,16 +264,18 @@ struct OnboardingView: View {
                 .textInputAutocapitalization(.characters)
                 .autocorrectionDisabled()
         } header: {
-            Text(L("Hauptkonto", "Main account"))
+            Text(OnboardingSteps.account)
         } footer: {
             Text(L("Das Hauptkonto ist verpflichtend und kann später nicht gelöscht werden.", "The main account is required and cannot be deleted later."))
         }
+        .appGlassRow()
         Section {
             nextButton {
                 if saveMainAccount() { step = 5 }
             }
             .disabled(accountName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         }
+        .appGlassRow()
     }
 
     @ViewBuilder
@@ -266,13 +312,14 @@ struct OnboardingView: View {
                 .foregroundStyle(.green)
             }
         } header: {
-            Text(L("Hauptkonto importieren (optional)", "Import the main account (optional)"))
+            Text(OnboardingSteps.bank)
         } footer: {
             Text(L(
                 "CSV und CAMT landen auf dem Hauptkonto und legen den ersten Zeitraum fest. Der Trade-Republic-Auszug folgt als eigener Schritt.",
                 "CSV and CAMT go to the main account and define the first period. The Trade Republic statement follows as its own step."
             ))
         }
+        .appGlassRow()
         Section {
             if !importedRows.isEmpty {
                 nextButton { step = 6 }
@@ -283,6 +330,7 @@ struct OnboardingView: View {
             }
             .disabled(!importedRows.isEmpty)
         }
+        .appGlassRow()
     }
 
     @ViewBuilder
@@ -353,13 +401,14 @@ struct OnboardingView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
         } header: {
-            Text("Trade Republic")
+            Text(OnboardingSteps.tradeRepublic)
         } footer: {
             Text(L(
                 "Kein Zielkonto. Buchungen vor dem Start des ersten Zeitraums werden nicht angelegt, danach schon. Der Startsaldo ist der Saldo aus der rechten Spalte am Starttag, sonst vom letzten Tag davor.",
                 "No destination account. Transactions before the start of the first period are not booked; later ones are. The opening balance is the right-hand balance on the start day, or from the previous day."
             ))
         }
+        .appGlassRow()
         Section {
             if tradeRepublicImported {
                 nextButton { step = 7 }
@@ -370,6 +419,7 @@ struct OnboardingView: View {
             }
             .disabled(tradeRepublicImported)
         }
+        .appGlassRow()
     }
 
     @ViewBuilder
@@ -397,6 +447,7 @@ struct OnboardingView: View {
                 Stepper("\(L("Kalendertag", "Calendar day")): \(dueDay)", value: $dueDay, in: 1...31)
             }
         }
+        .appGlassRow()
         Section {
             Button {
                 secondaryDrafts.append(SecondaryIncomeDraft())
@@ -404,8 +455,9 @@ struct OnboardingView: View {
                 Label(L("Nebeneinnahme hinzufügen", "Add secondary income"), systemImage: "plus")
             }
         } header: {
-            Text(L("Nebeneinnahmen (optional)", "Secondary income (optional)"))
+            Text(OnboardingSteps.secondaryIncome)
         }
+        .appGlassRow()
         ForEach($secondaryDrafts) { draft in
             Section {
                 if !positiveRows.isEmpty {
@@ -433,6 +485,7 @@ struct OnboardingView: View {
                     secondaryDrafts.removeAll { $0.id == draft.wrappedValue.id }
                 }
             }
+            .appGlassRow()
         }
         Section {
             Button {
@@ -446,6 +499,7 @@ struct OnboardingView: View {
             }
             .disabled(!canFinish || isFinishing)
         }
+        .appGlassRow()
     }
 
     private var positiveRows: [ImportedTransaction] {

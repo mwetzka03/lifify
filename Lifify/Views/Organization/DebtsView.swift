@@ -12,6 +12,7 @@ struct DebtsView: View {
                 LabeledContent(L("Bekomme ich", "Owed to me"), value: Money.string(cents: total(.owedToMe)))
                 LabeledContent(L("Schulde ich", "I owe"), value: Money.string(cents: total(.iOwe)))
             }
+            .appGlassRow()
             ForEach(debts) { debt in
                 HStack {
                     Button {
@@ -27,12 +28,14 @@ struct DebtsView: View {
                     Spacer()
                     Text(Money.string(cents: debt.amountCents))
                 }
+                .appGlassRow()
             }
             .onDelete { offsets in
                 offsets.map { debts[$0] }.forEach(context.delete)
                 try? context.save()
             }
         }
+        .appGlassList()
         .navigationTitle(L("Schulden", "Debts"))
         .toolbar { Button { showingNew = true } label: { Image(systemName: "plus") } }
         .sheet(isPresented: $showingNew) { DebtForm() }
@@ -63,6 +66,7 @@ private struct DebtForm: View {
                 }
                 AppDateField(title: L("Datum", "Date"), selection: $date)
             }
+            .appGlassList()
             .navigationTitle(L("Neue Schuld", "New debt"))
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button(L("Abbrechen", "Cancel")) { dismiss() } }

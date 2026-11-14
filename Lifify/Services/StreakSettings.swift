@@ -6,7 +6,7 @@ import Foundation
 enum StreakSettings {
     static let revisionKey = "lifify.streakRevision"
     static let freezeFactorKey = "lifify.streakFreezeFactor"
-    static let thresholds = [5, 10, 15, 20, 25, 50, 100, 200, 250, 500, 1000]
+    nonisolated static let thresholds = [5, 10, 15, 20, 25, 50, 100, 200, 250, 500, 1000]
     static let defaultMultipliers: [Int: Double] = [
         5: 1.1,
         10: 1.2,
@@ -50,7 +50,7 @@ enum StreakSettings {
 
     static func balance(for challengeID: UUID) -> Int {
         guard let state = states()[challengeID.uuidString], state.enabled else { return 0 }
-        return max(0, 2 + state.purchased - state.usedPeriodKeys.count)
+        return max(0, StreakFreeze.startingCount + state.purchased - state.usedPeriodKeys.count)
     }
 
     static var freezeFactor: Int {

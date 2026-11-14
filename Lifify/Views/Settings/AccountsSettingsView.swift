@@ -19,12 +19,13 @@ struct AccountsSettingsView: View {
                             Text(accountSubtitle(account)).font(.caption).foregroundStyle(.secondary)
                         }
                         if account.isMain {
-                            Text(L("Hauptkonto", "Main")).font(.caption).foregroundStyle(.blue)
+                            Text(L("Hauptkonto", "Main")).font(.caption).appAccentForeground()
                         }
                         Spacer()
                         Image(systemName: account.isLiquid ? "drop.fill" : "drop")
                     }
                 }
+                .appGlassRow()
                 .deleteDisabled(account.isMain)
             }
             .onDelete { offsets in
@@ -44,6 +45,7 @@ struct AccountsSettingsView: View {
         .overlay {
             if accounts.isEmpty { ContentUnavailableView(L("Keine Konten", "No accounts"), systemImage: "building.columns") }
         }
+        .appGlassList()
         .navigationTitle(L("Konten", "Accounts"))
         .toolbar { Button { showingNew = true } label: { Image(systemName: "plus") } }
         .sheet(isPresented: $showingNew) { AccountForm(account: nil, allAccounts: accounts) }
@@ -88,6 +90,7 @@ private struct AccountForm: View {
     var body: some View {
         NavigationStack {
             Form {
+                Section {
                 TextField(L("Name", "Name"), text: $name)
                 Picker(L("Kontotyp", "Account type"), selection: $kind) {
                     ForEach(AccountKind.allCases) { Text($0.label).tag($0) }
@@ -123,7 +126,10 @@ private struct AccountForm: View {
                 if let validationMessage {
                     Text(validationMessage).foregroundStyle(.red)
                 }
+                }
+                .appGlassRow()
             }
+            .appGlassList()
             .navigationTitle(L("Konto", "Account"))
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button(L("Abbrechen", "Cancel")) { dismiss() } }

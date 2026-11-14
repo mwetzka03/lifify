@@ -23,6 +23,7 @@ struct WalletView: View {
                 )
                 LabeledContent(L("Käufe", "Purchases"), value: "\(purchases.count)")
             }
+            .appGlassRow()
 
             Section(L("Transaktionen", "Transactions")) {
                 ForEach(transactions) { transaction in
@@ -41,6 +42,7 @@ struct WalletView: View {
                     }
                 }
             }
+            .appGlassRow()
 
             Section(L("Käufe", "Purchases")) {
                 ForEach(purchases) { purchase in
@@ -51,7 +53,9 @@ struct WalletView: View {
                     }
                 }
             }
+            .appGlassRow()
         }
+        .appGlassList()
         .navigationTitle(L("Wallet", "Wallet"))
     }
 }

@@ -2,9 +2,12 @@ import Foundation
 
 @MainActor
 enum CalendarService {
+    /// The device time zone, including a change while the app is open. Matches Calendar and Clock.
+    static var timeZone: TimeZone { .autoupdatingCurrent }
+
     private static var calendar: Calendar {
         var value = Calendar(identifier: .gregorian)
-        value.timeZone = TimeZone(identifier: "Europe/Berlin") ?? .current
+        value.timeZone = timeZone
         return value
     }
 
@@ -76,7 +79,7 @@ enum CalendarService {
         let formatter = DateFormatter()
         formatter.calendar = Calendar(identifier: .gregorian)
         formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.timeZone = TimeZone(identifier: "Europe/Berlin")
+        formatter.timeZone = timeZone
         formatter.dateFormat = "yyyy-MM-dd"
         return formatter.date(from: key)
     }

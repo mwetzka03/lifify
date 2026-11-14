@@ -33,15 +33,17 @@ struct TransferForecastsView: View {
                     Button { edited = forecast } label: {
                         Label(L("Bearbeiten", "Edit"), systemImage: "pencil")
                     }
-                    .tint(.blue)
+                    .appAccentTint()
                 }
             }
+            .appGlassRow()
         }
         .overlay {
             if forecasts.isEmpty {
                 ContentUnavailableView(L("Keine Umbuchungsprognosen", "No transfer forecasts"), systemImage: "arrow.left.arrow.right")
             }
         }
+        .appGlassList()
         .navigationTitle(L("Umbuchungsprognosen", "Transfer forecasts"))
         .toolbar { Button { showingNew = true } label: { Image(systemName: "plus") } }
         .onAppear { reload() }
@@ -109,6 +111,7 @@ struct TransferForecastForm: View {
                     Stepper("\(L("Tag", "Day")): \(day)", value: $day, in: 1...31)
                 }
             }
+            .appGlassList()
             .navigationTitle(existing == nil ? L("Neue Umbuchungsprognose", "New transfer forecast") : L("Umbuchungsprognose bearbeiten", "Edit transfer forecast"))
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button(L("Abbrechen", "Cancel")) { dismiss() } }

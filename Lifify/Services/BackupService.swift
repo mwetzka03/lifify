@@ -68,11 +68,20 @@ struct BackupDocument: FileDocument {
     }
 }
 
-enum BackupScope: String {
+enum BackupScope: String, CaseIterable {
     case all
     case finance
     case challenges
     case training
+
+    var exportFilenamePrefix: String {
+        switch self {
+        case .all: "Lifify"
+        case .finance: "Lifify-Finanzen"
+        case .challenges: "Lifify-Challenges"
+        case .training: "Lifify-Training"
+        }
+    }
 }
 
 @MainActor
@@ -88,7 +97,7 @@ enum BackupService {
         "workoutChallengeLink", "workoutEventLink", "streakState", "streakMultiplier", "streakFreezeFactor",
         "abstinenceDifficulty", "abstinenceAwarded", "abstinenceMultiplier",
         "abstinenceRelapse", "abstinenceNotice", "abstinenceException", "abstinenceRewardLink",
-        "challengeDuration", "challengeTimeMembers", "challengeTimePlanned",
+        "challengeDuration", "challengeActual", "challengeTimeMembers", "challengeTimePlanned",
         "customCategory"
     ]
     private static let sideTypes: Set<String> = [
@@ -96,7 +105,7 @@ enum BackupService {
         "rewardPolicy", "reminderSync", "streakState", "streakMultiplier", "streakFreezeFactor",
         "abstinenceDifficulty", "abstinenceAwarded", "abstinenceMultiplier",
         "abstinenceRelapse", "abstinenceNotice", "abstinenceException", "abstinenceRewardLink",
-        "challengeDuration", "challengeTimeMembers", "challengeTimePlanned",
+        "challengeDuration", "challengeActual", "challengeTimeMembers", "challengeTimePlanned",
         "customCategory", "briefingWeekday",
         "primaryIncome", "secondaryIncome", "incomeAssignment", "expenseGroupAssignment",
         "workoutChallengeLink", "workoutEventLink", "appPreferences", "backupScope", "workoutSnapshot"
@@ -182,7 +191,7 @@ enum BackupService {
             BackupRecord(type: "challengeEvent", id: $0.id, strings: [$0.title, $0.details, $0.colorHex, $0.icon, $0.externalIdentifier ?? ""], booleans: [$0.isAllDay, $0.isReadOnly], dates: [$0.startDate, $0.endDate], uuids: [$0.linkedChallengeID, $0.linkedChallengeGroupID, $0.linkedRewardID])
         }
         records += challenges.map {
-            BackupRecord(type: "challenge", id: $0.id, strings: [$0.title, $0.details, $0.categoryRaw, $0.recurrenceRaw, $0.weeklyDays, $0.externalIdentifier ?? ""], integers: [$0.rewardCoins, $0.streakTarget], booleans: [$0.isArchived, $0.isReadOnly], dates: [$0.startDate, $0.endDate, $0.createdAt], uuids: [$0.groupID])
+            BackupRecord(type: "challenge", id: $0.id, strings: [$0.title, $0.details, $0.categoryRaw, $0.recurrenceRaw, $0.weeklyDays, $0.externalIdentifier ?? "", $0.groupIDsRaw], integers: [$0.rewardCoins, $0.streakTarget], booleans: [$0.isArchived, $0.isReadOnly], dates: [$0.startDate, $0.endDate, $0.createdAt], uuids: [$0.groupID])
         }
         records += challenges.compactMap { challenge in
             guard let externalIdentifier = challenge.externalIdentifier,
@@ -300,7 +309,13 @@ enum BackupService {
                 defaults.string(forKey: "appLanguage") ?? "de",
                 defaults.string(forKey: "appTheme") ?? AppTheme.system.rawValue,
                 UserProfile.birthRaw(defaults: defaults),
-                UserProfile.awardedYearRaw(defaults: defaults)
+                UserProfile.awardedYearRaw(defaults: defaults),
+                defaults.string(forKey: AppPalette.storageKey) ?? AppPalette.green.rawValue,
+                UserBody.heightText(defaults: defaults),
+                UserBody.weightText(defaults: defaults),
+                UserBody.current(defaults: defaults).sex.rawValue,
+                UserBody.current(defaults: defaults).goal.rawValue,
+                MealLog.exportJSON(defaults: defaults)
             ]
         ))
         records = scopedRecords(
@@ -406,6 +421,8 @@ enum BackupService {
         ChallengeCategoryStore.reset()
         LififyNotifications.resetWeekdayClocks()
         UserProfile.reset()
+        UserBody.reset()
+        MealLog.reset()
     }
 
     @MainActor
@@ -710,6 +727,7 @@ enum BackupService {
         case "challenge":
             let rawCategory = string(2)
             let challenge = ChallengeItem(id: r.id, title: string(0), details: string(1), category: ChallengeCategory(rawValue: rawCategory) ?? .other, recurrence: ChallengeRecurrence(rawValue: string(3)) ?? .none, startDate: date(0), endDate: date(1), weeklyDays: Set(string(4).split(separator: ",").compactMap { Int($0) }), rewardCoins: int(0), streakTarget: int(1), groupID: uuid(0), isArchived: bool(0), externalIdentifier: string(5).isEmpty ? nil : string(5), isReadOnly: bool(1), createdAt: date(2) ?? .now)
+            if !string(6).isEmpty { challenge.groupIDsRaw = string(6) }
             if !rawCategory.isEmpty { challenge.categoryRaw = rawCategory }
             context.insert(challenge)
         case "completion":
@@ -774,11 +792,22 @@ enum BackupService {
         case "backupScope", "workoutSnapshot":
             break
         case "appPreferences":
+            UserBody.reset()
+            MealLog.reset()
             UserDefaults.standard.set(string(0), forKey: "userName")
             UserDefaults.standard.set(string(1), forKey: "dashboardPeriodMode")
             UserDefaults.standard.set(string(2), forKey: "appLanguage")
             UserDefaults.standard.set(string(3), forKey: "appTheme")
             UserProfile.restore(birthRaw: string(4), awardedYearRaw: string(5))
+            if AppPalette(rawValue: string(6)) != nil {
+                UserDefaults.standard.set(string(6), forKey: AppPalette.storageKey)
+            }
+            if r.strings.count > 7 {
+                UserBody.restore(height: string(7), weight: string(8), sex: string(9), goal: string(10))
+            }
+            if !string(11).isEmpty {
+                MealLog.restore(json: string(11))
+            }
         case "streakState":
             StreakSettings.restoreState(r)
         case "streakMultiplier":
@@ -801,6 +830,8 @@ enum BackupService {
             AbstinenceSettings.restoreRewardLink(r)
         case "challengeDuration":
             ChallengeTimeStore.restoreDuration(r)
+        case "challengeActual":
+            ChallengeTimeStore.restoreActual(r)
         case "challengeTimeMembers":
             ChallengeTimeStore.restoreMembers(r)
         case "challengeTimePlanned":

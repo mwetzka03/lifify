@@ -52,6 +52,7 @@ struct WorkoutSessionView: View {
                 }
                 .listRowBackground(Color.clear)
             }
+            .appGlassRow()
             if draft.exercises.isEmpty {
                 ContentUnavailableView(
                     L("Keine Übungen", "No exercises"),
@@ -88,12 +89,13 @@ struct WorkoutSessionView: View {
                             }
                     }
                 }
+                .appGlassRow()
             }
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
         .scrollDismissesKeyboard(.interactively)
-        .appCanvas()
+        .appGlassCanvas()
         .navigationTitle(L("Training", "Workout"))
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(true)
@@ -208,7 +210,7 @@ struct WorkoutSessionView: View {
                 Text("\(setIndex + 1)")
                     .font(.body.weight(.semibold))
                     .frame(width: 36, height: 36)
-                    .background(AppSurface.canvas, in: RoundedRectangle(cornerRadius: 8))
+                    .appTintedPlate(radius: 8)
                 VStack(alignment: .leading, spacing: 2) {
                     if let previous = WorkoutProgress.previousPerformance(
                         sessions: store.sessions,
@@ -237,14 +239,14 @@ struct WorkoutSessionView: View {
                     .multilineTextAlignment(.center)
                     .font(.body.weight(.semibold))
                     .frame(width: 64, height: 36)
-                    .background(AppSurface.canvas, in: RoundedRectangle(cornerRadius: 8))
+                    .appTintedPlate(radius: 8)
                 TextField("0", text: repsBinding(set.id))
                     .keyboardType(.numberPad)
                     .textFieldStyle(.plain)
                     .multilineTextAlignment(.center)
                     .font(.body.weight(.semibold))
                     .frame(width: 52, height: 36)
-                    .background(AppSurface.canvas, in: RoundedRectangle(cornerRadius: 8))
+                    .appTintedPlate(radius: 8)
                 Button { toggle(exerciseIndex: exerciseIndex, setIndex: setIndex) } label: {
                     Image(systemName: set.completed ? "checkmark.circle.fill" : "circle")
                         .font(.title2)
@@ -468,6 +470,7 @@ private struct WorkoutFinishSheet: View {
                 .padding(20)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
+            .appGlassList()
             .navigationTitle(L("Training fertig", "Workout finished"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

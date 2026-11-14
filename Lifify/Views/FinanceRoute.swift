@@ -17,6 +17,49 @@ enum FinanceRoute: Hashable, Codable {
     case portfolioShares
 }
 
+struct FinanceMoreLink: Identifiable, Equatable {
+    var title: String
+    var symbol: String
+    var route: FinanceRoute
+    var id: FinanceRoute { route }
+}
+
+/// Titles and type for Weitere Bereiche. The row type matches the finance tiles.
+enum FinanceMoreDirectory {
+    static let title = L("Weitere Bereiche", "More")
+    static let sectionFontName = "headline"
+    static let rowFontName = "body"
+    static let chevronFontName = "footnote"
+    static let rowVerticalPadding: CGFloat = 14
+    static let rowHorizontalPadding: CGFloat = 16
+    /// Space between Weitere Bereiche and the next finance section.
+    static let sectionSpacing: CGFloat = 4
+
+    static var rows: [FinanceMoreLink] {
+        [
+            FinanceMoreLink(title: L("Budgetpools", "Budget pools"), symbol: "tray.full", route: .budgetPools),
+            FinanceMoreLink(title: L("Ausgabengruppen", "Expense groups"), symbol: "square.stack.3d.up", route: .expenseGroups),
+            FinanceMoreLink(title: L("Schulden", "Debts"), symbol: "person.2", route: .debts)
+        ]
+    }
+
+    static func font(_ name: String) -> Font {
+        switch name {
+        case "footnote": .footnote
+        case "headline": .headline
+        case "body": .body
+        case "subheadline": .subheadline
+        default: .body
+        }
+    }
+}
+
+enum FinanceTileCopy {
+    static var shopping: String { L("Einkaufszettel", "Shopping list") }
+    static var applied: String { L("Angewendet", "Applied") }
+    static var planned: String { L("Geplant", "Planned") }
+}
+
 struct FinanceRouteScreen: View {
     let route: FinanceRoute
 

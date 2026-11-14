@@ -38,9 +38,63 @@ final class LififyChecksTests: XCTestCase {
     }
 
     @MainActor
+    func testFinance() {
+        assertPassed(.finance)
+    }
+
+    @MainActor
+    func testScreen() {
+        assertPassed(.screen)
+    }
+
+    @MainActor
+    func testAccount() {
+        assertPassed(.account)
+    }
+
+    @MainActor
+    func testForecast() {
+        assertPassed(.forecast)
+    }
+
+    @MainActor
+    func testBudget() {
+        assertPassed(.budget)
+    }
+
+    @MainActor
+    func testPortfolio() {
+        assertPassed(.portfolio)
+    }
+
+    @MainActor
+    func testBankImport() {
+        assertPassed(.bankImport)
+    }
+
+    @MainActor
+    func testBackup() {
+        assertPassed(.backup)
+    }
+
+    @MainActor
+    func testShop() {
+        assertPassed(.shop)
+    }
+
+    @MainActor
+    func testNavigation() {
+        assertPassed(.navigation)
+    }
+
+    @MainActor
     func testTopicsCoverChallengesTrainingAndCalendar() {
         let results = LififyChecks.run()
-        for topic in [LififyCheckTopic.challenge, .calendar, .training, .streak, .multiplier, .abstinence] {
+        for topic in [
+            LififyCheckTopic.challenge, .calendar, .training, .streak, .multiplier, .abstinence,
+            .finance, .screen, .developer, .account, .forecast, .budget, .portfolio,
+            .bankImport, .backup, .shop, .navigation
+        ] {
             let rows = results.filter { $0.topic == topic }
             XCTAssertTrue(rows.contains { $0.kind == .unit }, "\(topic.rawValue) unit")
             XCTAssertTrue(rows.contains { $0.kind == .integration }, "\(topic.rawValue) integration")

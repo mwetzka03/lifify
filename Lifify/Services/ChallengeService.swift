@@ -89,7 +89,8 @@ enum ChallengeService {
         completions: [ChallengeCompletion],
         events: [ChallengeCalendarEvent],
         streakState: StreakSettings.State? = nil,
-        usesStoredState: Bool = true
+        usesStoredState: Bool = true,
+        confirmedMeals: ((Date) -> Int)? = nil
     ) -> StreakStatus {
         let state = usesStoredState
             ? (StreakSettings.isEnabled(for: challenge.id) ? StreakSettings.state(for: challenge.id) : nil)
@@ -116,10 +117,17 @@ enum ChallengeService {
         let schedule = scheduleEvents(for: challenge, events: events)
         let interval = max(ReminderLinkStore.metadata(for: challenge.externalIdentifier)?.interval ?? 1, 1)
         var streak = 0
-        var freezesLeft = 2 + max(state.purchased, 0)
+        var freezesLeft = StreakFreeze.startingCount + max(state.purchased, 0)
         var used: [String] = []
         var currentRequired = 0
         var currentDone = 0
+        let followsNutrition = ChallengeCheckoff.followsNutrition(challenge.externalIdentifier)
+        let mealsOn: (Date) -> Int = { day in
+            if let confirmedMeals { return confirmedMeals(day) }
+            guard followsNutrition else { return 0 }
+            let key = NutritionPlan.dayKey(day, calendar: calendar)
+            return NutritionPlan.onDay(key, meals: MealLog.all()).filter { $0.status == .confirmed }.count
+        }
 
         for period in periods(from: origin, through: horizon, kind: kind, calendar: calendar) {
             if let rangeEnd, period.start >= rangeEnd { continue }
@@ -136,6 +144,14 @@ enum ChallengeService {
             let windowEnd = rangeEnd.map { min(period.end, $0) } ?? period.end
             let done = completedDays.filter { $0 >= max(period.start, rangeStart) && $0 < windowEnd }.count
             let isOpen = period.start <= date && date < period.end
+            if followsNutrition, kind == .day, !StreakFreeze.countsDay(followsNutrition: true, confirmedMeals: mealsOn(period.start)) {
+                if isOpen {
+                    currentRequired = 0
+                    currentDone = done
+                }
+                streak += done
+                continue
+            }
             if required <= 0 {
                 if isOpen {
                     currentRequired = 0
@@ -175,9 +191,10 @@ enum ChallengeService {
         challenge: ChallengeItem,
         on date: Date,
         completions: [ChallengeCompletion],
-        events: [ChallengeCalendarEvent]
+        events: [ChallengeCalendarEvent],
+        baseCoins: Int? = nil
     ) -> Int {
-        let base = max(challenge.rewardCoins, 0)
+        let base = max(baseCoins ?? challenge.rewardCoins, 0)
         guard StreakSettings.isEnabled(for: challenge.id) else { return base }
         let already = completions.contains {
             $0.challengeID == challenge.id && Calendar.current.isDate($0.date, inSameDayAs: date)
@@ -197,7 +214,7 @@ enum ChallengeService {
     ) -> Int {
         guard let state = StreakSettings.state(for: challenge.id), state.enabled else { return 0 }
         let used = status(for: challenge, endingOn: date, completions: completions, events: events).freezeKeys.count
-        return max(0, 2 + state.purchased - used)
+        return max(0, StreakFreeze.startingCount + state.purchased - used)
     }
 
     static func commitFreezes(
@@ -239,11 +256,17 @@ enum ChallengeService {
         context: ModelContext
     ) {
         guard !challenge.isReadOnly, challenge.category != .abstinence else { return }
+        guard ChallengeCheckoff.allowsHand(
+            category: challenge.category,
+            linkedWorkouts: WorkoutLinkStore.planIDs(forChallenge: challenge.id).count,
+            followsNutrition: ChallengeCheckoff.followsNutrition(challenge.externalIdentifier)
+        ) else { return }
         let isNowCompleted: Bool
         let tracked: [ChallengeCompletion]
         if let completion = completions.first(where: {
             $0.challengeID == challenge.id && Calendar.current.isDate($0.date, inSameDayAs: date)
         }) {
+            ChallengeTimeStore.setActualMinutes(nil, for: challenge.id)
             transactions.filter { $0.referenceID == completion.id }.forEach { context.delete($0) }
             context.delete(completion)
             tracked = completions.filter { $0.id != completion.id }
@@ -278,11 +301,18 @@ enum ChallengeService {
         date: Date,
         completions: [ChallengeCompletion],
         events: [ChallengeCalendarEvent] = [],
-        context: ModelContext
+        context: ModelContext,
+        baseCoins: Int? = nil
     ) -> Bool {
         guard !challenge.isArchived, challenge.category != .abstinence else { return false }
         guard !isCompleted(challenge, on: date, completions: completions) else { return false }
-        let earned = projectedCoins(challenge: challenge, on: date, completions: completions, events: events)
+        let earned = projectedCoins(
+            challenge: challenge,
+            on: date,
+            completions: completions,
+            events: events,
+            baseCoins: baseCoins
+        )
         let completion = ChallengeCompletion(challengeID: challenge.id, date: date, earnedCoins: earned)
         context.insert(completion)
         context.insert(CoinTransaction(title: challenge.title, amount: earned, referenceID: completion.id))
@@ -330,9 +360,13 @@ enum ChallengeService {
     private static func scheduleEvents(for challenge: ChallengeItem, events: [ChallengeCalendarEvent]) -> EventSchedule {
         let own = events.filter { !$0.isReminderSuggestion && $0.linkedChallengeID == challenge.id }
         if !own.isEmpty { return EventSchedule(usesCalendar: true, events: own) }
-        if let groupID = challenge.groupID {
+        let memberships = challenge.groupIDs
+        if !memberships.isEmpty {
             let grouped = events.filter {
-                !$0.isReminderSuggestion && $0.linkedChallengeGroupID == groupID && $0.linkedChallengeID == nil
+                guard !$0.isReminderSuggestion, $0.linkedChallengeID == nil, let groupID = $0.linkedChallengeGroupID else {
+                    return false
+                }
+                return memberships.contains(groupID)
             }
             if !grouped.isEmpty { return EventSchedule(usesCalendar: true, events: grouped) }
         }
@@ -502,5 +536,95 @@ enum ChallengeService {
                 calendar.date(byAdding: .day, value: day - 1, to: first)
             }
         }
+    }
+}
+
+/// A timed challenge on an event asks for the real minutes before it is marked done.
+@MainActor
+enum ChallengeFinish {
+    static func suggestedMinutes(
+        challenge: ChallengeItem,
+        on date: Date,
+        completions: [ChallengeCompletion],
+        events: [ChallengeCalendarEvent]
+    ) -> Int? {
+        let completing = !ChallengeService.isCompleted(challenge, on: date, completions: completions)
+        let minutes = ChallengeTimeStore.minutes(for: challenge.id) ?? 0
+        let linked = ChallengeTimeStore.eventID(containing: challenge.id) != nil
+            || events.contains { !$0.isReminderSuggestion && $0.linkedChallengeID == challenge.id }
+        guard ChallengeTimeRules.allowsTime(challenge.category),
+              ChallengeTimeRules.asksForActualDuration(
+                hasEstimate: minutes > 0,
+                linkedToEvent: linked,
+                completing: completing
+              )
+        else { return nil }
+        return minutes
+    }
+
+    static func commit(
+        challenge: ChallengeItem,
+        date: Date,
+        actualMinutes: Int?,
+        completions: [ChallengeCompletion],
+        transactions: [CoinTransaction],
+        events: [ChallengeCalendarEvent],
+        context: ModelContext
+    ) {
+        let completing = !ChallengeService.isCompleted(challenge, on: date, completions: completions)
+        if completing, let actualMinutes, actualMinutes > 0 {
+            ChallengeTimeStore.setActualMinutes(actualMinutes, for: challenge.id)
+        }
+        ChallengeService.toggleCompletion(
+            challenge: challenge,
+            date: date,
+            completions: completions,
+            transactions: transactions,
+            events: events,
+            context: context
+        )
+    }
+}
+
+/// Two or more challenges on one event share its group. A later link joins the same group.
+@MainActor
+enum EventGroupSync {
+    static func join(
+        event: ChallengeCalendarEvent,
+        challengeIDs: [UUID],
+        context: ModelContext
+    ) -> UUID? {
+        let ids = challengeIDs.reduce(into: [UUID]()) { result, id in
+            if !result.contains(id) { result.append(id) }
+        }
+        guard EventChallengeLink.makesGroup(count: ids.count) else { return nil }
+        let name = EventGroupName.title(event: event.title, day: AppDate.numeric(event.startDate))
+        let stored = (try? context.fetch(FetchDescriptor<ChallengeGroup>())) ?? []
+        let group = stored.first { $0.id == event.linkedChallengeGroupID }
+            ?? stored.first { $0.title == name }
+            ?? ChallengeGroup(title: name, startDate: event.startDate)
+        group.title = name
+        group.startDate = event.startDate
+        if group.modelContext == nil { context.insert(group) }
+        let people = (try? context.fetch(FetchDescriptor<ChallengeItem>())) ?? []
+        for challenge in people where ids.contains(challenge.id) {
+            var membership = challenge.groupIDs
+            if !membership.contains(group.id) { membership.append(group.id) }
+            challenge.groupIDs = membership
+        }
+        return group.id
+    }
+
+    static func place(_ challenge: ChallengeItem, on event: ChallengeCalendarEvent) {
+        guard challenge.category != .abstinence else { return }
+        let placed = EventChallengeLink.placement(
+            eventStart: event.startDate,
+            recurrence: challenge.recurrence,
+            weekdays: challenge.weekdaySet,
+            end: challenge.endDate
+        )
+        challenge.startDate = placed.start
+        challenge.weekdaySet = placed.weekdays
+        challenge.endDate = placed.end
     }
 }

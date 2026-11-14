@@ -4,12 +4,16 @@
 
 ## English
 
-Lifify 0.3.0 is a local iPhone app for finance, challenges, and training. It
+Lifify 0.4.0 is a local iPhone app for finance, challenges, and training. It
 is built with SwiftUI and SwiftData, and it needs neither a backend nor a user
 account. German and English, and light, dark, and system appearance, can be
-switched in Settings.
+switched in Settings. Style adds Green, Blue, Bordeaux, and Violet, each with
+its own light and dark wash. Cards keep their own fill. Finance uses the same
+wash and the same card fill, and it keeps its tile arrangement. Positive
+amounts stay green and negative amounts stay red. The links under More are
+a step larger than the tile titles.
 
-The finance rules are in [FINANZEN.md](FINANZEN.md). What changed in 0.3.0 is in [CHANGES.md](CHANGES.md), in English and German.
+The finance rules are in [FINANZEN.md](FINANZEN.md). What changed in 0.4.0 is in [CHANGES-0.4.0.md](Changes%20Documentation/CHANGES-0.4.0.md). What changed in 0.3.0 is in [CHANGES-0.3.0.md](Changes%20Documentation/CHANGES-0.3.0.md). Both are in English and German. How changes, checks, and the visual style are kept is in [RULES.md](RULES.md).
 
 ### Areas
 
@@ -32,13 +36,39 @@ and reminders from the iPhone can be imported after you explicitly allow access.
 
 **Health** holds workout plans. Starting a workout runs a timer. Exercises come
 from a local database, including exercises you add yourself when they are not
-in that database. Nutrition is not available yet.
+in that database. Exercise pictures drop a near-white background and sit on a
+tinted rounded tile. Nutrition is a day board for meals, calories, and the other
+nutrients. The arrows move one day, and tapping the date jumps to another day.
+A photo can be attached. With a Gemini key under Settings, Health, the photo
+is read and classified. Without a key it stays on the device. Fast food buys
+the Fast Food reward for 25 coins. The pinned nutrition challenge follows the
+goal: Calorie deficit, Hold calories, or Build muscle. It cannot be checked
+off by hand, and a later meal can take the coins back below zero. The requirements are in
+[ERNAEHRUNG.md](ERNAEHRUNG.md). Abstinence lives with the challenges. A sport
+challenge linked to a workout is completed only by finishing that workout.
+Up to four challenges can be pinned above the filter on the challenges page.
+The event picker opens on today. Groups have their own section, fold open on
+the page, and are pinned only when you pin them. A finished challenge stays in
+its group. A challenge linked afterwards joins that group and can keep a second
+group. Single shows those challenges one by one. Linking sets the challenge's
+day and time to the event. Several challenges share an event only when each of
+them happens once, and the event is replaced after every one of them is checked off.
+A long press on a group edits, pins, or deletes it. A group with no event can
+take any challenge. A group tied to an event takes one-time challenges only
+while time remains in the slot. Recurrence and duration share one line, such
+as Once - 20 minutes, and that line, the calendar link, the check circle,
+and the challenge marks on the month view use the chosen style color. Deleting asks whether to delete the challenges too.
+A calorie day with no meals does not spend the two starting freezes.
 
-**Settings** hold the name and date of birth, language, appearance, a daily
+**Settings** start with your name and profile photo. The line under the name
+is User settings. That page holds the date of birth, height in centimetres, weight
+in kilograms, sex, and the goal. The title sits on one line. Health holds the
+Gemini key and the switch that saves a new photo to the library. The switch is
+off. General holds language, appearance, style, a daily
 briefing with its own time for each weekday, the workout chime, the default
 account and fee for the portfolio, accounts, import, backup, and calendar and
 reminders. The birthday pays 500 coins once that year. The version shown there
-is 0.3.0.
+is 0.4.0.
 
 ### First launch
 
@@ -89,18 +119,26 @@ read.
 
 Portfolio prices come from Yahoo Finance, at launch and through **Update
 prices**. A German listing is preferred. If the request fails, the manual
-price stays. For this, the ISIN is sent to those public endpoints. No other
-user data leaves the device.
+price stays. For this, the ISIN is sent to those public endpoints. A meal photo
+is sent to Gemini only when a key is saved under Health. The key stays in the
+keychain and is not part of a backup. Without a key, no photo leaves the device.
 
 Lifify reads calendars and reminders only after you explicitly allow it,
 through the system. It does not store passwords for that.
 
 ## Deutsch
 
-Lifify 0.3.0 ist eine lokale iPhone-App für Finanzen, Challenges und Training.
+Lifify 0.4.0 ist eine lokale iPhone-App für Finanzen, Challenges und Training.
 Sie ist mit SwiftUI und SwiftData gebaut, braucht kein Backend und kein
 Benutzerkonto. Deutsch und Englisch sowie Hell, Dunkel und System lassen sich
-in den Einstellungen umschalten. Was sich in 0.3.0 geändert hat, steht auf Englisch und Deutsch in [CHANGES.md](CHANGES.md).
+in den Einstellungen umschalten. Der Stil ergänzt Grün, Blau, Bordeaux und
+Violett, jeweils mit eigener heller und dunkler Fläche. Die Karten behalten
+eine eigene Füllung. Finanzen nutzt dieselbe Fläche und dieselbe Kartenfarbe
+und behält die Anordnung der Kacheln. Positive Beträge bleiben grün, negative
+rot. Die Links unter Weitere Bereiche sind eine Stufe größer als die Kacheltitel.
+Was sich in 0.4.0 geändert hat, steht in [CHANGES-0.4.0.md](Changes%20Documentation/CHANGES-0.4.0.md),
+was sich in 0.3.0 geändert hat in [CHANGES-0.3.0.md](Changes%20Documentation/CHANGES-0.3.0.md). Beides auf Englisch und Deutsch.
+Wie Änderungen, Prüfungen und der Stil gehalten werden, steht in [RULES.md](RULES.md).
 
 Die Finanzregeln stehen in [FINANZEN.md](FINANZEN.md).
 
@@ -126,13 +164,44 @@ sich nach ausdrücklicher Freigabe übernehmen.
 
 **Gesundheit** enthält Trainingspläne. Ein Training startet einen Timer.
 Übungen kommen aus einer lokalen Datenbank, inklusive eigener Übungen, die
-nicht in der Datenbank stehen. Ernährung ist noch nicht verfügbar.
+nicht in der Datenbank stehen. Übungsbilder verlieren einen fast weißen Grund
+und liegen auf einer gefärbten, abgerundeten Kachel. Ernährung ist eine
+Tagesansicht für Mahlzeiten, Kalorien und die übrigen Nährstoffe. Die Pfeile
+wechseln einen Tag, ein Tipp auf das Datum springt zu einem anderen Tag. Ein
+Foto kann angehängt werden. Mit einem Gemini-Schlüssel unter Einstellungen,
+Gesundheit, wird das Foto gelesen und eingeordnet. Ohne Schlüssel bleibt es
+auf dem Gerät. Fast Food kauft die Belohnung Fast Food für 25 Coins. Die
+angepinnte Ernährungs-Challenge folgt dem Ziel: Kaloriendefizit, Kalorien
+halten oder Muskelaufbau. Sie lässt sich nicht von Hand abhaken, und eine
+spätere Mahlzeit kann die Coins wieder unter null abziehen. Die Anforderungen stehen in [ERNAEHRUNG.md](ERNAEHRUNG.md).
+Abstinenz liegt bei den Challenges. Eine Sport-Challenge mit einem verknüpften
+Training gilt nur als erledigt, wenn dieses Training beendet wurde. Bis zu
+vier Challenges lassen sich über dem Filter auf der Challenges-Seite anpinnen.
+Die Terminauswahl öffnet beim heutigen Tag. Gruppen haben einen eigenen
+Abschnitt, klappen auf der Seite auf und werden nur angepinnt, wenn man sie
+anpinnt. Eine erledigte Challenge bleibt in ihrer Gruppe. Eine später
+verknüpfte Challenge kommt in diese Gruppe und kann eine zweite Gruppe
+behalten. Einzeln zeigt diese Challenges einzeln. Die Verknüpfung setzt Tag
+und Uhrzeit der Challenge auf den Termin. Mehrere Challenges teilen sich einen
+Termin nur, wenn jede einmalig ist, und der Termin wird ersetzt, sobald alle
+abgehakt sind. Ein langes Drücken auf eine Gruppe bearbeitet sie, pinnt sie
+an oder löscht sie. Eine Gruppe ohne Termin nimmt jede Challenge. Eine Gruppe
+an einem Termin nimmt einmalige Challenges nur, solange im Slot noch Zeit ist.
+Wiederholung und Dauer stehen in einer Zeile, zum Beispiel Einmalig - 20
+Minuten, und diese Zeile, die Kalenderverknüpfung, der Hakenkreis und die
+Challenge-Punkte in der Monatsansicht nutzen die Stilfarbe. Beim Löschen wird gefragt, ob die Challenges mit weg sollen.
+Ein Tag ohne Mahlzeiten verbraucht die zwei Start-Freezes nicht.
 
-**Einstellungen** halten Name und Geburtsdatum, Sprache, Erscheinungsbild, das
+**Einstellungen** beginnen mit dem Namen und dem Profilbild. Darunter steht
+Nutzereinstellungen. Diese Seite hält Geburtsdatum, Größe in Zentimetern,
+Gewicht in Kilogramm, Geschlecht und das Ziel. Die Überschrift steht in einer
+Zeile. Gesundheit hält den Gemini-Schlüssel und den Schalter, ob eine
+Aufnahme in die Galerie kommt. Der Schalter ist aus. Allgemein hält Sprache,
+Erscheinungsbild, den Stil, das
 tägliche Briefing mit einer eigenen Uhrzeit je Wochentag, den
 Trainingsklingelton, Standardkonto und Gebühr fürs Depot, Konten, Import,
 Sicherung sowie Kalender und Erinnerungen. Am Geburtstag gibt es einmal im
-Jahr 500 Coins. Die angezeigte Version ist 0.3.0.
+Jahr 500 Coins. Die angezeigte Version ist 0.4.0.
 
 ### Ersteinrichtung
 
@@ -185,7 +254,9 @@ und MT940 werden nicht gelesen.
 Depotkurse kommen von Yahoo Finance, beim Start und über **Kurse aktualisieren**.
 Eine deutsche Notierung wird bevorzugt. Schlägt der Abruf fehl, bleibt der
 manuelle Kurs. Dafür wird die ISIN an diese öffentlichen Endpunkte geschickt.
-Andere Nutzerdaten verlassen das Gerät nicht.
+Ein Essensfoto geht nur dann an Gemini, wenn unter Gesundheit ein Schlüssel
+steht. Der Schlüssel bleibt im Schlüsselbund und gehört nicht zur Sicherung.
+Ohne Schlüssel verlässt kein Foto das Gerät.
 
 Kalender und Erinnerungen liest Lifify nur nach ausdrücklicher Freigabe über
 das System. Dafür werden keine Passwörter gespeichert.

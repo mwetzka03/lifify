@@ -30,6 +30,7 @@ struct WorkoutEditorView: View {
                     TextField(L("Name, z. B. Push", "Name, for example Push"), text: $plan.name)
                         .font(.title2.bold())
                 }
+                .appGlassRow()
                 ForEach(plan.exercises) { exercise in
                     Section {
                         exerciseHeader(exercise)
@@ -63,6 +64,7 @@ struct WorkoutEditorView: View {
                         }
                         .buttonStyle(.borderless)
                     }
+                    .appGlassRow()
                 }
                 Section {
                     Button {
@@ -71,11 +73,10 @@ struct WorkoutEditorView: View {
                         Label(L("Übung hinzufügen", "Add exercise"), systemImage: "plus")
                     }
                 }
+                .appGlassRow()
             }
-            .listStyle(.insetGrouped)
-            .scrollContentBackground(.hidden)
+            .appGlassList()
             .scrollDismissesKeyboard(.interactively)
-            .appCanvas()
             .navigationTitle(L("Routine bearbeiten", "Edit routine"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -162,7 +163,7 @@ struct WorkoutEditorView: View {
             Text("\(index + 1)")
                 .font(.body.weight(.semibold))
                 .frame(width: 36, height: 36)
-                .background(AppSurface.canvas, in: RoundedRectangle(cornerRadius: 8))
+                .appTintedPlate(radius: 8)
             VStack(alignment: .leading, spacing: 2) {
                 if let previous = WorkoutProgress.previousPerformance(
                     sessions: store.sessions,
@@ -191,14 +192,14 @@ struct WorkoutEditorView: View {
                 .multilineTextAlignment(.center)
                 .font(.body.weight(.semibold))
                 .frame(width: 64, height: 36)
-                .background(AppSurface.canvas, in: RoundedRectangle(cornerRadius: 8))
+                .appTintedPlate(radius: 8)
             TextField("0", text: repsBinding(set.id))
                 .keyboardType(.numberPad)
                 .textFieldStyle(.plain)
                 .multilineTextAlignment(.center)
                 .font(.body.weight(.semibold))
                 .frame(width: 52, height: 36)
-                .background(AppSurface.canvas, in: RoundedRectangle(cornerRadius: 8))
+                .appTintedPlate(radius: 8)
         }
     }
 

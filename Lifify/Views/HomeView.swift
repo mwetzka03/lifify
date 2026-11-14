@@ -17,6 +17,7 @@ struct HomeView: View {
     @Query private var rewards: [RewardItem]
     @State private var mode = ChallengeCalendarViewMode.day
     @State private var selectedDate = AppClock.now
+    @State private var pendingDuration: PendingDuration?
     @AppStorage(AppClock.modeKey) private var developerMode = false
     @AppStorage(AppClock.dayKey) private var developerDay = 0.0
     @State private var expandedWeekday: Date?
@@ -25,6 +26,12 @@ struct HomeView: View {
     @AppStorage("dashboardPeriodMode") private var dashboardPeriod = DashboardPeriodMode.calendarMonth.rawValue
     @AppStorage(StreakSettings.revisionKey) private var streakRevision = 0
     @AppStorage(AbstinenceSettings.revisionKey) private var abstinenceRevision = 0
+    @Environment(\.colorScheme) private var scheme
+    @AppStorage(AppPalette.storageKey) private var paletteRaw = AppPalette.green.rawValue
+
+    private var paletteAccent: Color {
+        AppLook.accent(AppAppearance(scheme), palette: AppPalette.resolved(paletteRaw)).color()
+    }
 
     var body: some View {
         ScrollView {
@@ -33,23 +40,38 @@ struct HomeView: View {
                 let _ = developerDay
                 let _ = birthRaw
                 if !userName.isEmpty {
-                    Text("\(L("Willkommen zurück", "Welcome back")), \(userName)")
-                        .font(.title2.bold())
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                    HStack(spacing: 10) {
+                        Image(systemName: "hand.wave.fill")
+                            .foregroundStyle(AppLook.accent(AppAppearance(scheme), palette: AppPalette.resolved(paletteRaw)).color())
+                        Text("\(L("Willkommen zurück", "Welcome back")), \(userName)")
+                            .appText(.screenTitle)
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 12)
+                    .appGlassCard(radius: 20)
                 }
                 if let birth = UserProfile.birth(), BirthdayBonus.isBirthday(birth, on: AppClock.now) {
-                    Text(L(
-                        "Alles Gute zum Geburtstag. 500 Coins liegen in der Wallet.",
-                        "Happy birthday. 500 coins are in the wallet."
-                    ))
+                    Label(
+                        L(
+                            "Alles Gute zum Geburtstag. 500 Coins liegen in der Wallet.",
+                            "Happy birthday. 500 coins are in the wallet."
+                        ),
+                        systemImage: "gift.fill"
+                    )
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.primary)
                     .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(12)
+                    .appGlassCard(radius: 16)
                 }
                 if developerMode {
                     Text("\(L("Simulierter Tag", "Simulated day")): \(AppDate.numeric(AppClock.now))")
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(.orange)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(Color.orange.opacity(0.16), in: Capsule())
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 noticeSection
@@ -70,6 +92,7 @@ struct HomeView: View {
                     ForEach(ChallengeCalendarViewMode.allCases) { Text($0.label).tag($0) }
                 }
                 .pickerStyle(.segmented)
+                .tint(paletteAccent)
 
                 HStack {
                     Button { move(by: -1) } label: { Image(systemName: "chevron.left") }
@@ -84,6 +107,7 @@ struct HomeView: View {
                     Spacer()
                     Button { move(by: 1) } label: { Image(systemName: "chevron.right") }
                 }
+                .tint(paletteAccent)
 
                 Group {
                     switch mode {
@@ -100,7 +124,7 @@ struct HomeView: View {
             }
             .padding()
         }
-        .appCanvas()
+        .appGlassCanvas()
         .onAppear {
             ChallengeService.commitFreezes(for: challenges, completions: completions, events: calendarEvents, on: AppClock.now)
             AbstinenceService.settle(context: context)
@@ -116,6 +140,43 @@ struct HomeView: View {
             ChallengeService.commitFreezes(for: challenges, completions: completions, events: calendarEvents, on: AppClock.now)
             AbstinenceService.settle(context: context)
         }
+        .sheet(item: $pendingDuration) { pending in
+            ActualDurationSheet(suggested: pending.suggested) { minutes in
+                ChallengeFinish.commit(
+                    challenge: pending.challenge,
+                    date: pending.date,
+                    actualMinutes: minutes,
+                    completions: completions,
+                    transactions: transactions,
+                    events: calendarEvents,
+                    context: context
+                )
+                pendingDuration = nil
+            } onCancel: {
+                pendingDuration = nil
+            }
+        }
+    }
+
+    private func finish(_ challenge: ChallengeItem, on date: Date) {
+        if let minutes = ChallengeFinish.suggestedMinutes(
+            challenge: challenge,
+            on: date,
+            completions: completions,
+            events: calendarEvents
+        ) {
+            pendingDuration = PendingDuration(challenge: challenge, date: date, suggested: minutes)
+            return
+        }
+        ChallengeFinish.commit(
+            challenge: challenge,
+            date: date,
+            actualMinutes: nil,
+            completions: completions,
+            transactions: transactions,
+            events: calendarEvents,
+            context: context
+        )
     }
 
     private var dayView: some View {
@@ -125,12 +186,15 @@ struct HomeView: View {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
                     Text(AppDate.weekdayAndNumeric(selectedDate))
-                        .font(.title3.bold())
+                        .appText(.value)
                     Spacer()
                     if AppClock.isToday(selectedDate) {
                         Text(L("Heute", "Today"))
                             .font(.caption.bold())
-                            .foregroundStyle(.red)
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 3)
+                            .background(Color.red, in: Capsule())
                     }
                 }
                 Divider()
@@ -155,7 +219,7 @@ struct HomeView: View {
                                     if let text = eventChallengeCaption(event) {
                                         Text(text)
                                             .font(.caption2)
-                                            .foregroundStyle(.green)
+                                            .appAccentForeground()
                                     }
                                 }
                                 Spacer()
@@ -165,20 +229,29 @@ struct HomeView: View {
                     agendaSection(L("Challenges", "Challenges"), systemImage: "target", isEmpty: dayChallenges.isEmpty) {
                         ForEach(dayChallenges.prefix(5)) { challenge in
                             HStack {
-                                Image(systemName: IconPreferenceStore.icon(for: challenge.id, fallback: "target"))
+                                AppSymbolImage(name: IconPreferenceStore.icon(for: challenge.id, fallback: "target"))
                                 VStack(alignment: .leading, spacing: 1) {
                                     Text(challenge.title)
                                     if let caption = homeCalendarCaption(challenge) {
                                         Text(caption)
                                             .font(.caption2)
-                                            .foregroundStyle(.green)
+                                            .appAccentForeground()
                                     }
                                 }
                                 Spacer()
                                 CoinAmountView(amount: challenge.rewardCoins, showsPlus: true)
                                     .font(.caption)
-                                Image(systemName: ChallengeService.isCompleted(challenge, on: selectedDate, completions: completions) ? "checkmark.circle.fill" : "circle")
-                                    .foregroundStyle(ChallengeService.isCompleted(challenge, on: selectedDate, completions: completions) ? .green : .secondary)
+                                let followsNutrition = ChallengeCheckoff.followsNutrition(challenge.externalIdentifier)
+                                let allowsHand = ChallengeCheckoff.allowsHand(
+                                    category: challenge.category,
+                                    linkedWorkouts: WorkoutLinkStore.planIDs(forChallenge: challenge.id).count,
+                                    followsNutrition: followsNutrition
+                                )
+                                if ChallengeBoard.showsCheckCircle(allowsHand: allowsHand) {
+                                    let done = ChallengeService.isCompleted(challenge, on: selectedDate, completions: completions)
+                                    Image(systemName: done ? "checkmark.circle.fill" : "circle")
+                                        .foregroundStyle(done ? paletteAccent : Color.secondary)
+                                }
                             }
                         }
                     }
@@ -188,7 +261,7 @@ struct HomeView: View {
             .foregroundStyle(.primary)
             .padding()
             .frame(maxWidth: .infinity, minHeight: 300, alignment: .topLeading)
-            .background(AppSurface.card, in: RoundedRectangle(cornerRadius: 18))
+            .appGlassCard(radius: 18)
         }
         .buttonStyle(.plain)
     }
@@ -284,10 +357,10 @@ struct HomeView: View {
                                     .background(AppClock.isToday(date) ? Color.red : .clear, in: Circle())
                                 HStack(spacing: 2) {
                                     if !events(on: date).isEmpty {
-                                        Circle().fill(.blue).frame(width: 4, height: 4)
+                                        Circle().fill(paletteAccent).frame(width: 4, height: 4)
                                     }
                                     if !dueChallenges(on: date).isEmpty {
-                                        Circle().fill(.green).frame(width: 4, height: 4)
+                                        Circle().stroke(paletteAccent, lineWidth: 1).frame(width: 4, height: 4)
                                     }
                                 }
                                 .frame(height: 5)
@@ -301,14 +374,14 @@ struct HomeView: View {
                 }
             }
             HStack(spacing: 14) {
-                Label(L("Termine", "Events"), systemImage: "circle.fill").foregroundStyle(.blue)
-                Label(L("Challenges", "Challenges"), systemImage: "circle.fill").foregroundStyle(.green)
+                Label(L("Termine", "Events"), systemImage: "circle.fill").foregroundStyle(paletteAccent)
+                Label(L("Challenges", "Challenges"), systemImage: "circle").foregroundStyle(paletteAccent)
                 Spacer()
             }
             .font(.caption)
         }
         .padding(10)
-        .background(AppSurface.card, in: RoundedRectangle(cornerRadius: 16))
+        .appGlassCard(radius: 16)
     }
 
     @ViewBuilder
@@ -331,7 +404,7 @@ struct HomeView: View {
             }
         }
         .padding()
-        .background(AppSurface.card, in: RoundedRectangle(cornerRadius: 18))
+        .appGlassCard(radius: 18)
     }
 
     private func popupCard(_ popup: HomePopup) -> some View {
@@ -347,14 +420,14 @@ struct HomeView: View {
                 Label(L("Streak-Freeze", "Streak freeze"), systemImage: "snowflake")
                     .font(.headline)
             case .abstinence:
-                Label(L("Abstinenz-Bonus", "Abstinence bonus"), systemImage: "lungs.fill")
+                Label(L("Geschafft!", "You did it!"), systemImage: "lungs.fill")
                     .font(.headline)
             }
             popupRows(popup)
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(AppSurface.card, in: RoundedRectangle(cornerRadius: 18))
+        .appGlassCard(radius: 18)
     }
 
     @ViewBuilder
@@ -363,14 +436,7 @@ struct HomeView: View {
         case .morning(let items):
             ForEach(items, id: \.challenge.id) { item in
                 Button {
-                    ChallengeService.toggleCompletion(
-                        challenge: item.challenge,
-                        date: AppClock.now,
-                        completions: completions,
-                        transactions: transactions,
-                        events: calendarEvents,
-                        context: context
-                    )
+                    finish(item.challenge, on: AppClock.now)
                 } label: {
                     HStack(alignment: .center, spacing: 8) {
                         VStack(alignment: .leading, spacing: 2) {
@@ -406,7 +472,7 @@ struct HomeView: View {
                             .foregroundStyle(.orange)
                         }
                         Image(systemName: "circle")
-                            .foregroundStyle(.green)
+                            .foregroundStyle(paletteAccent)
                     }
                 }
                 .buttonStyle(.plain)
@@ -447,7 +513,7 @@ struct HomeView: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(notice.title)
                                 .foregroundStyle(.primary)
-                            Text(AbstinenceMilestone(rawValue: notice.milestone)?.label ?? notice.milestone)
+                            Text(abstinenceNoticeLine(notice))
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
@@ -460,6 +526,11 @@ struct HomeView: View {
                 }
             }
         }
+    }
+
+    private func abstinenceNoticeLine(_ notice: AbstinenceNotice) -> String {
+        guard let milestone = AbstinenceMilestone(rawValue: notice.milestone) else { return notice.milestone }
+        return "\(milestone.label). \(AbstinenceCheer.line(for: milestone))"
     }
 
     private func freezeWarning(done: Int, required: Int, recurrence: ChallengeRecurrence) -> String {
@@ -556,6 +627,11 @@ struct HomeView: View {
             ChallengeTimeStore.challengeIDs(on: event.id, legacy: event.linkedChallengeID).compactMap { challengeID in
                 guard seen.insert(challengeID).inserted,
                       let challenge = challenges.first(where: { $0.id == challengeID }),
+                      ChallengeCheckoff.allowsHand(
+                          category: challenge.category,
+                          linkedWorkouts: WorkoutLinkStore.planIDs(forChallenge: challenge.id).count,
+                          followsNutrition: ChallengeCheckoff.followsNutrition(challenge.externalIdentifier)
+                      ),
                       !ChallengeService.isCompleted(challenge, on: AppClock.now, completions: completions)
                 else { return nil }
                 return (event, challenge)
@@ -633,7 +709,7 @@ struct HomeView: View {
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(AppSurface.card, in: RoundedRectangle(cornerRadius: 18))
+        .appGlassCard(radius: 18)
     }
 
     private var periodEntries: [LedgerEntry] {
@@ -730,16 +806,19 @@ private struct BudgetSummaryCard: View {
     let nextSalary: Date?
     let daysUntilSalary: Int?
     let dailyAllowance: Int?
+    @Environment(\.colorScheme) private var scheme
+    @AppStorage(AppPalette.storageKey) private var paletteRaw = AppPalette.green.rawValue
 
     private var remaining: Int { planned - spent }
+    private var accent: Color { AppLook.accent(AppAppearance(scheme), palette: AppPalette.resolved(paletteRaw)).color() }
 
     var body: some View {
         HStack(spacing: 20) {
             ZStack {
-                Circle().stroke(.gray.opacity(0.2), lineWidth: 12)
+                Circle().stroke(accent.opacity(0.22), lineWidth: 12)
                 Circle()
                     .trim(from: 0, to: progress)
-                    .stroke(remaining < 0 ? .red : .blue, style: StrokeStyle(lineWidth: 12, lineCap: .round))
+                    .stroke(remaining < 0 ? Color.red : accent, style: StrokeStyle(lineWidth: 12, lineCap: .round))
                     .rotationEffect(.degrees(-90))
                 VStack(spacing: 1) {
                     Text(Money.string(cents: remaining))
@@ -771,7 +850,7 @@ private struct BudgetSummaryCard: View {
             }
         }
         .padding()
-        .background(AppSurface.card, in: RoundedRectangle(cornerRadius: 22))
+        .appGlassCard(radius: 22)
     }
 
     private var progress: Double {
@@ -855,7 +934,9 @@ private struct PeriodTransactionsView: View {
     var body: some View {
         List(entries) { entry in
             HomeTransactionRow(entry: entry, accounts: accounts, holdings: holdings, ledgerEntries: ledgerEntries)
+                .appGlassRow()
         }
+        .appGlassList()
         .navigationTitle(title)
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -888,7 +969,7 @@ private struct WeekDayCard<Details: View>: View {
                         Text(AppDate.weekdayShort(day))
                             .font(.caption)
                         Text(AppDate.day(day))
-                            .font(.title3.bold())
+                            .appText(.value)
                             .foregroundStyle(AppClock.isToday(day) ? .red : .primary)
                     }
                     .frame(width: 44)
@@ -912,7 +993,7 @@ private struct WeekDayCard<Details: View>: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(AppSurface.card, in: RoundedRectangle(cornerRadius: 13))
+        .appGlassCard(radius: 13)
     }
 }
 

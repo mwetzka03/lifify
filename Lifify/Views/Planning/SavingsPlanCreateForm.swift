@@ -20,6 +20,7 @@ struct SavingsPlanCreateForm: View {
     var body: some View {
         NavigationStack {
             Form {
+                Section {
                 if holdings.isEmpty {
                     Text(L(
                         "Lege zuerst eine Depotposition an. Ein Sparplan hängt an einer Position.",
@@ -51,7 +52,10 @@ struct SavingsPlanCreateForm: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
+                }
+                .appGlassRow()
             }
+            .appGlassList()
             .navigationTitle(L("Neuer Sparplan", "New savings plan"))
             .navigationBarTitleDisplayMode(.inline)
             .onChange(of: holdingID) { _, newValue in

@@ -25,6 +25,7 @@ struct ShoppingListView: View {
             summary
             itemList
         }
+        .appGlassCanvas()
         .navigationTitle(L("Einkaufszettel", "Shopping list"))
         .toolbar { Button { showingNew = true } label: { Image(systemName: "plus") } }
         .sheet(isPresented: $showingNew) { ShoppingItemForm(item: nil) }
@@ -101,7 +102,7 @@ struct ShoppingListView: View {
                     Button { edited = item } label: {
                         Label(L("Bearbeiten", "Edit"), systemImage: "pencil")
                     }
-                    .tint(.blue)
+                    .appAccentTint()
                 }
                 .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                     Button(role: .destructive) {
@@ -111,8 +112,10 @@ struct ShoppingListView: View {
                         Label(L("Löschen", "Delete"), systemImage: "trash")
                     }
                 }
+                .appGlassRow()
             }
         }
+        .appGlassList()
         .overlay {
             if items.isEmpty { ContentUnavailableView(L("Einkaufszettel ist leer", "Shopping list is empty"), systemImage: "cart") }
         }
@@ -175,6 +178,7 @@ struct ShoppingItemDetailView: View {
                         Spacer()
                     }
                 }
+                .appGlassRow()
                 Section(L("Buchungen", "Transactions")) {
                     if bookings.isEmpty {
                         Text(L("Noch keine Buchung zugeordnet.", "No transaction is assigned yet."))
@@ -200,7 +204,9 @@ struct ShoppingItemDetailView: View {
                         .buttonStyle(.plain)
                     }
                 }
+                .appGlassRow()
             }
+            .appGlassList()
             .navigationTitle(item.name)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -249,6 +255,7 @@ struct ShoppingItemForm: View {
                     AppDateField(title: L("Geplant am", "Planned on"), selection: $plannedDate)
                 }
             }
+            .appGlassList()
             .navigationTitle(existing == nil ? L("Neuer Artikel", "New item") : L("Artikel", "Item"))
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button(L("Abbrechen", "Cancel")) { dismiss() } }

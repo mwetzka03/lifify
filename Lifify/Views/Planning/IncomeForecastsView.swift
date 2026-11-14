@@ -34,7 +34,7 @@ struct IncomeOverviewView: View {
                             Button { edited = forecast } label: {
                                 Label(L("Bearbeiten", "Edit"), systemImage: "pencil")
                             }
-                            .tint(.blue)
+                            .appAccentTint()
                         }
                 }
                 Button {
@@ -45,6 +45,7 @@ struct IncomeOverviewView: View {
             } header: {
                 Text(L("Einnahmeprognosen", "Income forecasts"))
             }
+            .appGlassRow()
             Section(L("Buchungen", "Transactions")) {
                 if incomeEntries.isEmpty {
                     Text(L("Noch keine Einnahmen.", "No income yet."))
@@ -55,7 +56,9 @@ struct IncomeOverviewView: View {
                         .buttonStyle(.plain)
                 }
             }
+            .appGlassRow()
         }
+        .appGlassList()
         .navigationTitle(L("Einnahmen", "Income"))
         .sheet(isPresented: $showingNew) { IncomeForecastForm(forecast: nil) }
         .sheet(item: $edited) { IncomeForecastForm(forecast: $0) }
@@ -109,7 +112,7 @@ struct IncomeForecastsView: View {
                     Button { edited = forecast } label: {
                         Label(L("Bearbeiten", "Edit"), systemImage: "pencil")
                     }
-                    .tint(.blue)
+                    .appAccentTint()
                 }
             }
         }
@@ -118,6 +121,7 @@ struct IncomeForecastsView: View {
                 ContentUnavailableView(L("Keine Einnahmeprognosen", "No income forecasts"), systemImage: "calendar.badge.plus")
             }
         }
+        .appGlassList()
         .navigationTitle(L("Einnahmeprognosen", "Income forecasts"))
         .toolbar { Button { showingNew = true } label: { Image(systemName: "plus") } }
         .sheet(isPresented: $showingNew) { IncomeForecastForm(forecast: nil) }
@@ -171,6 +175,7 @@ struct IncomeForecastForm: View {
                     Stepper("\(L("Tag", "Day")): \(day)", value: $day, in: 1...31)
                 }
             }
+            .appGlassList()
             .navigationTitle(existing == nil ? L("Neue Einnahmenprognose", "New income forecast") : L("Einnahmenprognose bearbeiten", "Edit income forecast"))
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button(L("Abbrechen", "Cancel")) { dismiss() } }

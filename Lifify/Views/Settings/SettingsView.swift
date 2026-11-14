@@ -1,53 +1,98 @@
+import PhotosUI
 import SwiftData
 import SwiftUI
+import UIKit
 
 struct SettingsView: View {
+    @AppStorage("userName") private var userName = ""
+
     var body: some View {
+        let rows = SettingsDirectory.rows()
         List {
+            if let profile = rows.first(where: { $0.symbol == "person.fill" }) {
+                Section {
+                    NavigationLink {
+                        UserSettingsView()
+                    } label: {
+                        profileRow(profile.title)
+                    }
+                }
+                .appGlassRow()
+            }
             Section {
-                NavigationLink {
-                    GeneralSettingsView()
-                } label: {
-                    SettingsCategoryLabel(title: L("Allgemein", "General"), systemImage: "gearshape.fill", color: Color(white: 0.56))
-                }
-                NavigationLink {
-                    FinanceSettingsView()
-                } label: {
-                    SettingsCategoryLabel(title: L("Finanzen", "Finance"), systemImage: "eurosign", color: Color(red: 0.18, green: 0.72, blue: 0.38))
-                }
-                NavigationLink {
-                    ChallengeSettingsView()
-                } label: {
-                    SettingsCategoryLabel(title: L("Herausforderung", "Challenges"), systemImage: "flame.fill", color: .orange)
-                }
-                NavigationLink {
-                    HealthSettingsView()
-                } label: {
-                    SettingsCategoryLabel(title: L("Gesundheit", "Health"), systemImage: "heart.fill", color: .red)
-                }
-                NavigationLink {
-                    DataManagementView()
-                } label: {
-                    SettingsCategoryLabel(title: L("Daten", "Data"), systemImage: "externaldrive.fill", color: Color(red: 0.35, green: 0.34, blue: 0.84))
+                ForEach(rows.filter { $0.symbol != "person.fill" }) { row in
+                    NavigationLink {
+                        settingsDestination(row.symbol)
+                    } label: {
+                        SettingsCategoryLabel(title: row.title, systemImage: row.symbol)
+                    }
                 }
             }
+            .appGlassRow()
         }
+        .appGlassList()
         .navigationTitle(L("Einstellungen", "Settings"))
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbarTitleDisplayMode(.inline)
+    }
+
+    private func profileRow(_ subtitle: String) -> some View {
+        let trimmed = userName.trimmingCharacters(in: .whitespacesAndNewlines)
+        return HStack(spacing: 14) {
+            ProfileAvatar(side: 64)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(trimmed.isEmpty ? L("Name", "Name") : trimmed)
+                    .font(.title2.weight(.semibold))
+                    .foregroundStyle(.primary)
+                Text(subtitle)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(.vertical, 8)
     }
 }
 
+@ViewBuilder
+private func settingsDestination(_ symbol: String) -> some View {
+    switch symbol {
+    case "person.fill": UserSettingsView()
+    case "eurosign": FinanceSettingsView()
+    case "flame.fill": ChallengeSettingsView()
+    case "heart.fill": HealthSettingsView()
+    case "externaldrive.fill": DataManagementView()
+    default: GeneralSettingsView()
+    }
+}
+
+enum DeveloperCopy {
+    static var toggle: String { L("Entwicklermodus", "Developer mode") }
+}
+
+/// Appearance, briefing, developer mode, then version last. The person lives under User.
+enum GeneralSettingsOrder {
+    static let sections = ["appearance", "briefing", "developer", "version"]
+}
+
+enum EditorCopy {
+    static var moreSettings: String { L("Weitere Einstellungen", "More settings") }
+    static let moreStartsClosed = true
+}
+
 private struct SettingsCategoryLabel: View {
+    @Environment(\.colorScheme) private var scheme
+    @AppStorage(AppPalette.storageKey) private var paletteRaw = AppPalette.green.rawValue
     let title: String
     let systemImage: String
-    let color: Color
 
     var body: some View {
+        let accent = AppLook.accent(AppAppearance(scheme), palette: AppPalette.resolved(paletteRaw)).color()
         HStack(spacing: 12) {
             Image(systemName: systemImage)
                 .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(.white)
-                .frame(width: 29, height: 29)
-                .background(color, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+                .foregroundStyle(accent)
+                .frame(width: 34, height: 34)
+                .background(accent.opacity(0.16), in: Circle())
             Text(title)
                 .foregroundStyle(.primary)
             Spacer(minLength: 0)
@@ -59,23 +104,11 @@ private struct GeneralSettingsView: View {
     @Environment(\.modelContext) private var context
     @AppStorage("appLanguage") private var language = "de"
     @AppStorage("appTheme") private var theme = AppTheme.system.rawValue
+    @AppStorage(AppPalette.storageKey) private var palette = AppPalette.green.rawValue
     @AppStorage(AppClock.modeKey) private var developerMode = false
     @AppStorage(AppClock.dayKey) private var developerDay = 0.0
-    @AppStorage("userName") private var userName = ""
-    @AppStorage(UserProfile.birthKey) private var birthRaw = ""
     @AppStorage(LififyNotifications.briefingEnabledKey) private var briefingEnabled = true
     @AppStorage(LififyNotifications.briefingRevisionKey) private var briefingRevision = 0
-
-    private var birthSelection: Binding<Date> {
-        Binding(
-            get: { UserProfile.birthDate() ?? UserProfile.suggestedDate() },
-            set: { newValue in
-                UserProfile.setBirthDate(newValue)
-                birthRaw = UserProfile.birthRaw()
-                BirthdayBonusService.settle(context: context)
-            }
-        )
-    }
 
     private var developerModeBinding: Binding<Bool> {
         Binding(
@@ -108,35 +141,15 @@ private struct GeneralSettingsView: View {
     private var simulatedDay: Binding<Date> {
         Binding(
             get: {
-                developerDay > 0 ? Date(timeIntervalSince1970: developerDay) : Calendar.current.startOfDay(for: Date())
+                let _ = developerDay
+                return AppClock.simulatedDay
             },
-            set: { developerDay = Calendar.current.startOfDay(for: $0).timeIntervalSince1970 }
+            set: { AppClock.setSimulatedDay($0) }
         )
     }
 
     var body: some View {
         Form {
-            Section {
-                TextField(L("Name", "Name"), text: $userName)
-                DatePicker(
-                    L("Geburtsdatum", "Date of birth"),
-                    selection: birthSelection,
-                    in: ...Date(),
-                    displayedComponents: .date
-                )
-            } header: {
-                Text(L("Profil", "Profile"))
-            } footer: {
-                Text(birthRaw.isEmpty
-                    ? L(
-                        "Wähle dein Geburtsdatum. Das angezeigte Datum gilt erst, wenn du es änderst. Am Geburtstag gibt es einmal im Jahr 500 Coins. Der 29. Februar fällt in einem Jahr ohne diesen Tag auf den 28. Februar.",
-                        "Choose your date of birth. The date shown is saved once you change it. Your birthday pays 500 coins once each year. In a year without 29 February, that birthday falls on 28 February."
-                    )
-                    : L(
-                        "Am Geburtstag gibt es einmal im Jahr 500 Coins. Der 29. Februar fällt in einem Jahr ohne diesen Tag auf den 28. Februar.",
-                        "Your birthday pays 500 coins once each year. In a year without 29 February, that birthday falls on 28 February."
-                    ))
-            }
             Section {
                 Picker(L("Sprache", "Language"), selection: $language) {
                     Text("Deutsch").tag("de")
@@ -144,6 +157,9 @@ private struct GeneralSettingsView: View {
                 }
                 Picker(L("Erscheinungsbild", "Appearance"), selection: $theme) {
                     ForEach(AppTheme.allCases) { Text($0.label).tag($0.rawValue) }
+                }
+                Picker(L("Stil", "Style"), selection: $palette) {
+                    ForEach(AppPalette.allCases) { Text($0.label).tag($0.rawValue) }
                 }
             } header: {
                 Text(L("Darstellung", "Appearance"))
@@ -153,8 +169,25 @@ private struct GeneralSettingsView: View {
                     "All data stays locally on this device. Lifify has no backend and needs no account."
                 ))
             }
+            .appGlassRow()
             Section {
-                Toggle(L("Entwicklermodus", "Developer mode"), isOn: developerModeBinding)
+                Toggle(L("Tägliches Briefing", "Daily briefing"), isOn: $briefingEnabled)
+                BriefingWeekBoard(
+                    master: briefingEnabled,
+                    revision: briefingRevision,
+                    time: briefingBinding
+                ) {
+                    briefingRevision += 1
+                }
+            } footer: {
+                Text(L(
+                    "Tippe einen Tag an, um das Briefing an diesem Wochentag ein- oder auszuschalten. Die Uhrzeit steht darunter. Die Mitteilung nennt Termine, fällige Challenges und ihre Coins, nahende Belohnungen, das nächste Gehalt und die Ausgaben dieses Tags. Abstinenz-Boni kommen zusätzlich und bleiben in der Mitteilungszentrale.",
+                    "Tap a day to turn the briefing on or off for that weekday. The time sits underneath. The notification names events, due challenges and their coins, upcoming rewards, the next salary, and that day's expenses. Abstinence bonuses arrive as well and stay in Notification Center."
+                ))
+            }
+            .appGlassRow()
+            Section {
+                Toggle(DeveloperCopy.toggle, isOn: developerModeBinding)
                 if developerMode {
                     DatePicker(L("Aktueller Tag", "Current day"), selection: simulatedDay, displayedComponents: .date)
                     NavigationLink {
@@ -169,35 +202,288 @@ private struct GeneralSettingsView: View {
                     "The day applies to Home, challenges, and the calendar. Finance stays on the real date. Launching the app or switching the mode puts the day back on today."
                 ))
             }
+            .appGlassRow()
             Section {
-                Toggle(L("Tägliches Briefing", "Daily briefing"), isOn: $briefingEnabled)
-                ForEach(BriefingSchedule.weekdays, id: \.self) { weekday in
-                    DatePicker(
-                        BriefingSchedule.weekdayLabel(weekday),
-                        selection: briefingBinding(weekday),
-                        displayedComponents: .hourAndMinute
-                    )
-                    .disabled(!briefingEnabled)
-                }
-            } footer: {
-                Text(L(
-                    "Eine Mitteilung am Tag, mit einer eigenen Uhrzeit von Montag bis Sonntag. Sie nennt Termine, fällige Challenges und ihre Coins, nahende Belohnungen, das nächste Gehalt und die Ausgaben dieses Tags. Abstinenz-Boni kommen zusätzlich und bleiben in der Mitteilungszentrale.",
-                    "One notification a day, with its own time from Monday through Sunday. It names events, due challenges and their coins, upcoming rewards, the next salary, and that day's expenses. Abstinence bonuses arrive as well and stay in Notification Center."
-                ))
+                LabeledContent(L("Version", "Version"), value: AppChrome.version)
             }
-            Section {
-                LabeledContent(L("Version", "Version"), value: "0.3.0")
-            }
+            .appGlassRow()
         }
         .onChange(of: briefingEnabled) { Task { await DailyBriefingService.refresh(context: context) } }
         .onChange(of: briefingRevision) { Task { await DailyBriefingService.refresh(context: context) } }
+        .appGlassList()
         .navigationTitle(L("Allgemein", "General"))
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+private struct UserSettingsView: View {
+    @Environment(\.modelContext) private var context
+    @EnvironmentObject private var workouts: WorkoutStore
+    @AppStorage("userName") private var userName = ""
+    @AppStorage(UserProfile.birthKey) private var birthRaw = ""
+    @AppStorage(ProfilePhotoStore.revisionKey) private var photoRevision = 0
+    @State private var heightText = UserBody.heightText()
+    @State private var weightText = UserBody.weightText()
+    @State private var sex = UserBody.current().sex
+    @State private var goal = UserBody.current().goal
+    @State private var showsCamera = false
+    @State private var showsLibrary = false
+    @State private var libraryItem: PhotosPickerItem?
+
+    private var birthSelection: Binding<Date> {
+        Binding(
+            get: { UserProfile.birthDate() ?? UserProfile.suggestedDate() },
+            set: { newValue in
+                UserProfile.setBirthDate(newValue)
+                birthRaw = UserProfile.birthRaw()
+                BirthdayBonusService.settle(context: context)
+            }
+        )
+    }
+
+    var body: some View {
+        let _ = photoRevision
+        Form {
+            Section {
+                VStack(spacing: 10) {
+                    ProfileAvatar(side: 88)
+                    Menu {
+                        if CameraCapture.isAvailable {
+                            Button(L("Foto aufnehmen", "Take photo"), systemImage: "camera") {
+                                showsCamera = true
+                            }
+                        }
+                        Button(L("Galerie", "Library"), systemImage: "photo") {
+                            showsLibrary = true
+                        }
+                        if ProfilePhotoStore.load() != nil {
+                            Button(role: .destructive) {
+                                ProfilePhotoStore.remove()
+                            } label: {
+                                Label(L("Bild entfernen", "Remove photo"), systemImage: "trash")
+                            }
+                        }
+                    } label: {
+                        Text(L("Profilbild", "Profile photo"))
+                    }
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 6)
+                TextField(L("Name", "Name"), text: $userName)
+                DatePicker(
+                    L("Geburtsdatum", "Date of birth"),
+                    selection: birthSelection,
+                    in: ...Date(),
+                    displayedComponents: .date
+                )
+                MeasureField(title: L("Zentimeter", "Centimetres"), text: $heightText)
+                MeasureField(title: L("Kilogramm", "Kilograms"), text: $weightText)
+                Picker(L("Geschlecht", "Sex"), selection: $sex) {
+                    ForEach(BodySex.allCases) { Text($0.label).tag($0) }
+                }
+                Picker(L("Ziel", "Goal"), selection: $goal) {
+                    ForEach(BodyGoal.allCases) { Text($0.label).tag($0) }
+                }
+            } footer: {
+                Text(birthRaw.isEmpty
+                    ? L(
+                        "Wähle dein Geburtsdatum. Das angezeigte Datum gilt erst, wenn du es änderst. Am Geburtstag gibt es einmal im Jahr 500 Coins. Größe, Gewicht und Ziel setzen das Kalorienziel. Den Schlüssel für die Erkennung trägst du unter Gesundheit ein.",
+                        "Choose your date of birth. The date shown is saved once you change it. Your birthday pays 500 coins once each year. Height, weight, and the goal set the calorie target. The recognition key is entered under Health."
+                    )
+                    : L(
+                        "Am Geburtstag gibt es einmal im Jahr 500 Coins. Größe, Gewicht und Ziel setzen das Kalorienziel. Ein Training an dem Tag hebt es. Den Schlüssel für die Erkennung trägst du unter Gesundheit ein.",
+                        "Your birthday pays 500 coins once each year. Height, weight, and the goal set the calorie target. A workout that day raises it. The recognition key is entered under Health."
+                    ))
+            }
+            .appGlassRow()
+        }
+        .appGlassList()
+        .navigationTitle(L("Nutzereinstellungen", "User settings"))
+        .navigationBarTitleDisplayMode(.inline)
+        .photosPicker(isPresented: $showsLibrary, selection: $libraryItem, matching: .images)
+        .onChange(of: libraryItem) { _, item in
+            guard let item else { return }
+            Task {
+                if let data = try? await item.loadTransferable(type: Data.self) {
+                    ProfilePhotoStore.save(data)
+                }
+                libraryItem = nil
+            }
+        }
+        .sheet(isPresented: $showsCamera) {
+            CameraCapture { data in
+                ProfilePhotoStore.save(data)
+                showsCamera = false
+            } onCancel: {
+                showsCamera = false
+            }
+        }
+        .onChange(of: heightText) { storeBody() }
+        .onChange(of: weightText) { storeBody() }
+        .onChange(of: sex) { storeBody() }
+        .onChange(of: goal) { storeBody() }
+    }
+
+    private func storeBody() {
+        UserBody.save(heightText: heightText, weightText: weightText, sex: sex, goal: goal)
+        NutritionLedger.settle(context: context, sessions: workouts.sessions)
+    }
+}
+
+private struct BriefingWeekBoard: View {
+    @Environment(\.colorScheme) private var scheme
+    @AppStorage(AppPalette.storageKey) private var paletteRaw = AppPalette.green.rawValue
+    var master: Bool
+    var revision: Int
+    var time: (Int) -> Binding<Date>
+    var changed: () -> Void
+    @State private var editing: Int?
+
+    var body: some View {
+        let _ = revision
+        let accent = AppLook.accent(AppAppearance(scheme), palette: AppPalette.resolved(paletteRaw)).color()
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 4) {
+                ForEach(BriefingSchedule.weekdays, id: \.self) { weekday in
+                    let on = LififyNotifications.dayEnabled(weekday)
+                    Button {
+                        LififyNotifications.setDayEnabled(weekday, !on)
+                        changed()
+                    } label: {
+                        Text(BriefingWeek.abbreviation(weekday))
+                            .font(.caption.weight(.bold))
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 36)
+                            .background(on && master ? accent : Color.secondary.opacity(0.16), in: Circle())
+                            .foregroundStyle(on && master ? (scheme == .dark ? Color.black : Color.white) : Color.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(!master)
+                }
+            }
+            HStack(spacing: 4) {
+                ForEach(BriefingSchedule.weekdays, id: \.self) { weekday in
+                    let on = master && LififyNotifications.dayEnabled(weekday)
+                    Button {
+                        editing = editing == weekday ? nil : weekday
+                    } label: {
+                        Text(timeLabel(weekday))
+                            .font(.caption2.monospacedDigit().weight(.semibold))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 6)
+                            .background(
+                                editing == weekday ? accent.opacity(0.18) : Color.secondary.opacity(0.08),
+                                in: Capsule()
+                            )
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(!on)
+                    .opacity(on ? 1 : 0.35)
+                }
+            }
+            if let editing {
+                DatePicker(
+                    BriefingSchedule.weekdayLabel(editing),
+                    selection: time(editing),
+                    displayedComponents: .hourAndMinute
+                )
+                .disabled(!master)
+            }
+        }
+        .padding(.vertical, 4)
+    }
+
+    private func timeLabel(_ weekday: Int) -> String {
+        let clock = LififyNotifications.clock(for: weekday)
+        return String(format: "%02d:%02d", clock.hour, clock.minute)
+    }
+}
+
+private struct CheckDetailView: View {
+    let result: LififyCheckResult
+
+    var body: some View {
+        let story = CheckStories.story(named: result.name)
+        let measured = result.reading.isEmpty ? (result.detail ?? "") : result.reading
+        let methods = CheckStories.methodsLine(result.name)
+        let guide = CheckStories.readingGuide(result.name)
+        List {
+            Section {
+                Text(story.summary)
+                Text(CheckStories.filesLine(story.steps.map(\.source)))
+                    .font(.subheadline)
+                if let detail = result.detail, !result.passed {
+                    Text(detail)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                }
+            } header: {
+                Text(result.kind.label)
+            }
+            .appGlassRow()
+            if !measured.isEmpty || !guide.isEmpty {
+                Section {
+                    if !guide.isEmpty {
+                        Text(guide)
+                    }
+                    if !measured.isEmpty {
+                        Text(CheckStories.actualLine(measured))
+                            .foregroundStyle(result.passed ? Color.primary : Color.red)
+                    }
+                } header: {
+                    Text(L("Gemessen", "Measured"))
+                }
+                .appGlassRow()
+            }
+            Section {
+                ForEach(Array(story.steps.enumerated()), id: \.offset) { index, step in
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(CheckStories.stepTitle(index + 1))
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                        Text(CheckStories.expectedLine(step.text))
+                        if !methods.isEmpty {
+                            Text(methods)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Text(CheckStories.sourceLine(step.source))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.vertical, 4)
+                }
+            } header: {
+                Text(L("Schritte", "Steps"))
+            }
+            .appGlassRow()
+        }
+        .appGlassList()
+        .navigationTitle(result.name)
         .navigationBarTitleDisplayMode(.inline)
     }
 }
 
 private struct DeveloperTestsView: View {
     @State private var results: [LififyCheckResult] = []
+    @State private var expandedTopics: Set<String> = CheckResultList.startsCollapsed
+        ? []
+        : Set(LififyCheckTopic.allCases.map(\.rawValue))
+
+    private func expanded(_ topic: LififyCheckTopic) -> Binding<Bool> {
+        Binding(
+            get: { expandedTopics.contains(topic.rawValue) },
+            set: { isOn in
+                if isOn {
+                    expandedTopics.insert(topic.rawValue)
+                } else {
+                    expandedTopics.remove(topic.rawValue)
+                }
+            }
+        )
+    }
 
     var body: some View {
         List {
@@ -210,11 +496,13 @@ private struct DeveloperTestsView: View {
                     "The same checks run in Xcode as LififyChecksTests. They do not write any data."
                 ))
             }
-            ForEach(LififyCheckTopic.allCases, id: \.self) { topic in
-                let rows = results.filter { $0.topic == topic }
-                if !rows.isEmpty {
-                    Section(topic.title) {
-                        ForEach(rows) { result in
+            .appGlassRow()
+            ForEach(CheckResultList.groups(from: results)) { group in
+                DisclosureGroup(isExpanded: expanded(group.topic)) {
+                    ForEach(group.rows) { result in
+                        NavigationLink {
+                            CheckDetailView(result: result)
+                        } label: {
                             HStack(alignment: .top, spacing: 10) {
                                 Image(systemName: result.passed ? "checkmark.circle.fill" : "xmark.circle.fill")
                                     .foregroundStyle(result.passed ? .green : .red)
@@ -232,9 +520,20 @@ private struct DeveloperTestsView: View {
                             }
                         }
                     }
+                } label: {
+                    HStack {
+                        Text(group.topic.title)
+                            .foregroundStyle(group.allPassed ? Color.primary : Color.red)
+                        Spacer()
+                        Text(group.summary)
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                    }
                 }
+                .appGlassRow()
             }
         }
+        .appGlassList()
         .navigationTitle(L("Tests", "Tests"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -261,6 +560,7 @@ private struct FinanceSettingsView: View {
                     Label(L("Konten", "Accounts"), systemImage: "building.columns")
                 }
             }
+            .appGlassRow()
             Section {
                 Picker(L("Standard-Girokonto", "Default checking account"), selection: $defaultCheckingAccountID) {
                     Text(L("Erstes Girokonto", "First checking account")).tag("")
@@ -286,7 +586,9 @@ private struct FinanceSettingsView: View {
                     "The checking account is preselected for buys and sales. The fee can be turned off and applies once per booking, not per share."
                 ))
             }
+            .appGlassRow()
         }
+        .appGlassList()
         .navigationTitle(L("Finanzen", "Finance"))
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
@@ -306,6 +608,8 @@ private struct ChallengeSettingsView: View {
     @AppStorage(ChallengeCategoryStore.revisionKey) private var categoryRevision = 0
     @State private var factorText = ""
     @State private var bonusDifficulty: AbstinenceDifficulty = .medium
+    @State private var pickedStreak = StreakSettings.thresholds[0]
+    @State private var pickedMilestone: AbstinenceMilestone = .hour1
     @State private var editedCategory: CustomChallengeCategory?
     @State private var showingNewCategory = false
 
@@ -345,6 +649,7 @@ private struct ChallengeSettingsView: View {
                     "Sport, abstinence, and other always exist. A custom category can have its own heading in the active list. Otherwise it stays with the rest."
                 ))
             }
+            .appGlassRow()
             Section {
                 NavigationLink {
                     SystemCalendarSyncView()
@@ -352,6 +657,7 @@ private struct ChallengeSettingsView: View {
                     Label(L("Kalender & Erinnerungen", "Calendar & Reminders"), systemImage: "arrow.triangle.2.circlepath")
                 }
             }
+            .appGlassRow()
             Section {
                 TextField(L("Faktor", "Factor"), text: $factorText)
                     .keyboardType(.numberPad)
@@ -363,10 +669,20 @@ private struct ChallengeSettingsView: View {
                     "An extra freeze costs this whole-number factor times the base reward. The default is 10."
                 ))
             }
+            .appGlassRow()
             Section {
-                ForEach(StreakSettings.thresholds, id: \.self) { threshold in
-                    MultiplierRow(threshold: threshold)
+                EvenBubbleRow(spacing: 8, lineSpacing: 8) {
+                    ForEach(StreakSettings.thresholds, id: \.self) { threshold in
+                        Button {
+                            pickedStreak = threshold
+                        } label: {
+                            ChoiceBubble(title: "\(threshold)×", selected: pickedStreak == threshold)
+                        }
+                        .buttonStyle(.plain)
+                    }
                 }
+                MultiplierRow(threshold: pickedStreak)
+                    .id(pickedStreak)
             } header: {
                 Text(L("Streak-Multiplikator", "Streak multiplier"))
             } footer: {
@@ -375,14 +691,23 @@ private struct ChallengeSettingsView: View {
                     "These defaults apply until you change them. The factor applies to the base reward. When a streak reaches several steps, only the highest one counts, not the product."
                 ))
             }
+            .appGlassRow()
             Section {
                 Picker(L("Schwierigkeit", "Difficulty"), selection: $bonusDifficulty) {
                     ForEach(AbstinenceDifficulty.allCases) { Text($0.label).tag($0) }
                 }
-                ForEach(AbstinenceMilestone.allCases) { milestone in
-                    AbstinenceMultiplierRow(difficulty: bonusDifficulty, milestone: milestone)
-                        .id("\(bonusDifficulty.rawValue)-\(milestone.rawValue)")
+                EvenBubbleRow(spacing: 8, lineSpacing: 8) {
+                    ForEach(AbstinenceMilestone.allCases) { milestone in
+                        Button {
+                            pickedMilestone = milestone
+                        } label: {
+                            ChoiceBubble(title: milestone.label, selected: pickedMilestone == milestone)
+                        }
+                        .buttonStyle(.plain)
+                    }
                 }
+                AbstinenceMultiplierRow(difficulty: bonusDifficulty, milestone: pickedMilestone)
+                    .id("\(bonusDifficulty.rawValue)-\(pickedMilestone.rawValue)")
             } header: {
                 Text(L("Abstinenz-Bonus", "Abstinence bonus"))
             } footer: {
@@ -391,7 +716,9 @@ private struct ChallengeSettingsView: View {
                     "The bonus is this factor times the coins per day. Easy, medium, and hard each have their own factors. The default table applies until you change it. Every reached step pays its bonus."
                 ))
             }
+            .appGlassRow()
         }
+        .appGlassList()
         .navigationTitle(L("Herausforderung", "Challenges"))
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
@@ -468,11 +795,63 @@ private struct AbstinenceMultiplierRow: View {
     }
 }
 
+private struct MeasureField: View {
+    let title: String
+    @Binding var text: String
+
+    var body: some View {
+        HStack {
+            TextField("0", text: $text)
+                .keyboardType(.decimalPad)
+            Text(title)
+                .foregroundStyle(.secondary)
+        }
+    }
+}
+
+private struct ProfileAvatar: View {
+    var side: CGFloat
+    @AppStorage(ProfilePhotoStore.revisionKey) private var revision = 0
+
+    var body: some View {
+        let _ = revision
+        Group {
+            if let data = ProfilePhotoStore.load(), let image = UIImage(data: data) {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFill()
+            } else {
+                Image(systemName: "person.crop.circle.fill")
+                    .resizable()
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .frame(width: side, height: side)
+        .clipShape(Circle())
+    }
+}
+
 private struct HealthSettingsView: View {
     @AppStorage(RestChime.storageKey) private var restChimeID = 1005
+    @AppStorage(MealCapture.saveKey) private var saveMealPhotos = false
+    @State private var geminiKey = ""
 
     var body: some View {
         Form {
+            Section {
+                Toggle(L("Aufnahmen in der Galerie sichern", "Save new photos to the library"), isOn: $saveMealPhotos)
+                SecureField(L("Gemini-Schlüssel", "Gemini key"), text: $geminiKey)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+            } header: {
+                Text(L("Ernährung", "Nutrition"))
+            } footer: {
+                Text(L(
+                    "Eine Aufnahme bleibt in der App. Sie kommt nur in die Galerie, wenn der Schalter an ist. Er ist aus. Ein Bild, das du aus der Galerie wählst, wird nicht noch einmal gespeichert. Der Schlüssel bleibt auf diesem Gerät. Ein Essensfoto wird nur mit diesem Schlüssel an Gemini geschickt.",
+                    "A new photo stays in the app. It reaches the library only when the switch is on. It is off. A picture you pick from the library is not saved again. The key stays on this device. A meal photo is sent to Gemini only with this key."
+                ))
+            }
+            .appGlassRow()
             Section {
                 NavigationLink {
                     RestChimePicker(selection: $restChimeID)
@@ -487,9 +866,22 @@ private struct HealthSettingsView: View {
                     "The chime ends a rest period. Exercises come from the local database."
                 ))
             }
+            .appGlassRow()
         }
+        .appGlassList()
         .navigationTitle(L("Gesundheit", "Health"))
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear {
+            geminiKey = KeychainStore.string(account: MealRecognition.keyAccount) ?? ""
+        }
+        .onChange(of: geminiKey) {
+            let trimmed = geminiKey.trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmed.isEmpty {
+                KeychainStore.remove(account: MealRecognition.keyAccount)
+            } else {
+                KeychainStore.set(trimmed, account: MealRecognition.keyAccount)
+            }
+        }
     }
 }
 
@@ -508,11 +900,13 @@ private struct RestChimePicker: View {
                     Spacer()
                     if tone.id == selection {
                         Image(systemName: "checkmark")
-                            .foregroundStyle(Color.accentColor)
+                            .appAccentForeground()
                     }
                 }
             }
+            .appGlassRow()
         }
+        .appGlassList()
         .navigationTitle(L("Klingelton", "Chime"))
         .navigationBarTitleDisplayMode(.inline)
     }

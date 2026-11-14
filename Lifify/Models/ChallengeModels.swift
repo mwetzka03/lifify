@@ -107,6 +107,11 @@ final class ChallengeCalendarEvent {
     }
 }
 
+enum RecommendationCopy {
+    static var empty: String { L("Keine importierten Empfehlungen", "No imported recommendations") }
+    static var heading: String { L("Empfehlungen", "Recommendations") }
+}
+
 extension ChallengeCalendarEvent {
     var isReminderSuggestion: Bool {
         externalIdentifier?.hasPrefix("reminder:") == true
@@ -126,6 +131,8 @@ final class ChallengeItem {
     var rewardCoins: Int
     var streakTarget: Int
     var groupID: UUID?
+    /// Every group this challenge belongs to, including the one from its event.
+    var groupIDsRaw: String = ""
     var isArchived: Bool
     var externalIdentifier: String?
     var isReadOnly: Bool
@@ -142,6 +149,19 @@ final class ChallengeItem {
     var weekdaySet: Set<Int> {
         get { Set(weeklyDays.split(separator: ",").compactMap { Int($0) }) }
         set { weeklyDays = newValue.sorted().map(String.init).joined(separator: ",") }
+    }
+
+    var groupIDs: [UUID] {
+        get { ChallengeGroups.ids(primary: groupID, stored: groupIDsRaw) }
+        set {
+            let unique = ChallengeGroups.unique(newValue)
+            groupIDsRaw = ChallengeGroups.stored(unique)
+            groupID = unique.first
+        }
+    }
+
+    func belongs(to group: UUID) -> Bool {
+        ChallengeGroups.contains(groupIDs, group)
     }
 
     init(
@@ -172,6 +192,7 @@ final class ChallengeItem {
         self.rewardCoins = rewardCoins
         self.streakTarget = streakTarget
         self.groupID = groupID
+        self.groupIDsRaw = groupID?.uuidString ?? ""
         self.isArchived = isArchived
         self.externalIdentifier = externalIdentifier
         self.isReadOnly = isReadOnly

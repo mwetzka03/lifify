@@ -33,6 +33,7 @@ struct DashboardView: View {
     @State private var savingsForecastsExpanded = false
     @State private var summary: PreparedSummary?
     @State private var summarySelection: Int?
+    @State private var depotReady = false
     @AppStorage(ForecastSkipStore.revisionKey) private var forecastSkipRevision = 0
     @AppStorage(ForecastPeriodLinkStore.revisionKey) private var forecastLinkRevision = 0
     @AppStorage(ForecastMatchRejectionStore.revisionKey) private var forecastRejectionRevision = 0
@@ -55,7 +56,11 @@ struct DashboardView: View {
                     List {
                     Section {
                         if filters.showsDepot {
-                            depotContent(period)
+                            if DepotLoad.shouldSpin(ready: depotReady, opened: true) {
+                                summaryLoading
+                            } else {
+                                depotContent(period)
+                            }
                         } else if let summary, summarySelection == selectionToken {
                             financeSummary(
                                 summary.forecast,
@@ -73,18 +78,17 @@ struct DashboardView: View {
                     if !filters.showsDepot {
                         Section {
                             forecastSearchRow
-                            if visibleForecasts(period).isEmpty {
+                            let lines = visibleForecasts(period)
+                            if lines.isEmpty {
                                 Text(forecastQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                                     ? L("In diesem Zeitraum liegen keine Prognosen.", "There are no forecasts in this period.")
                                     : L("Keine Prognose gefunden.", "No forecast found."))
                                     .foregroundStyle(.secondary)
+                                    .appJoinedCard(.single)
                             }
-                            ForEach(visibleForecasts(period)) { line in
-                                if line.isSavingsHeader {
-                                    savingsForecastHeader(bookedCents: line.bookedCents, openCents: line.openCents)
-                                } else if let item = line.item {
-                                    forecastButton(item)
-                                }
+                            ForEach(Array(lines.enumerated()), id: \.element.id) { index, line in
+                                forecastLine(line)
+                                    .appJoinedCard(ListCardEdge.edge(index: index, count: lines.count))
                             }
                         } header: {
                             Text(L("Prognosen", "Forecasts"))
@@ -95,16 +99,18 @@ struct DashboardView: View {
                     }
                     Section {
                         bookingSearchRow
-                        if filteredBookings.isEmpty {
+                        let rows = filteredBookings
+                        if rows.isEmpty {
                             Text(bookingQuery.isEmpty
                                 ? L("In diesem Zeitraum liegen keine Buchungen.", "There are no transactions in this period.")
                                 : L("Keine Buchung gefunden.", "No transaction found."))
                                 .foregroundStyle(.secondary)
+                                .appJoinedCard(.single)
                         }
-                        ForEach(filteredBookings) { entry in
+                        ForEach(Array(rows.enumerated()), id: \.element.id) { index, entry in
                             Button {
                                 selectedBooking = entry
-                            }                             label: {
+                            } label: {
                                 TransactionRow(
                                     entry: entry,
                                     accounts: accounts,
@@ -128,8 +134,9 @@ struct DashboardView: View {
                                 } label: {
                                     Label(L("Bearbeiten", "Edit"), systemImage: "pencil")
                                 }
-                                .tint(.blue)
+                                .appAccentTint()
                             }
+                            .appJoinedCard(ListCardEdge.edge(index: index, count: rows.count))
                         }
                     } header: {
                         Text(L("Buchungen", "Transactions"))
@@ -139,16 +146,31 @@ struct DashboardView: View {
                     }
                     }
                     .listStyle(.plain)
+                    .listRowSpacing(0)
                     .scrollContentBackground(.hidden)
+                    .appAccentTint()
+                    .listSectionSpacing(FinanceMoreDirectory.sectionSpacing)
                 }
-                .task(id: filters.showsDepot ? 0 : forecastToken) {
-                    if filters.showsDepot {
-                        summary = nil
-                        summarySelection = nil
+                .task(id: filters.showsDepot) {
+                    guard filters.showsDepot else {
+                        depotReady = false
                         return
                     }
-                    try? await Task.sleep(for: .milliseconds(400))
-                    guard !Task.isCancelled else { return }
+                    if DepotLoad.shouldSpin(ready: depotReady, opened: true) {
+                        await Task.yield()
+                        try? await Task.sleep(for: .milliseconds(32))
+                        guard !Task.isCancelled else { return }
+                        depotReady = true
+                    }
+                    SavingsPlanRunner.bookDue(context: context)
+                    SavingsPlanFixedCosts.sync(context: context)
+                }
+                .task(id: forecastToken) {
+                    guard !filters.showsDepot else { return }
+                    if summarySelection != selectionToken {
+                        try? await Task.sleep(for: .milliseconds(400))
+                        guard !Task.isCancelled else { return }
+                    }
                     await refreshSummary()
                 }
             } else {
@@ -166,15 +188,11 @@ struct DashboardView: View {
                 .padding(12)
             }
         }
-        .appCanvas()
+        .appGlassCanvas()
         .toolbar(isMainTab ? .hidden : .automatic, for: .navigationBar)
         .navigationTitle(isMainTab ? "" : L("Finanzen", "Finance"))
         .navigationBarTitleDisplayMode(.inline)
         .modifier(FinanceDestinationRegistration(isEnabled: path == nil))
-        .onAppear {
-            SavingsPlanRunner.bookDue(context: context)
-            SavingsPlanFixedCosts.sync(context: context)
-        }
         .sheet(item: $editingBooking) { entry in
             TransactionFormView(entry: entry, splits: splits)
         }
@@ -307,6 +325,15 @@ struct DashboardView: View {
         }
     }
 
+    @ViewBuilder
+    private func forecastLine(_ line: ForecastDisplayLine) -> some View {
+        if line.isSavingsHeader {
+            savingsForecastHeader(bookedCents: line.bookedCents, openCents: line.openCents)
+        } else if let item = line.item {
+            forecastButton(item)
+        }
+    }
+
     private func forecastButton(_ item: ForecastListItem) -> some View {
         Button {
             selectedForecast = item
@@ -328,7 +355,7 @@ struct DashboardView: View {
             } label: {
                 Label(L("Bearbeiten", "Edit"), systemImage: "pencil")
             }
-            .tint(.blue)
+            .appAccentTint()
         }
     }
 
@@ -353,7 +380,7 @@ struct DashboardView: View {
             }
             .padding(.horizontal, 14)
             .frame(height: 52)
-            .background(AppSurface.card, in: Capsule())
+            .appTintedCapsule()
             .overlay(Capsule().strokeBorder(Color.primary.opacity(0.08)))
             .clipShape(Capsule())
             Menu {
@@ -582,11 +609,11 @@ struct DashboardView: View {
             }
             .padding(.horizontal, 14)
             .frame(height: 52)
-            .background(AppSurface.card, in: Capsule())
+            .appTintedCapsule()
             .overlay(Capsule().strokeBorder(Color.primary.opacity(0.08)))
             .clipShape(Capsule())
             Menu {
-                ForEach(BookingCategory.allCases.filter(\.allowsManualEntry)) { category in
+                ForEach(BookingCategory.manualChoices) { category in
                     Button(category.label) { newBookingCategory = category }
                 }
             } label: {
@@ -676,12 +703,12 @@ struct DashboardView: View {
 
     private func biasCard(_ forecast: PeriodForecast) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(L("Einkaufszettel", "Shopping list"))
+            Text(FinanceTileCopy.shopping)
                 .font(.headline)
                 .foregroundStyle(.secondary)
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(L("Angewendet", "Applied"))
+                    Text(FinanceTileCopy.applied)
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                     Text(Money.string(cents: forecast.biasApplied))
@@ -690,7 +717,7 @@ struct DashboardView: View {
                 }
                 Spacer()
                 VStack(alignment: .trailing, spacing: 2) {
-                    Text(L("Geplant", "Planned"))
+                    Text(FinanceTileCopy.planned)
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                     Text(Money.string(cents: forecast.biasPlanned))
@@ -1160,50 +1187,54 @@ private struct FinanceMoreSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(L("Weitere Bereiche", "More"))
-                .font(.title3.weight(.semibold))
+            Text(FinanceMoreDirectory.title)
+                .font(FinanceMoreDirectory.font(FinanceMoreDirectory.sectionFontName))
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 4)
             VStack(alignment: .leading, spacing: 0) {
-                sectionLink(L("Budgetpools", "Budget pools"), systemImage: "tray.full", route: .budgetPools)
-                Divider().padding(.leading, 54)
-                sectionLink(L("Ausgabengruppen", "Expense groups"), systemImage: "square.stack.3d.up", route: .expenseGroups)
-                Divider().padding(.leading, 54)
-                sectionLink(L("Schulden", "Debts"), systemImage: "person.2", route: .debts)
+                ForEach(Array(FinanceMoreDirectory.rows.enumerated()), id: \.element.id) { index, link in
+                    if index > 0 {
+                        Divider().padding(.leading, 48)
+                    }
+                    sectionLink(link)
+                }
             }
-            .background(AppSurface.card, in: RoundedRectangle(cornerRadius: 14))
+            .appTintedPlate(radius: 14)
         }
     }
 
-    private func sectionLink(_ title: String, systemImage: String, route: FinanceRoute) -> some View {
+    private func sectionLink(_ link: FinanceMoreLink) -> some View {
         Group {
             if let path {
                 Button {
-                    path.wrappedValue.append(route)
+                    path.wrappedValue.append(link.route)
                 } label: {
-                    row(title, systemImage: systemImage)
+                    row(link)
                 }
             } else {
-                NavigationLink(value: route) {
-                    row(title, systemImage: systemImage)
+                NavigationLink(value: link.route) {
+                    row(link)
                 }
             }
         }
         .buttonStyle(.plain)
     }
 
-    private func row(_ title: String, systemImage: String) -> some View {
-        HStack {
-            Label(title, systemImage: systemImage)
+    private func row(_ link: FinanceMoreLink) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: link.symbol)
+                .frame(width: 32)
+                .foregroundStyle(.secondary)
+            Text(link.title)
+                .font(FinanceMoreDirectory.font(FinanceMoreDirectory.rowFontName))
+                .foregroundStyle(.primary)
             Spacer()
             Image(systemName: "chevron.right")
-                .font(.body.weight(.semibold))
+                .font(FinanceMoreDirectory.font(FinanceMoreDirectory.chevronFontName))
                 .foregroundStyle(.tertiary)
         }
-        .font(.title3)
-        .foregroundStyle(.primary)
-        .padding(.horizontal, 14)
-        .padding(.vertical, 18)
+        .padding(.horizontal, FinanceMoreDirectory.rowHorizontalPadding)
+        .padding(.vertical, FinanceMoreDirectory.rowVerticalPadding)
         .contentShape(Rectangle())
     }
 }
@@ -1274,8 +1305,13 @@ private struct FinanceCardModifier: ViewModifier {
     var padding: CGFloat
     var fillsRow: Bool
     @Environment(\.tileRowHeight) private var rowHeight
+    @Environment(\.colorScheme) private var scheme
+    @AppStorage(AppPalette.storageKey) private var paletteRaw = AppPalette.green.rawValue
 
     func body(content: Content) -> some View {
+        let palette = AppPalette.resolved(paletteRaw)
+        let appearance = AppAppearance(scheme)
+        let shape = RoundedRectangle(cornerRadius: 14, style: .continuous)
         content
             .padding(padding)
             .frame(maxWidth: .infinity, alignment: .topLeading)
@@ -1287,7 +1323,8 @@ private struct FinanceCardModifier: ViewModifier {
                 }
             }
             .frame(maxWidth: .infinity, minHeight: fillsRow && rowHeight > 0 ? rowHeight : 0, alignment: .topLeading)
-            .background(AppSurface.card, in: RoundedRectangle(cornerRadius: 14))
+            .background(AppLook.cardFill(appearance, palette: palette).color(), in: shape)
+            .overlay(shape.strokeBorder(AppLook.cardStroke(appearance, palette: palette).color(), lineWidth: 1))
     }
 }
 

@@ -21,7 +21,8 @@ enum ChallengeTimeFilter: String, CaseIterable, Identifiable {
 /// Sport and abstinence stay out of this. They keep their own rules.
 enum ChallengeTimeRules {
     static let suggestionAge: TimeInterval = 7 * 86_400
-    static let assignmentLookbackDays = 7
+    /// A challenge created from an event carries this prefix. That link is exclusive.
+    static let adoptedMark = "event-challenge:"
 
     static func allowsTime(_ category: ChallengeCategory) -> Bool {
         category != .sport && category != .abstinence
@@ -36,14 +37,40 @@ enum ChallengeTimeRules {
         }
     }
 
-    /// An event can be assigned when it is still ahead, or at most a week in the past.
-    /// The event already chosen stays available so editing it does not drop the link.
-    static func canAssign(start: Date, now: Date, keepingSelection: Bool, calendar: Calendar = .current) -> Bool {
+    static func isAdopted(_ identifier: String?) -> Bool {
+        identifier?.hasPrefix(adoptedMark) == true
+    }
+
+    /// Sport, abstinence, and a challenge created from the event take that event alone.
+    static func isExclusiveLink(category: ChallengeCategory?, identifier: String?) -> Bool {
+        if isAdopted(identifier) { return true }
+        return category == .sport || category == .abstinence
+    }
+
+    /// Timed challenges use the slot. With none attached, the event still has room.
+    static func hasOpenTime(slotMinutes: Int, linkedMinutes: [Int]) -> Bool {
+        let used = linkedMinutes.filter { $0 > 0 }
+        guard !used.isEmpty else { return true }
+        return remaining(slotMinutes: slotMinutes, linkedMinutes: used) > 0
+    }
+
+    /// A full event, or one already taken by sport, abstinence, or its own challenge, stays out.
+    /// The event already chosen stays, so it can be cleared.
+    static func canOffer(
+        exclusive: Bool,
+        slotMinutes: Int,
+        linkedMinutes: [Int],
+        keepingSelection: Bool
+    ) -> Bool {
         if keepingSelection { return true }
-        guard let earliest = calendar.date(byAdding: .day, value: -assignmentLookbackDays, to: calendar.startOfDay(for: now)) else {
-            return false
-        }
-        return start >= earliest
+        if exclusive { return false }
+        return hasOpenTime(slotMinutes: slotMinutes, linkedMinutes: linkedMinutes)
+    }
+
+    /// None sits on today. The index is how many events are on earlier days.
+    static func pickerAnchor(eventStarts: [Date], today: Date, calendar: Calendar = .current) -> Int {
+        let start = calendar.startOfDay(for: today)
+        return eventStarts.filter { calendar.startOfDay(for: $0) < start }.count
     }
 
     static func minutes(from start: Date, to end: Date) -> Int {
@@ -73,15 +100,56 @@ enum ChallengeTimeRules {
         return minutes <= remaining
     }
 
-    /// One timed challenge makes the event that long.
-    /// Several, with some finished, shrink the event to the finished minutes.
-    /// Several, with none finished, keep the planned slot.
-    static func displayedMinutes(planned: Int, linked: [Int], completed: [Int]) -> Int {
-        let timed = linked.filter { $0 > 0 }
-        if timed.count == 1 { return timed[0] }
-        let done = completed.filter { $0 > 0 }.reduce(0, +)
-        if done > 0 { return done }
-        return max(planned, 0)
+    /// Checking off a timed challenge that sits on an event asks for the real minutes.
+    static func asksForActualDuration(hasEstimate: Bool, linkedToEvent: Bool, completing: Bool) -> Bool {
+        completing && hasEstimate && linkedToEvent
+    }
+
+    static func durationParts(_ minutes: Int) -> (hours: Int, minutes: Int) {
+        let safe = max(minutes, 0)
+        return (safe / 60, safe % 60)
+    }
+
+    static func durationText(_ minutes: Int) -> String {
+        let parts = durationParts(minutes)
+        if parts.hours > 0, parts.minutes > 0 {
+            return L("\(parts.hours) Std \(parts.minutes) Min", "\(parts.hours) h \(parts.minutes) min")
+        }
+        if parts.hours > 0 {
+            return L("\(parts.hours) Std", "\(parts.hours) h")
+        }
+        return L("\(parts.minutes) Min", "\(parts.minutes) min")
+    }
+
+    /// Date and start stay. A free event shows its length. A filled event shows only the time still left.
+    static func scheduleCaption(
+        allDay: Bool,
+        dateText: String,
+        timeText: String,
+        slotMinutes: Int,
+        linkedMinutes: [Int]
+    ) -> String {
+        if allDay { return L("Ganztägig", "All day") }
+        let used = linkedMinutes.filter { $0 > 0 }
+        if used.isEmpty {
+            return "\(dateText) · \(timeText) · \(durationText(slotMinutes))"
+        }
+        let left = remaining(slotMinutes: slotMinutes, linkedMinutes: used)
+        return "\(dateText) · \(timeText) · \(durationText(left))"
+    }
+
+    /// Oldest first. A finished challenge is left out. One already on the event stays if it is not marked finished.
+    static func offeredSuggestions(
+        candidates: [(id: UUID, minutes: Int?, createdAt: Date, offered: Bool, finished: Bool)],
+        already: Set<UUID>
+    ) -> [UUID] {
+        candidates
+            .filter { $0.offered && !$0.finished && !already.contains($0.id) }
+            .sorted { lhs, rhs in
+                if lhs.createdAt != rhs.createdAt { return lhs.createdAt < rhs.createdAt }
+                return lhs.id.uuidString < rhs.id.uuidString
+            }
+            .map(\.id)
     }
 
     static func suggestions(
@@ -97,5 +165,177 @@ enum ChallengeTimeRules {
             guard canAdd(minutes: item.minutes, remaining: remaining) else { return nil }
             return item.id
         }
+    }
+}
+
+/// Linking a challenge to an event puts it on that event's day and into the shared group.
+enum EventChallengeLink {
+    struct Placement: Equatable {
+        var start: Date
+        var weekdays: Set<Int>
+        var end: Date?
+    }
+
+    /// The event start replaces the challenge day. A weekly challenge moves onto that weekday.
+    /// An end that would fall before the new day is cleared.
+    static func placement(
+        eventStart: Date,
+        recurrence: ChallengeRecurrence,
+        weekdays: Set<Int>,
+        end: Date?,
+        calendar: Calendar = .current
+    ) -> Placement {
+        var days = weekdays
+        if recurrence == .weekly {
+            days = [calendar.component(.weekday, from: eventStart)]
+        }
+        var keptEnd = end
+        if let end, calendar.startOfDay(for: end) < calendar.startOfDay(for: eventStart) {
+            keptEnd = nil
+        }
+        return Placement(start: eventStart, weekdays: days, end: keptEnd)
+    }
+
+    /// Everyone already on the event, plus the challenge linked afterwards.
+    static func members(already: [UUID], linked: UUID?, adding: UUID?) -> [UUID] {
+        var ids = already
+        if let linked, !ids.contains(linked) { ids.append(linked) }
+        if let adding, !ids.contains(adding) { ids.append(adding) }
+        return ids
+    }
+
+    static func makesGroup(count: Int) -> Bool { count >= 2 }
+
+    /// A timed event writes the clock into the reminder. An all-day event keeps the date only.
+    static func reminderIncludesTime(allDay: Bool) -> Bool { !allDay }
+
+    /// Einzeln shows every challenge, including the ones that sit in a group.
+    static func showsIndividual(inGroup: Bool, singleFilter: Bool) -> Bool {
+        singleFilter || !inGroup
+    }
+}
+
+/// A challenge can sit in the group it picked and in the group of its event.
+enum ChallengeGroups {
+    static func unique(_ ids: [UUID]) -> [UUID] {
+        ids.reduce(into: [UUID]()) { result, id in
+            if !result.contains(id) { result.append(id) }
+        }
+    }
+
+    /// A stored list wins. An older record only has the single group.
+    static func ids(primary: UUID?, stored: String) -> [UUID] {
+        let parsed = stored.split(separator: ",").compactMap { UUID(uuidString: String($0)) }
+        if !parsed.isEmpty { return unique(parsed) }
+        if let primary { return [primary] }
+        return []
+    }
+
+    static func stored(_ ids: [UUID]) -> String {
+        unique(ids).map(\.uuidString).joined(separator: ",")
+    }
+
+    /// The chosen group and the event group both stay.
+    static func membership(chosen: UUID?, eventGroup: UUID?) -> [UUID] {
+        unique([chosen, eventGroup].compactMap { $0 })
+    }
+
+    static func contains(_ ids: [UUID], _ group: UUID) -> Bool {
+        ids.contains(group)
+    }
+}
+
+/// Several challenges share one event only when each of them happens once.
+/// The calendar event is replaced after every one of them is checked off.
+enum EventRewrite {
+    struct Window: Equatable {
+        var start: Date
+        var end: Date
+    }
+
+    static func acceptsSharedEvent(_ recurrence: ChallengeRecurrence) -> Bool {
+        recurrence == .none
+    }
+
+    /// A repeating challenge can take an empty event. It cannot join other challenges.
+    static func canShare(adding: ChallengeRecurrence, others: [ChallengeRecurrence]) -> Bool {
+        if !acceptsSharedEvent(adding) { return others.isEmpty }
+        return others.allSatisfy(acceptsSharedEvent)
+    }
+
+    static func ready(memberIDs: [UUID], completedIDs: Set<UUID>) -> Bool {
+        let ids = ChallengeGroups.unique(memberIDs)
+        guard !ids.isEmpty else { return false }
+        return ids.allSatisfy { completedIDs.contains($0) }
+    }
+
+    /// The end is the last check-off. The start is that moment minus the summed durations.
+    static func window(checkedOffAt: [Date], durations: [Int]) -> Window? {
+        let minutes = durations.filter { $0 > 0 }.reduce(0, +)
+        guard minutes > 0, let end = checkedOffAt.max() else { return nil }
+        return Window(start: end.addingTimeInterval(TimeInterval(-minutes * 60)), end: end)
+    }
+}
+
+/// A normal group takes every challenge. A group tied to an event takes one-time challenges until the slot is full.
+enum GroupJoin {
+    static func canJoin(linkedToEvent: Bool, oneTime: Bool, minutes: Int?, remaining: Int) -> Bool {
+        guard linkedToEvent else { return true }
+        guard oneTime else { return false }
+        return ChallengeTimeRules.canAdd(minutes: minutes, remaining: remaining)
+    }
+}
+
+/// The calendar line sits on an event's group, not on each member. Its color follows the style.
+enum GroupCalendarLine {
+    static func belongsOnGroup(eventGroupID: UUID?, membership: [UUID]) -> Bool {
+        guard let eventGroupID else { return false }
+        return membership.contains(eventGroupID)
+    }
+}
+
+/// Deleting a group can keep its challenges. A calendar group always drops the link.
+enum GroupRemoval {
+    static func remaining(_ groups: [UUID], removing: UUID) -> [UUID] {
+        groups.filter { $0 != removing }
+    }
+
+    static func clearsCalendarLink(generatedFromEvent: Bool) -> Bool {
+        generatedFromEvent
+    }
+}
+
+/// A challenge starts with two freezes. A nutrition day with no meals is not a miss.
+enum StreakFreeze {
+    static let startingCount = 2
+
+    static func countsDay(followsNutrition: Bool, confirmedMeals: Int) -> Bool {
+        if followsNutrition { return confirmedMeals > 0 }
+        return true
+    }
+}
+
+enum EventGroupName {
+    static func title(event: String, day: String) -> String {
+        "\(event) – \(day)"
+    }
+}
+
+/// The challenge switch that offers it when an event is looking for work. Missing means on.
+enum EventOffer {
+    static func enabled(stored: Bool?) -> Bool { stored ?? true }
+
+    static func isEnabled(for id: UUID, defaults: UserDefaults = .standard) -> Bool {
+        let key = storageKey(id)
+        guard defaults.object(forKey: key) != nil else { return enabled(stored: nil) }
+        return enabled(stored: defaults.bool(forKey: key))
+    }
+
+    static func set(_ value: Bool, for id: UUID, defaults: UserDefaults = .standard) {
+        defaults.set(value, forKey: storageKey(id))
+    }
+
+    private static func storageKey(_ id: UUID) -> String {
+        "lifify.eventOffer.\(id.uuidString)"
     }
 }

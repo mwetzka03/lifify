@@ -158,5 +158,13 @@ enum BirthdayBonusService {
         ))
         UserProfile.setAwardedYear(year)
         try? context.save()
+        Task {
+            await LififyNotifications.announceBonus(
+                id: "\(ChallengeNudgePlan.birthdayPrefix)\(year)",
+                title: BirthdayCheer.title(),
+                body: BirthdayCheer.body(),
+                due: now
+            )
+        }
     }
 }

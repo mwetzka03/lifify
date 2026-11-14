@@ -81,8 +81,9 @@ struct VariableBudgetsView: View {
                     } label: {
                         Label(L("Bearbeiten", "Edit"), systemImage: "pencil")
                     }
-                    .tint(.blue)
+                    .appAccentTint()
                 }
+                .appGlassRow()
             }
             .onDelete { offsets in
                 offsets.map { visibleBudgets[$0] }.forEach(delete)
@@ -93,6 +94,7 @@ struct VariableBudgetsView: View {
                 ContentUnavailableView(L("Keine variablen Kosten", "No variable costs"), systemImage: "gauge.with.dots.needle.67percent")
             }
         }
+        .appGlassList()
         .navigationTitle(L("Variable Kosten", "Variable costs"))
         .toolbar { Button { showingNew = true } label: { Image(systemName: "plus") } }
         .sheet(isPresented: $showingNew) { VariableBudgetForm(budget: nil) }
@@ -192,6 +194,7 @@ private struct VariableBudgetDetailView: View {
                     Text("\(AppDate.numeric(period.start)) – \(AppDate.numeric(period.end))")
                         .foregroundStyle(.secondary)
                 }
+                .appGlassRow()
             }
             if assigned.isEmpty {
                 Text(L(
@@ -215,6 +218,7 @@ private struct VariableBudgetDetailView: View {
                 }
             }
         }
+        .appGlassList()
         .navigationTitle(budget.name)
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -282,8 +286,10 @@ struct VariableBudgetForm: View {
                         "The amount is split evenly across the selected accounts. With no selection it applies to every account."
                     ))
                 }
+                .appGlassRow()
                 TextField(L("Notiz", "Note"), text: $notes, axis: .vertical)
             }
+            .appGlassList()
             .navigationTitle(existing == nil ? L("Neue variable Kosten", "New variable cost") : L("Variable Kosten bearbeiten", "Edit variable cost"))
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button(L("Abbrechen", "Cancel")) { dismiss() } }

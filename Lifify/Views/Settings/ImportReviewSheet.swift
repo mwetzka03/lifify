@@ -39,6 +39,7 @@ struct ImportReviewSheet: View {
                             "Same amount, known IBAN and a similar date. Only enabled rows become a transfer."
                         ))
                     }
+                    .appGlassRow()
                 }
                 if !review.similar.isEmpty {
                     Section {
@@ -65,8 +66,10 @@ struct ImportReviewSheet: View {
                             "Duplicate transactions are left out. Expand the list to import one anyway."
                         ))
                     }
+                    .appGlassRow()
                 }
             }
+            .appGlassList()
             .navigationTitle(L("Import prüfen", "Review import"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

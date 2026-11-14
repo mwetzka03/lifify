@@ -1,6 +1,21 @@
 import Foundation
 import UserNotifications
 
+/// How a local notification sits on the clock.
+/// A wall-clock time follows the device time zone, like an Apple alarm.
+/// An absolute time stays the same instant, like a timer.
+enum NotificationTiming {
+    static func components(
+        for date: Date,
+        followsDeviceTimeZone: Bool,
+        calendar: Calendar = .autoupdatingCurrent
+    ) -> DateComponents {
+        var parts = calendar.dateComponents([.year, .month, .day, .hour, .minute], from: date)
+        parts.timeZone = followsDeviceTimeZone ? nil : calendar.timeZone
+        return parts
+    }
+}
+
 final class NotificationCenterDelegate: NSObject, UNUserNotificationCenterDelegate, @unchecked Sendable {
     static let shared = NotificationCenterDelegate()
 
@@ -39,17 +54,36 @@ enum LififyNotifications {
     nonisolated static let briefingRevisionKey = "lifify.briefingRevision"
 
     nonisolated static func clock(for weekday: Int) -> BriefingClock {
-        BriefingSchedule.clock(
+        let stored = storedWeek()[weekday]
+        let overrides = stored.map { [weekday: BriefingClock(hour: $0.hour, minute: $0.minute)] } ?? [:]
+        return BriefingSchedule.clock(
             weekday: weekday,
-            overrides: weekdayMap(),
+            overrides: overrides,
             fallback: BriefingClock(hour: briefingHour, minute: briefingMinute)
         )
     }
 
+    nonisolated static func dayEnabled(_ weekday: Int) -> Bool {
+        storedWeek()[weekday]?.enabled ?? true
+    }
+
+    nonisolated static func setDayEnabled(_ weekday: Int, _ enabled: Bool) {
+        var map = storedWeek()
+        let clock = clock(for: weekday)
+        let current = map[weekday]
+        map[weekday] = StoredBriefingDay(
+            hour: current?.hour ?? clock.hour,
+            minute: current?.minute ?? clock.minute,
+            enabled: enabled
+        )
+        saveWeek(map)
+    }
+
     nonisolated static func setClock(weekday: Int, hour: Int, minute: Int) {
-        var map = weekdayMap()
-        map[weekday] = BriefingClock(hour: hour, minute: minute)
-        saveWeekdayMap(map)
+        var map = storedWeek()
+        let enabled = map[weekday]?.enabled ?? true
+        map[weekday] = StoredBriefingDay(hour: hour, minute: minute, enabled: enabled)
+        saveWeek(map)
     }
 
     static func resetWeekdayClocks() {
@@ -58,32 +92,43 @@ enum LififyNotifications {
     }
 
     static func exportWeekdayRecords() -> [BackupRecord] {
-        weekdayMap().compactMap { weekday, clock in
+        storedWeek().compactMap { weekday, day in
             guard let id = UUID(uuidString: String(format: "00000000-0000-0000-0000-%012d", weekday)) else { return nil }
-            return BackupRecord(type: "briefingWeekday", id: id, integers: [weekday, clock.hour, clock.minute])
+            return BackupRecord(
+                type: "briefingWeekday",
+                id: id,
+                integers: [weekday, day.hour, day.minute, day.enabled ? 1 : 0]
+            )
         }
     }
 
     static func restoreWeekday(_ record: BackupRecord) {
         guard record.integers.count >= 3 else { return }
         setClock(weekday: record.integers[0], hour: record.integers[1], minute: record.integers[2])
+        if record.integers.count >= 4 {
+            setDayEnabled(record.integers[0], record.integers[3] != 0)
+        }
     }
 
-    nonisolated private static func weekdayMap() -> [Int: BriefingClock] {
+    nonisolated private static func storedWeek() -> [Int: StoredBriefingDay] {
         guard let data = UserDefaults.standard.data(forKey: briefingWeekKey),
               let raw = try? JSONDecoder().decode([String: [Int]].self, from: data)
         else { return [:] }
-        var map: [Int: BriefingClock] = [:]
+        var map: [Int: StoredBriefingDay] = [:]
         for (key, value) in raw {
             guard let weekday = Int(key), value.count >= 2 else { continue }
-            map[weekday] = BriefingClock(hour: value[0], minute: value[1])
+            map[weekday] = StoredBriefingDay(
+                hour: value[0],
+                minute: value[1],
+                enabled: value.count >= 3 ? value[2] != 0 : true
+            )
         }
         return map
     }
 
-    nonisolated private static func saveWeekdayMap(_ map: [Int: BriefingClock]) {
-        let raw = Dictionary(uniqueKeysWithValues: map.map { key, clock in
-            (String(key), [clock.hour, clock.minute])
+    nonisolated private static func saveWeek(_ map: [Int: StoredBriefingDay]) {
+        let raw = Dictionary(uniqueKeysWithValues: map.map { key, day in
+            (String(key), [day.hour, day.minute, day.enabled ? 1 : 0])
         })
         if let data = try? JSONEncoder().encode(raw) {
             UserDefaults.standard.set(data, forKey: briefingWeekKey)
@@ -116,21 +161,41 @@ enum LififyNotifications {
         let queued = pending.contains { $0.identifier == id } || delivered.contains { $0.request.identifier == id }
         guard DailyBriefing.shouldDeliverBonusNow(due: due, realNow: Date(), alreadyQueued: queued) else { return }
         center.removePendingNotificationRequests(withIdentifiers: [id])
-        deliver(id: id, title: title, body: body, at: nil)
+        deliver(id: id, title: title, body: body, at: nil, followsDeviceTimeZone: false)
     }
 
-    static func schedule(id: String, title: String, body: String, at date: Date) {
+    static func schedule(
+        id: String,
+        title: String,
+        body: String,
+        at date: Date,
+        followsDeviceTimeZone: Bool = false
+    ) {
         guard date > Date() else { return }
-        deliver(id: id, title: title, body: body, at: date)
+        deliver(id: id, title: title, body: body, at: date, followsDeviceTimeZone: followsDeviceTimeZone)
     }
 
     static func replaceBriefings(_ items: [(id: String, title: String, body: String, date: Date)]) async {
+        await replace(prefix: briefingPrefix, items: items, followsDeviceTimeZone: true)
+    }
+
+    static func replace(
+        prefix: String,
+        items: [(id: String, title: String, body: String, date: Date)],
+        followsDeviceTimeZone: Bool
+    ) async {
         let center = UNUserNotificationCenter.current()
         let pending = await center.pendingNotificationRequests()
-        let old = pending.map(\.identifier).filter { $0.hasPrefix(briefingPrefix) }
+        let old = pending.map(\.identifier).filter { $0.hasPrefix(prefix) }
         center.removePendingNotificationRequests(withIdentifiers: old)
         for item in items {
-            schedule(id: item.id, title: item.title, body: item.body, at: item.date)
+            schedule(
+                id: item.id,
+                title: item.title,
+                body: item.body,
+                at: item.date,
+                followsDeviceTimeZone: followsDeviceTimeZone
+            )
         }
     }
 
@@ -148,14 +213,20 @@ enum LififyNotifications {
         center.removePendingNotificationRequests(withIdentifiers: old)
     }
 
-    private static func deliver(id: String, title: String, body: String, at date: Date?) {
+    private static func deliver(
+        id: String,
+        title: String,
+        body: String,
+        at date: Date?,
+        followsDeviceTimeZone: Bool
+    ) {
         let content = UNMutableNotificationContent()
         content.title = title
         content.body = body
         content.sound = .default
         let trigger: UNNotificationTrigger?
         if let date {
-            let parts = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: date)
+            let parts = NotificationTiming.components(for: date, followsDeviceTimeZone: followsDeviceTimeZone)
             trigger = UNCalendarNotificationTrigger(dateMatching: parts, repeats: false)
         } else {
             trigger = nil

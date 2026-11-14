@@ -26,7 +26,7 @@ struct AbstinenceSummary: View {
         let elapsed = AbstinenceRules.elapsed(from: start, to: now)
         let difficulty = AbstinenceSettings.difficulty(for: challenge.id)
         return HStack(spacing: 12) {
-            Image(systemName: IconPreferenceStore.icon(for: challenge.id, fallback: "lungs.fill"))
+            AppSymbolImage(name: IconPreferenceStore.icon(for: challenge.id, fallback: "lungs.fill"))
                 .frame(width: 24)
             VStack(alignment: .leading, spacing: 2) {
                 Text(challenge.title)
@@ -95,6 +95,7 @@ struct AbstinenceDetailView: View {
                             AbstinenceService.settle(context: context)
                         }
                 }
+                .appGlassList()
                 .navigationTitle(challenge.title)
                 .toolbar {
                     Button(L("Bearbeiten", "Edit")) { edited = challenge }
@@ -145,6 +146,7 @@ struct AbstinenceDetailView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.vertical, 8)
             }
+            .appGlassRow()
             Section {
                 ForEach(AbstinenceMilestone.allCases) { milestone in
                     let reached = now >= milestone.due(from: start)
@@ -169,6 +171,7 @@ struct AbstinenceDetailView: View {
                     "A bonus is that step’s factor times the coins per day. Every reached step counts, not only the highest one."
                 ))
             }
+            .appGlassRow()
             if !exceptions.isEmpty {
                 Section {
                     ForEach(exceptions) { exception in
@@ -187,6 +190,7 @@ struct AbstinenceDetailView: View {
                         "A redeemed reward does not stop the timer."
                     ))
                 }
+                .appGlassRow()
             }
             if !relapses.isEmpty {
                 Section {
@@ -204,12 +208,14 @@ struct AbstinenceDetailView: View {
                 } header: {
                     Text(L("Rückfälle", "Relapses"))
                 }
+                .appGlassRow()
             }
             Section {
                 Button(L("Rückfall", "Relapse"), role: .destructive) {
                     confirmingRelapse = true
                 }
             }
+            .appGlassRow()
         }
     }
 
