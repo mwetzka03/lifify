@@ -195,8 +195,8 @@ enum CheckGuides {
         ),
         "Vorschläge beginnen bei der ältesten Challenge": g(
             "ChallengeTimeRules.offeredSuggestions(candidates:already:)",
-            "Die Zahl ist die Anzahl der Vorschläge. Die älteste angebotene Challenge steht zuerst, mit oder ohne Dauer. Eine ausgeschaltete Challenge fehlt.",
-            "The number is how many suggestions there are. The oldest offered challenge comes first, with or without a duration. A switched-off challenge is missing."
+            "Die Zahl ist die Anzahl der Vorschläge. Die älteste angebotene Challenge steht zuerst, mit oder ohne Dauer. Eine ausgeschaltete und eine schon erledigte Challenge fehlen.",
+            "The number is how many suggestions there are. The oldest offered challenge comes first, with or without a duration. A switched-off challenge and a finished one are missing."
         ),
         "Das Tagesbriefing nennt Termine, Coins, Belohnung, Gehalt und Ausgaben": g(
             "DailyBriefing.text(events:challenges:rewards:salary:expenses:)",
@@ -218,10 +218,15 @@ enum CheckGuides {
             "Die Warnung gibt es am Sonntag, dem letzten Tag einer Woche, und nicht am Montag. Der Geburtstagsbonus liegt um 9:00 und nennt 500 Coins. Ist 9:00 schon vorbei, rutscht er ins nächste Jahr.",
             "The warning exists on Sunday, the last day of a week, and not on Monday. The birthday bonus is at 9:00 and names 500 coins. Once 9:00 has passed, it moves to the next year."
         ),
-        "Ein Termin darf höchstens eine Woche in der Vergangenheit liegen": g(
-            "ChallengeTimeRules.canAssign(start:now:keepingSelection:calendar:)",
-            "Acht Tage zurück dürfen nicht neu zugeordnet werden. Sechs Tage zurück und ein Termin in der Zukunft dürfen es. Eine schon gewählte Zuordnung bleibt auch dann, wenn der Termin älter als eine Woche ist.",
-            "Eight days back may not be newly assigned. Six days back and an event in the future may. A selection that is already kept stays even when the event is older than a week."
+        "Die Terminauswahl öffnet beim heutigen Tag": g(
+            "ChallengeTimeRules.pickerAnchor(eventStarts:today:calendar:), ChallengeTimeRules.canOffer(exclusive:slotMinutes:linkedMinutes:keepingSelection:), ChallengeTimeRules.isExclusiveLink(category:identifier:)",
+            "Die Messung ist 1, zu. 1 ist die Stelle von Keiner: ein älterer Termin liegt darüber, der heutige und die späteren darunter. zu heißt, ein Termin mit Sport, Abstinenz oder eigener Challenge wird nicht mehr angeboten. Ein voller Slot ebenfalls nicht. Die schon gewählte Zeile bleibt.",
+            "The reading is 1, zu. 1 is where None sits: one older event is above it, and today and the later events are below. zu means an event tied to sport, abstinence, or its own challenge is no longer offered. A full slot is not offered either. The row already chosen stays."
+        ),
+        "Eine erledigte Challenge bleibt in der Gruppe": g(
+            "ChallengeTimeRules.offeredSuggestions(candidates:already:), ChallengeGroupBoard.showsInOwnSection(pinned:), ChallengeGroupBoard.keepsFinishedMember(archived:), ChallengeActivity.staysOnActiveList(recurrence:hasCompletion:)",
+            "Die Messung ist Gruppe, aus. Gruppe heißt, eine nicht angepinnte Gruppe steht im eigenen Abschnitt. aus heißt, eine erledigte Challenge fehlt in den Vorschlägen und bleibt trotzdem in der Gruppe, solange sie nicht archiviert ist.",
+            "The reading is Gruppe, aus. Gruppe means an unpinned group stays in its own section. aus means a finished challenge is missing from the suggestions and still stays in the group, as long as it is not archived."
         ),
         "Sport und Abstinenz stehen separat, der Rest in einem Topf": g(
             "ChallengeCategoryStore.make(challenges:customs:)",

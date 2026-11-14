@@ -28,7 +28,8 @@ enum LififyFeatureChecks {
             profileLibraryAndCalorieDeficit(),
             goalDecidesNutritionCoins(),
             calendarOpensOnToday(),
-            nutrientCardNamesTheMainThree()
+            nutrientCardNamesTheMainThree(),
+            finishedChallengeStaysInItsGroup()
         ]
     }
 
@@ -555,6 +556,36 @@ enum LififyFeatureChecks {
             reading: reading,
             kind: .integration,
             topic: .training
+        )
+    }
+
+    private static func finishedChallengeStaysInItsGroup() -> LififyCheckResult {
+        let open = UUID(uuidString: "00000000-0000-0000-0000-000000000031")!
+        let done = UUID(uuidString: "00000000-0000-0000-0000-000000000032")!
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let suggested = ChallengeTimeRules.offeredSuggestions(
+            candidates: [
+                (id: done, minutes: 20, createdAt: now.addingTimeInterval(-86_400), offered: true, finished: true),
+                (id: open, minutes: nil, createdAt: now, offered: true, finished: false)
+            ],
+            already: []
+        )
+        let passed = suggested == [open]
+            && !ChallengeActivity.staysOnActiveList(recurrence: .none, hasCompletion: true)
+            && ChallengeGroupBoard.keepsFinishedMember(archived: false)
+            && !ChallengeGroupBoard.keepsFinishedMember(archived: true)
+            && !ChallengeGroupBoard.showsInPinned(pinned: false)
+            && ChallengeGroupBoard.showsInOwnSection(pinned: false)
+            && ChallengeGroupBoard.showsInPinned(pinned: true)
+            && !ChallengeGroupBoard.showsInOwnSection(pinned: true)
+        let reading = "Gruppe, aus"
+        return LififyCheckResult(
+            name: "Eine erledigte Challenge bleibt in der Gruppe",
+            passed: passed,
+            detail: passed ? nil : suggested.map(\.uuidString).joined(separator: ", "),
+            reading: reading,
+            kind: .integration,
+            topic: .challenge
         )
     }
 }

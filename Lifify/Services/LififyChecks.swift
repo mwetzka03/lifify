@@ -800,11 +800,13 @@ enum LififyChecks {
             UUID(uuidString: "00000000-0000-0000-0000-000000000002")!,
             UUID(uuidString: "00000000-0000-0000-0000-000000000003")!
         ]
+        let finished = UUID(uuidString: "00000000-0000-0000-0000-000000000004")!
         let suggested = ChallengeTimeRules.offeredSuggestions(
             candidates: [
-                (id: ids[1], minutes: nil, createdAt: fresh, offered: true),
-                (id: ids[0], minutes: 90, createdAt: old, offered: true),
-                (id: ids[2], minutes: 10, createdAt: old.addingTimeInterval(-86_400), offered: false)
+                (id: ids[1], minutes: nil, createdAt: fresh, offered: true, finished: false),
+                (id: ids[0], minutes: 90, createdAt: old, offered: true, finished: false),
+                (id: finished, minutes: 15, createdAt: old.addingTimeInterval(-86_400), offered: true, finished: true),
+                (id: ids[2], minutes: 10, createdAt: old.addingTimeInterval(-2 * 86_400), offered: false, finished: false)
             ],
             already: []
         )
@@ -990,15 +992,57 @@ enum LififyChecks {
     private static func recentEventsCanBeAssigned() -> LififyCheckResult {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .gmt
-        let now = calendar.date(from: DateComponents(year: 2026, month: 11, day: 8, hour: 15)) ?? .distantFuture
-        let weekAgo = calendar.date(from: DateComponents(year: 2026, month: 11, day: 1)) ?? .distantPast
-        let tooOld = calendar.date(from: DateComponents(year: 2026, month: 10, day: 31, hour: 23)) ?? .distantPast
-        let future = calendar.date(from: DateComponents(year: 2026, month: 11, day: 20, hour: 9)) ?? .distantFuture
-        let passed = ChallengeTimeRules.canAssign(start: weekAgo, now: now, keepingSelection: false, calendar: calendar)
-            && !ChallengeTimeRules.canAssign(start: tooOld, now: now, keepingSelection: false, calendar: calendar)
-            && ChallengeTimeRules.canAssign(start: future, now: now, keepingSelection: false, calendar: calendar)
-            && ChallengeTimeRules.canAssign(start: tooOld, now: now, keepingSelection: true, calendar: calendar)
-        return result("Ein Termin darf höchstens eine Woche in der Vergangenheit liegen", .challenge, .unit, passed, "")
+        let today = calendar.date(from: DateComponents(year: 2026, month: 11, day: 14, hour: 12)) ?? .now
+        let older = calendar.date(from: DateComponents(year: 2026, month: 11, day: 9, hour: 8)) ?? .distantPast
+        let sameDay = calendar.date(from: DateComponents(year: 2026, month: 11, day: 14, hour: 19)) ?? .now
+        let later = calendar.date(from: DateComponents(year: 2026, month: 11, day: 18, hour: 8)) ?? .distantFuture
+        let anchor = ChallengeTimeRules.pickerAnchor(
+            eventStarts: [later, older, sameDay],
+            today: today,
+            calendar: calendar
+        )
+        let closed = ChallengeTimeRules.canOffer(
+            exclusive: true,
+            slotMinutes: 90,
+            linkedMinutes: [],
+            keepingSelection: false
+        )
+        let full = ChallengeTimeRules.canOffer(
+            exclusive: false,
+            slotMinutes: 90,
+            linkedMinutes: [60, 30],
+            keepingSelection: false
+        )
+        let open = ChallengeTimeRules.canOffer(
+            exclusive: false,
+            slotMinutes: 90,
+            linkedMinutes: [30],
+            keepingSelection: false
+        )
+        let untimed = ChallengeTimeRules.canOffer(
+            exclusive: false,
+            slotMinutes: 90,
+            linkedMinutes: [],
+            keepingSelection: false
+        )
+        let kept = ChallengeTimeRules.canOffer(
+            exclusive: true,
+            slotMinutes: 90,
+            linkedMinutes: [90],
+            keepingSelection: true
+        )
+        let passed = anchor == 1
+            && !closed
+            && !full
+            && open
+            && untimed
+            && kept
+            && ChallengeTimeRules.isExclusiveLink(category: .sport, identifier: nil)
+            && ChallengeTimeRules.isExclusiveLink(category: .abstinence, identifier: nil)
+            && ChallengeTimeRules.isExclusiveLink(category: .other, identifier: "event-challenge:gym")
+            && !ChallengeTimeRules.isExclusiveLink(category: .other, identifier: nil)
+        let reading = "\(anchor), \(closed ? "auf" : "zu")"
+        return result("Die Terminauswahl öffnet beim heutigen Tag", .challenge, .unit, passed, reading)
     }
 
     private static func categoriesSplitTheActiveList() -> LififyCheckResult {

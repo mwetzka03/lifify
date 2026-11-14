@@ -22,6 +22,7 @@ struct ChallengesView: View {
     @AppStorage(AppClock.modeKey) private var developerMode = false
     @AppStorage(AppClock.dayKey) private var developerDay = 0.0
     @AppStorage(ChallengePinStore.revisionKey) private var pinRevision = 0
+    @AppStorage(ChallengeGroupPinStore.revisionKey) private var groupPinRevision = 0
     @AppStorage(WorkoutLinkStore.revisionKey) private var workoutLinkRevision = 0
 
     var body: some View {
@@ -29,21 +30,19 @@ struct ChallengesView: View {
             VStack(alignment: .leading, spacing: 16) {
                 recommendationsCard
                 filterCard
-                if !completedTab, !pinnedChallenges.isEmpty {
+                if !completedTab, showsPinnedBoard {
                     pinnedBoard
                 }
                 if completedTab {
                     completedBoard
                 } else {
-                    if filter != .single {
-                        ForEach(groups) { group in
-                            groupCard(group)
-                        }
-                    }
                     if filter != .groups {
                         ForEach(activeSections) { section in
                             challengeSection(section)
                         }
+                    }
+                    if filter != .single, !looseGroups.isEmpty {
+                        groupBoard
                     }
                 }
                 if visibleChallengesEmpty && !recommendations.isEmpty {
@@ -296,21 +295,58 @@ struct ChallengesView: View {
         return ChallengePinStore.ids().compactMap { byID[$0] }
     }
 
+    private var pinnedGroups: [ChallengeGroup] {
+        let _ = groupPinRevision
+        let byID = Dictionary(uniqueKeysWithValues: groups.map { ($0.id, $0) })
+        return ChallengeGroupPinStore.ids().compactMap { byID[$0] }
+    }
+
+    private var looseGroups: [ChallengeGroup] {
+        let _ = groupPinRevision
+        let pinned = Set(ChallengeGroupPinStore.ids())
+        return groups.filter { ChallengeGroupBoard.showsInOwnSection(pinned: pinned.contains($0.id)) }
+    }
+
+    private var showsPinnedBoard: Bool {
+        !pinnedChallenges.isEmpty || !pinnedGroups.isEmpty
+    }
+
     private var pinnedBoard: some View {
         let cards = pinnedChallenges
         let pairCount = cards.count - cards.count % 2
         return VStack(alignment: .leading, spacing: 8) {
             Text(L("Angepinnt", "Pinned"))
                 .appText(.section)
-            VStack(spacing: 10) {
-                ForEach(Array(stride(from: 0, to: pairCount, by: 2)), id: \.self) { start in
-                    EqualHeightPair {
-                        challengeCard(cards[start])
-                        challengeCard(cards[start + 1])
+            if !cards.isEmpty {
+                VStack(spacing: 10) {
+                    ForEach(Array(stride(from: 0, to: pairCount, by: 2)), id: \.self) { start in
+                        EqualHeightPair {
+                            challengeCard(cards[start])
+                            challengeCard(cards[start + 1])
+                        }
+                    }
+                    if cards.count % 2 == 1, let last = cards.last {
+                        challengeCard(last)
                     }
                 }
-                if cards.count % 2 == 1, let last = cards.last {
-                    challengeCard(last)
+            }
+            if !pinnedGroups.isEmpty {
+                VStack(spacing: 10) {
+                    ForEach(pinnedGroups) { group in
+                        groupCard(group)
+                    }
+                }
+            }
+        }
+    }
+
+    private var groupBoard: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(L("Gruppen", "Groups"))
+                .appText(.section)
+            VStack(spacing: 10) {
+                ForEach(looseGroups) { group in
+                    groupCard(group)
                 }
             }
         }
@@ -357,25 +393,34 @@ struct ChallengesView: View {
     }
 
     private func groupCard(_ group: ChallengeGroup) -> some View {
-        NavigationLink {
+        let _ = groupPinRevision
+        let listed = listedGroupMembers(group)
+        return NavigationLink {
             ChallengeGroupDetailView(group: group)
         } label: {
             VStack(alignment: .leading, spacing: 6) {
                 HStack {
                     Text(group.title)
                         .font(.headline)
+                    if ChallengeGroupPinStore.contains(group.id) {
+                        Image(systemName: "pin.fill")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
                     Spacer()
                     CoinAmountView(
                         amount: activeGroupMembers(group).reduce(0) { $0 + $1.rewardCoins }
                     )
                 }
-                ForEach(activeGroupMembers(group).prefix(3)) { challenge in
-                    Label(challenge.title, systemImage: "arrow.turn.down.right")
+                ForEach(listed.prefix(3)) { challenge in
+                    let done = isFinished(challenge)
+                    Label(challenge.title, systemImage: done ? "checkmark" : "arrow.turn.down.right")
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                        .opacity(done ? 0.65 : 1)
                 }
-                if activeGroupMembers(group).count > 3 {
-                    Text("+\(activeGroupMembers(group).count - 3)")
+                if listed.count > 3 {
+                    Text("+\(listed.count - 3)")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
@@ -385,6 +430,19 @@ struct ChallengesView: View {
             .appGlassCard(radius: 18)
         }
         .buttonStyle(.plain)
+        .contextMenu { groupPinButton(group) }
+    }
+
+    private func groupPinButton(_ group: ChallengeGroup) -> some View {
+        let pinned = ChallengeGroupPinStore.contains(group.id)
+        return Button {
+            ChallengeGroupPinStore.toggle(group.id)
+        } label: {
+            Label(
+                pinned ? L("Lösen", "Unpin") : L("Anpinnen", "Pin"),
+                systemImage: pinned ? "pin.slash" : "pin"
+            )
+        }
     }
 
     private func challengeSection(_ section: ChallengeSections.Section) -> some View {
@@ -527,17 +585,26 @@ struct ChallengesView: View {
         calendarEvents.filter(\.isReminderSuggestion)
     }
 
-    private func groupMembers(_ group: ChallengeGroup) -> [ChallengeItem] {
-        challenges.filter { $0.groupID == group.id }
+    private func isFinished(_ challenge: ChallengeItem) -> Bool {
+        !ChallengeActivity.staysOnActiveList(
+            recurrence: challenge.recurrence,
+            hasCompletion: completions.contains { $0.challengeID == challenge.id }
+        )
+    }
+
+    private func listedGroupMembers(_ group: ChallengeGroup) -> [ChallengeItem] {
+        challenges
+            .filter { $0.groupID == group.id && ChallengeGroupBoard.keepsFinishedMember(archived: $0.isArchived) }
+            .sorted { lhs, rhs in
+                let leftDone = isFinished(lhs)
+                let rightDone = isFinished(rhs)
+                if leftDone != rightDone { return !leftDone }
+                return lhs.title.localizedStandardCompare(rhs.title) == .orderedAscending
+            }
     }
 
     private func activeGroupMembers(_ group: ChallengeGroup) -> [ChallengeItem] {
-        groupMembers(group).filter { challenge in
-            !challenge.isArchived && ChallengeActivity.staysOnActiveList(
-                recurrence: challenge.recurrence,
-                hasCompletion: completions.contains { $0.challengeID == challenge.id }
-            )
-        }
+        listedGroupMembers(group).filter { !isFinished($0) }
     }
 
     private func abstinenceLink(_ challenge: ChallengeItem) -> some View {
@@ -682,6 +749,9 @@ struct ChallengesView: View {
         }
         IconPreferenceStore.remove(for: challenge.id)
         ChallengePinStore.unpin(challenge.id)
+        for event in calendarEvents where event.linkedChallengeID == challenge.id {
+            event.linkedChallengeID = nil
+        }
         ReminderLinkStore.remove(for: challenge.externalIdentifier)
         StreakSettings.remove(for: challenge.id)
         AbstinenceSettings.remove(for: challenge.id)
@@ -767,6 +837,7 @@ struct ChallengeForm: View {
     @Environment(\.modelContext) private var context
     @Query(sort: \ChallengeGroup.title) private var groups: [ChallengeGroup]
     @Query(sort: \ChallengeCalendarEvent.startDate) private var formEvents: [ChallengeCalendarEvent]
+    @Query(sort: \ChallengeItem.createdAt) private var formChallenges: [ChallengeItem]
     private let existing: ChallengeItem?
     private let sourceRecommendation: ChallengeCalendarEvent?
     @State private var title: String
@@ -833,6 +904,7 @@ struct ChallengeForm: View {
     var body: some View {
         NavigationStack {
             Form {
+                Section {
                 if existing?.isReadOnly == true {
                     Text(L("Diese Challenge stammt aus Erinnerungen.", "This challenge comes from Reminders."))
                         .foregroundStyle(.secondary)
@@ -877,6 +949,8 @@ struct ChallengeForm: View {
                             .multilineTextAlignment(.trailing)
                     }
                 }
+                }
+                .appGlassRow()
                 Section {
                     MoreSettingsToggle(isExpanded: $showsMoreSettings)
                     if showsMoreSettings {
@@ -914,7 +988,7 @@ struct ChallengeForm: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         if existing?.isReadOnly != true,
-                           existing?.externalIdentifier?.hasPrefix("event-challenge:") != true {
+                           !ChallengeTimeRules.isAdopted(existing?.externalIdentifier) {
                             Toggle(L("In Apple Erinnerungen sichern", "Save to Apple Reminders"), isOn: $syncToReminders)
                         }
                     }
@@ -935,9 +1009,12 @@ struct ChallengeForm: View {
                 }
                 .appGlassRow()
                 if let saveMessage {
-                    Text(saveMessage)
-                        .font(.caption)
-                        .foregroundStyle(.red)
+                    Section {
+                        Text(saveMessage)
+                            .font(.caption)
+                            .foregroundStyle(.red)
+                    }
+                    .appGlassRow()
                 }
             }
             .disabled(existing?.isReadOnly == true)
@@ -989,13 +1066,26 @@ struct ChallengeForm: View {
         formEvents.filter { event in
             guard !event.isReminderSuggestion else { return false }
             let selected = event.id == linkedEventID
-            if !selected {
-                guard !event.isAllDay else { return false }
-                guard ChallengeTimeRules.canAssign(start: event.startDate, now: AppClock.now, keepingSelection: false) else {
-                    return false
-                }
+            if !selected, event.isAllDay { return false }
+            let linked = event.linkedChallengeID.flatMap { id in formChallenges.first { $0.id == id } }
+            var minutes = ChallengeTimeStore.memberIDs(for: event.id).compactMap { ChallengeTimeStore.minutes(for: $0) }
+            if let linked,
+               let extra = ChallengeTimeStore.minutes(for: linked.id),
+               !ChallengeTimeRules.isExclusiveLink(category: linked.category, identifier: linked.externalIdentifier),
+               event.linkedChallengeID.map({ !ChallengeTimeStore.memberIDs(for: event.id).contains($0) }) == true {
+                minutes.append(extra)
             }
-            return true
+            let slot = ChallengeTimeStore.plannedMinutes(for: event.id)
+                ?? ChallengeTimeRules.minutes(from: event.startDate, to: event.endDate)
+            return ChallengeTimeRules.canOffer(
+                exclusive: ChallengeTimeRules.isExclusiveLink(
+                    category: linked?.category,
+                    identifier: linked?.externalIdentifier
+                ),
+                slotMinutes: slot,
+                linkedMinutes: minutes,
+                keepingSelection: selected
+            )
         }
         .sorted { $0.startDate < $1.startDate }
     }
@@ -1078,7 +1168,7 @@ struct ChallengeForm: View {
         if saveMessage != nil { return }
 
         if let externalIdentifier = challenge.externalIdentifier,
-           externalIdentifier.hasPrefix("event-challenge:") {
+           ChallengeTimeRules.isAdopted(externalIdentifier) {
             if challenge.recurrence == .none {
                 ReminderLinkStore.remove(for: externalIdentifier)
             } else {
@@ -1155,7 +1245,27 @@ private struct ChallengeGroupDetailView: View {
     @State private var edited: ChallengeItem?
     @State private var pendingDuration: PendingDuration?
     @AppStorage(ChallengePinStore.revisionKey) private var pinRevision = 0
+    @AppStorage(ChallengeGroupPinStore.revisionKey) private var groupPinRevision = 0
     let group: ChallengeGroup
+
+    private var listedMembers: [ChallengeItem] {
+        let _ = groupPinRevision
+        return challenges
+            .filter { $0.groupID == group.id && ChallengeGroupBoard.keepsFinishedMember(archived: $0.isArchived) }
+            .sorted { lhs, rhs in
+                let leftDone = isFinished(lhs)
+                let rightDone = isFinished(rhs)
+                if leftDone != rightDone { return !leftDone }
+                return lhs.title.localizedStandardCompare(rhs.title) == .orderedAscending
+            }
+    }
+
+    private func isFinished(_ challenge: ChallengeItem) -> Bool {
+        !ChallengeActivity.staysOnActiveList(
+            recurrence: challenge.recurrence,
+            hasCompletion: completions.contains { $0.challengeID == challenge.id }
+        )
+    }
 
     var body: some View {
         List {
@@ -1163,13 +1273,7 @@ private struct ChallengeGroupDetailView: View {
                 Section { Text(group.details) }
                     .appGlassRow()
             }
-            ForEach(challenges.filter { challenge in
-                guard challenge.groupID == group.id, !challenge.isArchived else { return false }
-                return ChallengeActivity.staysOnActiveList(
-                    recurrence: challenge.recurrence,
-                    hasCompletion: completions.contains { $0.challengeID == challenge.id }
-                )
-            }) { challenge in
+            ForEach(listedMembers) { challenge in
                 let _ = developerMode
                 let _ = developerDay
                 if challenge.category == .abstinence {
@@ -1181,6 +1285,7 @@ private struct ChallengeGroupDetailView: View {
         }
         .appGlassList()
         .navigationTitle(group.title)
+        .toolbar { groupPinToolbar }
         .sheet(item: $edited) { ChallengeForm(challenge: $0) }
         .sheet(item: $pendingDuration) { pending in
             ActualDurationSheet(suggested: pending.suggested) { minutes in
@@ -1245,7 +1350,59 @@ private struct ChallengeGroupDetailView: View {
         .contextMenu { groupPinButton(challenge) }
     }
 
+    private var groupPinToolbar: some ToolbarContent {
+        let _ = groupPinRevision
+        let pinned = ChallengeGroupPinStore.contains(group.id)
+        return ToolbarItem(placement: .topBarTrailing) {
+            Button {
+                ChallengeGroupPinStore.toggle(group.id)
+            } label: {
+                Image(systemName: pinned ? "pin.slash" : "pin")
+            }
+            .accessibilityLabel(pinned ? L("Lösen", "Unpin") : L("Anpinnen", "Pin"))
+        }
+    }
+
+    @ViewBuilder
     private func groupRegularRow(_ challenge: ChallengeItem) -> some View {
+        if isFinished(challenge) {
+            finishedGroupRow(challenge)
+        } else {
+            openGroupRow(challenge)
+        }
+    }
+
+    private func finishedGroupRow(_ challenge: ChallengeItem) -> some View {
+        HStack {
+            Image(systemName: "checkmark.circle.fill")
+                .foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(challenge.title)
+                    .foregroundStyle(.secondary)
+                Text(L("Erledigt", "Done"))
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+        }
+        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+            Button(role: .destructive) {
+                deleteChallenge(challenge)
+            } label: {
+                Label(L("Löschen", "Delete"), systemImage: "trash")
+            }
+        }
+        .swipeActions(edge: .leading, allowsFullSwipe: false) {
+            Button {
+                edited = challenge
+            } label: {
+                Label(L("Bearbeiten", "Edit"), systemImage: "pencil")
+            }
+            .appAccentTint()
+        }
+    }
+
+    private func openGroupRow(_ challenge: ChallengeItem) -> some View {
         let _ = pinRevision
         let doneToday = ChallengeService.isCompleted(challenge, on: AppClock.now, completions: completions)
         let gray = ChallengeActivity.dimsActiveRow(recurrence: challenge.recurrence, completedToday: doneToday)
@@ -1348,6 +1505,9 @@ private struct ChallengeGroupDetailView: View {
         }
         IconPreferenceStore.remove(for: challenge.id)
         ChallengePinStore.unpin(challenge.id)
+        for event in calendarEvents where event.linkedChallengeID == challenge.id {
+            event.linkedChallengeID = nil
+        }
         ReminderLinkStore.remove(for: challenge.externalIdentifier)
         StreakSettings.remove(for: challenge.id)
         AbstinenceSettings.remove(for: challenge.id)
@@ -1368,8 +1528,11 @@ private struct ChallengeGroupForm: View {
     var body: some View {
         NavigationStack {
             Form {
-                TextField(L("Titel", "Title"), text: $title)
-                TextField(L("Beschreibung", "Description"), text: $details, axis: .vertical)
+                Section {
+                    TextField(L("Titel", "Title"), text: $title)
+                    TextField(L("Beschreibung", "Description"), text: $details, axis: .vertical)
+                }
+                .appGlassRow()
             }
             .appGlassList()
             .navigationTitle(L("Neue Gruppe", "New group"))

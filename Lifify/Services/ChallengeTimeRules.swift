@@ -21,7 +21,8 @@ enum ChallengeTimeFilter: String, CaseIterable, Identifiable {
 /// Sport and abstinence stay out of this. They keep their own rules.
 enum ChallengeTimeRules {
     static let suggestionAge: TimeInterval = 7 * 86_400
-    static let assignmentLookbackDays = 7
+    /// A challenge created from an event carries this prefix. That link is exclusive.
+    static let adoptedMark = "event-challenge:"
 
     static func allowsTime(_ category: ChallengeCategory) -> Bool {
         category != .sport && category != .abstinence
@@ -36,14 +37,40 @@ enum ChallengeTimeRules {
         }
     }
 
-    /// An event can be assigned when it is still ahead, or at most a week in the past.
-    /// The event already chosen stays available so editing it does not drop the link.
-    static func canAssign(start: Date, now: Date, keepingSelection: Bool, calendar: Calendar = .current) -> Bool {
+    static func isAdopted(_ identifier: String?) -> Bool {
+        identifier?.hasPrefix(adoptedMark) == true
+    }
+
+    /// Sport, abstinence, and a challenge created from the event take that event alone.
+    static func isExclusiveLink(category: ChallengeCategory?, identifier: String?) -> Bool {
+        if isAdopted(identifier) { return true }
+        return category == .sport || category == .abstinence
+    }
+
+    /// Timed challenges use the slot. With none attached, the event still has room.
+    static func hasOpenTime(slotMinutes: Int, linkedMinutes: [Int]) -> Bool {
+        let used = linkedMinutes.filter { $0 > 0 }
+        guard !used.isEmpty else { return true }
+        return remaining(slotMinutes: slotMinutes, linkedMinutes: used) > 0
+    }
+
+    /// A full event, or one already taken by sport, abstinence, or its own challenge, stays out.
+    /// The event already chosen stays, so it can be cleared.
+    static func canOffer(
+        exclusive: Bool,
+        slotMinutes: Int,
+        linkedMinutes: [Int],
+        keepingSelection: Bool
+    ) -> Bool {
         if keepingSelection { return true }
-        guard let earliest = calendar.date(byAdding: .day, value: -assignmentLookbackDays, to: calendar.startOfDay(for: now)) else {
-            return false
-        }
-        return start >= earliest
+        if exclusive { return false }
+        return hasOpenTime(slotMinutes: slotMinutes, linkedMinutes: linkedMinutes)
+    }
+
+    /// None sits on today. The index is how many events are on earlier days.
+    static func pickerAnchor(eventStarts: [Date], today: Date, calendar: Calendar = .current) -> Int {
+        let start = calendar.startOfDay(for: today)
+        return eventStarts.filter { calendar.startOfDay(for: $0) < start }.count
     }
 
     static func minutes(from start: Date, to end: Date) -> Int {
@@ -122,13 +149,13 @@ enum ChallengeTimeRules {
         return "\(dateText) · \(timeText) · \(durationText(left))"
     }
 
-    /// Oldest first. A challenge is listed with or without a duration when its switch is on.
+    /// Oldest first. A finished challenge is left out. One already on the event stays if it is not marked finished.
     static func offeredSuggestions(
-        candidates: [(id: UUID, minutes: Int?, createdAt: Date, offered: Bool)],
+        candidates: [(id: UUID, minutes: Int?, createdAt: Date, offered: Bool, finished: Bool)],
         already: Set<UUID>
     ) -> [UUID] {
         candidates
-            .filter { $0.offered && !already.contains($0.id) }
+            .filter { $0.offered && !$0.finished && !already.contains($0.id) }
             .sorted { lhs, rhs in
                 if lhs.createdAt != rhs.createdAt { return lhs.createdAt < rhs.createdAt }
                 return lhs.id.uuidString < rhs.id.uuidString

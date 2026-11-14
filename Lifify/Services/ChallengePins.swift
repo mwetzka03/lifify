@@ -51,6 +51,56 @@ enum ChallengePinStore {
     }
 }
 
+/// Groups stay in their own section until someone pins them.
+enum ChallengeGroupPinStore {
+    static let revisionKey = "lifify.challengeGroupPinRevision"
+    private static let key = "lifify.pinnedChallengeGroups"
+
+    static func ids() -> [UUID] {
+        let raw = UserDefaults.standard.stringArray(forKey: key) ?? []
+        return raw.compactMap(UUID.init(uuidString:))
+    }
+
+    static func contains(_ id: UUID) -> Bool {
+        ids().contains(id)
+    }
+
+    static func pin(_ id: UUID) {
+        var next = ids()
+        guard !next.contains(id) else { return }
+        next.append(id)
+        save(next)
+    }
+
+    static func unpin(_ id: UUID) {
+        let next = ids().filter { $0 != id }
+        guard next.count != ids().count else { return }
+        save(next)
+    }
+
+    static func toggle(_ id: UUID) {
+        if contains(id) {
+            unpin(id)
+        } else {
+            pin(id)
+        }
+    }
+
+    private static func save(_ ids: [UUID]) {
+        UserDefaults.standard.set(ids.map(\.uuidString), forKey: key)
+        UserDefaults.standard.set(UserDefaults.standard.integer(forKey: revisionKey) + 1, forKey: revisionKey)
+    }
+}
+
+/// Where a group sits, and that a finished member still belongs to it.
+enum ChallengeGroupBoard {
+    static func showsInPinned(pinned: Bool) -> Bool { pinned }
+
+    static func showsInOwnSection(pinned: Bool) -> Bool { !pinned }
+
+    static func keepsFinishedMember(archived: Bool) -> Bool { !archived }
+}
+
 /// A sport challenge tied to a workout, and the nutrition challenge, finish on their own.
 enum ChallengeCheckoff {
     static func allowsHand(

@@ -49,7 +49,7 @@ enum WorkoutCalendarSync {
             }
             if occurrences.isEmpty {
                 if ChallengeService.isDue(challenge, on: session.finishedAt),
-                   challenge.externalIdentifier?.hasPrefix("event-challenge:") != true {
+                   !ChallengeTimeRules.isAdopted(challenge.externalIdentifier) {
                     await createOccurrence(for: challenge, session: session, start: start, end: end, context: context)
                 }
             } else {

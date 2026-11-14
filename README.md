@@ -47,6 +47,8 @@ off by hand, and a later meal can take the coins back below zero. The requiremen
 [ERNAEHRUNG.md](ERNAEHRUNG.md). Abstinence lives with the challenges. A sport
 challenge linked to a workout is completed only by finishing that workout.
 Up to four challenges can be pinned to the top of the challenges page.
+The event picker opens on today. Groups have their own section and are pinned
+only when you pin them. A finished challenge stays in its group.
 
 **Settings** start with your name and profile photo. The line under the name
 is User settings. That page holds the date of birth, height in centimetres, weight
@@ -165,6 +167,9 @@ spätere Mahlzeit kann die Coins wieder unter null abziehen. Die Anforderungen s
 Abstinenz liegt bei den Challenges. Eine Sport-Challenge mit einem verknüpften
 Training gilt nur als erledigt, wenn dieses Training beendet wurde. Bis zu
 vier Challenges lassen sich oben auf der Challenges-Seite anpinnen.
+Die Terminauswahl öffnet beim heutigen Tag. Gruppen haben einen eigenen
+Abschnitt und werden nur angepinnt, wenn man sie anpinnt. Eine erledigte
+Challenge bleibt in ihrer Gruppe.
 
 **Einstellungen** beginnen mit dem Namen und dem Profilbild. Darunter steht
 Nutzereinstellungen. Diese Seite hält Geburtsdatum, Größe in Zentimetern,

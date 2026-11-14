@@ -348,64 +348,115 @@ private struct ChallengeEventForm: View {
         _showsMoreSettings = State(initialValue: !EditorCopy.moreStartsClosed)
     }
 
+    private var linkedItem: ChallengeItem? {
+        linkedChallengeID.flatMap { id in challenges.first { $0.id == id } }
+    }
+
+    private var adoptedChallenge: ChallengeItem? {
+        if let linkedItem, ChallengeTimeRules.isAdopted(linkedItem.externalIdentifier) {
+            return linkedItem
+        }
+        if let adoptedChallengeID, let found = challenges.first(where: { $0.id == adoptedChallengeID }) {
+            return found
+        }
+        if let eventKey = (existing ?? savedEvent)?.externalIdentifier {
+            let mark = ChallengeTimeRules.adoptedMark + eventKey
+            return challenges.first { $0.externalIdentifier == mark }
+        }
+        return nil
+    }
+
+    private var sportLocked: Bool {
+        guard adoptedChallenge == nil, let linkedItem else { return false }
+        return linkedItem.category == .sport || linkedItem.category == .abstinence
+    }
+
     var body: some View {
         NavigationStack {
             Form {
-                Text(L(
-                    "Änderungen und neue Termine werden in den Systemkalender geschrieben.",
-                    "Changes and new events are written to the system calendar."
-                ))
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-                TextField(L("Titel", "Title"), text: $title)
-                TextField(L("Beschreibung", "Description"), text: $details, axis: .vertical)
-                Toggle(L("Ganztägig", "All day"), isOn: $allDay)
-                AppDateField(title: L("Beginn", "Start"), selection: $start, includesTime: !allDay)
-                AppDateField(title: L("Ende", "End"), selection: $end, minimum: start, includesTime: !allDay)
+                Section {
+                    Text(L(
+                        "Änderungen und neue Termine werden in den Systemkalender geschrieben.",
+                        "Changes and new events are written to the system calendar."
+                    ))
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    TextField(L("Titel", "Title"), text: $title)
+                    TextField(L("Beschreibung", "Description"), text: $details, axis: .vertical)
+                    Toggle(L("Ganztägig", "All day"), isOn: $allDay)
+                    AppDateField(title: L("Beginn", "Start"), selection: $start, includesTime: !allDay)
+                    AppDateField(title: L("Ende", "End"), selection: $end, minimum: start, includesTime: !allDay)
+                }
+                .appGlassRow()
                 Section {
                     MoreSettingsToggle(isExpanded: $showsMoreSettings)
                     if showsMoreSettings {
-                    Text(L("Vorhandene Challenges", "Existing challenges"))
-                        .font(.caption.bold())
-                        .foregroundStyle(.secondary)
-                    optionalPicker(
-                        L("Sport-Challenge", "Sport challenge"),
-                        selection: $linkedChallengeID,
-                        values: challenges.filter { $0.category == .sport && !$0.isArchived }.map { ($0.id, $0.title) }
-                    )
-                    EventChallengeTimeSection(
-                        memberIDs: $memberIDs,
-                        slotMinutes: max(ChallengeTimeRules.minutes(from: start, to: end), 1),
-                        challenges: challenges
-                    )
-                    Text(L("Neue Challenge", "New challenge"))
-                        .font(.caption.bold())
-                        .foregroundStyle(.secondary)
-                        .padding(.top, 6)
-                    Button(L("Als neue Challenge anlegen", "Create as a new challenge")) {
-                        Task { await adoptAsChallenge() }
-                    }
-                    .disabled(title.isEmpty || isSaving)
-                    Text(L(
-                        "Das legt eine Challenge aus diesem Termin an. Eine Wiederholung verknüpft die Serie.",
-                        "This creates a challenge from this event. A repeat links the series."
-                    ))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    optionalPicker(L("Belohnung", "Reward"), selection: $linkedRewardID, values: rewards.map { ($0.id, $0.title) })
+                        if let adoptedChallenge {
+                            Text(L(
+                                "Dieser Termin ist die Challenge „\(adoptedChallenge.title)“. Vorhandene Challenges lassen sich erst verknüpfen, wenn du diese Challenge löschst.",
+                                "This event is the challenge “\(adoptedChallenge.title)”. Existing challenges can be linked again after you delete that challenge."
+                            ))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        } else {
+                            Text(L("Vorhandene Challenges", "Existing challenges"))
+                                .font(.caption.bold())
+                                .foregroundStyle(.secondary)
+                            if memberIDs.isEmpty || sportLocked {
+                                optionalPicker(
+                                    L("Sport-Challenge", "Sport challenge"),
+                                    selection: $linkedChallengeID,
+                                    values: challenges.filter { $0.category == .sport && !$0.isArchived }.map { ($0.id, $0.title) }
+                                )
+                            }
+                            if sportLocked {
+                                Text(L(
+                                    "Sport und Abstinenz belegen den Termin allein. Weitere Challenges lassen sich nicht zuweisen.",
+                                    "Sport and abstinence take the event on their own. More challenges cannot be added."
+                                ))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            }
+                            if !sportLocked || !memberIDs.isEmpty {
+                                EventChallengeTimeSection(
+                                    memberIDs: $memberIDs,
+                                    slotMinutes: max(ChallengeTimeRules.minutes(from: start, to: end), 1),
+                                    challenges: challenges,
+                                    allowsAdding: !sportLocked
+                                )
+                            }
+                            Text(L("Neue Challenge", "New challenge"))
+                                .font(.caption.bold())
+                                .foregroundStyle(.secondary)
+                                .padding(.top, 6)
+                            Button(L("Als neue Challenge anlegen", "Create as a new challenge")) {
+                                Task { await adoptAsChallenge() }
+                            }
+                            .disabled(title.isEmpty || isSaving || !memberIDs.isEmpty || sportLocked)
+                            Text(adoptHint)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        optionalPicker(L("Belohnung", "Reward"), selection: $linkedRewardID, values: rewards.map { ($0.id, $0.title) })
                     }
                 }
                 .appGlassRow()
                 if let statusMessage {
-                    Text(statusMessage)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    Section {
+                        Text(statusMessage)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .appGlassRow()
                 }
                 if existing != nil || savedEvent != nil {
-                    Button(L("Termin löschen", "Delete event"), role: .destructive) {
-                        Task { await deleteEvent() }
+                    Section {
+                        Button(L("Termin löschen", "Delete event"), role: .destructive) {
+                            Task { await deleteEvent() }
+                        }
+                        .disabled(isSaving)
                     }
-                    .disabled(isSaving)
+                    .appGlassRow()
                 }
             }
             .appGlassList()
@@ -413,6 +464,10 @@ private struct ChallengeEventForm: View {
             .onAppear {
                 guard let linked = linkedChallengeID,
                       let challenge = challenges.first(where: { $0.id == linked }),
+                      !ChallengeTimeRules.isExclusiveLink(
+                          category: challenge.category,
+                          identifier: challenge.externalIdentifier
+                      ),
                       ChallengeTimeRules.allowsTime(challenge.category),
                       !memberIDs.contains(linked)
                 else { return }
@@ -435,6 +490,19 @@ private struct ChallengeEventForm: View {
                 }
             }
         }
+    }
+
+    private var adoptHint: String {
+        if !memberIDs.isEmpty || sportLocked {
+            return L(
+                "Leere zuerst die vorhandenen Challenges. Danach kann der Termin eine eigene Challenge werden.",
+                "Clear the existing challenges first. Then the event can become its own challenge."
+            )
+        }
+        return L(
+            "Das legt eine Challenge aus diesem Termin an. Eine Wiederholung verknüpft die Serie. Danach lassen sich keine vorhandenen Challenges mehr zuweisen.",
+            "This creates a challenge from this event. A repeat links the series. Existing challenges cannot be assigned after that."
+        )
     }
 
     private func optionalPicker(_ title: String, selection: Binding<UUID?>, values: [(UUID, String)]) -> some View {
@@ -549,7 +617,7 @@ private struct ChallengeEventForm: View {
 
     @MainActor
     private func adoptAsChallenge() async {
-        guard !title.isEmpty, !isSaving else { return }
+        guard !title.isEmpty, !isSaving, memberIDs.isEmpty, !sportLocked else { return }
         isSaving = true
         defer { isSaving = false }
         guard let event = await writeEvent() else { return }
@@ -562,7 +630,7 @@ private struct ChallengeEventForm: View {
         } else {
             metadata = nil
         }
-        let challengeKey = event.externalIdentifier.map { "event-challenge:\($0)" }
+        let challengeKey = event.externalIdentifier.map { ChallengeTimeRules.adoptedMark + $0 }
         let challenge = adoptedChallengeID.flatMap { id in challenges.first { $0.id == id } }
             ?? challenges.first { challengeKey != nil && $0.externalIdentifier == challengeKey }
             ?? ChallengeItem(
@@ -594,6 +662,10 @@ private struct ChallengeEventForm: View {
         }
         ReminderSyncPreference.set(false, for: challenge.id)
         IconPreferenceStore.set("target", for: challenge.id)
+        memberIDs = []
+        ChallengeTimeStore.setMembers([], for: event.id)
+        linkedGroupID = nil
+        event.linkedChallengeGroupID = nil
         linkedChallengeID = challenge.id
         event.linkedChallengeID = challenge.id
         if let identifier = event.externalIdentifier,

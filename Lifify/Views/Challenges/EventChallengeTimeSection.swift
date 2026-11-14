@@ -1,3 +1,4 @@
+import SwiftData
 import SwiftUI
 
 /// Packs optional challenge estimates into one calendar slot.
@@ -6,6 +7,8 @@ struct EventChallengeTimeSection: View {
     @Binding var memberIDs: [UUID]
     let slotMinutes: Int
     let challenges: [ChallengeItem]
+    var allowsAdding: Bool = true
+    @Query private var completions: [ChallengeCompletion]
     @State private var filter: ChallengeTimeFilter = .all
 
     private var timedChallenges: [ChallengeItem] {
@@ -25,8 +28,25 @@ struct EventChallengeTimeSection: View {
     }
 
     private var visible: [ChallengeItem] {
-        timedChallenges
-            .filter { EventOffer.isEnabled(for: $0.id) || memberIDs.contains($0.id) }
+        let done = Set(completions.map(\.challengeID))
+        let candidates = timedChallenges.map { challenge in
+            (
+                id: challenge.id,
+                minutes: ChallengeTimeStore.minutes(for: challenge.id),
+                createdAt: challenge.createdAt,
+                offered: EventOffer.isEnabled(for: challenge.id) || memberIDs.contains(challenge.id),
+                finished: !memberIDs.contains(challenge.id) && !ChallengeActivity.staysOnActiveList(
+                    recurrence: challenge.recurrence,
+                    hasCompletion: done.contains(challenge.id)
+                )
+            )
+        }
+        let allowed = Set(ChallengeTimeRules.offeredSuggestions(candidates: candidates, already: []))
+        return timedChallenges
+            .filter { challenge in
+                if !allowsAdding { return memberIDs.contains(challenge.id) }
+                return allowed.contains(challenge.id)
+            }
             .filter { challenge in
                 ChallengeTimeRules.matches(filter, minutes: ChallengeTimeStore.minutes(for: challenge.id))
             }
@@ -61,7 +81,7 @@ struct EventChallengeTimeSection: View {
         return Button {
             if selected {
                 memberIDs.removeAll { $0 == challenge.id }
-            } else {
+            } else if allowsAdding {
                 add(challenge)
             }
         } label: {
@@ -77,6 +97,7 @@ struct EventChallengeTimeSection: View {
                     .foregroundStyle(selected ? Color.green : Color.secondary)
             }
         }
+        .disabled(!selected && !allowsAdding)
     }
 
     private func add(_ challenge: ChallengeItem) {

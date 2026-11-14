@@ -300,7 +300,7 @@ enum CheckStories {
         "Vorschläge beginnen bei der ältesten Challenge": make(
             "Beim Zuweisen stehen die angebotenen Challenges mit der ältesten zuerst, mit oder ohne Dauer.",
             "When assigning, the offered challenges start with the oldest, with or without a duration.",
-            ("Eine ausgeschaltete Challenge wird nicht angeboten.", "A switched-off challenge is not offered.", "ChallengeTimeRules.swift"),
+            ("Eine ausgeschaltete und eine erledigte Challenge werden nicht angeboten.", "A switched-off challenge and a finished one are not offered.", "ChallengeTimeRules.swift"),
             ("Die älteste angebotene Challenge steht vor der neueren.", "The oldest offered challenge comes before the newer one.", "LififyChecks.swift"),
         ),
         "Das Tagesbriefing nennt Termine, Coins, Belohnung, Gehalt und Ausgaben": make(
@@ -328,11 +328,17 @@ enum CheckStories {
             ("Sonntag ist der letzte Tag einer Woche, Montag nicht. Ein Geburtstag liegt noch vor 9:00.", "Sunday is the last day of a week, Monday is not. A birthday is still before 9:00.", "ChallengeNudge.swift"),
             ("Die Warnung gibt es nur am Sonntag, und der nächste Bonus liegt um 9:00.", "The warning exists only on Sunday, and the next bonus is at 9:00.", "LififyChecks.swift"),
         ),
-        "Ein Termin darf höchstens eine Woche in der Vergangenheit liegen": make(
-            "Ein Termin lässt sich nur zuordnen, wenn er nicht älter als eine Woche ist.",
-            "An event can be assigned only when it is not older than one week.",
-            ("Ein Termin von vor acht Tagen und einer von vor sechs Tagen werden geprüft.", "An event from eight days ago and one from six days ago are checked.", "ChallengeTimeRules.swift"),
-            ("Nur der Termin innerhalb der Woche darf zugeordnet werden.", "Only the event inside the week may be assigned.", "LififyChecks.swift"),
+        "Die Terminauswahl öffnet beim heutigen Tag": make(
+            "Die Terminauswahl öffnet bei heute. Keiner steht an diesem Tag. Ältere Termine liegen darüber, spätere darunter. Ein Termin mit Sport, Abstinenz oder eigener Challenge, und ein Termin ohne freie Zeit, werden nicht angeboten.",
+            "The event picker opens on today. None sits on that day. Older events are above it, later ones below. An event tied to sport, abstinence, or its own challenge, and an event with no time left, are not offered.",
+            ("Ein älterer Termin, der heutige und ein späterer werden gezählt. Ein belegter Termin wird geprüft.", "One older event, today’s event, and a later one are counted. A taken event is checked.", "ChallengeTimeRules.swift"),
+            ("Die Messung ist 1, zu. Keiner sitzt nach dem einen älteren Termin, und der belegte Termin bleibt zu.", "The reading is 1, zu. None sits after the one older event, and the taken event stays closed.", "LififyChecks.swift"),
+        ),
+        "Eine erledigte Challenge bleibt in der Gruppe": make(
+            "Eine erledigte Einzel-Challenge bleibt in ihrer Gruppe stehen. Die Gruppe selbst liegt im Abschnitt Gruppen und kommt nur durch Anpinnen nach oben. In den Terminvorschlägen fehlt sie.",
+            "A finished one-time challenge stays in its group. The group itself sits in the Groups section and reaches the top only when pinned. It is missing from the event suggestions.",
+            ("Eine erledigte Challenge und eine offene werden den Vorschlägen gegeben.", "A finished challenge and an open one are given to the suggestions.", "ChallengeTimeRules.swift"),
+            ("Die Messung ist Gruppe, aus. Die erledigte Challenge fehlt, die Gruppe bleibt im eigenen Abschnitt.", "The reading is Gruppe, aus. The finished challenge is missing, and the group stays in its own section.", "LififyFeatureChecks.swift"),
         ),
         "Sport und Abstinenz stehen separat, der Rest in einem Topf": make(
             "Sport und Abstinenz haben eigene Abschnitte. Alle anderen Kategorien teilen sich einen.",

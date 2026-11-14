@@ -75,7 +75,15 @@ This file is in English and in German. The finance calculations stay in
   challenges on one event become a group named after the event and the day.
   Picking existing challenges and creating a new one both sit under More
   settings on the event. The calendar opens on today: the past is above it
-  and the future is below it. Exercise
+  and the future is below it. The event picker does the same. None sits on
+  today, older events are above it, and later events are below it. An event
+  linked to sport or abstinence, or turned into its own challenge, is not
+  offered again until that challenge is deleted. An event whose timed
+  challenges fill the slot is hidden too. The row already chosen stays, so it
+  can be cleared. Suggestions leave out a finished challenge. The event editor
+  uses the same tinted rows as the other forms. Groups have their own section.
+  A group reaches the pinned area only after you pin it. A finished challenge
+  stays in its group. Exercise
   pictures drop a near-white background and sit on a tinted rounded tile.
 - Finance keeps the account choice pinned at the top. The choices are bubbles
   in a row. A long name wraps to the next row, and that row shares the space
@@ -228,7 +236,16 @@ This file is in English and in German. The finance calculations stay in
   Challenges an einem Termin werden eine Gruppe aus Terminname und Tag.
   Vorhandene Challenges und eine neue Challenge stehen beide unter Weitere
   Einstellungen am Termin. Der Kalender öffnet beim heutigen Tag: die
-  Vergangenheit liegt darüber, die Zukunft darunter. Übungsbilder
+  Vergangenheit liegt darüber, die Zukunft darunter. Die Terminauswahl macht
+  dasselbe. Keiner steht am heutigen Tag, ältere Termine liegen darüber und
+  spätere darunter. Ein Termin mit Sport oder Abstinenz, oder einer, der eine
+  eigene Challenge ist, wird nicht mehr angeboten, bis diese Challenge gelöscht
+  ist. Ein Termin, dessen Challenges mit Dauer den Slot füllen, bleibt ebenfalls
+  verborgen. Die schon gewählte Zeile bleibt, damit man sie lösen kann.
+  Vorschläge lassen eine erledigte Challenge aus. Der Termineditor nutzt
+  dieselben gefärbten Zeilen wie die anderen Formulare. Gruppen haben einen
+  eigenen Abschnitt. Eine Gruppe landet im angepinnten Bereich nur, wenn man
+  sie anpinnt. Eine erledigte Challenge bleibt in ihrer Gruppe. Übungsbilder
   verlieren einen fast weißen Grund und liegen auf einer gefärbten,
   abgerundeten Kachel.
 - Finanzen behält die Kontoauswahl oben fest. Die Auswahl sind Blasen in einer
