@@ -85,8 +85,8 @@ On the first launch Lifify asks, in order:
    period.
 7. Optional Trade Republic statement, as its own step. This creates a checking
    account with a linked portfolio. The PDF import stays.
-8. Optional sign-in to Trade Republic. You enter the phone number and the PIN,
-   then confirm in the Trade Republic app. Positions, quantities, and the cost
+8. Optional sign-in to Trade Republic. You enter the phone number and the PIN
+   that opens the Trade Republic app, then confirm in that app. Positions, quantities, and the cost
    basis, when the session returns it, go into the existing depot. You can
    skip this step. The PIN is not saved.
 
@@ -245,8 +245,8 @@ Beim ersten Start fragt Lifify nacheinander:
    Zeitraum fest.
 7. Optional ein Trade-Republic-Kontoauszug als eigener Schritt. Daraus entsteht
    ein Girokonto mit verknüpftem Depot. Der PDF-Import bleibt.
-8. Optional die Anmeldung bei Trade Republic. Du gibst Telefonnummer und PIN
-   ein und bestätigst in der Trade-Republic-App. Positionen, Mengen und der
+8. Optional die Anmeldung bei Trade Republic. Du gibst Telefonnummer und die PIN
+   ein, mit der du die Trade-Republic-App öffnest, und bestätigst in der App. Positionen, Mengen und der
    Einstand, wenn die Sitzung ihn liefert, kommen ins vorhandene Depot. Den
    Schritt kannst du überspringen. Die PIN wird nicht gespeichert.
 

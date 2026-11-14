@@ -12,15 +12,17 @@ unchanged and stay in [FINANZEN.md](../FINANZEN.md). What changed in 0.4.0 is in
 ### Trade Republic, by hand
 
 Setup has one more optional step, after the PDF statement. You enter the phone
-number and the PIN, then confirm in the Trade Republic app. When that session
+number and the PIN that opens the Trade Republic app, then confirm in that app.
+A leading 0 is sent as +49. When that session
 returns positions, Lifify puts the quantity, and the cost basis when it is
 present, into the existing depot. The PDF import stays. You can skip the step.
 
 Finance in Settings has the same sign-in, and a button that refreshes the depot
 from the saved session. Nothing refreshes on a timer, at launch, or when
 Finance opens. The session cookie stays in the keychain, on this device only,
-and out of backups, the same way as the Gemini key. The PIN is not saved. When
-the session is dead, Lifify asks you to confirm again. It does not sign in by
+and out of backups, the same way as the Gemini key. The PIN is not saved. A first sign-in that Trade Republic refuses says that no
+confirmation was sent. It does not call that an expired session. When a saved
+session is dead, Lifify asks you to confirm again. It does not sign in by
 itself.
 
 This environment reached `POST /api/v2/auth/web/login` with the headers the web
@@ -66,7 +68,8 @@ bucht. Die Finanzrechnung ist unverändert und bleibt in
 ### Trade Republic, von Hand
 
 Die Einrichtung hat einen weiteren optionalen Schritt, nach dem PDF-Auszug. Du
-gibst Telefonnummer und PIN ein und bestätigst in der Trade-Republic-App. Liefert
+gibst Telefonnummer und die PIN ein, mit der du die Trade-Republic-App öffnest,
+und bestätigst in der App. Eine 0 am Anfang geht als +49 mit. Liefert
 die Sitzung Positionen, übernimmt Lifify die Menge und den Einstand, wenn er
 dabei ist, ins vorhandene Depot. Der PDF-Import bleibt. Den Schritt kannst du
 überspringen.
@@ -75,8 +78,10 @@ Unter Finanzen in den Einstellungen liegt dieselbe Anmeldung und ein Knopf, der
 das Depot aus der gespeicherten Sitzung aktualisiert. Nichts aktualisiert sich
 mit einem Timer, beim Start oder wenn Finanzen aufgeht. Das Sitzungs-Cookie
 bleibt im Schlüsselbund, nur auf diesem Gerät und außerhalb der Sicherung, so
-wie der Gemini-Schlüssel. Die PIN wird nicht gespeichert. Ist die Sitzung tot,
-bittet Lifify um eine neue Bestätigung. Es meldet sich nicht von allein an.
+wie der Gemini-Schlüssel. Die PIN wird nicht gespeichert. Lehnt Trade Republic
+die erste Anmeldung ab, sagt Lifify, dass keine Bestätigung geschickt wurde.
+Das ist keine abgelaufene Sitzung. Ist eine gespeicherte Sitzung tot, bittet
+Lifify um eine neue Bestätigung. Es meldet sich nicht von allein an.
 
 Diese Umgebung hat `POST /api/v2/auth/web/login` mit den Headern der Web-App
 erreicht. Eine Nummer, die keine Telefonnummer ist, kam als HTTP 400

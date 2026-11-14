@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 
 /// What a confirmed Trade Republic web session is allowed to do on its own.
@@ -23,6 +24,7 @@ enum TradeRepublicFailure: Error, Equatable {
     case invalidPin
     case notConfirmed
     case sessionDead
+    case notStarted
     case rejected
     case busy
     case invalidCode
@@ -42,6 +44,11 @@ enum TradeRepublicFailure: Error, Equatable {
             L(
                 "Die Sitzung ist abgelaufen. Bitte in der Trade-Republic-App erneut bestätigen.",
                 "The session has expired. Confirm again in the Trade Republic app."
+            )
+        case .notStarted:
+            L(
+                "Trade Republic hat die Anmeldung nicht gestartet. Es kam keine Bestätigung. Die PIN ist dieselbe wie beim Öffnen der App.",
+                "Trade Republic did not start the sign-in. No confirmation was sent. The PIN is the same one that opens the app."
             )
         case .rejected:
             L("Die Anmeldung wurde abgelehnt.", "The sign-in was rejected.")
@@ -90,8 +97,8 @@ enum TradeRepublicCopy {
     static var pin: String { L("PIN", "PIN") }
     static var footnote: String {
         L(
-            "Nur wenn du hier tippst. Die PIN wird nicht gespeichert. Ist die Sitzung abgelaufen, bestätigst du sie in der Trade-Republic-App erneut.",
-            "Only when you tap here. The PIN is not saved. When the session has expired, you confirm it again in the Trade Republic app."
+            "Die PIN ist dieselbe wie beim Öffnen der Trade-Republic-App, kein Code per SMS. Eine 0 am Anfang wird zu +49. Nur wenn du hier tippst. Die PIN wird nicht gespeichert.",
+            "The PIN is the same one that opens the Trade Republic app, not a code sent by text. A leading 0 becomes +49. Only when you tap here. The PIN is not saved."
         )
     }
 }
@@ -135,8 +142,23 @@ enum TradeRepublicCookies {
         return names.map { "\($0)=\(values[$0] ?? "")" }.joined(separator: "; ")
     }
 
+    static func header(from response: HTTPURLResponse, url: URL, storage: HTTPCookieStorage?) -> String {
+        var fields: [String: String] = [:]
+        for (key, value) in response.allHeaderFields {
+            guard let name = key as? String, let text = value as? String else { continue }
+            fields[name] = text
+        }
+        let parsed = HTTPCookie.cookies(withResponseHeaderFields: fields, for: url)
+            .map { "\($0.name)=\($0.value)" }
+            .joined(separator: "; ")
+        return merging(previous: header(from: storage), fresh: parsed)
+    }
+
     static func merging(previous: String, storage: HTTPCookieStorage?) -> String {
-        let fresh = header(from: storage)
+        merging(previous: previous, fresh: header(from: storage))
+    }
+
+    static func merging(previous: String, fresh: String) -> String {
         if fresh.isEmpty { return previous }
         if previous.isEmpty { return fresh }
         var order: [String] = []
@@ -219,6 +241,15 @@ enum TradeRepublicRequest {
         value.range(of: #"^[A-Za-z0-9-]{1,64}$"#, options: .regularExpression) != nil
     }
 
+    /// A local German number starting with 0 is sent as +49. A number that already has + is kept.
+    static func canonicalPhone(_ raw: String) -> String {
+        let compact = raw.filter { $0.isNumber || $0 == "+" }
+        if compact.hasPrefix("+") { return compact }
+        if compact.hasPrefix("00") { return "+" + compact.dropFirst(2) }
+        if compact.hasPrefix("0") { return "+49" + compact.dropFirst() }
+        return compact
+    }
+
     static func body(phone: String, pin: String) -> Data {
         let object = ["phoneNumber": phone, "pin": pin]
         return (try? JSONSerialization.data(withJSONObject: object)) ?? Data()
@@ -240,23 +271,28 @@ enum TradeRepublicRequest {
         ]
     }
 
-    static func deviceInfo() -> String {
+    /// One device description for the whole process, so the login and the poll name the same device.
+    static func deviceInfo() -> String { deviceInfoToken }
+
+    private static let deviceInfoToken: String = {
+        let digest = SHA512.hash(data: Data(UUID().uuidString.utf8))
+        let stableId = digest.map { String(format: "%02x", Int($0)) }.joined()
         let offset = TimeZone.current.secondsFromGMT() / 60
         let device: [String: Any] = [
-            "stableDeviceId": UUID().uuidString,
+            "stableDeviceId": stableId,
             "browser": "Chrome",
             "browserVersion": "146.0.0.0",
-            "os": "iOS",
-            "osVersion": ProcessInfo.processInfo.operatingSystemVersionString,
+            "os": "Linux",
+            "osVersion": "6.12.0",
             "timezone": TimeZone.current.identifier,
             "timezoneOffset": -offset,
-            "screen": "390x844x24",
+            "screen": "1920x1080x24",
             "preferredLanguages": ["de"],
             "numberOfCores": ProcessInfo.processInfo.processorCount
         ]
         guard let data = try? JSONSerialization.data(withJSONObject: device) else { return "" }
         return data.base64EncodedString()
-    }
+    }()
 
     static func challenge(from data: Data) -> (processId: String, countdown: Int)? {
         guard let object = jsonObject(data),
@@ -287,8 +323,7 @@ enum TradeRepublicRequest {
         return code
     }
 
-    static func failure(statusCode: Int, errorCode: String?) -> TradeRepublicFailure? {
-        if statusCode == 401 || statusCode == 403 { return .sessionDead }
+    static func failure(statusCode: Int, errorCode: String?, savedSession: Bool = false) -> TradeRepublicFailure? {
         switch errorCode {
         case "NUMBER_INVALID": return .invalidPhone
         case "PIN_INVALID", "WRONG_PIN", "INVALID_PIN": return .invalidPin
@@ -297,9 +332,12 @@ enum TradeRepublicRequest {
         case "TOO_MANY_REQUESTS": return .busy
         case "VALIDATION_CODE_INVALID", "VALIDATION_CODE_ALREADY_USED": return .invalidCode
         case "MISSING_REQUIRED_HEADER": return .rejected
-        default:
-            return statusCode >= 400 ? .rejected : nil
+        default: break
         }
+        if statusCode == 401 || statusCode == 403 {
+            return savedSession ? .sessionDead : .notStarted
+        }
+        return statusCode >= 400 ? .rejected : nil
     }
 
     static func jsonObject(_ data: Data) -> [String: Any]? {

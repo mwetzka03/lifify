@@ -9,10 +9,10 @@ struct TradeRepublicClient: Sendable {
         var request = URLRequest(url: TradeRepublicRequest.loginURL)
         request.httpMethod = "POST"
         request.timeoutInterval = 20
-        request.httpBody = TradeRepublicRequest.body(phone: phone, pin: pin)
+        request.httpBody = TradeRepublicRequest.body(phone: TradeRepublicRequest.canonicalPhone(phone), pin: pin)
         TradeRepublicRequest.headers().forEach { request.setValue($0.value, forHTTPHeaderField: $0.key) }
         let (data, http) = try await Self.response(for: request, session: session)
-        let cookies = TradeRepublicCookies.header(from: session.configuration.httpCookieStorage)
+        let cookies = TradeRepublicCookies.header(from: http, url: request.url ?? TradeRepublicRequest.loginURL, storage: session.configuration.httpCookieStorage)
         if http.statusCode >= 400 {
             throw TradeRepublicRequest.failure(statusCode: http.statusCode, errorCode: TradeRepublicRequest.errorCode(from: data))
                 ?? .rejected
@@ -49,12 +49,13 @@ struct TradeRepublicClient: Sendable {
             request.setValue(cookies, forHTTPHeaderField: "Cookie")
         }
         let (data, http) = try await Self.response(for: request, session: session)
-        let merged = TradeRepublicCookies.merging(previous: cookies, storage: session.configuration.httpCookieStorage)
+        let merged = TradeRepublicCookies.header(from: http, url: url, storage: session.configuration.httpCookieStorage)
+        let kept = TradeRepublicCookies.merging(previous: cookies, fresh: merged)
         if http.statusCode >= 400 {
             throw TradeRepublicRequest.failure(statusCode: http.statusCode, errorCode: TradeRepublicRequest.errorCode(from: data))
                 ?? .invalidCode
         }
-        return merged
+        return kept
     }
 
     func positions(cookies: String) async throws -> [TradeRepublicPosition] {
@@ -73,12 +74,13 @@ struct TradeRepublicClient: Sendable {
             request.setValue(cookies, forHTTPHeaderField: "Cookie")
         }
         let (data, http) = try await Self.response(for: request, session: session)
-        let merged = TradeRepublicCookies.merging(previous: cookies, storage: session.configuration.httpCookieStorage)
+        let merged = TradeRepublicCookies.header(from: http, url: url, storage: session.configuration.httpCookieStorage)
+        let kept = TradeRepublicCookies.merging(previous: cookies, fresh: merged)
         if http.statusCode >= 400 {
             throw TradeRepublicRequest.failure(statusCode: http.statusCode, errorCode: TradeRepublicRequest.errorCode(from: data))
                 ?? .rejected
         }
-        guard let poll = TradeRepublicRequest.poll(from: data, cookies: merged) else {
+        guard let poll = TradeRepublicRequest.poll(from: data, cookies: kept) else {
             throw TradeRepublicFailure.unreadable
         }
         return poll

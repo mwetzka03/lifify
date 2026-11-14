@@ -38,8 +38,12 @@ struct TradeRepublicSignInControls: View {
                 TextField(TradeRepublicCopy.phone, text: $phone)
                     .textContentType(.telephoneNumber)
                     .keyboardType(.phonePad)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
                 SecureField(TradeRepublicCopy.pin, text: $pin)
                     .textContentType(.password)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
                 Button(TradeRepublicCopy.signIn, action: start)
                     .disabled(phone.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || pin.isEmpty)
                 if let note {

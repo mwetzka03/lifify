@@ -107,13 +107,21 @@ enum LififySessionChecks {
     }
 
     private static func deadSessionDoesNotStartAnotherLogin() -> LififyCheckResult {
-        let dead = TradeRepublicRequest.failure(statusCode: 401, errorCode: nil)
+        let dead = TradeRepublicRequest.failure(statusCode: 401, errorCode: nil, savedSession: true)
+        let notStarted = TradeRepublicRequest.failure(statusCode: 401, errorCode: nil)
+        let wrongPin = TradeRepublicRequest.failure(statusCode: 401, errorCode: "PIN_INVALID")
         let invalidNumber = TradeRepublicRequest.failure(statusCode: 400, errorCode: TradeRepublicGap.probedCode)
         let header = "tr_session=example"
         let message = TradeRepublicFailure.sessionDead.message
         let headers = TradeRepublicRequest.headers()
+        let again = TradeRepublicRequest.headers()
         let passed = dead == .sessionDead
+            && notStarted == .notStarted
+            && wrongPin == .invalidPin
             && invalidNumber == .invalidPhone
+            && TradeRepublicRequest.canonicalPhone("0176 123") == "+49176123"
+            && TradeRepublicRequest.canonicalPhone("+49 170") == "+49170"
+            && headers["X-TR-Device-Info"] == again["X-TR-Device-Info"]
             && TradeRepublicRefresh.manualOnly
             && !TradeRepublicRefresh.onLaunch
             && !TradeRepublicRefresh.onTimer
