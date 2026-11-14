@@ -8,7 +8,7 @@ enum KeychainStore {
     static let tradeRepublicService = "lifify.traderepublic"
     static let tradeRepublicAccount = "session"
     /// This device only, so the item is left out of backups. Same rule as the Gemini key.
-    static let deviceOnly = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly as String
+    static var deviceOnly: String { kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly as String }
 
     static func set(_ value: String, account: String, service: String = nutritionService) {
         remove(account: account, service: service)

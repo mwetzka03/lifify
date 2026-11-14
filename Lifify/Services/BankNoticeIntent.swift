@@ -6,12 +6,16 @@ enum BankNoticeAccountChoice: String, AppEnum {
     case sparkasse
     case tradeRepublic
 
-    static var typeDisplayRepresentation = TypeDisplayRepresentation(name: "Konto")
+    static var typeDisplayRepresentation: TypeDisplayRepresentation {
+        TypeDisplayRepresentation(name: "Konto")
+    }
 
-    static var caseDisplayRepresentations: [BankNoticeAccountChoice: DisplayRepresentation] = [
-        .sparkasse: "Sparkasse",
-        .tradeRepublic: "Trade Republic"
-    ]
+    static var caseDisplayRepresentations: [BankNoticeAccountChoice: DisplayRepresentation] {
+        [
+            .sparkasse: "Sparkasse",
+            .tradeRepublic: "Trade Republic"
+        ]
+    }
 
     var bank: BankNoticeBank {
         switch self {
@@ -22,9 +26,11 @@ enum BankNoticeAccountChoice: String, AppEnum {
 }
 
 struct RecordBankNoticeIntent: AppIntent {
-    static var title: LocalizedStringResource = "Bankmitteilung buchen"
-    static var description = IntentDescription("Bucht den Text einer Mitteilung auf das Sparkassen- oder Trade-Republic-Konto.")
-    static var openAppWhenRun: Bool = true
+    static var title: LocalizedStringResource { "Bankmitteilung buchen" }
+    static var description: IntentDescription {
+        IntentDescription("Bucht den Text einer Mitteilung auf das Sparkassen- oder Trade-Republic-Konto.")
+    }
+    static var openAppWhenRun: Bool { true }
 
     @Parameter(title: "Mitteilung")
     var notification: String
