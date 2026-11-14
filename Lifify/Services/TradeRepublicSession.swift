@@ -355,8 +355,8 @@ enum TradeRepublicPortfolio {
                     found.append(contentsOf: positions(in: category["positions"] as? [Any] ?? []))
                 }
             }
-            if let positions = object["positions"] as? [Any] {
-                found.append(contentsOf: positions(in: positions))
+            if let rows = object["positions"] as? [Any] {
+                found.append(contentsOf: Self.positions(in: rows))
             }
             return .positions(found)
         }
