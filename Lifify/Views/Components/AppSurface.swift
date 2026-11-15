@@ -291,6 +291,11 @@ extension View {
         modifier(AppGlassCardModifier(radius: radius))
     }
 
+    /// Opaque card for popups. The glossy wash stays on the scrim behind it.
+    func appSolidCard(radius: CGFloat = 22) -> some View {
+        modifier(AppSolidCardModifier(radius: radius))
+    }
+
     func appText(_ role: AppTextRole) -> some View {
         font(AppChrome.font(role))
     }
@@ -446,6 +451,96 @@ private struct AppGlassCardModifier: ViewModifier {
             .background(AppLook.cardFill(appearance, palette: palette).color(), in: shape)
             .overlay(shape.strokeBorder(AppLook.cardStroke(appearance, palette: palette).color(), lineWidth: 1))
             .shadow(color: appearance == .light ? Color.black.opacity(0.08) : .clear, radius: 14, y: 8)
+    }
+}
+
+private struct AppSolidCardModifier: ViewModifier {
+    var radius: CGFloat
+    @Environment(\.colorScheme) private var scheme
+    @AppStorage(AppPalette.storageKey) private var paletteRaw = AppPalette.green.rawValue
+
+    func body(content: Content) -> some View {
+        let appearance = AppAppearance(scheme)
+        let palette = AppPalette.resolved(paletteRaw)
+        let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
+        content
+            .background(AppLook.cardFill(appearance, palette: palette).color(), in: shape)
+            .overlay(shape.strokeBorder(AppLook.cardStroke(appearance, palette: palette).color(), lineWidth: 1))
+    }
+}
+
+/// Full-screen frosted cover used while a page or the app is getting ready.
+struct AppLoadCover: View {
+    var fillsSafeArea: Bool = true
+
+    var body: some View {
+        ZStack {
+            if fillsSafeArea {
+                Rectangle()
+                    .fill(.ultraThinMaterial)
+                    .ignoresSafeArea()
+            } else {
+                Rectangle()
+                    .fill(.ultraThinMaterial)
+            }
+            VStack(spacing: 12) {
+                ProgressView()
+                    .controlSize(.large)
+                Text(AppLoad.message)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .contentShape(Rectangle())
+        .allowsHitTesting(true)
+    }
+}
+
+/// Frosted wash behind a popup. The popup card stays opaque.
+struct AppPopupScrim: View {
+    var body: some View {
+        Rectangle()
+            .fill(.ultraThinMaterial)
+            .ignoresSafeArea()
+    }
+}
+
+/// Paints the glossy cover for one frame, then the tab, so the first open does not hitch on a blank screen.
+struct AppTabWarmup<Content: View>: View {
+    var isOpen: Bool
+    @ViewBuilder var content: () -> Content
+    @State private var painted = false
+
+    var body: some View {
+        Group {
+            if isOpen {
+                ZStack {
+                    if painted {
+                        content()
+                    } else {
+                        Color.clear
+                    }
+                }
+                .overlay {
+                    if !painted {
+                        AppLoadCover(fillsSafeArea: false)
+                    }
+                }
+            } else {
+                Color.clear
+            }
+        }
+        .task(id: isOpen) {
+            guard isOpen else { return }
+            if !AppLaunch.paintsCoverBeforeTab {
+                painted = true
+                return
+            }
+            await Task.yield()
+            try? await Task.sleep(for: .milliseconds(16))
+            painted = true
+        }
     }
 }
 

@@ -884,6 +884,35 @@ enum LififySessionChecks {
         )
         let yieldNotes = bookedNotes(yield)
         let interestNotes = bookedNotes(zinsen)
+        let saleEntry = LedgerEntry(
+            title: bookedTitle(sold) ?? "",
+            notes: bookedNotes(sold) ?? "",
+            amountCents: bookedAmount(sold) ?? 0,
+            kind: .transfer,
+            fromAccountID: bookedFrom(sold),
+            toAccountID: bookedTo(sold)
+        )
+        let buyEntry = LedgerEntry(
+            title: bookedTitle(purchase) ?? "",
+            notes: bookedNotes(purchase) ?? "",
+            amountCents: bookedAmount(purchase) ?? 0,
+            kind: .transfer,
+            fromAccountID: bookedFrom(purchase),
+            toAccountID: bookedTo(purchase)
+        )
+        let cashAccount = Account(id: trade, name: "Trade Republic", kind: .checking)
+        let depotAccount = Account(id: depot, name: "Depot", kind: .portfolio)
+        let holding = PortfolioHolding(
+            accountID: depot,
+            name: "Aktie",
+            symbol: "ABC",
+            quantity: 10,
+            purchasePriceCents: 100,
+            currentPriceCents: 1_000
+        )
+        let afterSaleDepot = FinanceService.balance(for: depotAccount, entries: [saleEntry], holdings: [holding])
+        let afterSaleCash = FinanceService.balance(for: cashAccount, entries: [saleEntry], holdings: [])
+        let afterBuyDepot = FinanceService.balance(for: depotAccount, entries: [buyEntry], holdings: [holding])
         let passed = bookedAmount(yield) == 310
             && bookedKind(yield) == .income
             && bookedAccount(yield) == trade
@@ -901,6 +930,11 @@ enum LififySessionChecks {
             && bookedFrom(sold) == depot
             && bookedTo(sold) == trade
             && bookedTitle(sold)?.hasPrefix("Verkauf:") == true
+            && (bookedNotes(sold)?.contains("Typ: Depotmitteilung") == true)
+            && (bookedNotes(purchase)?.contains("Typ: Depotmitteilung") == true)
+            && afterSaleDepot == 1_000
+            && afterSaleCash == 9_900
+            && afterBuyDepot == 11_200
             && dividend.matches("Dir wurden 3,10 € Dividende für Apple gutgeschrieben")
             && !dividend.matches("Zinsen 0,40 € gutgeschrieben")
         return result(
@@ -908,7 +942,7 @@ enum LififySessionChecks {
             .bankImport,
             .integration,
             passed,
-            "Dividende \(bookedAmount(yield) ?? 0), Zinsen \(bookedAmount(zinsen) ?? 0), Kauf \(bookedAmount(purchase) ?? 0), Verkauf \(bookedAmount(sold) ?? 0)"
+            "Dividende \(bookedAmount(yield) ?? 0), Zinsen \(bookedAmount(zinsen) ?? 0), Kauf \(bookedAmount(purchase) ?? 0), Verkauf \(bookedAmount(sold) ?? 0), Depot \(afterSaleDepot)"
         )
     }
 

@@ -163,7 +163,10 @@ Symbolauswahl enthält ein Hanfblatt und eine Zigarette.
     eine Buchung auf dem passenden Girokonto anlegen. Unter Finanzen fügst du
     die Mitteilung 1:1 ein; darunter entsteht die Vorlage. Die Buchung kann
     Ausgabe, Einnahme, Umbuchung, Depotkauf, Depotverkauf, Dividende oder
-    Zinsen sein. Dieselbe Buchung im Fenster von sechs Stunden zählt einmal.
+    Zinsen sein. Ein Depotverkauf kommt aufs Giro und geht vom Depotwert ab.
+    Dieselbe Buchung im Fenster von sechs Stunden zählt einmal. Laden deckt
+    den ganzen Bildschirm und schreibt Geladen. Beim Start wird zuerst nur
+    Home gebaut. Ein Tab zeigt erst die Fläche, dann den Inhalt.
 
 ## Technische Leitplanken
 

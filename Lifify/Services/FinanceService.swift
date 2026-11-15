@@ -9,9 +9,10 @@ enum FinanceService {
         through date: Date = .distantFuture
     ) -> Int {
         if account.kind == .portfolio {
-            return holdings
+            let market = holdings
                 .filter { $0.accountID == account.id }
                 .reduce(0) { $0 + Int((Double($1.currentPriceCents) * $1.quantity).rounded()) }
+            return market + portfolioNoticeCash(entries: entries, portfolioIDs: [account.id], through: date)
         }
 
         let relevant = entries.filter { $0.date <= date }
@@ -33,6 +34,42 @@ enum FinanceService {
             }
         }
         return value
+    }
+
+    /// Notice buy/sale cash that is not already in the share lots.
+    static func isNoticeDepot(_ entry: LedgerEntry) -> Bool {
+        guard entry.kind == .transfer, entry.importFingerprint == nil else { return false }
+        let notes = entry.notes.folding(
+            options: [.caseInsensitive, .diacriticInsensitive],
+            locale: Locale(identifier: "de_DE")
+        )
+        return notes.contains("typ: depotmitteilung")
+    }
+
+    static func portfolioNoticeCash(
+        entries: [LedgerEntry],
+        portfolioIDs: Set<UUID>,
+        through date: Date
+    ) -> Int {
+        guard !portfolioIDs.isEmpty else { return 0 }
+        var value = 0
+        for entry in entries where entry.kind == .transfer && entry.date <= date {
+            guard isNoticeDepot(entry) else { continue }
+            let cash = abs(entry.amountCents)
+            if let to = entry.toAccountID, portfolioIDs.contains(to) { value += cash }
+            if let from = entry.fromAccountID, portfolioIDs.contains(from) { value -= cash }
+        }
+        return value
+    }
+
+    static func depotValue(
+        holdings: [PortfolioHolding],
+        entries: [LedgerEntry],
+        portfolioIDs: Set<UUID>,
+        through date: Date
+    ) -> Int {
+        HoldingMaintenance.marketValue(of: holdings, through: date)
+            + portfolioNoticeCash(entries: entries, portfolioIDs: portfolioIDs, through: date)
     }
 
     static func totalBalance(
@@ -317,11 +354,12 @@ enum FinanceService {
         let outstandingBias = period.end < today ? 0 : bias.planned
         let periodStart = calendar.startOfDay(for: period.start)
         let dayBefore = calendar.date(byAdding: .day, value: -1, to: periodStart) ?? periodStart
+        let portfolioIDs = Set(accounts.filter { $0.kind == .portfolio }.map(\.id))
         let openingHoldings = includePortfolioValue
-            ? HoldingMaintenance.marketValue(of: holdings, through: dayBefore)
+            ? depotValue(holdings: holdings, entries: entries, portfolioIDs: portfolioIDs, through: dayBefore)
             : 0
         let closingHoldings = includePortfolioValue
-            ? HoldingMaintenance.marketValue(of: holdings, through: period.end)
+            ? depotValue(holdings: holdings, entries: entries, portfolioIDs: portfolioIDs, through: period.end)
             : 0
         let startCash: Int
         if periodStart <= today {
@@ -360,7 +398,7 @@ enum FinanceService {
             splits: splits
         ) + closingHoldings
         let portfolioNow = includePortfolioValue
-            ? HoldingMaintenance.marketValue(of: holdings, through: now)
+            ? depotValue(holdings: holdings, entries: entries, portfolioIDs: portfolioIDs, through: now)
             : holdingsValue
         let netWorth: Int
         if period.contains(today) {

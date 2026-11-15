@@ -134,17 +134,23 @@ struct TradeRepublicSignInControls: View {
     }
 
     private var popup: some View {
-        ZStack {
-            Color.black.opacity(0.45).ignoresSafeArea()
-            VStack(alignment: .leading, spacing: 16) {
-                Text(popupTitle)
-                    .font(.headline)
-                popupBody
+        Group {
+            if phase == .loading {
+                AppLoadCover()
+            } else {
+                ZStack {
+                    AppPopupScrim()
+                    VStack(alignment: .leading, spacing: 16) {
+                        Text(popupTitle)
+                            .font(.headline)
+                        popupBody
+                    }
+                    .padding(20)
+                    .frame(maxWidth: 360)
+                    .appSolidCard(radius: 22)
+                    .padding(28)
+                }
             }
-            .padding(20)
-            .frame(maxWidth: 360)
-            .appGlassCard(radius: 22)
-            .padding(28)
         }
         .appAccentTint()
     }

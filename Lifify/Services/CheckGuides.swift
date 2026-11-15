@@ -318,6 +318,11 @@ enum CheckGuides {
             "Die Messung listet die Symbolnamen. symbol.hemp-leaf und symbol.cigarette zeigen auf die Vorlagen hemp-leaf und cigarette. Kein Name kommt doppelt vor.",
             "The reading lists the symbol names. symbol.hemp-leaf and symbol.cigarette point at the hemp-leaf and cigarette templates. No name appears twice."
         ),
+        "Ladebildschirm deckt alles und der Start bleibt leicht": g(
+            "AppLoad.message, AppLoad.coversFullScreen, AppLaunch.lazyTabs, AppLaunch.defersBackgroundWork, AppLaunch.paintsCoverBeforeTab, AppLaunch.resumesFromBackgroundOnly, AppPopup.scrimIsGlossy",
+            "Die Messung ist Geladen, 0. Der Ladebildschirm deckt den ganzen Schirm. Home ist Tab 0. Pop-ups stehen auf Glas, die Karte selbst nicht.",
+            "The reading is Loaded, 0. The load cover fills the whole screen. Home is tab 0. Popups sit on glass, the card itself does not."
+        ),
         "Gesundheit, Einstellungen und Glasflächen zeigen dieselben Titel": g(
             "HealthScreen.sectionTitles(), SettingsDirectory.rows(), AppChrome.glassScreens, AppChrome.version",
             "Vor dem Schrägstrich stehen die Titel, die Gesundheit zeigt. Dahinter steht die Version 0.5.0. Die Einstellungen beginnen mit Nutzereinstellungen. Ohne Schlüssel bleibt der Satz, dass die Erkennung nicht verbunden ist.",
@@ -540,8 +545,8 @@ enum CheckGuides {
         ),
         "Trade-Republic-Vorlage bucht Depot und Ertrag": g(
             "BankNotice.plan(text:bank:accounts:existing:now:templates:), NoticeTemplate.matches(_:), BookingClassification.preparedNotes(_:for:), BookingClassification.preparedTitle(_:for:)",
-            "Die Messung ist Dividende 310, Zinsen 40, Kauf 1200, Verkauf 9900. Dividende trägt Typ Ertrag, Zinsen Typ Zinsen. Der Kauf geht vom Trade-Republic-Girokonto ins Depot, der Verkauf zurück.",
-            "The reading is dividend 310, interest 40, buy 1200, sale 9900. The dividend carries type Ertrag, interest type Zinsen. The buy leaves the Trade Republic checking account for the depot, and the sale returns."
+            "Die Messung ist Dividende 310, Zinsen 40, Kauf 1200, Verkauf 9900, Depot 1000. Dividende trägt Typ Ertrag, Zinsen Typ Zinsen. Der Kauf geht vom Trade-Republic-Girokonto ins Depot, der Verkauf zurück. 10000 Depot minus 9900 Verkauf bleibt 1000, das Giro hat 9900.",
+            "The reading is dividend 310, interest 40, buy 1200, sale 9900, depot 1000. The dividend carries type Ertrag, interest type Zinsen. The buy leaves the Trade Republic checking account for the depot, and the sale returns. 10000 depot minus a 9900 sale leaves 1000, and checking has 9900."
         ),
         "Sparkasse und Trade Republic landen auf dem passenden Konto": g(
             "BankNotice.plan(text:bank:accounts:existing:now:), BankNotice.records(_:), BankNoticeURL.decode(_:)",

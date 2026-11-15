@@ -197,7 +197,7 @@ enum BankNotice {
                 toAccountID: portfolioID,
                 title: BookingClassification.preparedTitle(notice.title, for: template.action.category),
                 amountCents: abs(notice.amountCents),
-                notes: BookingClassification.preparedNotes("", for: template.action.category),
+                notes: depotNoticeNotes(for: template.action.category),
                 existing: existing,
                 now: now
             )
@@ -216,7 +216,7 @@ enum BankNotice {
                 toAccountID: accountID,
                 title: BookingClassification.preparedTitle(notice.title, for: .portfolioSale),
                 amountCents: abs(notice.amountCents),
-                notes: "",
+                notes: depotNoticeNotes(for: .portfolioSale),
                 existing: existing,
                 now: now
             )
@@ -238,6 +238,14 @@ enum BankNotice {
             kind: category.storedKind,
             notes: BookingClassification.preparedNotes("", for: category)
         )
+    }
+
+    private static func depotNoticeNotes(for category: BookingCategory) -> String {
+        let prepared = BookingClassification.preparedNotes("", for: category)
+        let marker = "Typ: Depotmitteilung"
+        if prepared.isEmpty { return marker }
+        if prepared.contains(marker) { return prepared }
+        return prepared + "\n" + marker
     }
 
     private static func portfolioID(from template: NoticeTemplate, accounts: [NamedAccount]) -> UUID? {

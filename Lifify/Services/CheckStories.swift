@@ -448,6 +448,12 @@ enum CheckStories {
             ("Der Katalog wird gelesen und auf doppelte Namen geprüft.", "The catalog is read and checked for duplicate names.", "SymbolPicker.swift"),
             ("symbol.hemp-leaf und symbol.cigarette zeigen auf die Vorlagen hemp-leaf und cigarette.", "symbol.hemp-leaf and symbol.cigarette point at the hemp-leaf and cigarette templates.", "SymbolPicker.swift"),
         ),
+        "Ladebildschirm deckt alles und der Start bleibt leicht": make(
+            "Der Ladezustand legt eine glänzende Fläche über den ganzen Bildschirm und schreibt Geladen. Ein Pop-up sitzt auf dieser Fläche und bleibt selbst undurchsichtig. Beim Start wird zuerst nur Home gebaut, die übrige Arbeit folgt danach. Ein Tab zeigt erst die Fläche, dann den Inhalt. EventKit läuft nicht schon beim kurzen Inaktiv.",
+            "The load state lays a glossy wash over the whole screen and writes Loaded. A popup sits on that wash and stays opaque. At launch only Home is built first, and the rest of the work follows after. A tab shows the wash first, then the content. EventKit does not run on a short inactive moment.",
+            ("AppLoad, AppLaunch und AppPopup werden gelesen.", "AppLoad, AppLaunch, and AppPopup are read.", "AppChrome.swift"),
+            ("Die Messung ist Geladen, 0. Der Ladebildschirm deckt alles, die Tabs sind träge, die Hintergrundarbeit wartet, das Pop-up-Glas liegt nur auf dem Hintergrund.", "The reading is Loaded, 0. The load cover fills the screen, the tabs are lazy, background work waits, and popup glass sits only on the backdrop.", "AppSurface.swift"),
+        ),
         "Gesundheit, Einstellungen und Glasflächen zeigen dieselben Titel": make(
             "Gesundheit, Einstellungen und die bemalten Flächen zeigen die Titel, die auf dem Bildschirm stehen.",
             "Health, Settings, and the painted screens show the titles that appear on screen.",
@@ -715,10 +721,10 @@ enum CheckStories {
             ("Steam ist Ausgabe minus 999, Gehalt Einnahme 125000, die Überweisung eine Umbuchung über 8000. Eine Gutschrift passt nicht auf die Abbuchungs-Vorlage. Die Vorlage zeigt Betrag und Name.", "Steam is an expense of minus 999, salary is income of 125000, and the transfer is an own-account move of 8000. A credit does not match the debit template. The template shows amount and name.", "LififySessionChecks.swift"),
         ),
         "Trade-Republic-Vorlage bucht Depot und Ertrag": make(
-            "Eine Trade-Republic-Vorlage kann Depotkauf, Depotverkauf, Dividende und Zinsen buchen. Der Kauf geht vom Girokonto ins Depot, der Verkauf zurück, Dividende und Zinsen als Ertrag und Zinsen auf das Girokonto. Die Stücke kommen nicht aus der Mitteilung.",
-            "A Trade Republic template can book a portfolio buy, a portfolio sale, a dividend, and interest. The buy leaves the checking account for the depot, the sale returns, and dividend and interest land on the checking account as Ertrag and Zinsen. Holdings do not come from the notice.",
+            "Eine Trade-Republic-Vorlage kann Depotkauf, Depotverkauf, Dividende und Zinsen buchen. Der Kauf geht vom Girokonto ins Depot, der Verkauf kommt aufs Giro und fällt im Depotwert. Dividende und Zinsen sind Ertrag und Zinsen. Die Stücke kommen nicht aus der Mitteilung.",
+            "A Trade Republic template can book a portfolio buy, a portfolio sale, a dividend, and interest. The buy leaves the checking account for the depot, the sale returns to checking and leaves the depot value. Dividend and interest are Ertrag and Zinsen. Holdings do not come from the notice.",
             ("Vorlagen für Dividende, Zinsen, Kauf und Verkauf werden gegen neue Trade-Republic-Texte gelesen.", "Templates for dividend, interest, buy, and sale are read against new Trade Republic texts.", "NoticeTemplate.swift"),
-            ("Dividende 310 mit Typ Ertrag, Zinsen 40 mit Typ Zinsen, Kauf 1200 vom Giro ins Depot, Verkauf 9900 vom Depot aufs Giro.", "Dividend 310 with type Ertrag, interest 40 with type Zinsen, buy 1200 from checking to the depot, sale 9900 from the depot onto checking.", "BankNotice.swift"),
+            ("Dividende 310 mit Typ Ertrag, Zinsen 40 mit Typ Zinsen, Kauf 1200 vom Giro ins Depot, Verkauf 9900 vom Depot aufs Giro. Der Depotwert fällt um den Verkauf, das Giro steigt um denselben Betrag.", "Dividend 310 with type Ertrag, interest 40 with type Zinsen, buy 1200 from checking to the depot, sale 9900 from the depot onto checking. Depot value falls by the sale, checking rises by the same amount.", "BankNotice.swift"),
         ),
         "Sparkasse und Trade Republic landen auf dem passenden Konto": make(
             "Eine Sparkassen-Mitteilung bucht auf dem Girokonto Sparkasse, eine Trade-Republic-Mitteilung auf dem Konto Trade Republic. Eine erhaltene Überweisung ist eine Umbuchung vom Hauptkonto, ausgegeben ist eine Ausgabe. Dieselbe Buchung im Fenster wird nicht doppelt angelegt.",

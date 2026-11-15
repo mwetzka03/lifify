@@ -49,7 +49,8 @@ view, in transactions, and in the income and expense lists.
   Missing second payments are on by default. The entered cash is applied after
   you confirm the review. Under Finance, Shortcuts, you paste a notice 1:1;
   the template appears below, and the booking can be an expense, income,
-  transfer, portfolio buy, portfolio sale, dividend, or interest. On the current period, net worth is
+  transfer, portfolio buy, portfolio sale, dividend, or interest. A notice
+  sale returns cash to checking and leaves the depot value. On the current period, net worth is
   the live cash. On a past or future period it is that period's Endsaldo.
   Depot stays the market value.
 - Trade Republic bookings before the cutoff date stay in the ledger and sit
@@ -611,12 +612,14 @@ Finanzansicht, in den Buchungen und in den Listen für Einnahmen und Ausgaben.
   bleiben beide, auch mit unterschiedlicher End-to-End-Referenz. Unter Finanzen,
   Kurzbefehle, fügst du die Mitteilung 1:1 ein. Darunter entsteht die Vorlage,
   und die Buchung kann Ausgabe, Einnahme, Umbuchung, Depotkauf, Depotverkauf,
-  Dividende oder Zinsen sein. Der Apple-Kurzbefehl schickt den Text, Lifify
+  Dividende oder Zinsen sein. Ein Depotverkauf kommt aufs Giro und geht vom
+  Depotwert ab. Der Apple-Kurzbefehl schickt den Text, Lifify
   bucht nach der Vorlage. Im aktuellen Zeitraum ist Gesamtvermögen der
   Live-Cash. Sind in diesem Zeitraum keine Kosten mehr offen, ist der Endsaldo
   derselbe Stand, und der nächste Zeitraum startet damit. In einem vergangenen
   oder zukünftigen Zeitraum ist Gesamtvermögen der Endsaldo dieses Zeitraums.
-  Depot bleibt der Marktwert.
+  Depot ist der Marktwert plus Depotmitteilungen, die auf das Depot gehen oder
+  davon kommen.
 - Trade-Republic-Buchungen vor dem Stichtag bleiben in der Liste und liegen
   außerhalb des ersten Zeitraums. Buchungen am Stichtag und danach werden
   angelegt, auch wenn der erste Zeitraum schon vorbei ist.
