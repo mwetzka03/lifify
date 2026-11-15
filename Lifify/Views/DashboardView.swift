@@ -1126,7 +1126,9 @@ struct DashboardView: View {
         guard !adopted.isEmpty else { return }
         do {
             try context.save()
-            adopted.forEach(BankImportCursor.mark)
+            for accountID in adopted {
+                BankImportCursor.mark(accountID)
+            }
         } catch {
             return
         }
