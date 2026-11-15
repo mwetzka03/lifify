@@ -545,10 +545,10 @@ enum CheckStories {
             ("Ein leeres PDF liefert den Fehlerhinweis statt einer Buchung.", "An empty PDF returns the error message instead of a booking.", "LififyCoverageChecks.swift"),
         ),
         "Sicherung behält das Konto": make(
-            "Eine Sicherung schreibt das Konto ins JSON und wieder heraus. Der Finanzexport enthält auch Depotstücke. Die Dateinamen tragen das Bereichskürzel.",
-            "A backup writes the account into JSON and back out. The finance export also includes lots. The file names carry the area prefix.",
-            ("Ein Konto und ein Depotstück werden kodiert und wieder dekodiert.", "An account and a lot are encoded and decoded again.", "BackupService.swift"),
-            ("Name und Art bleiben, das Stück kommt als holdingLot zurück, und die Exportnamen beginnen mit Lifify.", "Name and kind stay, the lot comes back as holdingLot, and the export names start with Lifify.", "LififyCoverageChecks.swift"),
+            "Eine Sicherung schreibt das Konto ins JSON und wieder heraus. Der Finanzexport enthält auch Depotstücke. Die Dateinamen tragen das Bereichskürzel. Eine Teilsicherung Finanzen bleibt Finanzen.",
+            "A backup writes the account into JSON and back out. The finance export also includes lots. The file names carry the area prefix. A Finance part backup stays Finance.",
+            ("Ein Konto und ein Depotstück werden kodiert und wieder dekodiert. Eine Finanzen-Sicherung nennt ihren Bereich.", "An account and a lot are encoded and decoded again. A Finance backup names its area.", "BackupService.swift"),
+            ("Name und Art bleiben, das Stück kommt als holdingLot zurück, die Exportnamen beginnen mit Lifify, und Finanzen bleibt Finanzen.", "Name and kind stay, the lot comes back as holdingLot, the export names start with Lifify, and Finance stays Finance.", "LififyCoverageChecks.swift"),
         ),
         "Löschen und Zurücksetzen sagen, was bleibt": make(
             "Löschen und Zurücksetzen erklären in Titel und Text, welche Daten bleiben.",
@@ -581,10 +581,10 @@ enum CheckStories {
             ("Es gibt kein Bucketlist-Tab und kein vision-Symbol.", "There is no bucket-list tab and no vision symbol.", "LififyCoverageChecks.swift"),
         ),
         "Tabs, Einrichtung und Weitere Bereiche": make(
-            "Einrichtung, Tabs und Weitere Bereiche zeigen die Texte der Oberfläche. Die Links sind mittelgroß.",
-            "Setup, tabs, and More show the on-screen texts. The links are a middle size.",
+            "Einrichtung, Tabs und Weitere Bereiche zeigen die Texte der Oberfläche. Die Einrichtung lädt die ganze App oder nur einzelne Bereiche. Die Links sind mittelgroß.",
+            "Setup, tabs, and More show the on-screen texts. Setup restores the entire app or only one area. The links are a middle size.",
             ("Die Einrichtungstitel, die fünf Tabs und die drei Links unter Weitere Bereiche werden gelesen.", "The setup titles, the five tabs, and the three More links are read.", "OnboardingView.swift"),
-            ("Die Zeilen nutzen die Schrift body, die Überschrift headline, 14 Punkt Abstand und höchstens 8 Punkt zur nächsten Sektion. Finanzen liegt auf derselben Fläche.", "The rows use the body font, the heading uses headline, 14 points of padding, and at most 8 points before the next section. Finance sits on the same wash.", "FinanceRoute.swift"),
+            ("Die Zeilen nutzen die Schrift body, die Überschrift headline, 14 Punkt Abstand und höchstens 8 Punkt zur nächsten Sektion. Finanzen liegt auf derselben Fläche. Die Sicherung lädt die ganze App oder nur Finanzen, Challenges oder Training.", "The rows use the body font, the heading uses headline, 14 points of padding, and at most 8 points before the next section. Finance sits on the same wash. The backup restores the entire app or only Finance, Challenges, or Training.", "FinanceRoute.swift"),
         ),
         "Entwicklertag und Schalter": make(
             "Der Entwicklertag behält die Uhrzeit, und der Schalter heißt Entwicklermodus.",

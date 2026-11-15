@@ -9,6 +9,12 @@ app to book a Sparkasse or Trade Republic notice. The finance calculations are
 unchanged and stay in [FINANZEN.md](../FINANZEN.md). What changed in 0.4.0 is in
 [CHANGES-0.4.0.md](CHANGES-0.4.0.md). The displayed version is 0.5.0.
 
+### Setup
+
+Setup can restore the entire app from one JSON file, or only one area:
+Finance, Challenges, or Training. You can pick several of those part files at
+once.
+
 ### Trade Republic, by hand
 
 Setup has one more optional step, after the PDF statement. You enter the phone
@@ -66,6 +72,12 @@ mit dem die Kurzbefehle-App eine Sparkassen- oder Trade-Republic-Mitteilung
 bucht. Die Finanzrechnung ist unverändert und bleibt in
 [FINANZEN.md](../FINANZEN.md). Was sich in 0.4.0 geändert hat, steht in
 [CHANGES-0.4.0.md](CHANGES-0.4.0.md). Die angezeigte Version ist 0.5.0.
+
+### Einrichtung
+
+Die Einrichtung lädt die ganze App aus einer JSON-Datei, oder nur einen
+Bereich: Finanzen, Challenges oder Training. Mehrere Teildateien gehen auf
+einmal.
 
 ### Trade Republic, von Hand
 

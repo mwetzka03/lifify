@@ -26,7 +26,13 @@ enum OnboardingSteps {
     static var title: String { L("Lifify einrichten", "Set up Lifify") }
     static var start: String { L("Wie möchtest du starten?", "How would you like to start?") }
     static var newSetup: String { L("Neu einrichten", "Set up as new") }
-    static var restore: String { L("JSON-Sicherung laden", "Restore JSON backup") }
+    static var restore: String { L("JSON-Sicherung oder Teile laden", "Restore a JSON backup or parts") }
+    static var restoreNote: String {
+        L(
+            "Die ganze App, oder nur einzelne Bereiche: nur Finanzen, nur Challenges oder nur Training. Mehrere Dateien auf einmal gehen.",
+            "The entire app, or only one area: Finance only, Challenges only, or Training only. You can pick several files at once."
+        )
+    }
     static var welcome: String { L("Willkommen", "Welcome") }
     static var period: String { L("Budgetzeitraum", "Budget period") }
     static var account: String { L("Hauptkonto", "Main account") }
@@ -126,7 +132,7 @@ struct OnboardingView: View {
             .fileImporter(
                 isPresented: $importingBackup,
                 allowedContentTypes: [.json],
-                allowsMultipleSelection: false,
+                allowsMultipleSelection: BackupScope.allowsSeveralFiles,
                 onCompletion: restoreBackup
             )
             .fileImporter(
@@ -200,6 +206,9 @@ struct OnboardingView: View {
             } label: {
                 Label(OnboardingSteps.restore, systemImage: "square.and.arrow.down")
             }
+            Text(OnboardingSteps.restoreNote)
+                .font(.caption)
+                .foregroundStyle(.secondary)
         } header: {
             Text(OnboardingSteps.start)
         }
@@ -890,18 +899,23 @@ struct OnboardingView: View {
     }
 
     private func restoreBackup(_ result: Result<[URL], Error>) {
-        guard case let .success(urls) = result, let url = urls.first else {
+        guard case let .success(urls) = result, !urls.isEmpty else {
             if case let .failure(error) = result { message = error.localizedDescription }
             return
         }
-        let access = url.startAccessingSecurityScopedResource()
-        defer { if access { url.stopAccessingSecurityScopedResource() } }
+        var accessors: [URL] = []
+        defer { accessors.forEach { $0.stopAccessingSecurityScopedResource() } }
         do {
-            try BackupService.restore(data: Data(contentsOf: url), into: context)
+            var payloads: [Data] = []
+            for url in urls {
+                if url.startAccessingSecurityScopedResource() { accessors.append(url) }
+                payloads.append(try Data(contentsOf: url))
+            }
+            let scopes = try BackupService.restore(payloads: payloads, into: context)
             let restoredAccounts = try context.fetch(FetchDescriptor<Account>())
             guard restoredAccounts.contains(where: \.isMain) else {
                 step = 4
-                message = L(
+                message = BackupService.restoredMessage(scopes) + " " + L(
                     "Die Sicherung enthält kein Hauptkonto. Bitte richte jetzt eines ein.",
                     "The backup contains no main account. Set one up now."
                 )

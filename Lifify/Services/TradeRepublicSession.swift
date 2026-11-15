@@ -80,7 +80,6 @@ enum TradeRepublicSample {
     static let revisionKey = "lifify.tradeRepublic.sampleRevision"
     static let clipsExtract = false
     private static let legacyKey = "lifify.tradeRepublic.sample"
-    private static var pending: String?
 
     static var fileURL: URL {
         let folder = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
@@ -90,43 +89,51 @@ enum TradeRepublicSample {
     }
 
     static var text: String {
-        if let pending { return pending }
         if let file = try? String(contentsOf: fileURL, encoding: .utf8), !file.isEmpty { return file }
         return UserDefaults.standard.string(forKey: legacyKey) ?? ""
     }
 
     static func begin() {
         guard AppClock.isDeveloperMode else { return }
-        pending = "Trade Republic\n"
-        persist()
+        replace("Trade Republic\n")
+        bumpRevision()
     }
 
     static func add(name: String, body: String) {
         guard AppClock.isDeveloperMode else { return }
-        var current = pending ?? text
-        current += "\n===== \(name) =====\n\(body)\n"
-        pending = current
+        append("\n===== \(name) =====\n\(body)\n")
     }
 
     static func finish() {
-        guard pending != nil else { return }
-        persist()
+        bumpRevision()
     }
 
     static func clear() {
-        pending = nil
         try? FileManager.default.removeItem(at: fileURL)
         UserDefaults.standard.removeObject(forKey: legacyKey)
         UserDefaults.standard.set(0, forKey: revisionKey)
     }
 
-    private static func persist() {
-        let value = pending ?? ""
+    private static func replace(_ value: String) {
         try? value.write(to: fileURL, atomically: true, encoding: .utf8)
         UserDefaults.standard.removeObject(forKey: legacyKey)
+    }
+
+    private static func append(_ value: String) {
+        let data = Data(value.utf8)
+        if FileManager.default.fileExists(atPath: fileURL.path),
+           let handle = try? FileHandle(forWritingTo: fileURL) {
+            defer { try? handle.close() }
+            handle.seekToEndOfFile()
+            handle.write(data)
+            return
+        }
+        replace(((try? String(contentsOf: fileURL, encoding: .utf8)) ?? "") + value)
+    }
+
+    private static func bumpRevision() {
         let revision = UserDefaults.standard.integer(forKey: revisionKey) + 1
         UserDefaults.standard.set(revision, forKey: revisionKey)
-        pending = value
     }
 
     /// Rebuilds a snapshot from a copied sample or a pasted timeline JSON.

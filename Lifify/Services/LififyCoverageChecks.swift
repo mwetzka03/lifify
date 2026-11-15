@@ -357,6 +357,14 @@ enum LififyCoverageChecks {
             && decodedLots?.records.first?.id == lotID
             && decodedLots?.records.first?.strings == ["gift"]
             && prefixes == ["Lifify", "Lifify-Finanzen", "Lifify-Challenges", "Lifify-Training"]
+            && BackupScope.restoreOrder == [.all, .finance, .challenges, .training]
+            && BackupScope.allowsSeveralFiles
+            && BackupService.scope(of: LififyBackup(
+                version: 1,
+                exportedAt: berlin(2026, 11, 8),
+                records: [BackupRecord(type: "backupScope", id: UUID(), strings: ["finance"])]
+            )) == .finance
+            && shows(BackupService.restoredMessage([.finance]), "Finanzen wiederhergestellt.", "Finance restored.")
         return check("Sicherung behält das Konto", .backup, .unit, passed, prefixes.joined(separator: ", "))
     }
 
@@ -460,7 +468,12 @@ enum LififyCoverageChecks {
             && AppChrome.glassScreens.contains("finance")
             && shows(OnboardingSteps.title, "Lifify einrichten", "Set up Lifify")
             && shows(OnboardingSteps.newSetup, "Neu einrichten", "Set up as new")
-            && shows(OnboardingSteps.restore, "JSON-Sicherung laden", "Restore JSON backup")
+            && shows(OnboardingSteps.restore, "JSON-Sicherung oder Teile laden", "Restore a JSON backup or parts")
+            && shows(
+                OnboardingSteps.restoreNote,
+                "Die ganze App, oder nur einzelne Bereiche: nur Finanzen, nur Challenges oder nur Training. Mehrere Dateien auf einmal gehen.",
+                "The entire app, or only one area: Finance only, Challenges only, or Training only. You can pick several files at once."
+            )
             && shows(OnboardingSteps.account, "Hauptkonto", "Main account")
             && OnboardingSteps.tradeRepublic == "Trade Republic"
             && more.map(\.route) == [.budgetPools, .expenseGroups, .debts]

@@ -116,18 +116,27 @@ final class DataImportViewModel: ObservableObject {
     }
 
     func restoreBackup(from url: URL, context: ModelContext) {
-        let accessing = url.startAccessingSecurityScopedResource()
-        defer { if accessing { url.stopAccessingSecurityScopedResource() } }
+        restoreBackups(from: [url], context: context)
+    }
+
+    func restoreBackups(from urls: [URL], context: ModelContext) {
+        var accessors: [URL] = []
+        defer { accessors.forEach { $0.stopAccessingSecurityScopedResource() } }
         do {
-            try BackupService.restore(data: Data(contentsOf: url), into: context)
+            var payloads: [Data] = []
+            for url in urls {
+                if url.startAccessingSecurityScopedResource() { accessors.append(url) }
+                payloads.append(try Data(contentsOf: url))
+            }
+            let scopes = try BackupService.restore(payloads: payloads, into: context)
             let accounts = try context.fetch(FetchDescriptor<Account>())
             if accounts.contains(where: \.isMain) {
-                message = L("Sicherung erfolgreich wiederhergestellt.", "Backup restored successfully.")
+                message = BackupService.restoredMessage(scopes)
             } else {
                 UserDefaults.standard.set(false, forKey: "hasCompletedOnboarding")
                 UserDefaults.standard.set(false, forKey: "onboardingInProgress")
                 UserDefaults.standard.set(4, forKey: "onboardingStep")
-                message = L(
+                message = BackupService.restoredMessage(scopes) + " " + L(
                     "Die Sicherung enthält kein Hauptkonto. Die Einrichtung wird fortgesetzt.",
                     "The backup contains no main account. Setup will continue."
                 )

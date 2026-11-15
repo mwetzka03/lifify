@@ -74,12 +74,24 @@ enum BackupScope: String, CaseIterable {
     case challenges
     case training
 
+    static let restoreOrder: [BackupScope] = [.all, .finance, .challenges, .training]
+    static let allowsSeveralFiles = true
+
     var exportFilenamePrefix: String {
         switch self {
         case .all: "Lifify"
         case .finance: "Lifify-Finanzen"
         case .challenges: "Lifify-Challenges"
         case .training: "Lifify-Training"
+        }
+    }
+
+    var restoreName: String {
+        switch self {
+        case .all: L("gesamte App", "entire app")
+        case .finance: L("Finanzen", "Finance")
+        case .challenges: L("Challenges", "Challenges")
+        case .training: L("Training", "Training")
         }
     }
 }
@@ -378,21 +390,51 @@ enum BackupService {
 
     @MainActor
     static func restore(data: Data, into context: ModelContext) throws {
+        try restore(payloads: [data], into: context)
+    }
+
+    @discardableResult
+    @MainActor
+    static func restore(payloads: [Data], into context: ModelContext) throws -> [BackupScope] {
+        guard !payloads.isEmpty else { throw CocoaError(.fileReadCorruptFile) }
+        var decoded: [(BackupScope, LififyBackup)] = []
+        for data in payloads {
+            let backup = try decode(data)
+            decoded.append((scope(of: backup), backup))
+        }
+        for wanted in BackupScope.restoreOrder {
+            for (scope, backup) in decoded where scope == wanted {
+                switch scope {
+                case .all:
+                    try restoreAll(backup, into: context)
+                case .finance:
+                    try restoreFinance(backup, into: context)
+                case .challenges:
+                    try restoreChallenges(backup, into: context)
+                case .training:
+                    try restoreTraining(backup)
+                }
+            }
+        }
+        return decoded.map(\.0)
+    }
+
+    private static func decode(_ data: Data) throws -> LififyBackup {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         let backup = try decoder.decode(LififyBackup.self, from: data)
         guard backup.version == 1 else { throw CocoaError(.fileReadUnsupportedScheme) }
-        let scope = BackupScope(rawValue: backup.records.first { $0.type == "backupScope" }?.strings.first ?? "") ?? .all
-        switch scope {
-        case .all:
-            try restoreAll(backup, into: context)
-        case .finance:
-            try restoreFinance(backup, into: context)
-        case .challenges:
-            try restoreChallenges(backup, into: context)
-        case .training:
-            try restoreTraining(backup)
-        }
+        return backup
+    }
+
+    static func scope(of backup: LififyBackup) -> BackupScope {
+        BackupScope(rawValue: backup.records.first { $0.type == "backupScope" }?.strings.first ?? "") ?? .all
+    }
+
+    static func restoredMessage(_ scopes: [BackupScope]) -> String {
+        let names = BackupScope.restoreOrder.filter { scopes.contains($0) }.map(\.restoreName)
+        let list = names.isEmpty ? BackupScope.all.restoreName : names.joined(separator: ", ")
+        return String(format: L("%@ wiederhergestellt.", "%@ restored."), list)
     }
 
     static func deleteUserData(from context: ModelContext) throws {

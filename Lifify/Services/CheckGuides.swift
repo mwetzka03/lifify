@@ -400,8 +400,8 @@ enum CheckGuides {
         ),
         "Sicherung behält das Konto": g(
             "LififyBackup Codable, BackupScope.exportFilenamePrefix, BackupRecord type holdingLot",
-            "Die Messung listet die Dateinamen-Kürzel Lifify, Lifify-Finanzen, Lifify-Challenges und Lifify-Training. Das kodierte Konto kommt mit demselben Namen und derselben Kennung wieder heraus. Ein Depotstück kommt als holdingLot wieder heraus.",
-            "The reading lists the file-name prefixes Lifify, Lifify-Finanzen, Lifify-Challenges, and Lifify-Training. The encoded account comes back out with the same name and the same identifier. A lot comes back out as holdingLot."
+            "Die Messung listet die Dateinamen-Kürzel Lifify, Lifify-Finanzen, Lifify-Challenges und Lifify-Training. Das kodierte Konto kommt mit demselben Namen und derselben Kennung wieder heraus. Ein Depotstück kommt als holdingLot wieder heraus. Eine Finanzen-Sicherung bleibt Finanzen, und mehrere Dateien sind erlaubt.",
+            "The reading lists the file-name prefixes Lifify, Lifify-Finanzen, Lifify-Challenges, and Lifify-Training. The encoded account comes back out with the same name and the same identifier. A lot comes back out as holdingLot. A Finance backup stays Finance, and several files are allowed."
         ),
         "Löschen und Zurücksetzen sagen, was bleibt": g(
             "DestructiveAction.deleteData, DestructiveAction.resetApp, DestructiveAction.deleteFinance",
@@ -429,9 +429,9 @@ enum CheckGuides {
             "The reading lists the five tab titles: Home, Finance, Challenges, Health, and Settings. There is no bucket-list tab and no vision symbol."
         ),
         "Tabs, Einrichtung und Weitere Bereiche": g(
-            "OnboardingSteps.title, AppTabs.items(), FinanceMoreDirectory.rows",
-            "Die Messung listet die drei Links unter Weitere Bereiche. Die Zeilen nutzen die Schrift body, die Überschrift headline, 14 Punkt Abstand und höchstens 8 Punkt zur nächsten Sektion. Finanzen liegt auf derselben Fläche.",
-            "The reading lists the three links under More. The rows use the body font, the heading uses headline, 14 points of padding, and at most 8 points before the next section. Finance sits on the same wash."
+            "OnboardingSteps.title, OnboardingSteps.restore, AppTabs.items(), FinanceMoreDirectory.rows",
+            "Die Messung listet die drei Links unter Weitere Bereiche. Die Zeilen nutzen die Schrift body, die Überschrift headline, 14 Punkt Abstand und höchstens 8 Punkt zur nächsten Sektion. Finanzen liegt auf derselben Fläche. Die Einrichtung lädt die ganze App oder nur einzelne Bereiche.",
+            "The reading lists the three links under More. The rows use the body font, the heading uses headline, 14 points of padding, and at most 8 points before the next section. Finance sits on the same wash. Setup restores the entire app or only one area."
         ),
         "Entwicklertag und Schalter": g(
             "AppClock.combining(day:time:calendar:), DeveloperCopy.toggle",
