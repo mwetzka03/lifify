@@ -707,10 +707,10 @@ enum CheckStories {
             ("Die Messung ist Sparkasse -420, duplicate, Trade Republic 5000.", "The reading is Sparkasse -420, duplicate, Trade Republic 5000.", "BankNotice.swift"),
         ),
         "Anmeldung und Aktualisieren laufen nur von Hand": make(
-            "Die Einrichtung hat neun Schritte, darunter die optionale Anmeldung. Aktualisieren startet nicht beim Öffnen, nicht mit einem Timer und nicht mit einer gespeicherten PIN.",
-            "Setup has nine steps, including the optional sign-in. Refresh does not start on open, on a timer, or with a stored PIN.",
+            "Die Einrichtung hat neun Schritte, darunter die optionale Anmeldung. Es gibt keine gespeicherte Sitzung und keine gespeicherte PIN. Anmelden startet nicht von allein.",
+            "Setup has nine steps, including the optional sign-in. There is no stored session and no stored PIN. Sign-in does not start by itself.",
             ("Die Schrittzahl, die Schalter und der gemessene Anmeldeversuch werden gelesen.", "The step count, the switches, and the measured sign-in attempt are read.", "OnboardingView.swift"),
-            ("Die Messung ist 9 manual 400. Der Schlüsselbund lässt die Sitzung aus der Sicherung.", "The reading is 9 manual 400. The keychain leaves the session out of the backup.", "TradeRepublicSession.swift"),
+            ("Die Messung ist 9 manual 400. Die Sitzung wird nicht gespeichert.", "The reading is 9 manual 400. The session is not stored.", "TradeRepublicSession.swift"),
         ),
         "Jede Prüfung erklärt ihre Schritte": make(
             "Jede Prüfung in der Liste nennt die wichtigen Dateien, die Methoden und eine Lesart der Messung. Dazu kommen mindestens zwei Schritte, und jeder Schritt zeigt auf eine Swift-Datei.",

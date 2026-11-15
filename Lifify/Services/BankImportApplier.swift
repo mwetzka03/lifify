@@ -714,43 +714,173 @@ enum BankImportApplier {
         guard var entries = try? context.fetch(FetchDescriptor<LedgerEntry>()) else { return }
         let accounts = (try? context.fetch(FetchDescriptor<Account>())) ?? []
         rememberTradeRepublicIBAN(entries: entries, accounts: accounts)
-        let own = accounts.filter {
-            $0.kind != .portfolio && $0.kind != .savingsGroup && !normalizedIBAN($0.iban).isEmpty
+        let checking = accounts.filter { $0.kind != .portfolio && $0.kind != .savingsGroup }
+        let checkingIDs = Set(checking.map(\.id))
+        let withIBAN = checking.filter { !normalizedIBAN($0.iban).isEmpty }
+        var changed = false
+        if withIBAN.count > 1 {
+            for entry in entries where entry.kind == .income || entry.kind == .expense {
+                guard let accountID = entry.accountID else { continue }
+                let parsed = BankImportService.ibans(from: entry.notes, amountCents: entry.amountCents)
+                let counterparty = normalizedIBAN(entry.amountCents >= 0 ? parsed.sender : parsed.recipient)
+                guard !counterparty.isEmpty,
+                      let other = withIBAN.first(where: { $0.id != accountID && normalizedIBAN($0.iban) == counterparty })
+                else { continue }
+                if transferExists(on: entry.date, amount: entry.amountCents, first: accountID, second: other.id, entries: entries) {
+                    context.delete(entry)
+                    entries.removeAll { $0.id == entry.id }
+                    changed = true
+                    continue
+                }
+                let inbound = entry.amountCents >= 0
+                let row = ImportedTransaction(
+                    date: entry.date,
+                    title: entry.title,
+                    notes: entry.notes,
+                    amountCents: entry.amountCents,
+                    iban: counterparty,
+                    senderIBAN: inbound ? counterparty : "",
+                    recipientIBAN: inbound ? "" : counterparty,
+                    fingerprint: entry.importFingerprint ?? entry.id.uuidString
+                )
+                bookTransfer(entry, row: row, checkingID: accountID, otherID: other.id, entries: &entries)
+                if let source = accounts.first(where: { $0.id == accountID }) {
+                    removeMirror(of: row, on: other.id, checking: source, entries: &entries, context: context, windowDays: 3)
+                }
+                changed = true
+            }
         }
-        guard own.count > 1 else { return }
+        if collapseTransferMirrors(entries: &entries, checkingIDs: checkingIDs, context: context) {
+            changed = true
+        }
+        if mergeNamedTradeRepublicMoves(entries: &entries, accounts: checking, context: context) {
+            changed = true
+        }
+        if collapseDuplicateCash(entries: &entries, checkingIDs: checkingIDs, context: context) {
+            changed = true
+        }
+        guard changed else { return }
+        try? context.save()
+    }
+
+    /// An income or expense that already has a matching own-account transfer is the same payment twice.
+    private static func collapseTransferMirrors(
+        entries: inout [LedgerEntry],
+        checkingIDs: Set<UUID>,
+        context: ModelContext
+    ) -> Bool {
         var changed = false
         for entry in entries where entry.kind == .income || entry.kind == .expense {
-            guard let accountID = entry.accountID else { continue }
-            let parsed = BankImportService.ibans(from: entry.notes, amountCents: entry.amountCents)
-            let counterparty = normalizedIBAN(entry.amountCents >= 0 ? parsed.sender : parsed.recipient)
-            guard !counterparty.isEmpty,
-                  let other = own.first(where: { $0.id != accountID && normalizedIBAN($0.iban) == counterparty })
-            else { continue }
-            if transferExists(on: entry.date, amount: entry.amountCents, first: accountID, second: other.id, entries: entries) {
+            guard let accountID = entry.accountID, checkingIDs.contains(accountID) else { continue }
+            let duplicate = entries.contains { transfer in
+                guard transfer.kind == .transfer, abs(transfer.amountCents) == abs(entry.amountCents) else {
+                    return false
+                }
+                guard Calendar.current.isDate(transfer.date, inSameDayAs: entry.date) else { return false }
+                let ends = Set([transfer.fromAccountID, transfer.toAccountID].compactMap { $0 })
+                return ends.contains(accountID) && ends.contains(where: { checkingIDs.contains($0) && $0 != accountID })
+            }
+            guard duplicate else { continue }
+            context.delete(entry)
+            entries.removeAll { $0.id == entry.id }
+            changed = true
+        }
+        return changed
+    }
+
+    /// A payment that names Trade Republic on one account and lands as cash on Trade Republic is one transfer.
+    private static func mergeNamedTradeRepublicMoves(
+        entries: inout [LedgerEntry],
+        accounts: [Account],
+        context: ModelContext
+    ) -> Bool {
+        guard let tradeRepublic = accounts.first(where: {
+            $0.kind == .checking && $0.name.caseInsensitiveCompare("Trade Republic") == .orderedSame
+        }) else { return false }
+        var changed = false
+        for entry in entries where entry.kind == .income || entry.kind == .expense {
+            guard let accountID = entry.accountID, accountID != tradeRepublic.id else { continue }
+            guard mentionsTradeRepublic(entry) else { continue }
+            let match = entries.first { other in
+                guard other.id != entry.id else { return false }
+                guard other.accountID == tradeRepublic.id, other.kind == .income || other.kind == .expense else {
+                    return false
+                }
+                guard abs(other.amountCents) == abs(entry.amountCents) else { return false }
+                return Calendar.current.isDate(other.date, inSameDayAs: entry.date)
+            }
+            if transferExists(
+                on: entry.date,
+                amount: entry.amountCents,
+                first: accountID,
+                second: tradeRepublic.id,
+                entries: entries
+            ) {
                 context.delete(entry)
                 entries.removeAll { $0.id == entry.id }
+                if let match {
+                    context.delete(match)
+                    entries.removeAll { $0.id == match.id }
+                }
                 changed = true
                 continue
             }
-            let inbound = entry.amountCents >= 0
             let row = ImportedTransaction(
                 date: entry.date,
                 title: entry.title,
                 notes: entry.notes,
                 amountCents: entry.amountCents,
-                iban: counterparty,
-                senderIBAN: inbound ? counterparty : "",
-                recipientIBAN: inbound ? "" : counterparty,
+                iban: "",
+                senderIBAN: "",
+                recipientIBAN: "",
                 fingerprint: entry.importFingerprint ?? entry.id.uuidString
             )
-            bookTransfer(entry, row: row, checkingID: accountID, otherID: other.id, entries: &entries)
-            if let checking = accounts.first(where: { $0.id == accountID }) {
-                removeMirror(of: row, on: other.id, checking: checking, entries: &entries, context: context, windowDays: 3)
+            bookTransfer(entry, row: row, checkingID: accountID, otherID: tradeRepublic.id, entries: &entries)
+            if let match {
+                context.delete(match)
+                entries.removeAll { $0.id == match.id }
             }
             changed = true
         }
-        guard changed else { return }
-        try? context.save()
+        return changed
+    }
+
+    private static func mentionsTradeRepublic(_ entry: LedgerEntry) -> Bool {
+        "\(entry.title)\n\(entry.notes)"
+            .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "de_DE"))
+            .contains("trade republic")
+    }
+
+    /// Two cash bookings on the same account, day, and amount are one payment.
+    private static func collapseDuplicateCash(
+        entries: inout [LedgerEntry],
+        checkingIDs: Set<UUID>,
+        context: ModelContext
+    ) -> Bool {
+        var kept: [String: UUID] = [:]
+        var changed = false
+        let ordered = entries
+            .filter { entry in
+                (entry.kind == .income || entry.kind == .expense)
+                    && entry.accountID.map(checkingIDs.contains) == true
+            }
+            .sorted { lhs, rhs in
+                if lhs.createdAt != rhs.createdAt { return lhs.createdAt < rhs.createdAt }
+                return (lhs.notes.count, lhs.title.count) > (rhs.notes.count, rhs.title.count)
+            }
+        for entry in ordered {
+            guard let accountID = entry.accountID else { continue }
+            let day = Calendar.current.startOfDay(for: entry.date).timeIntervalSince1970
+            let key = "\(accountID.uuidString)-\(Int(day))-\(entry.amountCents)"
+            if let existing = kept[key], existing != entry.id {
+                context.delete(entry)
+                entries.removeAll { $0.id == entry.id }
+                changed = true
+                continue
+            }
+            kept[key] = entry.id
+        }
+        return changed
     }
 
     /// A booking that names Trade Republic and already shows the other account's IBAN

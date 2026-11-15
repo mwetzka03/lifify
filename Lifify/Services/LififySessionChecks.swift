@@ -251,10 +251,11 @@ enum LififySessionChecks {
             if case .cash(let id, _, _, let amount, let type) = move { return id == "zins" && amount == 1328 && type == "Zinsen" }
             return false
         }
-        let ipoCash = income.contains { move in
-            if case .cash(let id, _, _, let amount, let type) = move { return id == "ipo" && amount == -35100 && type.isEmpty }
-            return false
-        }
+        let ipoSkipped = !incomeRows.items.contains(where: { $0.id == "ipo" })
+            && !income.contains { move in
+                if case .cash(let id, _, _, _, _) = move { return id == "ipo" }
+                return false
+            }
         let fakeBuy = TradeRepublicActivity(
             id: "fake",
             date: day,
@@ -281,7 +282,7 @@ enum LififySessionChecks {
             && incomeRows.items.first?.trade == false
             && dividendCash
             && interestCash
-            && ipoCash
+            && ipoSkipped
             && !income.contains { if case .buy = $0 { return true }; return false }
             && !TradeRepublicSync.purchase(fakeBuy, averageCents: 79522)
             && TradeRepublicSync.purchase(realBuy, averageCents: 79522)
@@ -304,7 +305,12 @@ enum LififySessionChecks {
             && gift.items.first?.statementType == "Depotgeschenk"
             && gift.items.first?.trade == false
             && !unexplained.contains { if case .buy = $0 { return true }; return false }
-            && unexplained.contains { if case .shares(_, _, let isin, _, let quantity, _) = $0 { return isin == "US0378331005" && abs(quantity - 1) < 0.000001 }; return false }
+            && unexplained.contains { move in
+                if case .grant(_, _, _, let isin, _, let quantity, _, let type) = move {
+                    return isin == "US0378331005" && abs(quantity - 1) < 0.000001 && type == "Depotgeschenk"
+                }
+                return false
+            }
         return result("Ein Depotstand setzt Menge und Einstand und erfindet nichts", .portfolio, .unit, passed && synced && categories && receipts, reading)
     }
 
@@ -407,7 +413,7 @@ enum LififySessionChecks {
             && OnboardingSteps.tradeRepublic == "Trade Republic"
             && (signIn == "Trade Republic anmelden (optional)" || signIn == "Sign in to Trade Republic (optional)")
             && (TradeRepublicCopy.signIn == "Bei Trade Republic anmelden" || TradeRepublicCopy.signIn == "Sign in to Trade Republic")
-            && (TradeRepublicCopy.refresh == "Depot aus der Sitzung aktualisieren" || TradeRepublicCopy.refresh == "Refresh the depot from the session")
+            && !TradeRepublicRefresh.storesSession
             && TradeRepublicRefresh.manualOnly
             && !TradeRepublicRefresh.onLaunch
             && !TradeRepublicRefresh.onTimer

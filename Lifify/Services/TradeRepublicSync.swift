@@ -72,10 +72,12 @@ enum TradeRepublicTimeline {
         guard let date = date(from: (row["timestamp"] as? String) ?? "") else { return nil }
         let amount = cents(row["amount"] as? [String: Any]) ?? 0
         let eventType = (row["eventType"] as? String) ?? ""
+        let foldedEvent = eventType.uppercased().replacingOccurrences(of: "_", with: "")
+        if foldedEvent.contains("IPOSUBSCRIPTION") { return nil }
         let isin = isin(from: (row["icon"] as? String) ?? "")
         let title = ((row["title"] as? String) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         let subtitle = (row["subtitle"] as? String) ?? ""
-        let trade = isTrade(eventType, isin: isin)
+        let trade = amount != 0 && isTrade(eventType, isin: isin)
         let kind = statementType(eventType: eventType, title: title, subtitle: subtitle, isin: isin, amountCents: amount, trade: trade)
         guard amount != 0 || kind == "Cashback" || kind == "Depotgeschenk" else { return nil }
         var item = TradeRepublicActivity(
@@ -124,7 +126,9 @@ enum TradeRepublicTimeline {
             .folding(options: .diacriticInsensitive, locale: Locale(identifier: "de_DE"))
             .replacingOccurrences(of: "_", with: "")
         if compact.contains("SAVEBACK") || compact.contains("CASHBACK") { return "Cashback" }
+        if compact.contains("PERK"), amountCents != 0 { return "Cashback" }
         if isGift(compact, isin: isin) { return "Depotgeschenk" }
+        if amountCents == 0, !isin.isEmpty, !isCorporateAction(compact) { return "Depotgeschenk" }
         if trade { return "Handel" }
         if compact.contains("DIVIDEND") || compact.contains("DIVIDENDE") { return "Ertrag" }
         if compact.contains("INTEREST") || compact.contains("ZINS") { return "Zinsen" }
@@ -144,8 +148,13 @@ enum TradeRepublicTimeline {
         guard !isin.isEmpty else { return false }
         return compact.contains("SECURITIESTRANSFER")
             || compact.contains("STOCKTRANSFER")
+            || compact.contains("SHARETRANSFER")
             || compact.contains("INCOMINGTRANSFER")
             || compact.contains("UBERTRAG")
+    }
+
+    private static func isCorporateAction(_ compact: String) -> Bool {
+        compact.contains("SPLIT") || compact.contains("MERGER") || compact.contains("SPINOFF") || compact.contains("SPIN-OFF")
     }
 
     private static func isSavingsPlan(_ eventType: String) -> Bool {
@@ -482,6 +491,21 @@ enum TradeRepublicSync {
         guard rest > 0.001, let cost = position.averageBuyInCents, cost > 0 else { return }
         let oldest = (sized + given).map(\.date).min() ?? activities.map(\.date).min() ?? now
         let date = Calendar.current.date(byAdding: .day, value: -1, to: oldest) ?? oldest
+        let bought = activities.contains { purchase($0, averageCents: cost) }
+        if !bought {
+            let giftDate = given.map(\.date).min() ?? date
+            moves.append(.grant(
+                id: "gift-\(symbol)",
+                date: giftDate,
+                title: name,
+                isin: symbol,
+                name: name,
+                quantity: rest,
+                amountCents: Int((rest * Double(cost)).rounded()),
+                statementType: "Depotgeschenk"
+            ))
+            return
+        }
         moves.append(.shares(
             id: "open-\(symbol)",
             date: date,

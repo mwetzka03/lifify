@@ -535,8 +535,8 @@ enum CheckGuides {
         ),
         "Anmeldung und Aktualisieren laufen nur von Hand": g(
             "OnboardingSteps.count, TradeRepublicRefresh.manualOnly, TradeRepublicGap.probedStatus, KeychainStore.deviceOnly",
-            "Die Messung ist 9 manual 400. Die Einrichtung hat den optionalen Anmeldeschritt. Aktualisieren startet nicht von allein. Die Sitzung bleibt auf diesem Gerät und außerhalb der Sicherung, so wie der Gemini-Schlüssel.",
-            "The reading is 9 manual 400. Setup has the optional sign-in step. Refresh does not start by itself. The session stays on this device and out of backups, the same way as the Gemini key."
+            "Die Messung ist 9 manual 400. Die Einrichtung hat den optionalen Anmeldeschritt. Es gibt keine gespeicherte Sitzung und keine PIN. Anmelden startet nicht von allein.",
+            "The reading is 9 manual 400. Setup has the optional sign-in step. There is no stored session and no stored PIN. Sign-in does not start by itself."
         ),
         "Jede Prüfung erklärt ihre Schritte": g(
             "CheckStories.isComplete(_:), CheckGuides.guide(named:)",

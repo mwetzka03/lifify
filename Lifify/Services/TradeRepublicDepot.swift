@@ -98,6 +98,14 @@ enum TradeRepublicDepotApplier {
         }
         try context.save()
         let fresh = try context.fetch(FetchDescriptor<PortfolioHolding>()).filter { $0.accountID == portfolio.id }
+        relabelUnboughtOpenings(
+            holdings: fresh,
+            positions: snapshot.positions,
+            activities: snapshot.activities,
+            portfolio: portfolio,
+            known: &known,
+            context: context
+        )
         adoptSavingsPlans(from: snapshot.activities, plans: snapshot.plans, checking: checking, portfolio: portfolio, holdings: fresh, context: context)
         await MarketDataService.refresh(holdings: fresh, context: context)
         BankImportApplier.relinkOwnAccounts(context: context)
@@ -194,6 +202,9 @@ enum TradeRepublicDepotApplier {
     ) -> Bool {
         let fingerprint = TradeRepublicTimeline.fingerprint(id)
         guard !known.contains(fingerprint), amountCents != 0 else { return false }
+        if cashAlreadyBooked(date: date, amountCents: amountCents, checking: checking, context: context) {
+            return false
+        }
         let notes = statementType.isEmpty ? "" : "\(L("Typ", "Type")): \(statementType)"
         let income = statementType == "Ertrag" || statementType == "Zinsen"
         let booked = income ? abs(amountCents) : amountCents
@@ -207,6 +218,34 @@ enum TradeRepublicDepotApplier {
             importFingerprint: fingerprint
         ))
         return true
+    }
+
+    /// The same cash movement may already exist from the bank import or as a transfer.
+    private static func cashAlreadyBooked(
+        date: Date,
+        amountCents: Int,
+        checking: Account,
+        context: ModelContext
+    ) -> Bool {
+        let entries = (try? context.fetch(FetchDescriptor<LedgerEntry>())) ?? []
+        let day = Calendar.current.startOfDay(for: date)
+        let absAmount = abs(amountCents)
+        let checkingIDs = Set(
+            ((try? context.fetch(FetchDescriptor<Account>())) ?? [])
+                .filter { $0.kind != .portfolio && $0.kind != .savingsGroup }
+                .map(\.id)
+        )
+        return entries.contains { entry in
+            guard Calendar.current.startOfDay(for: entry.date) == day, abs(entry.amountCents) == absAmount else {
+                return false
+            }
+            if entry.kind == .income || entry.kind == .expense {
+                return entry.accountID == checking.id
+            }
+            guard entry.kind == .transfer else { return false }
+            let ends = [entry.fromAccountID, entry.toAccountID].compactMap { $0 }
+            return ends.contains(checking.id) && ends.contains(where: { checkingIDs.contains($0) && $0 != checking.id })
+        }
     }
 
     private static func insertTrade(
@@ -504,6 +543,62 @@ enum TradeRepublicDepotApplier {
         lots[index].ledgerEntryID = nil
         lots[index].source = "opening"
         HoldingLotStore.replace(lots, holdingID: holding.id)
+    }
+
+    /// A position with no purchase in the timeline was received, not bought. Label it as a gift.
+    private static func relabelUnboughtOpenings(
+        holdings: [PortfolioHolding],
+        positions: [TradeRepublicPosition],
+        activities: [TradeRepublicActivity],
+        portfolio: Account,
+        known: inout Set<String>,
+        context: ModelContext
+    ) {
+        for holding in holdings {
+            let symbol = holding.symbol.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+            guard !symbol.isEmpty else { continue }
+            guard let position = positions.first(where: { $0.isin.caseInsensitiveCompare(symbol) == .orderedSame }) else {
+                continue
+            }
+            let bought = activities.contains {
+                TradeRepublicSync.purchase($0, averageCents: position.averageBuyInCents ?? 0)
+            }
+            guard !bought else { continue }
+            var lots = HoldingLotStore.lots(for: holding.id)
+            let grant = activities.filter {
+                $0.isGrant && $0.isin.caseInsensitiveCompare(symbol) == .orderedSame
+            }.min(by: { $0.date < $1.date })
+            var changed = false
+            for index in lots.indices where !lots[index].isSale {
+                let unlabeled = lots[index].source == "opening" || lots[index].source.isEmpty
+                let withoutCash = lots[index].amountCents == 0 && lots[index].ledgerEntryID == nil
+                guard unlabeled && withoutCash else { continue }
+                lots[index].source = "gift"
+                if let grant { lots[index].date = grant.date }
+                if lots[index].unitPriceCents == 0 {
+                    lots[index].unitPriceCents = position.averageBuyInCents ?? 0
+                }
+                changed = true
+            }
+            if changed {
+                HoldingLotStore.replace(lots, holdingID: holding.id)
+            }
+            guard changed else { continue }
+            let value = Int((shareCount(lots) * Double(position.averageBuyInCents ?? 0)).rounded())
+            _ = insertGrant(
+                id: "gift-\(symbol)",
+                date: grant?.date ?? lots.map(\.date).min() ?? Date(),
+                title: holding.name,
+                quantity: 0,
+                amountCents: value,
+                statementType: "Depotgeschenk",
+                holding: holding,
+                portfolio: portfolio,
+                known: &known,
+                context: context
+            )
+            _ = HoldingMaintenance.sync(holding, context: context)
+        }
     }
 
     /// The shares arrived as cashback or a gift. The date stays the event date, and the cash account is not charged.

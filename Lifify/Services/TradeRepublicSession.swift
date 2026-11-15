@@ -9,6 +9,7 @@ enum TradeRepublicRefresh {
     static let onFinanceOpen = false
     static let manualOnly = true
     static let usesStoredPIN = false
+    static let storesSession = false
 }
 
 /// The login call from this environment. A fake number is rejected before any session exists.
@@ -68,8 +69,8 @@ enum TradeRepublicFailure: Error, Equatable {
             L("Trade Republic ist gerade nicht erreichbar.", "Trade Republic could not be reached.")
         case .noSingleDepot:
             L(
-                "Es gibt mehrere Depots. Verknüpfe das Trade-Republic-Konto in den Konten mit einem Depot und aktualisiere danach.",
-                "There is more than one depot. Link the Trade Republic account to one depot under Accounts, then refresh."
+                "Es gibt mehrere Depots. Verknüpfe das Trade-Republic-Konto in den Konten mit einem Depot und melde dich danach an.",
+                "There is more than one depot. Link the Trade Republic account to one depot under Accounts, then sign in."
             )
         }
     }
@@ -109,8 +110,6 @@ enum TradeRepublicSample {
 
 enum TradeRepublicCopy {
     static var signIn: String { L("Bei Trade Republic anmelden", "Sign in to Trade Republic") }
-    static var refresh: String { L("Depot aus der Sitzung aktualisieren", "Refresh the depot from the session") }
-    static var signInAgain: String { L("Erneut anmelden", "Sign in again") }
     static var waiting: String {
         L(
             "Bestätige die Anmeldung in der Trade-Republic-App.",
@@ -120,10 +119,8 @@ enum TradeRepublicCopy {
     static var codePrompt: String {
         L("Code aus der Authenticator-App", "Code from the authenticator app")
     }
-    static var sessionSaved: String { L("Sitzung gespeichert", "Session saved") }
-    static var noSession: String { L("Keine Sitzung", "No session") }
     static var noPositions: String {
-        L("Angemeldet. Die Sitzung hat keine Positionen geliefert.", "Signed in. The session returned no positions.")
+        L("Angemeldet. Trade Republic hat keine Positionen geliefert.", "Signed in. Trade Republic returned no positions.")
     }
     static var importedFormat: String {
         L("%d Depotpositionen übernommen.", "%d portfolio positions imported.")
@@ -157,8 +154,8 @@ enum TradeRepublicCopy {
     static var copied: String { L("Kopiert", "Copied") }
     static var footnote: String {
         L(
-            "Die PIN ist dieselbe wie beim Öffnen der Trade-Republic-App, kein Code per SMS. Eine 0 am Anfang wird zu +49. Nur wenn du hier tippst. Die PIN wird nicht gespeichert.",
-            "The PIN is the same one that opens the Trade Republic app, not a code sent by text. A leading 0 becomes +49. Only when you tap here. The PIN is not saved."
+            "Die PIN ist dieselbe wie beim Öffnen der Trade-Republic-App, kein Code per SMS. Eine 0 am Anfang wird zu +49. Nur wenn du hier tippst. PIN und Sitzung werden nicht gespeichert. Jedes Mal neu anmelden.",
+            "The PIN is the same one that opens the Trade Republic app, not a code sent by text. A leading 0 becomes +49. Only when you tap here. The PIN and the session are not saved. Sign in each time."
         )
     }
 }
@@ -271,12 +268,8 @@ enum TradeRepublicCookies {
 
 enum TradeRepublicSessionStore {
     static func save(_ header: String) {
-        guard TradeRepublicCookies.keepsSession(header) else { return }
-        KeychainStore.set(
-            header,
-            account: KeychainStore.tradeRepublicAccount,
-            service: KeychainStore.tradeRepublicService
-        )
+        _ = header
+        clear()
     }
 
     static func cookies() -> String? {

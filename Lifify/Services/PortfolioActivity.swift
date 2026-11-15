@@ -253,7 +253,8 @@ enum HoldingMaintenance {
                 quantity -= sold
             } else {
                 quantity += lot.quantity
-                cost += Double(abs(lot.amountCents))
+                let cash = abs(lot.amountCents)
+                cost += cash > 0 ? Double(cash) : lot.quantity * Double(lot.unitPriceCents)
             }
         }
         guard quantity > 0.0000005 else { return nil }
@@ -550,7 +551,8 @@ enum HoldingMaintenance {
                 quantity -= sold
             } else {
                 quantity += lot.quantity
-                cost += Double(abs(lot.amountCents))
+                let cash = abs(lot.amountCents)
+                cost += cash > 0 ? Double(cash) : lot.quantity * Double(lot.unitPriceCents)
             }
         }
         let sale = ordered[index]

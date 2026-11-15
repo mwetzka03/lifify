@@ -12,7 +12,6 @@ struct TradeRepublicSignInControls: View {
     @State private var code = ""
     @State private var phase: Phase = .idle
     @State private var note: String?
-    @State private var sessionSaved = false
     @State private var processId = ""
     @State private var cookies = ""
     @State private var deadline = Date()
@@ -26,16 +25,10 @@ struct TradeRepublicSignInControls: View {
 
     var body: some View {
         Section {
-            LabeledContent(
-                "Trade Republic",
-                value: sessionSaved ? TradeRepublicCopy.sessionSaved : TradeRepublicCopy.noSession
-            )
-            Button(sessionSaved ? TradeRepublicCopy.signInAgain : TradeRepublicCopy.signIn) {
+            Button(TradeRepublicCopy.signIn) {
                 clearSecrets()
                 phase = .credentials
             }
-            Button(TradeRepublicCopy.refresh) { refresh() }
-                .disabled(!sessionSaved || phase == .loading)
             if developerMode, sampleRevision > 0, !TradeRepublicSample.text.isEmpty {
                 NavigationLink {
                     TradeRepublicSampleView()
@@ -59,7 +52,7 @@ struct TradeRepublicSignInControls: View {
             Text(TradeRepublicCopy.footnote)
         }
         .appGlassRow()
-        .onAppear { sessionSaved = TradeRepublicSessionStore.hasSession }
+        .onAppear { TradeRepublicSessionStore.clear() }
         .fullScreenCover(isPresented: coverShown) {
             popup
                 .presentationBackground(.clear)
@@ -273,30 +266,16 @@ struct TradeRepublicSignInControls: View {
     private func finish(_ header: String) async throws {
         guard TradeRepublicCookies.keepsSession(header) else { throw TradeRepublicFailure.sessionNotKept }
         client.invalidate()
-        TradeRepublicSessionStore.save(header)
         cookies = ""
         phase = .loading
         let snapshot = try await TradeRepublicClient().snapshot(cookies: header)
+        TradeRepublicSessionStore.clear()
         let count = try await TradeRepublicDepotApplier.apply(snapshot: snapshot, context: context)
-        sessionSaved = true
         note = snapshot.positions.isEmpty && count == 0
             ? TradeRepublicCopy.noPositions
             : String(format: TradeRepublicCopy.importedFormat, count)
         advance = true
         presentResult()
-    }
-
-    private func refresh() {
-        guard phase != .loading else { return }
-        phase = .loading
-        task?.cancel()
-        task = Task {
-            let text = await TradeRepublicActions.refresh(context: context)
-            guard !Task.isCancelled else { return }
-            note = text
-            sessionSaved = TradeRepublicSessionStore.hasSession
-            presentResult()
-        }
     }
 
     private func fail(_ failure: TradeRepublicFailure) {
@@ -370,30 +349,6 @@ struct TradeRepublicSampleView: View {
                     copied = true
                 }
             }
-        }
-    }
-}
-
-@MainActor
-enum TradeRepublicActions {
-    static func refresh(context: ModelContext) async -> String {
-        guard TradeRepublicRefresh.manualOnly, !TradeRepublicRefresh.onLaunch, !TradeRepublicRefresh.onTimer, !TradeRepublicRefresh.onFinanceOpen else {
-            return TradeRepublicCopy.footnote
-        }
-        guard !TradeRepublicRefresh.usesStoredPIN else { return TradeRepublicCopy.footnote }
-        guard let cookies = TradeRepublicSessionStore.cookies(), TradeRepublicCookies.keepsSession(cookies) else {
-            return TradeRepublicCopy.noSession
-        }
-        do {
-            let snapshot = try await TradeRepublicClient().snapshot(cookies: cookies)
-            let count = try await TradeRepublicDepotApplier.apply(snapshot: snapshot, context: context)
-            if snapshot.positions.isEmpty && count == 0 { return TradeRepublicCopy.noPositions }
-            return String(format: TradeRepublicCopy.importedFormat, count)
-        } catch let failure as TradeRepublicFailure {
-            if failure == .sessionDead { TradeRepublicSessionStore.clear() }
-            return failure.message
-        } catch {
-            return TradeRepublicFailure.transport.message
         }
     }
 }
