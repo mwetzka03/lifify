@@ -288,9 +288,16 @@ enum LififyCoverageChecks {
         let xml = """
         <Document><Ntry><Amt>19.99</Amt><CdtDbtInd>DBIT</CdtDbtInd><BookgDt><Dt>2026-01-02</Dt></BookgDt><AddtlNtryInf>Cafe</AddtlNtryInf><CdtrAcct><IBAN>DE89370400440532013000</IBAN></CdtrAcct></Ntry></Document>
         """
+        let paypal = """
+        Buchungstag;Betrag;Verwendungszweck;Beguenstigter/Zahlungspflichtiger;Kontonummer/IBAN;Kundenreferenz (End-to-End);Info
+        03.11.26;-38,80;1054118451739;PayPal Europe;DE89370400440532013000;1054118451739;Umsatz gebucht
+        03.11.26;-38,80;1054124404910;PayPal Europe;DE89370400440532013000;1054124404910;Umsatz gebucht
+        16.11.26;-9,05;Steam;Steam;DE89370400440532013000;steam-1;Umsatz vorgemerkt
+        """
         let rows = (try? BankImportService.parseCSV(csv)) ?? []
         let camt = (try? BankImportService.parseCAMT(data: Data(xml.utf8))) ?? []
         let again = (try? BankImportService.parseCSV(csv)) ?? []
+        let twins = (try? BankImportService.parseCSV(paypal)) ?? []
         let passed = rows.count == 1
             && rows[0].title == "Bäcker"
             && rows[0].amountCents == -1_250
@@ -301,7 +308,12 @@ enum LififyCoverageChecks {
             && camt[0].title == "Cafe"
             && camt[0].amountCents == -1_999
             && again.first?.fingerprint == rows.first?.fingerprint
-        return check("CSV und CAMT zeigen die Buchung", .bankImport, .unit, passed, "CSV \(rows.count), CAMT \(camt.first?.amountCents ?? 0)")
+            && twins.count == 2
+            && twins[0].fingerprint != twins[1].fingerprint
+            && twins.allSatisfy { $0.amountCents == -3_880 }
+            && BankImportService.purposeMark(notes: twins[0].notes).contains("1054118451739")
+            && BankImportService.purposeMark(notes: twins[1].notes).contains("1054124404910")
+        return check("CSV und CAMT zeigen die Buchung", .bankImport, .unit, passed, "CSV \(rows.count), CAMT \(camt.first?.amountCents ?? 0), twins \(twins.count)")
     }
 
     private static func fingerprintsAndImportErrors() -> LififyCheckResult {

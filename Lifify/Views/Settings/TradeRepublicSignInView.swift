@@ -40,13 +40,19 @@ struct TradeRepublicSignInControls: View {
     @AppStorage(TradeRepublicSample.revisionKey) private var sampleRevision = 0
     @State private var exportingExtract = false
     @State private var extractDocument = TradeRepublicExtractDocument()
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         Section {
             Button(TradeRepublicCopy.signIn) {
                 hideKeyboard()
                 clearSecrets()
-                phase = .credentials
+                task?.cancel()
+                task = Task { @MainActor in
+                    try? await Task.sleep(for: .milliseconds(400))
+                    guard !Task.isCancelled, phase == .idle else { return }
+                    phase = .credentials
+                }
             }
             let _ = sampleRevision
             Button {
@@ -89,20 +95,11 @@ struct TradeRepublicSignInControls: View {
             contentType: .plainText,
             defaultFilename: TradeRepublicSample.exportFilename
         ) { _ in }
-        .fullScreenCover(isPresented: coverShown) {
-            popup
-                .presentationBackground(.clear)
-                .interactiveDismissDisabled(phase == .waiting || phase == .loading)
-        }
-    }
-
-    private var coverShown: Binding<Bool> {
-        Binding(
-            get: { phase != .idle && !exportingExtract },
-            set: { shown in
-                if !shown, phase != .waiting, phase != .loading { close() }
+        .background {
+            LififyFrontOverlayBridge(shown: phase != .idle && !exportingExtract, colorScheme: colorScheme) {
+                popup
             }
-        )
+        }
     }
 
     private var popup: some View {
@@ -362,6 +359,83 @@ struct TradeRepublicSignInControls: View {
         case loading
         case balance
         case message
+    }
+}
+
+/// One window for the sign-in popup. A sheet on the Form tries to present more than once.
+private struct LififyFrontOverlayBridge<Content: View>: UIViewRepresentable {
+    var shown: Bool
+    var colorScheme: ColorScheme
+    @ViewBuilder var content: () -> Content
+
+    func makeUIView(context: Context) -> UIView {
+        let view = UIView(frame: .zero)
+        view.isHidden = true
+        view.isUserInteractionEnabled = false
+        return view
+    }
+
+    func updateUIView(_ uiView: UIView, context: Context) {
+        if shown {
+            LififyFrontOverlay.show(
+                content()
+                    .environment(\.colorScheme, colorScheme)
+                    .environment(\.locale, AppDate.locale)
+                    .appAccentTint(),
+                from: uiView
+            )
+        } else {
+            LififyFrontOverlay.hideSoon()
+        }
+    }
+}
+
+@MainActor
+private enum LififyFrontOverlay {
+    private static var generation = 0
+    private static var window: UIWindow?
+    private static var host: UIHostingController<AnyView>?
+
+    static func show<V: View>(_ view: V, from source: UIView) {
+        generation += 1
+        let root = AnyView(view)
+        if let host {
+            host.rootView = root
+            window?.isHidden = false
+            return
+        }
+        let scene = source.window?.windowScene
+            ?? UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first
+        guard let scene else { return }
+        let host = UIHostingController(rootView: root)
+        host.view.backgroundColor = .clear
+        let window = UIWindow(windowScene: scene)
+        window.windowLevel = .alert + 1
+        window.backgroundColor = .clear
+        window.rootViewController = host
+        window.makeKeyAndVisible()
+        self.host = host
+        self.window = window
+    }
+
+    static func hideSoon() {
+        let current = generation
+        DispatchQueue.main.async {
+            guard current == generation else { return }
+            hide()
+        }
+    }
+
+    private static func hide() {
+        generation += 1
+        let closing = window
+        window?.isHidden = true
+        window = nil
+        host = nil
+        if let scene = closing?.windowScene {
+            scene.windows.first { $0 !== closing && !$0.isHidden }?.makeKey()
+        }
+        closing?.rootViewController = nil
     }
 }
 

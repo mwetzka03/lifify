@@ -154,7 +154,12 @@ struct TradeRepublicClient: Sendable {
             throw TradeRepublicFailure.unreadable
         }
         let history = await timeline(on: socket, inbox: inbox, positions: positions)
-        return TradeRepublicSnapshot(positions: positions, activities: history.items, plans: history.plans)
+        return TradeRepublicSnapshot(
+            positions: positions,
+            activities: history.items,
+            plans: history.plans,
+            cashCents: history.cashCents
+        )
     }
 
     /// Answers are matched by subscription id. A following C is only the end of that answer, not the next page.
@@ -208,13 +213,15 @@ struct TradeRepublicClient: Sendable {
         on socket: URLSessionWebSocketTask,
         inbox: SocketInbox,
         positions: [TradeRepublicPosition]
-    ) async -> (items: [TradeRepublicActivity], plans: [TradeRepublicPlan]) {
+    ) async -> (items: [TradeRepublicActivity], plans: [TradeRepublicPlan], cashCents: Int?) {
         let cashID = inbox.take()
+        var cashCents: Int?
         do {
             try await socket.send(.string(subscribe(cashID, ["type": "cash"])))
             let cash = try await inbox.next(on: socket, id: cashID)
             if cash.ok, !cash.body.isEmpty {
                 TradeRepublicSample.add(name: "cash", body: cash.body)
+                cashCents = TradeRepublicCash.cents(from: cash.body)
             }
         } catch {
             // The cash snapshot is only for the extract. Missing it must not stop the timeline.
@@ -298,7 +305,7 @@ struct TradeRepublicClient: Sendable {
             body: "pages \(pages)\ntransactions \(transactions.pages)\nactivityLog \(log.pages)\nitems \(all.count)\nindex \(indexLines.count)\ndetails \(detailed)\nwith quantity \(sized)\nplans \(plans.count)"
         )
         TradeRepublicSample.finish()
-        return (all, plans)
+        return (all, plans, cashCents)
     }
 
     private static func fetchPages(

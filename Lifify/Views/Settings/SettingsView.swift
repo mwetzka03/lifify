@@ -590,6 +590,7 @@ private struct FinanceSettingsView: View {
             TradeRepublicSignInControls(showsSkip: false) {}
         }
         .appGlassList()
+        .scrollDismissesKeyboard(.immediately)
         .navigationTitle(L("Finanzen", "Finance"))
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {

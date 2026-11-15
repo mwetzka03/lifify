@@ -613,11 +613,10 @@ enum BankImportApplier {
         context: ModelContext
     ) -> LedgerEntry? {
         let fingerprints = [row.fingerprint, row.legacyFingerprint].compactMap { $0 }
-        if let existing = entries.first(where: { entry in
+        if entries.contains(where: { entry in
             guard let fingerprint = entry.importFingerprint else { return false }
             return fingerprints.contains(fingerprint)
         }) {
-            review.similar.append(similarChoice(row: row, existing: existing, accountID: checking.id))
             known.formUnion(fingerprints)
             return nil
         }
@@ -649,6 +648,13 @@ enum BankImportApplier {
         }
 
         if let existing = similarMatch(row: row, entries: entries, accountID: checking.id) {
+            let rowPurpose = BankImportService.purposeMark(notes: row.notes)
+            let entryPurpose = BankImportService.purposeMark(notes: existing.notes)
+            if !rowPurpose.isEmpty, !entryPurpose.isEmpty {
+                existing.importFingerprint = row.fingerprint
+                known.formUnion(fingerprints)
+                return nil
+            }
             review.similar.append(similarChoice(row: row, existing: existing, accountID: checking.id))
             known.formUnion(fingerprints)
             return nil
@@ -1028,13 +1034,22 @@ enum BankImportApplier {
         accountID: UUID
     ) -> LedgerEntry? {
         let amount = abs(row.amountCents)
+        let rowPurpose = BankImportService.purposeMark(notes: row.notes)
         return entries.first { entry in
             guard entry.kind != .adjustment else { return false }
             guard entry.accountID == accountID else { return false }
             guard abs(entry.amountCents) == amount else { return false }
             guard withinDays(entry.date, of: row.date, days: 3) else { return false }
-            return payeesMatch(row.title, entry.title)
+            guard payeesMatch(row.title, entry.title) else { return false }
+            let entryPurpose = BankImportService.purposeMark(notes: entry.notes)
+            if !rowPurpose.isEmpty, !entryPurpose.isEmpty, !marksOverlap(rowPurpose, entryPurpose) { return false }
+            return true
         }
+    }
+
+    private static func marksOverlap(_ lhs: String, _ rhs: String) -> Bool {
+        if lhs == rhs { return true }
+        return lhs.contains(rhs) || rhs.contains(lhs)
     }
 
     /// The shop or payee, without the place that Sparkasse appends after a slash.

@@ -53,23 +53,18 @@ struct DashboardView: View {
                         .padding(.horizontal, 12)
                         .padding(.top, 8)
                         .padding(.bottom, 4)
+                    if pageReady {
                     List {
                     Section {
                         if filters.showsDepot {
-                            if DepotLoad.shouldSpin(ready: depotReady, opened: true) {
-                                summaryLoading
-                            } else {
-                                depotContent(period)
-                            }
-                        } else if let summary, summarySelection == selectionToken {
+                            depotContent(period)
+                        } else if let summary {
                             financeSummary(
                                 summary.forecast,
                                 period: period,
                                 liquidStart: summary.liquidStart,
                                 liquidEnd: summary.liquidEnd
                             )
-                        } else {
-                            summaryLoading
                         }
                     }
                     .listRowInsets(EdgeInsets(top: 8, leading: 12, bottom: 4, trailing: 12))
@@ -150,7 +145,11 @@ struct DashboardView: View {
                     .scrollContentBackground(.hidden)
                     .appAccentTint()
                     .listSectionSpacing(FinanceMoreDirectory.sectionSpacing)
+                    } else {
+                        pageLoading
+                    }
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .task(id: filters.showsDepot) {
                     guard filters.showsDepot else {
                         depotReady = false
@@ -167,10 +166,9 @@ struct DashboardView: View {
                 }
                 .task(id: forecastToken) {
                     guard !filters.showsDepot else { return }
-                    if summarySelection != selectionToken {
-                        try? await Task.sleep(for: .milliseconds(400))
-                        guard !Task.isCancelled else { return }
-                    }
+                    await Task.yield()
+                    try? await Task.sleep(for: .milliseconds(32))
+                    guard !Task.isCancelled else { return }
                     await refreshSummary()
                 }
             } else {
@@ -575,6 +573,13 @@ struct DashboardView: View {
         }
     }
 
+    private var pageReady: Bool {
+        if filters.showsDepot {
+            return !DepotLoad.shouldSpin(ready: depotReady, opened: true)
+        }
+        return summary != nil && summarySelection == selectionToken
+    }
+
     private var summaryLoading: some View {
         VStack(spacing: 10) {
             ProgressView()
@@ -586,6 +591,15 @@ struct DashboardView: View {
         .frame(maxWidth: .infinity)
         .padding(.vertical, 36)
         .financeCard()
+    }
+
+    private var pageLoading: some View {
+        VStack {
+            Spacer(minLength: 48)
+            summaryLoading
+            Spacer(minLength: 48)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private var bookingSearchRow: some View {

@@ -30,6 +30,40 @@ struct TradeRepublicSnapshot: Equatable, Sendable {
     var positions: [TradeRepublicPosition]
     var activities: [TradeRepublicActivity]
     var plans: [TradeRepublicPlan] = []
+    /// Live cash on the Trade Republic checking account, from the cash snapshot.
+    var cashCents: Int? = nil
+}
+
+enum TradeRepublicCash {
+    static func cents(from text: String) -> Int? {
+        guard let start = text.firstIndex(where: { $0 == "\u{7B}" || $0 == "[" }) else { return nil }
+        guard let object = try? JSONSerialization.jsonObject(with: Data(text[start...].utf8)) else { return nil }
+        let rows: [[String: Any]]
+        if let list = object as? [[String: Any]] {
+            rows = list
+        } else if let one = object as? [String: Any] {
+            rows = [one]
+        } else {
+            return nil
+        }
+        for row in rows {
+            if let amount = moneyCents(row["amount"]) { return amount }
+        }
+        return nil
+    }
+
+    private static func moneyCents(_ value: Any?) -> Int? {
+        switch value {
+        case let number as Double: return Int((number * 100).rounded())
+        case let number as Int: return number * 100
+        case let number as NSNumber: return Int((number.doubleValue * 100).rounded())
+        case let text as String: return Money.cents(from: text)
+        case let row as [String: Any]:
+            guard let number = moneyCents(row["value"]) else { return nil }
+            return number
+        default: return nil
+        }
+    }
 }
 
 struct HeldPosition: Equatable {

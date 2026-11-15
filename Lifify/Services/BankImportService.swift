@@ -157,14 +157,22 @@ enum BankImportService {
             ],
             in: headers
         )
+        let referenceIndex = index(
+            of: ["kundenreferenzendtoend", "endtoend", "endtoendid", "referenz"],
+            in: headers
+        )
+        let infoIndex = index(of: ["info", "umsatzstatus", "status"], in: headers)
 
         return lines.dropFirst().compactMap { line in
             let fields = csvFields(line, delimiter: delimiter)
             guard fields.indices.contains(dateIndex), fields.indices.contains(amountIndex),
                   let date = parseDate(fields[dateIndex]),
                   let amount = Money.cents(from: fields[amountIndex]) else { return nil }
+            let info = field(at: infoIndex, from: fields)
+            if isPendingBankRow(info) { return nil }
             let bookingText = field(at: bookingTextIndex, from: fields)
             let purpose = field(at: purposeIndex, from: fields)
+            let reference = field(at: referenceIndex, from: fields)
             let counterpartyName = field(at: counterpartyNameIndex, from: fields)
             let title = [counterpartyName, bookingText, purpose]
                 .first(where: { !$0.isEmpty }) ?? L("Importierte Buchung", "Imported transaction")
@@ -184,10 +192,12 @@ enum BankImportService {
             let details = [
                 bookingText.isEmpty ? nil : "\(L("Buchungstext", "Booking text")): \(bookingText)",
                 purpose.isEmpty ? nil : "\(L("Verwendungszweck", "Purpose")): \(purpose)",
+                reference.isEmpty ? nil : "\(L("Referenz", "Reference")): \(reference)",
                 counterpartyName.isEmpty ? nil : "\(L("Gegenpartei", "Counterparty")): \(counterpartyName)"
             ]
             .compactMap { $0 }
             .joined(separator: "\n")
+            let distinct = [purpose, bookingText, reference].filter { !$0.isEmpty }.joined(separator: "|")
             return imported(
                 date: date,
                 title: title,
@@ -196,7 +206,8 @@ enum BankImportService {
                 recipientIBAN: recipientIBAN,
                 legacyIBAN: genericIBAN,
                 legacyTitle: legacyTitle,
-                details: details
+                details: details,
+                distinct: distinct
             )
         }
     }
@@ -219,7 +230,8 @@ enum BankImportService {
         legacyTitle: String,
         details: String,
         trade: ImportedSecurityTrade? = nil,
-        statementBalanceCents: Int? = nil
+        statementBalanceCents: Int? = nil,
+        distinct: String = ""
     ) -> ImportedTransaction {
         let senderIBAN = validIBAN(senderIBAN) ?? ""
         let recipientIBAN = validIBAN(recipientIBAN) ?? ""
@@ -227,7 +239,7 @@ enum BankImportService {
         let notes = [details, ibanNotes(sender: senderIBAN, recipient: recipientIBAN)]
             .filter { !$0.isEmpty }
             .joined(separator: "\n")
-        let fingerprint = makeFingerprint(date: date, amount: amount, title: title, iban: iban)
+        let fingerprint = makeFingerprint(date: date, amount: amount, title: title, iban: iban, distinct: distinct)
         let legacyFingerprint = makeFingerprint(
             date: date,
             amount: amount,
@@ -249,11 +261,28 @@ enum BankImportService {
         )
     }
 
-    static func makeFingerprint(date: Date, amount: Int, title: String, iban: String) -> String {
-        let source = "\(date.dayKey)|\(amount)|\(title)|\(iban)"
+    static func makeFingerprint(date: Date, amount: Int, title: String, iban: String, distinct: String = "") -> String {
+        var source = "\(date.dayKey)|\(amount)|\(title)|\(iban)"
+        if !distinct.isEmpty { source += "|\(distinct)" }
         return SHA256.hash(data: Data(source.utf8))
             .map { String(format: "%02x", $0) }
             .joined()
+    }
+
+    /// Sparkasse marks reserved card payments as vorgemerkt. They are not booked yet.
+    static func isPendingBankRow(_ info: String) -> Bool {
+        let folded = info.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "de_DE"))
+        return folded.contains("vorgemerkt") || folded.contains("pending")
+    }
+
+    static func purposeMark(notes: String) -> String {
+        for line in notes.components(separatedBy: .newlines) {
+            let parts = line.split(separator: ":", maxSplits: 1).map { $0.trimmingCharacters(in: .whitespaces) }
+            guard parts.count == 2 else { continue }
+            let label = parts[0].folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "de_DE"))
+            if label.contains("verwendungszweck") || label.contains("purpose") { return parts[1] }
+        }
+        return ""
     }
 
     private static func normalizeIBAN(_ value: String) -> String {

@@ -120,6 +120,18 @@ struct FilteredLedgerView: View {
             FinanceFilterControls(periods: periods, accounts: filterAccounts)
                 .padding(.horizontal, 12)
                 .padding(.top, 8)
+            if rowsToken != ledgerToken {
+                VStack {
+                    Spacer(minLength: 48)
+                    ProgressView()
+                        .controlSize(.large)
+                    Text(L("Wird geladen", "Loading"))
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    Spacer(minLength: 48)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
             List {
                 if kind == .income {
                     Section {
@@ -149,20 +161,7 @@ struct FilteredLedgerView: View {
                     }
                     .appGlassRow()
                 }
-                if rowsToken != ledgerToken {
-                    HStack {
-                        Spacer()
-                        VStack(spacing: 8) {
-                            ProgressView()
-                                .controlSize(.large)
-                            Text(L("Wird geladen", "Loading"))
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                        }
-                        .padding(.vertical, 24)
-                        Spacer()
-                    }
-                } else if preparedRows.isEmpty {
+                if preparedRows.isEmpty {
                     Text(emptyText)
                         .foregroundStyle(.secondary)
                 } else {
@@ -173,7 +172,6 @@ struct FilteredLedgerView: View {
                             .foregroundStyle(countedTotal == 0 ? Color.secondary : (kind == .expense ? .red : .green))
                     }
                 }
-                if rowsToken == ledgerToken {
                 ForEach(preparedRows) { row in
                     Button { selected = row.entry } label: {
                         let category = rowCategory(row)
@@ -220,10 +218,11 @@ struct FilteredLedgerView: View {
                     }
                     .buttonStyle(.plain)
                 }
-                }
             }
             .scrollContentBackground(.hidden)
+            }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .task(id: ledgerToken) {
             await refreshRows()
         }

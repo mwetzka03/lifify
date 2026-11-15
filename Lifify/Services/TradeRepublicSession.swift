@@ -195,6 +195,7 @@ enum TradeRepublicSample {
         var positions: [TradeRepublicPosition] = []
         var activities: [TradeRepublicActivity] = []
         var plans: [TradeRepublicPlan] = []
+        var cashCents: Int?
         let sections = sections(in: text)
         if sections.isEmpty {
             merge(text, positions: &positions, activities: &activities, plans: &plans)
@@ -207,13 +208,15 @@ enum TradeRepublicSample {
                     }
                 } else if heading.hasPrefix("timelinedetail") {
                     applyDetail(body, name: name, to: &activities)
+                } else if heading == "cash" {
+                    cashCents = TradeRepublicCash.cents(from: body) ?? cashCents
                 } else {
                     merge(body, positions: &positions, activities: &activities, plans: &plans)
                 }
             }
         }
         guard !positions.isEmpty || !activities.isEmpty else { return nil }
-        return TradeRepublicSnapshot(positions: positions, activities: activities, plans: plans)
+        return TradeRepublicSnapshot(positions: positions, activities: activities, plans: plans, cashCents: cashCents)
     }
 
     private static func sections(in text: String) -> [(name: String, body: String)] {
