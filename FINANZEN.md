@@ -41,11 +41,12 @@ view, in transactions, and in the income and expense lists.
   date is clipped to it, so the opening amount of the main account is the
   Startsaldo of the first period.
 - A bank import asks for the current account balance. The opening balance is
-  that figure minus the imported amounts, dated on the first booking day. If the
-  computed cash then still differs, a balance adjustment on today stores the
-  entered current amount as the last stand. Setup imports every row. An import
-  from Settings skips an identical row and offers a similar row for review.
-  When one cash account is selected, net worth is that live stand.
+  that figure minus the imported amounts, dated on the first booking day. A
+  balance adjustment on today stores the entered current amount as the last
+  stand. Setup imports every row. An import from Settings skips an identical
+  row and offers a similar row for review. On the current period, net worth is
+  the live cash. On a past or future period it is that period's Endsaldo.
+  Depot stays the market value.
 - Trade Republic bookings before the cutoff date stay in the ledger and sit
   outside the first period. Bookings on the cutoff date and after are created,
   even when the first period has already ended.
@@ -591,12 +592,13 @@ Finanzansicht, in den Buchungen und in den Listen für Einnahmen und Ausgaben.
   beginnen würde, wird auf dieses Datum geschnitten, damit der Eröffnungssaldo
   des Hauptkontos der Startsaldo des ersten Zeitraums ist.
 - Ein Bankimport fragt nach dem aktuellen Kontostand. Der Startsaldo ist dieser
-  Stand minus die importierten Beträge, datiert auf den ersten Buchungstag. Passt
-  der gerechnete Cash-Stand danach nicht, speichert eine Saldo-Korrektur von
-  heute den angegebenen aktuellen Betrag als letzten Stand. Die Einrichtung
-  übernimmt jede Zeile. Ein Import aus den Einstellungen überspringt eine
-  identische Zeile und bietet eine ähnliche zur Prüfung an. Ist ein Girokonto
-  gewählt, ist Gesamtvermögen dieser aktuelle Stand.
+  Stand minus die importierten Beträge, datiert auf den ersten Buchungstag. Eine
+  Saldo-Korrektur von heute speichert den angegebenen aktuellen Betrag als
+  letzten Stand. Die Einrichtung übernimmt jede Zeile. Ein Import aus den
+  Einstellungen überspringt eine identische Zeile und bietet eine ähnliche zur
+  Prüfung an. Im aktuellen Zeitraum ist Gesamtvermögen der Live-Cash. In einem
+  vergangenen oder zukünftigen Zeitraum ist es der Endsaldo dieses Zeitraums.
+  Depot bleibt der Marktwert.
 - Trade-Republic-Buchungen vor dem Stichtag bleiben in der Liste und liegen
   außerhalb des ersten Zeitraums. Buchungen am Stichtag und danach werden
   angelegt, auch wenn der erste Zeitraum schon vorbei ist.

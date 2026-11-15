@@ -40,15 +40,24 @@ enum ImportBalance {
         date: Date,
         context: ModelContext
     ) -> LedgerEntry? {
+        let day = Calendar.current.startOfDay(for: date)
         let stale = entries.filter { isCurrentPin($0, accountID: account.id) }
-        for entry in stale {
-            context.delete(entry)
+        if let existing = stale.max(by: { $0.createdAt < $1.createdAt }) {
+            for entry in stale where entry.id != existing.id {
+                context.delete(entry)
+            }
+            entries.removeAll { isCurrentPin($0, accountID: account.id) && $0.id != existing.id }
+            existing.date = day
+            existing.amountCents = currentCents
+            existing.kind = .adjustment
+            existing.title = L("Saldo-Korrektur", "Balance adjustment")
+            existing.notes = "Typ: Saldo-Korrektur"
+            existing.importFingerprint = currentFingerprint
+            existing.accountID = account.id
+            return existing
         }
-        entries.removeAll { isCurrentPin($0, accountID: account.id) }
-        let computed = FinanceService.currentBalance(for: account, entries: entries)
-        guard computed != currentCents else { return nil }
         let entry = LedgerEntry(
-            date: Calendar.current.startOfDay(for: date),
+            date: day,
             title: L("Saldo-Korrektur", "Balance adjustment"),
             notes: "Typ: Saldo-Korrektur",
             amountCents: currentCents,
