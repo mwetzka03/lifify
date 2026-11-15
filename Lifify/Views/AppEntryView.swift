@@ -26,9 +26,9 @@ struct AppEntryView: View {
             if hasCompletedOnboarding, !hasMainAccount {
                 hasCompletedOnboarding = false
                 onboardingInProgress = false
-                onboardingStep = OnboardingResume.clampedStep(onboardingStep, hasMainAccount: false)
+                onboardingStep = OnboardingResume.launchStep(isComplete: false, savedStep: onboardingStep)
             } else if !hasCompletedOnboarding {
-                onboardingStep = OnboardingResume.clampedStep(onboardingStep, hasMainAccount: hasMainAccount)
+                onboardingStep = OnboardingResume.launchStep(isComplete: false, savedStep: onboardingStep)
                 if !onboardingInProgress, hasMainAccount {
                     hasCompletedOnboarding = true
                 }

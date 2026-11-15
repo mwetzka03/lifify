@@ -429,9 +429,9 @@ enum CheckGuides {
             "The reading lists the five tab titles: Home, Finance, Challenges, Health, and Settings. There is no bucket-list tab and no vision symbol."
         ),
         "Tabs, Einrichtung und Weitere Bereiche": g(
-            "OnboardingSteps.title, OnboardingSteps.restore, AppTabs.items(), FinanceMoreDirectory.rows, OnboardingResume.clampedStep(_:hasMainAccount:)",
-            "Die Messung listet die drei Links unter Weitere Bereiche. Die Zeilen nutzen die Schrift body, die Überschrift headline, 14 Punkt Abstand und höchstens 8 Punkt zur nächsten Sektion. Finanzen liegt auf derselben Fläche. Die Einrichtung lädt die ganze App oder nur einzelne Bereiche. Ohne Hauptkonto wird Schritt 8 zu 0, mit Hauptkonto bleibt 8, Schritt 4 bleibt 4, Schritt 99 wird der letzte Schritt.",
-            "The reading lists the three links under More. The rows use the body font, the heading uses headline, 14 points of padding, and at most 8 points before the next section. Finance sits on the same wash. Setup restores the entire app or only one area. Without a main account, step 8 becomes 0, with a main account 8 stays 8, step 4 stays 4, and step 99 becomes the last step."
+            "OnboardingSteps.title, OnboardingSteps.restore, AppTabs.items(), FinanceMoreDirectory.rows, OnboardingResume.launchStep(isComplete:savedStep:)",
+            "Die Messung listet die drei Links unter Weitere Bereiche. Die Zeilen nutzen die Schrift body, die Überschrift headline, 14 Punkt Abstand und höchstens 8 Punkt zur nächsten Sektion. Finanzen liegt auf derselben Fläche. Die Einrichtung lädt die ganze App oder nur einzelne Bereiche. Ist die Einrichtung nicht fertig, wird ein gespeicherter Schritt 8 oder 4 zu 0.",
+            "The reading lists the three links under More. The rows use the body font, the heading uses headline, 14 points of padding, and at most 8 points before the next section. Finance sits on the same wash. Setup restores the entire app or only one area. If setup is not finished, a saved step 8 or 4 becomes 0."
         ),
         "Entwicklertag und Schalter": g(
             "AppClock.combining(day:time:calendar:), DeveloperCopy.toggle",

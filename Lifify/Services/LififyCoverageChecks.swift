@@ -551,10 +551,9 @@ enum LififyCoverageChecks {
             )
             && shows(OnboardingSteps.account, "Hauptkonto", "Main account")
             && OnboardingSteps.tradeRepublic == "Trade Republic"
-            && OnboardingResume.clampedStep(8, hasMainAccount: false) == 0
-            && OnboardingResume.clampedStep(8, hasMainAccount: true) == 8
-            && OnboardingResume.clampedStep(4, hasMainAccount: false) == 4
-            && OnboardingResume.clampedStep(99, hasMainAccount: true) == OnboardingSteps.lastIndex
+            && OnboardingResume.launchStep(isComplete: false, savedStep: 8) == 0
+            && OnboardingResume.launchStep(isComplete: false, savedStep: 4) == 0
+            && OnboardingResume.launchStep(isComplete: true, savedStep: 8) == 0
             && more.map(\.route) == [.budgetPools, .expenseGroups, .debts]
             && shows(more[0].title, "Budgetpools", "Budget pools")
             && shows(more[2].title, "Schulden", "Debts")

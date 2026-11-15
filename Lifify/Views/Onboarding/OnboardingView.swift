@@ -43,16 +43,15 @@ enum OnboardingSteps {
         L("Trade Republic anmelden (optional)", "Sign in to Trade Republic (optional)")
     }
     static let count = 9
-    static var lastIndex: Int { count - 1 }
     static var secondaryIncome: String { L("Nebeneinnahmen (optional)", "Secondary income (optional)") }
 }
 
 enum OnboardingResume {
-    /// Bank import and later steps need a main account. Without one, start over.
-    static func clampedStep(_ step: Int, hasMainAccount: Bool) -> Int {
-        let bounded = min(max(step, 0), OnboardingSteps.lastIndex)
-        if bounded >= 5 && !hasMainAccount { return 0 }
-        return bounded
+    /// Unfinished setup always opens on the first step after a relaunch or update.
+    static func launchStep(isComplete: Bool, savedStep: Int) -> Int {
+        if isComplete { return 0 }
+        _ = savedStep
+        return 0
     }
 }
 
@@ -76,7 +75,7 @@ struct OnboardingView: View {
     @AppStorage("appLanguage") private var language = "de"
     @AppStorage("userName") private var storedName = ""
     @AppStorage("dashboardPeriodMode") private var storedPeriod = DashboardPeriodMode.calendarMonth.rawValue
-    @AppStorage("onboardingStep") private var step = 0
+    @State private var step = 0
 
     @State private var userName = ""
     @State private var birthDate = UserProfile.birthDate() ?? UserProfile.suggestedDate()
@@ -176,7 +175,6 @@ struct OnboardingView: View {
             }
             .onAppear {
                 onboardingInProgress = true
-                step = OnboardingResume.clampedStep(step, hasMainAccount: accounts.contains(where: \.isMain))
                 if userName.isEmpty { userName = storedName }
                 if let stored = UserProfile.birthDate() {
                     birthDate = stored
