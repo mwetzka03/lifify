@@ -197,12 +197,11 @@ private struct GeneralSettingsView: View {
                     } label: {
                         Label(L("Tests ausführen", "Run tests"), systemImage: "checkmark.seal")
                     }
-                    if tradeRepublicSampleRevision > 0, !TradeRepublicSample.text.isEmpty {
-                        NavigationLink {
-                            TradeRepublicSampleView()
-                        } label: {
-                            Label(TradeRepublicCopy.sample, systemImage: "doc.on.doc")
-                        }
+                    let _ = tradeRepublicSampleRevision
+                    NavigationLink {
+                        TradeRepublicSampleView()
+                    } label: {
+                        Label(TradeRepublicCopy.extract, systemImage: "doc.on.doc")
                     }
                 }
             } footer: {

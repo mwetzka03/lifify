@@ -430,14 +430,14 @@ enum BankImportApplier {
         second: UUID,
         entries: [LedgerEntry]
     ) -> Bool {
-        let day = Calendar.current.startOfDay(for: date)
-        let absAmount = abs(amount)
-        return entries.contains { entry in
-            guard entry.kind == .transfer, abs(entry.amountCents) == absAmount else { return false }
-            guard Calendar.current.startOfDay(for: entry.date) == day else { return false }
-            let ends = Set([entry.fromAccountID, entry.toAccountID].compactMap { $0 })
-            return ends == [first, second]
-        }
+        existingTransfer(
+            on: date,
+            amount: amount,
+            first: first,
+            second: second,
+            entries: entries,
+            windowDays: ownAccountWindowDays
+        ) != nil
     }
 
     private static func bookTransfer(
@@ -462,6 +462,7 @@ enum BankImportApplier {
         }
     }
 
+    @discardableResult
     private static func removeMirror(
         of row: ImportedTransaction,
         on accountID: UUID,
@@ -469,10 +470,10 @@ enum BankImportApplier {
         entries: inout [LedgerEntry],
         context: ModelContext,
         windowDays: Int = 0
-    ) {
+    ) -> Date? {
         let counterparty = normalizedIBAN(row.amountCents >= 0 ? row.senderIBAN : row.recipientIBAN)
         let markers = [counterparty, normalizedIBAN(checking.iban)].filter { !$0.isEmpty }
-        guard !markers.isEmpty else { return }
+        guard !markers.isEmpty else { return nil }
         guard let mirror = entries.first(where: { entry in
             guard entry.accountID == accountID else { return false }
             guard entry.kind == .income || entry.kind == .expense else { return false }
@@ -480,9 +481,11 @@ enum BankImportApplier {
             guard withinDays(entry.date, of: row.date, days: windowDays) else { return false }
             let haystack = normalizedIBAN(entry.notes + " " + entry.title)
             return markers.contains { haystack.contains($0) }
-        }) else { return }
+        }) else { return nil }
+        let date = mirror.date
         context.delete(mirror)
         entries.removeAll { $0.id == mirror.id }
+        return date
     }
 
     private static func ledgerEntry(for row: ImportedTransaction, checkingID: UUID, portfolioID: UUID?) -> LedgerEntry {
@@ -626,7 +629,10 @@ enum BankImportApplier {
             entries.append(entry)
             known.formUnion(fingerprints)
             bookTransfer(entry, row: row, checkingID: checking.id, otherID: other.id, entries: &entries)
-            removeMirror(of: row, on: other.id, checking: checking, entries: &entries, context: context, windowDays: 3)
+            if let mirrorDate = removeMirror(of: row, on: other.id, checking: checking, entries: &entries, context: context, windowDays: 3),
+               mirrorDate < entry.date {
+                entry.date = mirrorDate
+            }
             return entry
         }
 
@@ -679,20 +685,25 @@ enum BankImportApplier {
                 otherID: choice.otherAccountID,
                 entries: &entries
             )
+            var earliest = choice.date
             if let mirror = entries.first(where: { $0.id == choice.matchedEntryID }),
                mirror.id != entry.id,
                mirror.kind == .income || mirror.kind == .expense {
+                earliest = min(earliest, mirror.date)
                 context.delete(mirror)
                 entries.removeAll { $0.id == mirror.id }
             }
-            removeMirror(
+            if let mirrorDate = removeMirror(
                 of: row,
                 on: choice.otherAccountID,
                 checking: checking,
                 entries: &entries,
                 context: context,
                 windowDays: 3
-            )
+            ) {
+                earliest = min(earliest, mirrorDate)
+            }
+            entry.date = earliest
         }
         for choice in review.similar where choice.include {
             context.insert(LedgerEntry(
@@ -707,6 +718,9 @@ enum BankImportApplier {
         }
         try context.save()
     }
+
+    /// Own-account transfers can land a banking day or two later than they left.
+    static let ownAccountWindowDays = 3
 
     /// A booking between two of your own accounts is a transfer. Combined it is neutral.
     /// On the sending account it leaves, and on the receiving account it arrives.
@@ -726,7 +740,15 @@ enum BankImportApplier {
                 guard !counterparty.isEmpty,
                       let other = withIBAN.first(where: { $0.id != accountID && normalizedIBAN($0.iban) == counterparty })
                 else { continue }
-                if transferExists(on: entry.date, amount: entry.amountCents, first: accountID, second: other.id, entries: entries) {
+                if let existing = existingTransfer(
+                    on: entry.date,
+                    amount: entry.amountCents,
+                    first: accountID,
+                    second: other.id,
+                    entries: entries,
+                    windowDays: ownAccountWindowDays
+                ) {
+                    if entry.date < existing.date { existing.date = entry.date }
                     context.delete(entry)
                     entries.removeAll { $0.id == entry.id }
                     changed = true
@@ -745,7 +767,10 @@ enum BankImportApplier {
                 )
                 bookTransfer(entry, row: row, checkingID: accountID, otherID: other.id, entries: &entries)
                 if let source = accounts.first(where: { $0.id == accountID }) {
-                    removeMirror(of: row, on: other.id, checking: source, entries: &entries, context: context, windowDays: 3)
+                    if let mirrorDate = removeMirror(of: row, on: other.id, checking: source, entries: &entries, context: context, windowDays: 3),
+                       mirrorDate < entry.date {
+                        entry.date = mirrorDate
+                    }
                 }
                 changed = true
             }
@@ -772,15 +797,19 @@ enum BankImportApplier {
         var changed = false
         for entry in entries where entry.kind == .income || entry.kind == .expense {
             guard let accountID = entry.accountID, checkingIDs.contains(accountID) else { continue }
-            let duplicate = entries.contains { transfer in
+            let matches = entries.filter { transfer in
                 guard transfer.kind == .transfer, abs(transfer.amountCents) == abs(entry.amountCents) else {
                     return false
                 }
-                guard Calendar.current.isDate(transfer.date, inSameDayAs: entry.date) else { return false }
+                guard withinDays(transfer.date, of: entry.date, days: ownAccountWindowDays) else { return false }
                 let ends = Set([transfer.fromAccountID, transfer.toAccountID].compactMap { $0 })
                 return ends.contains(accountID) && ends.contains(where: { checkingIDs.contains($0) && $0 != accountID })
             }
-            guard duplicate else { continue }
+            guard !matches.isEmpty else { continue }
+            let earliest = ([entry.date] + matches.map(\.date)).min() ?? entry.date
+            for transfer in matches where transfer.date > earliest {
+                transfer.date = earliest
+            }
             context.delete(entry)
             entries.removeAll { $0.id == entry.id }
             changed = true
@@ -801,32 +830,36 @@ enum BankImportApplier {
         for entry in entries where entry.kind == .income || entry.kind == .expense {
             guard let accountID = entry.accountID, accountID != tradeRepublic.id else { continue }
             guard mentionsTradeRepublic(entry) else { continue }
-            let match = entries.first { other in
+            let matches = entries.filter { other in
                 guard other.id != entry.id else { return false }
                 guard other.accountID == tradeRepublic.id, other.kind == .income || other.kind == .expense else {
                     return false
                 }
                 guard abs(other.amountCents) == abs(entry.amountCents) else { return false }
-                return Calendar.current.isDate(other.date, inSameDayAs: entry.date)
+                return withinDays(other.date, of: entry.date, days: ownAccountWindowDays)
             }
-            if transferExists(
+            if let existing = existingTransfer(
                 on: entry.date,
                 amount: entry.amountCents,
                 first: accountID,
                 second: tradeRepublic.id,
-                entries: entries
+                entries: entries,
+                windowDays: ownAccountWindowDays
             ) {
+                let earliest = ([entry.date, existing.date] + matches.map(\.date)).min() ?? entry.date
+                existing.date = earliest
                 context.delete(entry)
                 entries.removeAll { $0.id == entry.id }
-                if let match {
+                for match in matches {
                     context.delete(match)
                     entries.removeAll { $0.id == match.id }
                 }
                 changed = true
                 continue
             }
+            let earliest = ([entry.date] + matches.map(\.date)).min() ?? entry.date
             let row = ImportedTransaction(
-                date: entry.date,
+                date: earliest,
                 title: entry.title,
                 notes: entry.notes,
                 amountCents: entry.amountCents,
@@ -836,7 +869,8 @@ enum BankImportApplier {
                 fingerprint: entry.importFingerprint ?? entry.id.uuidString
             )
             bookTransfer(entry, row: row, checkingID: accountID, otherID: tradeRepublic.id, entries: &entries)
-            if let match {
+            entry.date = earliest
+            for match in matches {
                 context.delete(match)
                 entries.removeAll { $0.id == match.id }
             }

@@ -29,11 +29,12 @@ struct TradeRepublicSignInControls: View {
                 clearSecrets()
                 phase = .credentials
             }
-            if developerMode, sampleRevision > 0, !TradeRepublicSample.text.isEmpty {
+            if developerMode {
+                let _ = sampleRevision
                 NavigationLink {
                     TradeRepublicSampleView()
                 } label: {
-                    Label(TradeRepublicCopy.sample, systemImage: "doc.on.doc")
+                    Label(TradeRepublicCopy.extract, systemImage: "doc.on.doc")
                 }
             }
             if let note, phase == .idle {
@@ -324,7 +325,10 @@ struct TradeRepublicSignInControls: View {
 }
 
 struct TradeRepublicSampleView: View {
+    @Environment(\.modelContext) private var context
+    @AppStorage(TradeRepublicSample.revisionKey) private var sampleRevision = 0
     @State private var copied = false
+    @State private var note: String?
 
     var body: some View {
         ScrollView {
@@ -332,6 +336,11 @@ struct TradeRepublicSampleView: View {
                 Text(TradeRepublicCopy.sampleNote)
                     .font(.footnote)
                     .foregroundStyle(.secondary)
+                if let note {
+                    Text(note)
+                        .font(.footnote)
+                }
+                let _ = sampleRevision
                 Text(TradeRepublicSample.text)
                     .font(.caption.monospaced())
                     .textSelection(.enabled)
@@ -340,15 +349,38 @@ struct TradeRepublicSampleView: View {
             .padding(16)
         }
         .appGlassList()
-        .navigationTitle(TradeRepublicCopy.sample)
+        .navigationTitle(TradeRepublicCopy.extract)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                Button(TradeRepublicCopy.pasteExtract) {
+                    Task { await paste() }
+                }
+            }
             ToolbarItem(placement: .topBarTrailing) {
                 Button(copied ? TradeRepublicCopy.copied : TradeRepublicCopy.sample) {
                     UIPasteboard.general.string = TradeRepublicSample.text
                     copied = true
                 }
+                .disabled(TradeRepublicSample.text.isEmpty)
             }
+        }
+    }
+
+    @MainActor
+    private func paste() async {
+        let text = UIPasteboard.general.string ?? ""
+        guard let snapshot = TradeRepublicSample.snapshot(from: text) else {
+            note = TradeRepublicCopy.pasteFailed
+            return
+        }
+        TradeRepublicSample.begin()
+        TradeRepublicSample.add(name: "pasted", body: text)
+        do {
+            let count = try await TradeRepublicDepotApplier.apply(snapshot: snapshot, context: context)
+            note = TradeRepublicCopy.appliedExtract(count)
+        } catch {
+            note = error.localizedDescription
         }
     }
 }

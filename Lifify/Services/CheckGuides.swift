@@ -519,9 +519,9 @@ enum CheckGuides {
             "The reading is 6 hours and duplicate. The same amount and direction inside the window are one booking. Another direction, or a booking after the window, is a new one."
         ),
         "Ein Depotstand setzt Menge und Einstand und erfindet nichts": g(
-            "TradeRepublicPortfolio.read(_:), TradeRepublicDepotPlan.edits(positions:holdings:)",
-            "Die Messung ist 2.5, 8000, behalten. Eine leere Liste und eine unlesbare Antwort legen keine Position an. Fehlt der Einstand, bleibt der bisherige Preis.",
-            "The reading is 2.5, 8000, kept. An empty list and an unreadable reply create no position. When the cost basis is missing, the previous price stays."
+            "TradeRepublicPortfolio.read(_:), TradeRepublicSync.changes(positions:holdings:activities:known:), MarketDataService.cryptoTicker(from:)",
+            "Die Messung ist 2.5, 8000, behalten. Eine leere Liste und eine unlesbare Antwort legen keine Position an. Fehlt der Einstand, bleibt der bisherige Preis. Ein Kauf einer anderen ISIN macht aus einem Geschenk keinen Anfangsbestand.",
+            "The reading is 2.5, 8000, kept. An empty list and an unreadable reply create no position. When the cost basis is missing, the previous price stays. A purchase of another ISIN does not turn a gift into an opening lot."
         ),
         "Eine tote Sitzung startet keine neue Anmeldung": g(
             "TradeRepublicRequest.failure(statusCode:errorCode:), TradeRepublicRefresh.manualOnly, TradeRepublicCookies.keepsSession(_:)",

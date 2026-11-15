@@ -60,12 +60,34 @@ enum TradeRepublicDepotApplier {
             switch move {
             case .cash(let id, let date, let title, let amountCents, let statementType):
                 guard !isBeforePeriod(date, start: periodStart) else { continue }
-                guard insertCash(id: id, date: date, title: title, amountCents: amountCents, statementType: statementType, checking: checking, known: known, context: context) else { continue }
+                guard insertCash(
+                    id: id,
+                    date: date,
+                    title: title,
+                    amountCents: amountCents,
+                    statementType: statementType,
+                    eventType: eventType(id: id, activities: snapshot.activities),
+                    checking: checking,
+                    known: known,
+                    context: context
+                ) else { continue }
                 count += 1
             case .grant(let id, let date, let title, let isin, let name, let quantity, let amountCents, let statementType):
                 let holding = try ensureHolding(isin: isin, name: name, portfolio: portfolio, stored: stored, context: context)
                 openExistingSharesIfNeeded(holding)
-                guard insertGrant(id: id, date: date, title: title, quantity: quantity, amountCents: amountCents, statementType: statementType, holding: holding, portfolio: portfolio, known: &known, context: context) else { continue }
+                guard insertGrant(
+                    id: id,
+                    date: date,
+                    title: title,
+                    quantity: quantity,
+                    amountCents: amountCents,
+                    statementType: statementType,
+                    eventType: eventType(id: id, isin: isin, activities: snapshot.activities),
+                    holding: holding,
+                    portfolio: portfolio,
+                    known: &known,
+                    context: context
+                ) else { continue }
                 if !dropping.contains(isin) { _ = HoldingMaintenance.sync(holding, context: context) }
                 count += 1
             case .shares(let _, let date, let isin, let name, let quantity, let unitCents):
@@ -77,15 +99,43 @@ enum TradeRepublicDepotApplier {
             case .buy(let id, let date, let title, let isin, let name, let quantity, let amountCents, let savingsPlan):
                 let holding = try ensureHolding(isin: isin, name: name, portfolio: portfolio, stored: stored, context: context)
                 openExistingSharesIfNeeded(holding)
-                guard insertTrade(id: id, date: date, title: title, quantity: quantity, amountCents: amountCents, sale: false, savingsPlan: savingsPlan, holding: holding, checking: checking, portfolio: portfolio, known: &known, context: context, bookCash: !isBeforePeriod(date, start: periodStart)) else { continue }
+                guard insertTrade(
+                    id: id,
+                    date: date,
+                    title: title,
+                    quantity: quantity,
+                    amountCents: amountCents,
+                    sale: false,
+                    savingsPlan: savingsPlan,
+                    eventType: eventType(id: id, isin: isin, activities: snapshot.activities),
+                    holding: holding,
+                    checking: checking,
+                    portfolio: portfolio,
+                    known: &known,
+                    context: context,
+                    bookCash: !isBeforePeriod(date, start: periodStart)
+                ) else { continue }
                 if !dropping.contains(isin) { _ = HoldingMaintenance.sync(holding, context: context) }
                 count += 1
             case .sale(let id, let date, let title, let isin, let name, let quantity, let amountCents):
-                guard let holding = stored.first(where: { $0.symbol.caseInsensitiveCompare(isin) == .orderedSame })
-                    ?? holding(isin: isin, portfolio: portfolio, context: context) else { continue }
-                if holding.name.isEmpty { holding.name = name }
+                let holding = try ensureHolding(isin: isin, name: name, portfolio: portfolio, stored: stored, context: context)
                 openExistingSharesIfNeeded(holding)
-                guard insertTrade(id: id, date: date, title: title, quantity: quantity, amountCents: amountCents, sale: true, savingsPlan: false, holding: holding, checking: checking, portfolio: portfolio, known: &known, context: context, bookCash: !isBeforePeriod(date, start: periodStart)) else { continue }
+                guard insertTrade(
+                    id: id,
+                    date: date,
+                    title: title,
+                    quantity: quantity,
+                    amountCents: amountCents,
+                    sale: true,
+                    savingsPlan: false,
+                    eventType: eventType(id: id, isin: isin, activities: snapshot.activities),
+                    holding: holding,
+                    checking: checking,
+                    portfolio: portfolio,
+                    known: &known,
+                    context: context,
+                    bookCash: !isBeforePeriod(date, start: periodStart)
+                ) else { continue }
                 if !dropping.contains(isin) { _ = HoldingMaintenance.sync(holding, context: context) }
                 count += 1
             case .drop(let isin):
@@ -104,6 +154,12 @@ enum TradeRepublicDepotApplier {
             activities: snapshot.activities,
             portfolio: portfolio,
             known: &known,
+            context: context
+        )
+        scaleWholeLotsToLive(
+            holdings: fresh,
+            positions: snapshot.positions,
+            activities: snapshot.activities,
             context: context
         )
         adoptSavingsPlans(from: snapshot.activities, plans: snapshot.plans, checking: checking, portfolio: portfolio, holdings: fresh, context: context)
@@ -196,6 +252,7 @@ enum TradeRepublicDepotApplier {
         title: String,
         amountCents: Int,
         statementType: String,
+        eventType: String = "",
         checking: Account,
         known: Set<String>,
         context: ModelContext
@@ -205,7 +262,7 @@ enum TradeRepublicDepotApplier {
         if cashAlreadyBooked(date: date, amountCents: amountCents, checking: checking, context: context) {
             return false
         }
-        let notes = statementType.isEmpty ? "" : "\(L("Typ", "Type")): \(statementType)"
+        let notes = extractNotes(statementType: statementType, symbol: nil, quantity: nil, unitCents: nil, eventType: eventType)
         let income = statementType == "Ertrag" || statementType == "Zinsen"
         let booked = income ? abs(amountCents) : amountCents
         context.insert(LedgerEntry(
@@ -228,7 +285,6 @@ enum TradeRepublicDepotApplier {
         context: ModelContext
     ) -> Bool {
         let entries = (try? context.fetch(FetchDescriptor<LedgerEntry>())) ?? []
-        let day = Calendar.current.startOfDay(for: date)
         let absAmount = abs(amountCents)
         let checkingIDs = Set(
             ((try? context.fetch(FetchDescriptor<Account>())) ?? [])
@@ -236,13 +292,13 @@ enum TradeRepublicDepotApplier {
                 .map(\.id)
         )
         return entries.contains { entry in
-            guard Calendar.current.startOfDay(for: entry.date) == day, abs(entry.amountCents) == absAmount else {
-                return false
-            }
+            guard abs(entry.amountCents) == absAmount else { return false }
             if entry.kind == .income || entry.kind == .expense {
+                guard Calendar.current.isDate(entry.date, inSameDayAs: date) else { return false }
                 return entry.accountID == checking.id
             }
             guard entry.kind == .transfer else { return false }
+            guard withinDays(entry.date, of: date, days: BankImportApplier.ownAccountWindowDays) else { return false }
             let ends = [entry.fromAccountID, entry.toAccountID].compactMap { $0 }
             return ends.contains(checking.id) && ends.contains(where: { checkingIDs.contains($0) && $0 != checking.id })
         }
@@ -256,6 +312,7 @@ enum TradeRepublicDepotApplier {
         amountCents: Int,
         sale: Bool,
         savingsPlan: Bool,
+        eventType: String = "",
         holding: PortfolioHolding,
         checking: Account,
         portfolio: Account,
@@ -282,7 +339,7 @@ enum TradeRepublicDepotApplier {
             let entry = LedgerEntry(
                 date: date,
                 title: "\(action): \(label)",
-                notes: tradeNotes(symbol: holding.symbol, quantity: quantity, unitCents: unit),
+                notes: extractNotes(statementType: "Handel", symbol: holding.symbol, quantity: quantity, unitCents: unit, eventType: eventType),
                 amountCents: cash,
                 kind: .transfer,
                 fromAccountID: sale ? portfolio.id : checking.id,
@@ -319,6 +376,7 @@ enum TradeRepublicDepotApplier {
         quantity: Double,
         amountCents: Int,
         statementType: String,
+        eventType: String = "",
         holding: PortfolioHolding,
         portfolio: Account,
         known: inout Set<String>,
@@ -332,7 +390,13 @@ enum TradeRepublicDepotApplier {
             context.insert(LedgerEntry(
                 date: date,
                 title: "\(action): \(label)",
-                notes: "\(L("Typ", "Type")): \(statementType)\nISIN: \(holding.symbol)",
+                notes: extractNotes(
+                    statementType: statementType,
+                    symbol: holding.symbol,
+                    quantity: quantity > 0.0000005 ? quantity : nil,
+                    unitCents: nil,
+                    eventType: eventType
+                ),
                 amountCents: amountCents,
                 kind: .income,
                 accountID: portfolio.id,
@@ -391,14 +455,56 @@ enum TradeRepublicDepotApplier {
         return true
     }
 
-    /// PDF notes: Typ, ISIN, Stück, Kurs. The category still comes from the transfer.
-    private static func tradeNotes(symbol: String, quantity: Double, unitCents: Int) -> String {
-        [
-            "\(L("Typ", "Type")): Handel",
-            "ISIN: \(symbol)",
-            "\(L("Stück", "Quantity")): \(quantityText(quantity))",
-            "\(L("Kurs", "Price")): \(Money.string(cents: unitCents))"
-        ].joined(separator: "\n")
+    /// PDF notes: Typ, ISIN, Stück, Kurs, plus the Trade Republic event type.
+    private static func extractNotes(
+        statementType: String,
+        symbol: String?,
+        quantity: Double?,
+        unitCents: Int?,
+        eventType: String
+    ) -> String {
+        var lines: [String] = []
+        if !statementType.isEmpty {
+            lines.append("\(L("Typ", "Type")): \(statementType)")
+        }
+        if let symbol, !symbol.isEmpty {
+            lines.append("ISIN: \(symbol)")
+        }
+        if let quantity, quantity > 0.0000005 {
+            lines.append("\(L("Stück", "Quantity")): \(quantityText(quantity))")
+        }
+        if let unitCents, unitCents > 0 {
+            lines.append("\(L("Kurs", "Price")): \(Money.string(cents: unitCents))")
+        }
+        if !eventType.isEmpty {
+            lines.append("\(L("Ereignis", "Event")): \(eventType)")
+        }
+        return lines.joined(separator: "\n")
+    }
+
+    private static func eventType(id: String, isin: String = "", activities: [TradeRepublicActivity]) -> String {
+        if let item = activities.first(where: { $0.id == id }) { return item.eventType }
+        if id.hasPrefix("gift-") {
+            return activities.first {
+                $0.isGrant && $0.isin.caseInsensitiveCompare(isin) == .orderedSame
+            }?.eventType ?? ""
+        }
+        if id.hasPrefix("delta-") {
+            return activities.first {
+                $0.trade && $0.amountCents > 0 && $0.isin.caseInsensitiveCompare(isin) == .orderedSame
+            }?.eventType ?? ""
+        }
+        return ""
+    }
+
+    private static func withinDays(_ date: Date, of other: Date, days: Int) -> Bool {
+        let calendar = Calendar.current
+        let delta = abs(calendar.dateComponents(
+            [.day],
+            from: calendar.startOfDay(for: date),
+            to: calendar.startOfDay(for: other)
+        ).day ?? 0)
+        return delta <= days
     }
 
     private static func quantityText(_ quantity: Double) -> String {
@@ -561,18 +667,26 @@ enum TradeRepublicDepotApplier {
                 continue
             }
             let bought = activities.contains {
-                TradeRepublicSync.purchase($0, averageCents: position.averageBuyInCents ?? 0)
+                $0.isin.caseInsensitiveCompare(symbol) == .orderedSame
+                    && TradeRepublicSync.purchase($0, averageCents: position.averageBuyInCents ?? 0)
             }
             guard !bought else { continue }
             var lots = HoldingLotStore.lots(for: holding.id)
             let grant = activities.filter {
                 $0.isGrant && $0.isin.caseInsensitiveCompare(symbol) == .orderedSame
             }.min(by: { $0.date < $1.date })
+            let entries = (try? context.fetch(FetchDescriptor<LedgerEntry>())) ?? []
             var changed = false
             for index in lots.indices where !lots[index].isSale {
                 let unlabeled = lots[index].source == "opening" || lots[index].source.isEmpty
-                let withoutCash = lots[index].amountCents == 0 && lots[index].ledgerEntryID == nil
-                guard unlabeled && withoutCash else { continue }
+                guard unlabeled else { continue }
+                if let ledger = lots[index].ledgerEntryID,
+                   let entry = entries.first(where: { $0.id == ledger }) {
+                    if let fingerprint = entry.importFingerprint { known.remove(fingerprint) }
+                    context.delete(entry)
+                }
+                lots[index].ledgerEntryID = nil
+                lots[index].amountCents = 0
                 lots[index].source = "gift"
                 if let grant { lots[index].date = grant.date }
                 if lots[index].unitPriceCents == 0 {
@@ -592,6 +706,7 @@ enum TradeRepublicDepotApplier {
                 quantity: 0,
                 amountCents: value,
                 statementType: "Depotgeschenk",
+                eventType: grant?.eventType ?? "",
                 holding: holding,
                 portfolio: portfolio,
                 known: &known,
@@ -818,6 +933,42 @@ enum TradeRepublicDepotApplier {
             }
         }
         SavingsPlanFixedCosts.sync(context: context)
+    }
+
+    /// Whole-share lots that overshoot a fractional broker quantity, with no sale in the history, are scaled.
+    private static func scaleWholeLotsToLive(
+        holdings: [PortfolioHolding],
+        positions: [TradeRepublicPosition],
+        activities: [TradeRepublicActivity],
+        context: ModelContext
+    ) {
+        for holding in holdings {
+            let symbol = holding.symbol.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+            guard let position = positions.first(where: { $0.isin.caseInsensitiveCompare(symbol) == .orderedSame }) else {
+                continue
+            }
+            var lots = HoldingLotStore.lots(for: holding.id)
+            let have = shareCount(lots)
+            let live = position.quantity
+            guard have > live + 0.001, live > 0.0000005 else { continue }
+            let sold = lots.contains(where: { $0.isSale })
+                || activities.contains {
+                    $0.trade && $0.amountCents > 0 && $0.isin.caseInsensitiveCompare(symbol) == .orderedSame
+                }
+            guard !sold else { continue }
+            let buys = lots.filter { !$0.isSale }
+            let whole = buys.allSatisfy { lot in
+                lot.quantity >= 0.999 && abs(lot.quantity - lot.quantity.rounded()) < 0.000001
+            }
+            guard whole, abs(live - live.rounded()) > 0.000001 else { continue }
+            let factor = live / have
+            guard factor < 0.95 else { continue }
+            for index in lots.indices where !lots[index].isSale {
+                lots[index].quantity *= factor
+            }
+            HoldingLotStore.replace(lots, holdingID: holding.id)
+            _ = HoldingMaintenance.sync(holding, context: context)
+        }
     }
 
     private static func shareCount(_ lots: [HoldingLot]) -> Double {

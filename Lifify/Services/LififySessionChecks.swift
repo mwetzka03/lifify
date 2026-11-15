@@ -296,6 +296,105 @@ enum LififySessionChecks {
             activities: [],
             known: []
         )
+        let nvidia = TradeRepublicActivity(
+            id: "nvda",
+            date: day,
+            title: "NVIDIA",
+            eventType: "TRADING_TRADE_EXECUTED",
+            amountCents: -30340,
+            isin: "US67066G1040",
+            trade: true,
+            status: "EXECUTED",
+            quantity: 2
+        )
+        let tobacco = TradeRepublicPosition(isin: "GB0002875804", name: "Tobacco", quantity: 0.436442, averageBuyInCents: 5724)
+        let poisoned = TradeRepublicSync.changes(positions: [tobacco], holdings: [], activities: [nvidia], known: [])
+        let giftDay = TradeRepublicTimeline.read(Data(#"{"items":[{"id":"bat-gift","timestamp":"2026-11-06T12:00:00.000Z","title":"Tobacco","icon":"logos/GB0002875804/v2","status":"EXECUTED","amount":{"value":0,"fractionDigits":2},"eventType":"INCOMING_GIFT"}]}"#.utf8)).items.first?.date
+        let gifted = TradeRepublicSync.changes(
+            positions: [tobacco],
+            holdings: [],
+            activities: [nvidia] + TradeRepublicTimeline.read(Data(#"{"items":[{"id":"bat-gift","timestamp":"2026-11-06T12:00:00.000Z","title":"Tobacco","icon":"logos/GB0002875804/v2","status":"EXECUTED","amount":{"value":0,"fractionDigits":2},"eventType":"INCOMING_GIFT"}]}"#.utf8)).items,
+            known: []
+        )
+        let coin = TradeRepublicPosition(isin: "XF000BTC0017", name: "Bitcoin", quantity: 0.006526, averageBuyInCents: 5_871_231)
+        let coinBuy = TradeRepublicActivity(
+            id: "btc-buy",
+            date: day,
+            title: "Bitcoin",
+            eventType: "TRADING_TRADE_EXECUTED",
+            amountCents: -59979,
+            isin: "XF000BTC0017",
+            trade: true,
+            status: "EXECUTED",
+            quantity: 0.010439
+        )
+        let coinSale = TradeRepublicActivity(
+            id: "btc-sale",
+            date: day.addingTimeInterval(86_400),
+            title: "Bitcoin",
+            eventType: "TRADING_TRADE_EXECUTED",
+            amountCents: 28000,
+            isin: "XF000BTC0017",
+            trade: true,
+            status: "EXECUTED",
+            quantity: 0.003913
+        )
+        let coins = TradeRepublicSync.changes(positions: [coin], holdings: [], activities: [coinBuy, coinSale], known: [])
+        let closedBuy = TradeRepublicActivity(
+            id: "buy-apple",
+            date: day,
+            title: "Apple",
+            eventType: "ORDER_EXECUTED",
+            amountCents: -1000,
+            isin: "US0378331005",
+            trade: true,
+            status: "EXECUTED",
+            quantity: 2
+        )
+        let closed = TradeRepublicSync.changes(
+            positions: [],
+            holdings: [],
+            activities: [closedBuy, soldActivity],
+            known: []
+        )
+        let privateShare = TradeRepublicPosition(isin: "US84615Q1031", name: "SpaceX", quantity: 0.497296, averageBuyInCents: 12079)
+        let privateBuys = [
+            TradeRepublicActivity(
+                id: "sx1",
+                date: day,
+                title: "SpaceX",
+                eventType: "TRADING_TRADE_EXECUTED",
+                amountCents: -15371,
+                isin: "US84615Q1031",
+                trade: true,
+                status: "EXECUTED",
+                quantity: 1
+            ),
+            TradeRepublicActivity(
+                id: "sx2",
+                date: day.addingTimeInterval(60),
+                title: "SpaceX",
+                eventType: "TRADING_TRADE_EXECUTED",
+                amountCents: -13101,
+                isin: "US84615Q1031",
+                trade: true,
+                status: "EXECUTED",
+                quantity: 1
+            )
+        ]
+        let scaled = TradeRepublicSync.changes(positions: [privateShare], holdings: [], activities: privateBuys, known: [])
+        let scaledQuantities = scaled.compactMap { move -> Double? in
+            if case .buy(_, _, _, _, _, let quantity, _, _) = move { return quantity }
+            return nil
+        }
+        let indexJSON = #"{"items":[{"id":"keep","timestamp":"2026-11-06T12:00:00.000Z","title":"Tobacco","icon":"logos/GB0002875804/v2","status":"EXECUTED","amount":{"value":0,"fractionDigits":2},"eventType":"INCOMING_GIFT"},{"id":"skip","timestamp":"2026-11-06T12:00:00.000Z","title":"Pending","status":"CANCELED","amount":{"value":0,"fractionDigits":2},"eventType":"INCOMING_GIFT"}]}"#
+        let indexLines = TradeRepublicTimeline.indexLines(from: indexJSON)
+        let fromIndex = TradeRepublicTimeline.activities(fromIndex: indexLines.joined(separator: "\n"))
+        let sample = TradeRepublicSample.snapshot(from: "===== timelineIndex =====\n" + indexLines.joined(separator: "\n"))
+        var berlin = Calendar(identifier: .gregorian)
+        berlin.timeZone = TimeZone(identifier: "Europe/Berlin") ?? .gmt
+        let fourteenth = berlin.date(from: DateComponents(year: 2026, month: 11, day: 14)) ?? day
+        let sixteenth = berlin.date(from: DateComponents(year: 2026, month: 11, day: 16)) ?? day
         let receipts = saveback.items.first?.trade == false
             && saveback.items.first?.statementType == "Cashback"
             && namedSaveback.items.first?.trade == false
@@ -311,6 +410,40 @@ enum LififySessionChecks {
                 }
                 return false
             }
+            && poisoned.contains { move in
+                if case .grant(_, _, _, let isin, _, _, _, let type) = move {
+                    return isin == "GB0002875804" && type == "Depotgeschenk"
+                }
+                return false
+            }
+            && !poisoned.contains { if case .shares = $0 { return true }; return false }
+            && gifted.contains { move in
+                if case .grant(_, let date, _, let isin, _, _, _, _) = move {
+                    return isin == "GB0002875804" && date == giftDay
+                }
+                return false
+            }
+            && coins.contains { move in
+                if case .sale(_, _, _, let isin, _, let quantity, _) = move {
+                    return isin == "XF000BTC0017" && abs(quantity - 0.003913) < 0.000001
+                }
+                return false
+            }
+            && closed.contains { if case .buy(let id, _, _, _, _, _, _, _) = $0 { return id == "buy-apple" }; return false }
+            && closed.contains { if case .sale(let id, _, _, _, _, _, _) = $0 { return id == "sale1" }; return false }
+            && closed.contains { if case .drop(let isin) = $0 { return isin == "US0378331005" }; return false }
+            && scaledQuantities.count == 2
+            && scaledQuantities.allSatisfy { abs($0 - 0.248648) < 0.00001 }
+            && !scaled.contains { if case .sale = $0 { return true }; return false }
+            && MarketDataService.cryptoTicker(from: "XF000BTC0017") == "BTC"
+            && MarketDataService.isQuoteable("XF000BTC0017")
+            && !MarketDataService.isValidISIN("XF000BTC0017")
+            && indexLines.count == 2
+            && fromIndex.contains(where: { $0.id == "keep" && $0.statementType == "Depotgeschenk" })
+            && !fromIndex.contains(where: { $0.id == "skip" })
+            && sample?.activities.contains(where: { $0.id == "keep" }) == true
+            && BankImportApplier.ownAccountWindowDays == 3
+            && abs(Calendar.current.dateComponents([.day], from: Calendar.current.startOfDay(for: fourteenth), to: Calendar.current.startOfDay(for: sixteenth)).day ?? 99) == 2
         return result("Ein Depotstand setzt Menge und Einstand und erfindet nichts", .portfolio, .unit, passed && synced && categories && receipts, reading)
     }
 

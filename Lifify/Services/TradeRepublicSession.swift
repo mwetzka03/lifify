@@ -79,8 +79,8 @@ enum TradeRepublicFailure: Error, Equatable {
 enum TradeRepublicSample {
     static let revisionKey = "lifify.tradeRepublic.sampleRevision"
     private static let key = "lifify.tradeRepublic.sample"
-    private static let pieceLimit = 20_000
-    private static let totalLimit = 90_000
+    private static let pieceLimit = 60_000
+    private static let totalLimit = 180_000
 
     static var text: String {
         UserDefaults.standard.string(forKey: key) ?? ""
@@ -105,6 +105,64 @@ enum TradeRepublicSample {
     static func clear() {
         UserDefaults.standard.removeObject(forKey: key)
         UserDefaults.standard.set(0, forKey: revisionKey)
+    }
+
+    /// Rebuilds a snapshot from a copied sample or a pasted timeline JSON.
+    static func snapshot(from text: String) -> TradeRepublicSnapshot? {
+        var positions: [TradeRepublicPosition] = []
+        var activities: [TradeRepublicActivity] = []
+        var plans: [TradeRepublicPlan] = []
+        let sections = sections(in: text)
+        if sections.isEmpty {
+            merge(text, positions: &positions, activities: &activities, plans: &plans)
+        } else {
+            for (name, body) in sections {
+                if name.lowercased().hasPrefix("timelineindex") {
+                    for item in TradeRepublicTimeline.activities(fromIndex: body) where !activities.contains(where: { $0.id == item.id }) {
+                        activities.append(item)
+                    }
+                } else {
+                    merge(body, positions: &positions, activities: &activities, plans: &plans)
+                }
+            }
+        }
+        guard !positions.isEmpty || !activities.isEmpty else { return nil }
+        return TradeRepublicSnapshot(positions: positions, activities: activities, plans: plans)
+    }
+
+    private static func sections(in text: String) -> [(name: String, body: String)] {
+        let pattern = try? NSRegularExpression(pattern: #"^===== (.+?) =====\s*$"#, options: .anchorsMatchLines)
+        guard let pattern else { return [] }
+        let ns = text as NSString
+        let matches = pattern.matches(in: text, range: NSRange(location: 0, length: ns.length))
+        guard !matches.isEmpty else { return [] }
+        var result: [(String, String)] = []
+        for (index, match) in matches.enumerated() {
+            let name = ns.substring(with: match.range(at: 1))
+            let start = match.range.location + match.range.length
+            let end = index + 1 < matches.count ? matches[index + 1].range.location : ns.length
+            let body = ns.substring(with: NSRange(location: start, length: max(0, end - start)))
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            result.append((name, body))
+        }
+        return result
+    }
+
+    private static func merge(
+        _ text: String,
+        positions: inout [TradeRepublicPosition],
+        activities: inout [TradeRepublicActivity],
+        plans: inout [TradeRepublicPlan]
+    ) {
+        if case .positions(let rows) = TradeRepublicPortfolio.read(text: text), !rows.isEmpty {
+            positions = rows
+        }
+        let parsed = TradeRepublicTimeline.read(text: text)
+        for item in parsed.items where !activities.contains(where: { $0.id == item.id }) {
+            activities.append(item)
+        }
+        let found = TradeRepublicPlans.read(text: text)
+        if !found.isEmpty { plans = found }
     }
 }
 
@@ -145,10 +203,24 @@ enum TradeRepublicCopy {
         )
     }
     static var sample: String { L("Antwort kopieren", "Copy the response") }
+    static var extract: String { L("Trade-Republic-Auszug", "Trade Republic extract") }
+    static var pasteExtract: String { L("Auszug einfügen", "Paste extract") }
+    static var pasteFailed: String {
+        L(
+            "Der Text ist kein Trade-Republic-Auszug. Kopiere die Antwort aus dem Entwicklermodus oder die Timeline als JSON.",
+            "That text is not a Trade Republic extract. Copy the developer-mode response or the timeline as JSON."
+        )
+    }
+    static func appliedExtract(_ count: Int) -> String {
+        L(
+            "\(count) Buchungen aus dem Auszug übernommen.",
+            "\(count) bookings taken from the extract."
+        )
+    }
     static var sampleNote: String {
         L(
-            "Das ist die letzte Antwort von Trade Republic. Sie enthält deine Buchungen. Schwärze, was du nicht schicken willst, und kopiere den Rest hierher.",
-            "This is the latest response from Trade Republic. It contains your bookings. Black out anything you do not want to send, then copy the rest here."
+            "Das ist die letzte Antwort von Trade Republic, inklusive einer kompakten Timeline. Schwärze, was du nicht schicken willst, und kopiere den Rest hierher. Im Entwicklermodus kannst du einen Auszug auch einfügen, damit Lifify ihn ohne neue Anmeldung einliest.",
+            "This is the latest response from Trade Republic, including a compact timeline. Black out anything you do not want to send, then copy the rest here. In developer mode you can also paste an extract so Lifify reads it without signing in again."
         )
     }
     static var copied: String { L("Kopiert", "Copied") }

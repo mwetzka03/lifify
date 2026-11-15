@@ -152,7 +152,7 @@ struct TradeRepublicClient: Sendable {
         case .unreadable:
             throw TradeRepublicFailure.unreadable
         }
-        let history = await timeline(on: socket, inbox: inbox)
+        let history = await timeline(on: socket, inbox: inbox, positions: positions)
         return TradeRepublicSnapshot(positions: positions, activities: history.items, plans: history.plans)
     }
 
@@ -203,10 +203,15 @@ struct TradeRepublicClient: Sendable {
         return (id, String(rest), "")
     }
 
-    private static func timeline(on socket: URLSessionWebSocketTask, inbox: SocketInbox) async -> (items: [TradeRepublicActivity], plans: [TradeRepublicPlan]) {
+    private static func timeline(
+        on socket: URLSessionWebSocketTask,
+        inbox: SocketInbox,
+        positions: [TradeRepublicPosition]
+    ) async -> (items: [TradeRepublicActivity], plans: [TradeRepublicPlan]) {
         var after: String?
         var seen = Set<String>()
         var all: [TradeRepublicActivity] = []
+        var indexLines: [String] = []
         var pages = 0
         for _ in 0..<120 {
             var payload = ["type": "timelineTransactions"]
@@ -218,6 +223,7 @@ struct TradeRepublicClient: Sendable {
                 guard reply.ok, !reply.body.isEmpty else { break }
                 if pages == 0 { TradeRepublicSample.add(name: "timelineTransactions", body: reply.body) }
                 pages += 1
+                indexLines.append(contentsOf: TradeRepublicTimeline.indexLines(from: reply.body))
                 let parsed = TradeRepublicTimeline.read(text: reply.body)
                 for item in parsed.items where seen.insert(item.id).inserted {
                     all.append(item)
@@ -228,13 +234,30 @@ struct TradeRepublicClient: Sendable {
                 break
             }
         }
-        let pending = all.enumerated().filter {
-            $0.element.quantity == nil && ($0.element.trade || $0.element.isGrant)
+        if !indexLines.isEmpty {
+            TradeRepublicSample.add(name: "timelineIndex", body: indexLines.joined(separator: "\n"))
+        }
+        let unexplained = Set(positions.compactMap { position -> String? in
+            let bought = all.contains {
+                $0.isin.caseInsensitiveCompare(position.isin) == .orderedSame
+                    && TradeRepublicSync.purchase($0, averageCents: position.averageBuyInCents ?? 0)
+            }
+            return bought ? nil : position.isin.uppercased()
+        })
+        let pending = all.enumerated().filter { item in
+            let row = item.element
+            if row.quantity == nil && (row.trade || row.isGrant) { return true }
+            if unexplained.contains(row.isin.uppercased()) { return true }
+            if row.isin.isEmpty && row.amountCents == 0 && TradeRepublicTimeline.mightBeGrant(row.eventType) {
+                return true
+            }
+            return false
         }
             .sorted { $0.element.date > $1.element.date }
             .prefix(800)
         var keptBuyDetail = false
         var keptSavingsDetail = false
+        var keptGrantDetail = false
         var detailed = 0
         for item in pending {
             let id = inbox.take()
@@ -245,7 +268,10 @@ struct TradeRepublicClient: Sendable {
                 guard reply.ok, reply.body.contains("{") else { continue }
                 detailed += 1
                 let savings = item.element.savingsPlan
-                if savings, !keptSavingsDetail {
+                if item.element.isGrant, !keptGrantDetail {
+                    TradeRepublicSample.add(name: "timelineDetailV2 grant \(item.element.eventType)", body: reply.body)
+                    keptGrantDetail = true
+                } else if savings, !keptSavingsDetail {
                     TradeRepublicSample.add(name: "timelineDetailV2 savings \(item.element.eventType)", body: reply.body)
                     keptSavingsDetail = true
                 } else if !savings, !keptBuyDetail {
@@ -272,7 +298,7 @@ struct TradeRepublicClient: Sendable {
         let sized = all.filter { ($0.quantity ?? 0) > 0.0000005 }.count
         TradeRepublicSample.add(
             name: "summary",
-            body: "pages \(pages)\nitems \(all.count)\ndetails \(detailed)\nwith quantity \(sized)\nplans \(plans.count)"
+            body: "pages \(pages)\nitems \(all.count)\nindex \(indexLines.count)\ndetails \(detailed)\nwith quantity \(sized)\nplans \(plans.count)"
         )
         return (all, plans)
     }

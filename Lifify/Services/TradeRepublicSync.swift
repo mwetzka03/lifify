@@ -79,7 +79,7 @@ enum TradeRepublicTimeline {
         let subtitle = (row["subtitle"] as? String) ?? ""
         let trade = amount != 0 && isTrade(eventType, isin: isin)
         let kind = statementType(eventType: eventType, title: title, subtitle: subtitle, isin: isin, amountCents: amount, trade: trade)
-        guard amount != 0 || kind == "Cashback" || kind == "Depotgeschenk" else { return nil }
+        guard amount != 0 || kind == "Cashback" || kind == "Depotgeschenk" || mightBeGrant(eventType) else { return nil }
         var item = TradeRepublicActivity(
             id: id,
             date: date,
@@ -101,16 +101,104 @@ enum TradeRepublicTimeline {
               let object = try? JSONSerialization.jsonObject(with: Data(text[start...].utf8))
         else { return item }
         var copy = item
+        if let symbol = labeledText(in: object, titles: ["isin"]), !symbol.isEmpty, copy.isin.isEmpty {
+            copy.isin = symbol.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        }
+        copy.trade = copy.amountCents != 0 && isTrade(copy.eventType, isin: copy.isin)
+        copy.statementType = statementType(
+            eventType: copy.eventType,
+            title: copy.title,
+            subtitle: "",
+            isin: copy.isin,
+            amountCents: copy.amountCents,
+            trade: copy.trade
+        )
         if (copy.trade || copy.isGrant), let shares = transactionShares(in: object) {
             copy.quantity = shares
-        }
-        if let symbol = labeledText(in: object, titles: ["isin"]), !symbol.isEmpty, copy.isin.isEmpty {
-            copy.isin = symbol
         }
         if let savings = orderTypeIsSavings(in: object) {
             copy.savingsPlan = savings
         }
         return copy
+    }
+
+    /// One compact line per timeline row, including amount-0 gifts the booking parser might skip.
+    static func indexLines(from text: String) -> [String] {
+        guard let start = text.firstIndex(of: "{") else { return [] }
+        guard let object = try? JSONSerialization.jsonObject(with: Data(text[start...].utf8)) as? [String: Any] else {
+            return []
+        }
+        let rows = object["items"] as? [[String: Any]] ?? []
+        return rows.compactMap { row in
+            let id = (row["id"] as? String) ?? ""
+            guard !id.isEmpty else { return nil }
+            let title = ((row["title"] as? String) ?? "")
+                .replacingOccurrences(of: "\t", with: " ")
+                .replacingOccurrences(of: "\n", with: " ")
+            let amount = cents(row["amount"] as? [String: Any]) ?? 0
+            return [
+                (row["timestamp"] as? String) ?? "",
+                (row["eventType"] as? String) ?? "",
+                (row["status"] as? String) ?? "",
+                "\(amount)",
+                isin(from: (row["icon"] as? String) ?? ""),
+                title,
+                id
+            ].joined(separator: "\t")
+        }
+    }
+
+    static func activities(fromIndex text: String) -> [TradeRepublicActivity] {
+        text.split(whereSeparator: \.isNewline).compactMap { line in
+            activity(fromIndexLine: String(line))
+        }
+    }
+
+    static func mightBeGrant(_ eventType: String) -> Bool {
+        let folded = eventType.uppercased().replacingOccurrences(of: "_", with: "")
+        return folded.contains("GIFT")
+            || folded.contains("GESCHENK")
+            || folded.contains("PERK")
+            || folded.contains("WELCOME")
+            || folded.contains("ACQUISITION")
+            || folded.contains("SECURITIESTRANSFER")
+            || folded.contains("STOCKTRANSFER")
+            || folded.contains("SHARETRANSFER")
+            || folded.contains("INCOMINGTRANSFER")
+            || folded.contains("UBERTRAG")
+            || folded.contains("BENEFIT")
+    }
+
+    private static func activity(fromIndexLine line: String) -> TradeRepublicActivity? {
+        let parts = line.split(separator: "\t", omittingEmptySubsequences: false).map(String.init)
+        guard parts.count >= 7 else { return nil }
+        let status = parts[2]
+        guard status.isEmpty || status.caseInsensitiveCompare("EXECUTED") == .orderedSame else { return nil }
+        guard let date = date(from: parts[0]) else { return nil }
+        let eventType = parts[1]
+        let amount = Int(parts[3]) ?? 0
+        let isin = parts[4]
+        let title = parts[5]
+        let id = parts[6]
+        guard !id.isEmpty else { return nil }
+        let foldedEvent = eventType.uppercased().replacingOccurrences(of: "_", with: "")
+        if foldedEvent.contains("IPOSUBSCRIPTION") { return nil }
+        let trade = amount != 0 && isTrade(eventType, isin: isin)
+        let kind = statementType(eventType: eventType, title: title, subtitle: "", isin: isin, amountCents: amount, trade: trade)
+        guard amount != 0 || kind == "Cashback" || kind == "Depotgeschenk" || mightBeGrant(eventType) else { return nil }
+        var item = TradeRepublicActivity(
+            id: id,
+            date: date,
+            title: title,
+            eventType: eventType,
+            amountCents: amount,
+            isin: isin,
+            trade: trade,
+            status: status.isEmpty ? "EXECUTED" : status,
+            savingsPlan: isSavingsPlan(eventType)
+        )
+        item.statementType = kind
+        return item
     }
 
     private static func statementType(
@@ -373,15 +461,102 @@ enum TradeRepublicSync {
                 appendExit(holding, symbol: symbol, activities: activities, known: known, now: now, into: &moves)
                 continue
             }
-            let delta = position.quantity - holding.quantity
-            if delta > 0.0000005 {
-                appendBuys(position: position, holding: holding, activities: fresh, now: now, into: &moves)
-            } else if delta < -0.0000005 {
-                appendSales(quantity: -delta, position: position, holding: holding, activities: fresh, now: now, into: &moves)
+            let added = appendBuys(
+                position: position,
+                holding: holding,
+                activities: fresh,
+                history: activities,
+                now: now,
+                into: &moves
+            )
+            let have = holding.quantity + added
+            if have - position.quantity > 0.001 {
+                appendSales(
+                    quantity: have - position.quantity,
+                    position: position,
+                    holding: holding,
+                    activities: fresh,
+                    now: now,
+                    into: &moves
+                )
             }
         }
         for (symbol, position) in live where !seen.contains(symbol) {
-            appendBuys(position: position, holding: nil, activities: fresh, now: now, into: &moves)
+            seen.insert(symbol)
+            let added = appendBuys(
+                position: position,
+                holding: nil,
+                activities: fresh,
+                history: activities,
+                now: now,
+                into: &moves
+            )
+            if added - position.quantity > 0.001 {
+                appendSales(
+                    quantity: added - position.quantity,
+                    position: position,
+                    holding: HeldPosition(
+                        symbol: symbol,
+                        name: position.name,
+                        quantity: added,
+                        purchasePriceCents: position.averageBuyInCents ?? 0,
+                        latestLotDate: nil
+                    ),
+                    activities: fresh,
+                    now: now,
+                    into: &moves
+                )
+            }
+        }
+        let extra = Set(
+            fresh.compactMap { item -> String? in
+                let symbol = item.isin.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+                guard item.trade, !symbol.isEmpty, seen.contains(symbol) == false else { return nil }
+                return symbol
+            }
+        )
+        for symbol in extra.sorted() {
+            let name = fresh.first { $0.isin.caseInsensitiveCompare(symbol) == .orderedSame }?.title ?? symbol
+            let phantom = TradeRepublicPosition(isin: symbol, name: name, quantity: 0, averageBuyInCents: nil)
+            let added = appendBuys(
+                position: phantom,
+                holding: nil,
+                activities: fresh,
+                history: activities,
+                now: now,
+                into: &moves
+            )
+            if added > 0.001 {
+                appendSales(
+                    quantity: added,
+                    position: phantom,
+                    holding: HeldPosition(
+                        symbol: symbol,
+                        name: name,
+                        quantity: added,
+                        purchasePriceCents: 0,
+                        latestLotDate: nil
+                    ),
+                    activities: fresh,
+                    now: now,
+                    into: &moves
+                )
+            } else {
+                let sales = trades(isin: symbol, activities: fresh, buying: false, after: nil)
+                if !sales.isEmpty {
+                    appendLots(
+                        delta: sales.reduce(0) { $0 + ($1.quantity ?? 0) },
+                        events: sales,
+                        buying: false,
+                        isin: symbol,
+                        name: name,
+                        cost: 0,
+                        now: now,
+                        into: &moves
+                    )
+                }
+            }
+            moves.append(.drop(isin: symbol))
         }
         return moves
     }
@@ -445,18 +620,21 @@ enum TradeRepublicSync {
         return !named.isEmpty && item.title.localizedCaseInsensitiveContains(named)
     }
 
+    @discardableResult
     private static func appendBuys(
         position: TradeRepublicPosition,
         holding: HeldPosition?,
         activities: [TradeRepublicActivity],
+        history: [TradeRepublicActivity],
         now: Date,
         into moves: inout [TradeRepublicMove]
-    ) {
+    ) -> Double {
         let symbol = position.isin.uppercased()
         let name = position.name.isEmpty ? (holding?.name ?? symbol) : position.name
-        let given = activities.filter {
-            $0.isGrant && $0.isin.caseInsensitiveCompare(symbol) == .orderedSame && ($0.quantity ?? 0) > 0.0000005
+        let giftEvents = history.filter {
+            $0.isGrant && $0.isin.caseInsensitiveCompare(symbol) == .orderedSame
         }.sorted { $0.date < $1.date }
+        let given = giftEvents.filter { ($0.quantity ?? 0) > 0.0000005 }
         for event in given {
             let quantity = event.quantity ?? 0
             let value = abs(event.amountCents)
@@ -469,11 +647,28 @@ enum TradeRepublicSync {
                 name: name,
                 quantity: quantity,
                 amountCents: shown,
-                statementType: event.statementType
+                statementType: event.statementType.isEmpty ? "Depotgeschenk" : event.statementType
             ))
         }
         let chosen = trades(isin: symbol, activities: activities, buying: true, after: nil)
-        let sized = chosen.filter { purchase($0, averageCents: position.averageBuyInCents ?? 0) }
+        var sized = chosen.filter { purchase($0, averageCents: position.averageBuyInCents ?? 0) }
+        let saleEvents = trades(isin: symbol, activities: history, buying: false, after: nil)
+        var covered = sized.reduce(0.0) { $0 + ($1.quantity ?? 0) } + given.reduce(0.0) { $0 + ($1.quantity ?? 0) }
+        if holding == nil, saleEvents.isEmpty, position.quantity > 0.0000005, covered > position.quantity + 0.001 {
+            let whole = sized.allSatisfy { event in
+                let quantity = event.quantity ?? 0
+                return quantity >= 0.999 && abs(quantity - quantity.rounded()) < 0.000001
+            }
+            if whole, !isWhole(position.quantity) {
+                let factor = position.quantity / covered
+                sized = sized.map { event in
+                    var copy = event
+                    copy.quantity = (event.quantity ?? 0) * factor
+                    return copy
+                }
+                covered = position.quantity
+            }
+        }
         for event in sized {
             moves.append(.buy(
                 id: event.id,
@@ -486,14 +681,15 @@ enum TradeRepublicSync {
                 savingsPlan: event.savingsPlan
             ))
         }
-        let covered = sized.reduce(0.0) { $0 + ($1.quantity ?? 0) } + given.reduce(0.0) { $0 + ($1.quantity ?? 0) }
         let rest = position.quantity - (holding?.quantity ?? 0) - covered
-        guard rest > 0.001, let cost = position.averageBuyInCents, cost > 0 else { return }
-        let oldest = (sized + given).map(\.date).min() ?? activities.map(\.date).min() ?? now
+        guard rest > 0.001, let cost = position.averageBuyInCents, cost > 0 else { return covered }
+        let oldest = (sized + given).map(\.date).min() ?? history.map(\.date).min() ?? now
         let date = Calendar.current.date(byAdding: .day, value: -1, to: oldest) ?? oldest
-        let bought = activities.contains { purchase($0, averageCents: cost) }
+        let bought = history.contains {
+            $0.isin.caseInsensitiveCompare(symbol) == .orderedSame && purchase($0, averageCents: cost)
+        }
         if !bought {
-            let giftDate = given.map(\.date).min() ?? date
+            let giftDate = given.map(\.date).min() ?? giftEvents.map(\.date).min() ?? date
             moves.append(.grant(
                 id: "gift-\(symbol)",
                 date: giftDate,
@@ -504,7 +700,7 @@ enum TradeRepublicSync {
                 amountCents: Int((rest * Double(cost)).rounded()),
                 statementType: "Depotgeschenk"
             ))
-            return
+            return covered + rest
         }
         moves.append(.shares(
             id: "open-\(symbol)",
@@ -514,6 +710,11 @@ enum TradeRepublicSync {
             quantity: rest,
             unitCents: cost
         ))
+        return covered + rest
+    }
+
+    private static func isWhole(_ value: Double) -> Bool {
+        abs(value - value.rounded()) < 0.000001
     }
 
     private static func appendSales(
@@ -526,7 +727,24 @@ enum TradeRepublicSync {
     ) {
         let symbol = position.isin.uppercased()
         let name = position.name.isEmpty ? holding.name : position.name
-        let chosen = trades(isin: symbol, activities: activities, buying: false, after: holding.latestLotDate)
+        let chosen = trades(isin: symbol, activities: activities, buying: false, after: nil)
+        if chosen.isEmpty {
+            guard holding.latestLotDate == nil else { return }
+            let when = activities.filter {
+                $0.isin.caseInsensitiveCompare(symbol) == .orderedSame && $0.amountCents > 0
+            }.map(\.date).max() ?? now
+            appendLots(
+                delta: quantity,
+                events: [],
+                buying: false,
+                isin: symbol,
+                name: name,
+                cost: holding.purchasePriceCents,
+                now: when,
+                into: &moves
+            )
+            return
+        }
         appendLots(delta: quantity, events: chosen, buying: false, isin: symbol, name: name, cost: holding.purchasePriceCents, now: now, into: &moves)
     }
 
@@ -557,6 +775,7 @@ enum TradeRepublicSync {
             return
         }
         if chosen.isEmpty {
+            guard delta > 0.0000005 else { return }
             let amount = Int((delta * Double(cost)).rounded())
             let signed = buying ? -amount : amount
             let move = lot(id: "delta-\(isin)-\(buying ? "buy" : "sale")", date: now, title: name, isin: isin, name: name, quantity: delta, amountCents: signed, buying: buying)

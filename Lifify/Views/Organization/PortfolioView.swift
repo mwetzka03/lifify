@@ -1214,7 +1214,7 @@ private struct HoldingForm: View {
                         Label(L("Aktie suchen", "Search stock"), systemImage: "magnifyingglass")
                     }
                 }
-                .disabled(isSearching || !MarketDataService.isValidISIN(symbol))
+                .disabled(isSearching || !MarketDataService.isQuoteable(symbol))
 
                 ForEach(suggestions) { suggestion in
                     Button {
@@ -1287,7 +1287,7 @@ private struct HoldingForm: View {
                         let unchangedLegacyIdentifier = existing.map {
                             $0.symbol.trimmingCharacters(in: .whitespacesAndNewlines).uppercased() == normalizedISIN
                         } ?? false
-                        guard MarketDataService.isValidISIN(normalizedISIN) || unchangedLegacyIdentifier else {
+                        guard MarketDataService.isQuoteable(normalizedISIN) || unchangedLegacyIdentifier else {
                             validationMessage = L("Bitte eine gültige zwölfstellige ISIN eingeben.", "Enter a valid twelve-character ISIN.")
                             return
                         }
