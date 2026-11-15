@@ -79,7 +79,12 @@ enum TradeRepublicFailure: Error, Equatable {
 enum TradeRepublicSample {
     static let revisionKey = "lifify.tradeRepublic.sampleRevision"
     static let clipsExtract = false
-    private static let legacyKey = "lifify.tradeRepublic.sample"
+    static let alwaysStores = true
+    static let storesExtractInUserDefaults = false
+    static let showsFullExtractText = false
+    static let exportFilenamePrefix = "TradeRepublic-Auszug"
+    static let previewCharacterLimit = 1600
+    static let legacyKey = "lifify.tradeRepublic.sample"
 
     static var fileURL: URL {
         let folder = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
@@ -88,19 +93,47 @@ enum TradeRepublicSample {
         return folder.appendingPathComponent("traderepublic.extract.txt")
     }
 
+    static var exportFilename: String {
+        "\(exportFilenamePrefix)-\(Date.now.dayKey)"
+    }
+
+    static var leftoversInPreferences: Bool {
+        UserDefaults.standard.object(forKey: legacyKey) != nil
+    }
+
+    static var byteCount: Int {
+        purgeLegacyPreferences()
+        return fileByteCount()
+    }
+
+    static var hasContent: Bool { byteCount > 0 }
+
     static var text: String {
-        if let file = try? String(contentsOf: fileURL, encoding: .utf8), !file.isEmpty { return file }
-        return UserDefaults.standard.string(forKey: legacyKey) ?? ""
+        purgeLegacyPreferences()
+        return (try? String(contentsOf: fileURL, encoding: .utf8)) ?? ""
+    }
+
+    static func preview(limit: Int = previewCharacterLimit) -> String {
+        purgeLegacyPreferences()
+        guard let handle = try? FileHandle(forReadingFrom: fileURL) else { return "" }
+        defer { try? handle.close() }
+        let data = handle.readData(ofLength: limit)
+        let snippet = String(decoding: data, as: UTF8.self)
+        if fileByteCount() > data.count { return snippet + "\n…" }
+        return snippet
+    }
+
+    static func exportData() -> Data {
+        purgeLegacyPreferences()
+        return (try? Data(contentsOf: fileURL)) ?? Data()
     }
 
     static func begin() {
-        guard AppClock.isDeveloperMode else { return }
         replace("Trade Republic\n")
         bumpRevision()
     }
 
     static func add(name: String, body: String) {
-        guard AppClock.isDeveloperMode else { return }
         append("\n===== \(name) =====\n\(body)\n")
     }
 
@@ -108,10 +141,30 @@ enum TradeRepublicSample {
         bumpRevision()
     }
 
+    static func replaceWithImported(_ value: String) {
+        replace(value)
+        bumpRevision()
+    }
+
     static func clear() {
         try? FileManager.default.removeItem(at: fileURL)
         UserDefaults.standard.removeObject(forKey: legacyKey)
         UserDefaults.standard.set(0, forKey: revisionKey)
+    }
+
+    static func purgeLegacyPreferences() {
+        guard let leftover = UserDefaults.standard.string(forKey: legacyKey) else { return }
+        if fileByteCount() == 0, !leftover.isEmpty {
+            try? leftover.write(to: fileURL, atomically: true, encoding: .utf8)
+        }
+        UserDefaults.standard.removeObject(forKey: legacyKey)
+    }
+
+    private static func fileByteCount() -> Int {
+        guard FileManager.default.fileExists(atPath: fileURL.path),
+              let size = try? FileManager.default.attributesOfItem(atPath: fileURL.path)[.size] as? NSNumber
+        else { return 0 }
+        return size.intValue
     }
 
     private static func replace(_ value: String) {
@@ -126,6 +179,7 @@ enum TradeRepublicSample {
             defer { try? handle.close() }
             handle.seekToEndOfFile()
             handle.write(data)
+            UserDefaults.standard.removeObject(forKey: legacyKey)
             return
         }
         replace(((try? String(contentsOf: fileURL, encoding: .utf8)) ?? "") + value)
@@ -233,12 +287,35 @@ enum TradeRepublicCopy {
     }
     static var sample: String { L("Antwort kopieren", "Copy the response") }
     static var extract: String { L("Trade-Republic-Auszug", "Trade Republic extract") }
+    static var saveExtract: String { L("Auszug speichern", "Save extract") }
+    static var loadExtract: String { L("Auszug laden", "Load extract") }
     static var pasteExtract: String { L("Auszug einfügen", "Paste extract") }
+    static var emptyExtract: String {
+        L(
+            "Noch kein Auszug. Melde dich zuerst bei Trade Republic an. Danach liegt die Datei hier. Speichern geht wie bei Finanzen exportieren, in die Dateien-App.",
+            "There is no extract yet. Sign in to Trade Republic first. The file is then here. Saving works like Export finance, into the Files app."
+        )
+    }
+    static func extractReady(_ bytes: Int) -> String {
+        L(
+            "\(bytes) Bytes. Auszug speichern schreibt die Datei in die Dateien-App, wie Finanzen exportieren. Der ganze Text liegt nicht auf diesem Bildschirm.",
+            "\(bytes) bytes. Save extract writes the file into the Files app, like Export finance. The whole text is not on this screen."
+        )
+    }
     static var pasteFailed: String {
         L(
-            "Der Text ist kein Trade-Republic-Auszug. Kopiere die Antwort aus dem Entwicklermodus oder die Timeline als JSON.",
-            "That text is not a Trade Republic extract. Copy the developer-mode response or the timeline as JSON."
+            "Der Text ist kein Trade-Republic-Auszug. Das ist nicht die Lifify-Sicherung. Nach der Anmeldung den Auszug speichern, wie bei Finanzen exportieren.",
+            "That text is not a Trade Republic extract. That is not the Lifify backup. After signing in, save the extract the same way as Export finance."
         )
+    }
+    static var pasteWasBackup: String {
+        L(
+            "Das ist eine Lifify-Sicherung, kein Trade-Republic-Auszug. Nach der Anmeldung hier Auszug speichern und diese Datei schicken.",
+            "That is a Lifify backup, not a Trade Republic extract. After signing in, save the extract here and send that file."
+        )
+    }
+    static func looksLikeBackup(_ text: String) -> Bool {
+        text.contains("backupScope") || text.contains("\"type\" : \"account\"") || text.contains("\"type\":\"account\"")
     }
     static func appliedExtract(_ count: Int) -> String {
         L(
@@ -248,8 +325,8 @@ enum TradeRepublicCopy {
     }
     static var sampleNote: String {
         L(
-            "Das ist die letzte Antwort von Trade Republic als Datei, mit jeder Timeline-Seite, den Geschenk-Details und den Sparplänen. Nicht nur die erste Seite. Wenn der Text lang ist, teile die Datei statt zu kopieren. Schwärze, was du nicht schicken willst. Im Entwicklermodus kannst du einen Auszug auch einfügen, damit Lifify ihn ohne neue Anmeldung einliest.",
-            "This is the latest response from Trade Republic as a file, with every timeline page, the gift details, and the savings plans. Not only the first page. When the text is long, share the file instead of copying. Black out anything you do not want to send. In developer mode you can also paste an extract so Lifify reads it without signing in again."
+            "Nach der Anmeldung liegt die komplette Timeline hier als Datei. Auszug speichern schreibt sie in die Dateien-App, wie Finanzen exportieren. Das ist die Datei zum Schicken. Auszug laden oder einfügen liest einen Trade-Republic-Auszug in Lifify, keine Lifify-JSON-Sicherung.",
+            "After signing in, the complete timeline sits here as a file. Save extract writes it to the Files app, like Export finance. That is the file to send. Load extract or paste reads a Trade Republic extract into Lifify, not a Lifify JSON backup."
         )
     }
     static var copied: String { L("Kopiert", "Copied") }

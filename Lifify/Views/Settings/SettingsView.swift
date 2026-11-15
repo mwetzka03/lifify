@@ -117,7 +117,6 @@ private struct GeneralSettingsView: View {
             set: { enabled in
                 developerMode = enabled
                 AppClock.resetSimulatedDay()
-                if !enabled { TradeRepublicSample.clear() }
             }
         )
     }

@@ -486,6 +486,14 @@ enum LififySessionChecks {
                 return nil
             }.reduce(0, +) - 2) < 0.00001
             && !TradeRepublicSample.clipsExtract
+            && TradeRepublicSample.alwaysStores
+            && !TradeRepublicSample.storesExtractInUserDefaults
+            && !TradeRepublicSample.showsFullExtractText
+            && TradeRepublicSample.exportFilenamePrefix == "TradeRepublic-Auszug"
+            && TradeRepublicCopy.looksLikeBackup("{\"backupScope\":\"finance\"}")
+            && TradeRepublicCopy.looksLikeBackup("\"type\" : \"account\"")
+            && !TradeRepublicCopy.looksLikeBackup("===== compactPortfolio =====\n{}")
+            && extractLeavesPreferencesEmpty()
             && coins.contains { move in
                 if case .sale(_, _, _, let isin, _, let quantity, _) = move {
                     return isin == "XF000BTC0017" && abs(quantity - 0.003913) < 0.000001
@@ -684,6 +692,15 @@ enum LififySessionChecks {
     private static func isTransferPlan(_ plan: BankNoticePlan) -> Bool {
         if case .bookTransfer = plan { return true }
         return false
+    }
+
+    private static func extractLeavesPreferencesEmpty() -> Bool {
+        UserDefaults.standard.removeObject(forKey: TradeRepublicSample.legacyKey)
+        TradeRepublicSample.purgeLegacyPreferences()
+        return !TradeRepublicSample.leftoversInPreferences
+            && !TradeRepublicSample.storesExtractInUserDefaults
+            && TradeRepublicSample.previewCharacterLimit == 1600
+            && TradeRepublicSample.exportFilename.hasPrefix(TradeRepublicSample.exportFilenamePrefix)
     }
 
     private static func sessionImportReplacesPreviousTradeRepublic() -> Bool {

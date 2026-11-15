@@ -30,6 +30,7 @@ struct AppEntryView: View {
                 hasCompletedOnboarding = true
             }
             PortfolioConsolidation.consolidate(context: modelContext)
+            TradeRepublicSample.purgeLegacyPreferences()
             didCheckExistingInstallation = true
         }
         .environment(\.locale, AppDate.locale)

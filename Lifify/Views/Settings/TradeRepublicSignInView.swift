@@ -1,6 +1,23 @@
 import SwiftData
 import SwiftUI
 import UIKit
+import UniformTypeIdentifiers
+
+struct TradeRepublicExtractDocument: FileDocument {
+    static var readableContentTypes: [UTType] { [.plainText] }
+    var data: Data
+
+    init(data: Data = Data()) { self.data = data }
+
+    init(configuration: ReadConfiguration) throws {
+        guard let data = configuration.file.regularFileContents else { throw CocoaError(.fileReadCorruptFile) }
+        self.data = data
+    }
+
+    func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
+        FileWrapper(regularFileWithContents: data)
+    }
+}
 
 struct TradeRepublicSignInControls: View {
     @Environment(\.modelContext) private var context
@@ -20,22 +37,31 @@ struct TradeRepublicSignInControls: View {
     @State private var openingBalance = ""
     @State private var openingDate: Date?
     @State private var client = TradeRepublicClient()
-    @AppStorage(AppClock.modeKey) private var developerMode = false
     @AppStorage(TradeRepublicSample.revisionKey) private var sampleRevision = 0
+    @State private var exportingExtract = false
+    @State private var extractDocument = TradeRepublicExtractDocument()
 
     var body: some View {
         Section {
             Button(TradeRepublicCopy.signIn) {
+                hideKeyboard()
                 clearSecrets()
                 phase = .credentials
             }
-            if developerMode {
-                let _ = sampleRevision
-                NavigationLink {
-                    TradeRepublicSampleView()
-                } label: {
-                    Label(TradeRepublicCopy.extract, systemImage: "doc.on.doc")
-                }
+            let _ = sampleRevision
+            Button {
+                guard phase == .idle, !exportingExtract else { return }
+                hideKeyboard()
+                extractDocument = TradeRepublicExtractDocument(data: TradeRepublicSample.exportData())
+                exportingExtract = true
+            } label: {
+                Label(TradeRepublicCopy.saveExtract, systemImage: "square.and.arrow.down")
+            }
+            .disabled(!TradeRepublicSample.hasContent || phase != .idle)
+            NavigationLink {
+                TradeRepublicSampleView()
+            } label: {
+                Label(TradeRepublicCopy.extract, systemImage: "doc.on.doc")
             }
             if let note, phase == .idle {
                 Text(note)
@@ -53,7 +79,16 @@ struct TradeRepublicSignInControls: View {
             Text(TradeRepublicCopy.footnote)
         }
         .appGlassRow()
-        .onAppear { TradeRepublicSessionStore.clear() }
+        .onAppear {
+            TradeRepublicSessionStore.clear()
+            TradeRepublicSample.purgeLegacyPreferences()
+        }
+        .fileExporter(
+            isPresented: $exportingExtract,
+            document: extractDocument,
+            contentType: .plainText,
+            defaultFilename: TradeRepublicSample.exportFilename
+        ) { _ in }
         .fullScreenCover(isPresented: coverShown) {
             popup
                 .presentationBackground(.clear)
@@ -63,7 +98,7 @@ struct TradeRepublicSignInControls: View {
 
     private var coverShown: Binding<Bool> {
         Binding(
-            get: { phase != .idle },
+            get: { phase != .idle && !exportingExtract },
             set: { shown in
                 if !shown, phase != .waiting, phase != .loading { close() }
             }
@@ -199,10 +234,15 @@ struct TradeRepublicSignInControls: View {
         }
     }
 
+    private func hideKeyboard() {
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+    }
+
     private func start() {
         let phone = phone.trimmingCharacters(in: .whitespacesAndNewlines)
         let pin = pin
         self.pin = ""
+        hideKeyboard()
         phase = .waiting
         task?.cancel()
         client.invalidate()
@@ -247,6 +287,7 @@ struct TradeRepublicSignInControls: View {
     private func submitCode() {
         let entered = code
         code = ""
+        hideKeyboard()
         phase = .waiting
         let current = client
         task?.cancel()
@@ -327,65 +368,110 @@ struct TradeRepublicSignInControls: View {
 struct TradeRepublicSampleView: View {
     @Environment(\.modelContext) private var context
     @AppStorage(TradeRepublicSample.revisionKey) private var sampleRevision = 0
-    @State private var copied = false
     @State private var note: String?
+    @State private var exporting = false
+    @State private var importing = false
+    @State private var exportDocument = TradeRepublicExtractDocument()
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 12) {
+        let _ = sampleRevision
+        Form {
+            Section {
+                Button {
+                    guard !exporting, !importing else { return }
+                    exportDocument = TradeRepublicExtractDocument(data: TradeRepublicSample.exportData())
+                    exporting = true
+                } label: {
+                    Label(TradeRepublicCopy.saveExtract, systemImage: "square.and.arrow.down")
+                }
+                .disabled(!TradeRepublicSample.hasContent || exporting || importing)
+                Button {
+                    guard !exporting, !importing else { return }
+                    importing = true
+                } label: {
+                    Label(TradeRepublicCopy.loadExtract, systemImage: "square.and.arrow.up")
+                }
+                .disabled(exporting || importing)
+                Button {
+                    guard !exporting, !importing else { return }
+                    Task { await paste() }
+                } label: {
+                    Label(TradeRepublicCopy.pasteExtract, systemImage: "doc.on.clipboard")
+                }
+                .disabled(exporting || importing)
+            } footer: {
                 Text(TradeRepublicCopy.sampleNote)
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+            }
+            .appGlassRow()
+            Section {
+                if TradeRepublicSample.hasContent {
+                    Text(TradeRepublicCopy.extractReady(TradeRepublicSample.byteCount))
+                        .font(.footnote)
+                    Text(TradeRepublicSample.preview())
+                        .font(.caption.monospaced())
+                        .foregroundStyle(.secondary)
+                        .textSelection(.enabled)
+                        .lineLimit(12)
+                } else {
+                    Text(TradeRepublicCopy.emptyExtract)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
                 if let note {
                     Text(note)
                         .font(.footnote)
                 }
-                let _ = sampleRevision
-                Text(TradeRepublicSample.text)
-                    .font(.caption.monospaced())
-                    .textSelection(.enabled)
-                    .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .padding(16)
+            .appGlassRow()
         }
         .appGlassList()
         .navigationTitle(TradeRepublicCopy.extract)
         .navigationBarTitleDisplayMode(.inline)
-        .onAppear { TradeRepublicSample.finish() }
-        .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                Button(TradeRepublicCopy.pasteExtract) {
-                    Task { await paste() }
-                }
-            }
-            ToolbarItem(placement: .topBarTrailing) {
-                HStack {
-                    if !TradeRepublicSample.text.isEmpty {
-                        ShareLink(item: TradeRepublicSample.fileURL) {
-                            Image(systemName: "square.and.arrow.up")
-                        }
-                    }
-                    Button(copied ? TradeRepublicCopy.copied : TradeRepublicCopy.sample) {
-                        TradeRepublicSample.finish()
-                        UIPasteboard.general.string = TradeRepublicSample.text
-                        copied = true
-                    }
-                    .disabled(TradeRepublicSample.text.isEmpty)
-                }
+        .onAppear {
+            TradeRepublicSample.purgeLegacyPreferences()
+            TradeRepublicSample.finish()
+        }
+        .fileExporter(
+            isPresented: $exporting,
+            document: exportDocument,
+            contentType: .plainText,
+            defaultFilename: TradeRepublicSample.exportFilename
+        ) { _ in }
+        .fileImporter(
+            isPresented: $importing,
+            allowedContentTypes: [.plainText, .text],
+            allowsMultipleSelection: false
+        ) { result in
+            if case let .success(urls) = result, let url = urls.first {
+                Task { await load(from: url) }
             }
         }
     }
 
     @MainActor
     private func paste() async {
-        let text = UIPasteboard.general.string ?? ""
+        await applyExtract(UIPasteboard.general.string ?? "")
+    }
+
+    @MainActor
+    private func load(from url: URL) async {
+        let accessing = url.startAccessingSecurityScopedResource()
+        defer { if accessing { url.stopAccessingSecurityScopedResource() } }
+        let text = (try? String(contentsOf: url, encoding: .utf8)) ?? ""
+        await applyExtract(text)
+    }
+
+    @MainActor
+    private func applyExtract(_ text: String) async {
+        if TradeRepublicCopy.looksLikeBackup(text) {
+            note = TradeRepublicCopy.pasteWasBackup
+            return
+        }
         guard let snapshot = TradeRepublicSample.snapshot(from: text) else {
             note = TradeRepublicCopy.pasteFailed
             return
         }
-        TradeRepublicSample.begin()
-        TradeRepublicSample.add(name: "pasted", body: text)
-        TradeRepublicSample.finish()
+        TradeRepublicSample.replaceWithImported(text)
         do {
             let count = try await TradeRepublicDepotApplier.apply(snapshot: snapshot, context: context)
             note = TradeRepublicCopy.appliedExtract(count)
