@@ -73,7 +73,7 @@ enum TradeRepublicTimeline {
         let title = ((row["title"] as? String) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         let subtitle = (row["subtitle"] as? String) ?? ""
         let trade = isTrade(eventType, isin: isin)
-        return TradeRepublicActivity(
+        var item = TradeRepublicActivity(
             id: id,
             date: date,
             title: title,
@@ -83,9 +83,10 @@ enum TradeRepublicTimeline {
             trade: trade,
             status: status,
             quantity: shareCount(row),
-            savingsPlan: isSavingsPlan(eventType),
-            statementType: statementType(eventType: eventType, title: title, subtitle: subtitle, isin: isin, amountCents: amount, trade: trade)
+            savingsPlan: isSavingsPlan(eventType)
         )
+        item.statementType = statementType(eventType: eventType, title: title, subtitle: subtitle, isin: isin, amountCents: amount, trade: trade)
+        return item
     }
 
     static func enrich(_ item: TradeRepublicActivity, detail text: String) -> TradeRepublicActivity {
