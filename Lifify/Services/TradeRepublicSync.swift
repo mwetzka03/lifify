@@ -52,7 +52,8 @@ enum TradeRepublicTimeline {
     static func read(_ data: Data) -> (items: [TradeRepublicActivity], after: String?) {
         guard let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return ([], nil) }
         let rows = object["items"] as? [[String: Any]] ?? []
-        let after = (object["cursors"] as? [String: Any])?["after"] as? String
+        let cursors = object["cursors"] as? [String: Any]
+        let after = (cursors?["after"] as? String) ?? (object["after"] as? String)
         return (rows.compactMap(activity), after)
     }
 
@@ -87,7 +88,11 @@ enum TradeRepublicTimeline {
               let object = try? JSONSerialization.jsonObject(with: Data(text[start...].utf8))
         else { return item }
         var copy = item
-        if let shares = labeledNumber(in: object, titles: ["share", "stück", "stueck", "anteil", "quantity", "anteile", "stückzahl", "anzahl"]) {
+        if let shares = transactionShares(in: object) {
+            copy.quantity = shares
+        }
+        if copy.quantity == nil,
+           let shares = labeledNumber(in: object, titles: ["share", "stück", "stueck", "anteil", "quantity", "anteile", "stückzahl", "anzahl"]) {
             copy.quantity = shares
         }
         if copy.quantity == nil {
@@ -171,6 +176,41 @@ enum TradeRepublicTimeline {
         }
         let subtitle = (row["subtitle"] as? String) ?? ""
         return number(in: subtitle, unit: true)
+    }
+
+    /// "0,025303 × 197,60 €" and the Aktien row. Aktienkurs is the price, not the share count.
+    private static func transactionShares(in object: Any) -> Double? {
+        if let row = object as? [String: Any] {
+            let title = ((row["title"] as? String) ?? "")
+                .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "de_DE"))
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            if title == "transaktion" || title == "transaction", let detail = row["detail"] as? [String: Any] {
+                if let display = detail["displayValue"] as? [String: Any],
+                   let prefix = display["prefix"] as? String,
+                   let shares = number(in: prefix, unit: false) {
+                    return shares
+                }
+                if let text = detail["text"] as? String, (text.contains("×") || text.contains("x")),
+                   let shares = number(in: text, unit: false) {
+                    return shares
+                }
+            }
+            if ["aktien", "shares", "anteile", "stuck", "stueck"].contains(title),
+               !title.contains("kurs"),
+               let detail = row["detail"] as? [String: Any],
+               let text = detail["text"] as? String,
+               let shares = number(in: text, unit: false) {
+                return shares
+            }
+            for value in row.values {
+                if let found = transactionShares(in: value) { return found }
+            }
+        } else if let list = object as? [Any] {
+            for value in list {
+                if let found = transactionShares(in: value) { return found }
+            }
+        }
+        return nil
     }
 
     private static func labeledNumber(in object: Any, titles: [String]) -> Double? {
@@ -384,6 +424,22 @@ enum TradeRepublicSync {
                     quantity: event.quantity ?? 0,
                     amountCents: event.amountCents,
                     savingsPlan: event.savingsPlan
+                ))
+            }
+            let covered = sized.reduce(0.0) { $0 + ($1.quantity ?? 0) }
+            let rest = position.quantity - covered
+            if holding == nil, rest > 0.001, let cost = position.averageBuyInCents, cost > 0,
+               let oldest = sized.map(\.date).min() {
+                let date = Calendar.current.date(byAdding: .day, value: -1, to: oldest) ?? oldest
+                moves.append(.buy(
+                    id: "open-\(symbol)",
+                    date: date,
+                    title: name,
+                    isin: symbol,
+                    name: name,
+                    quantity: rest,
+                    amountCents: -Int((rest * Double(cost)).rounded()),
+                    savingsPlan: false
                 ))
             }
             return

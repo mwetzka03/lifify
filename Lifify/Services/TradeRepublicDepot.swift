@@ -250,17 +250,13 @@ enum TradeRepublicDepotApplier {
                 $0.trade && $0.amountCents < 0 && ($0.quantity ?? 0) > 0.0000005
                     && $0.isin.caseInsensitiveCompare(symbol) == .orderedSame
             }.sorted { $0.date < $1.date }
-            guard events.count >= 2 else { continue }
+            guard !events.isEmpty else { continue }
             let lots = HoldingLotStore.lots(for: holding.id).filter { !$0.isSale }
             guard lots.count == 1, let lump = lots.first else { continue }
-            let sum = events.reduce(0.0) { $0 + ($1.quantity ?? 0) }
-            let live = positions.first { $0.isin.caseInsensitiveCompare(symbol) == .orderedSame }?.quantity ?? lump.quantity
-            let coversPosition = abs(lump.quantity - sum) < max(0.05, sum * 0.02) || abs(lump.quantity - live) < max(0.05, live * 0.02)
-            let isOneEvent = events.contains {
-                abs(($0.quantity ?? 0) - lump.quantity) < 0.0000005
-                    && abs(abs($0.amountCents) - abs(lump.amountCents)) <= 150
-            }
-            guard coversPosition, !isOneEvent else { continue }
+            let position = positions.first { $0.isin.caseInsensitiveCompare(symbol) == .orderedSame }
+            let live = position?.quantity ?? lump.quantity
+            let smaller = events.contains { ($0.quantity ?? 0) + 0.0000005 < lump.quantity }
+            guard smaller, abs(lump.quantity - live) < max(0.05, live * 0.02) else { continue }
             if let entryID = lump.ledgerEntryID, let entry = entries.first(where: { $0.id == entryID }) {
                 if let fingerprint = entry.importFingerprint { known.remove(fingerprint) }
                 context.delete(entry)
@@ -276,6 +272,26 @@ enum TradeRepublicDepotApplier {
                     amountCents: event.amountCents,
                     sale: false,
                     savingsPlan: event.savingsPlan,
+                    holding: holding,
+                    checking: checking,
+                    portfolio: portfolio,
+                    known: &known,
+                    context: context
+                )
+            }
+            let covered = events.reduce(0.0) { $0 + ($1.quantity ?? 0) }
+            let rest = live - covered
+            if rest > 0.001, let cost = position?.averageBuyInCents, cost > 0, let oldest = events.map(\.date).min() {
+                let date = Calendar.current.date(byAdding: .day, value: -1, to: oldest) ?? oldest
+                known.remove(TradeRepublicTimeline.fingerprint("open-\(symbol)"))
+                _ = insertTrade(
+                    id: "open-\(symbol)",
+                    date: date,
+                    title: holding.name,
+                    quantity: rest,
+                    amountCents: -Int((rest * Double(cost)).rounded()),
+                    sale: false,
+                    savingsPlan: false,
                     holding: holding,
                     checking: checking,
                     portfolio: portfolio,

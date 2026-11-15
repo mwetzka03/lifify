@@ -69,7 +69,7 @@ struct TradeRepublicClient: Sendable {
     }
 
     func snapshot(cookies: String) async throws -> TradeRepublicSnapshot {
-        try await Self.withTimeout(seconds: 180) {
+        try await Self.withTimeout(seconds: 300) {
             try await Self.loadSnapshot(cookies: cookies)
         }
     }
@@ -123,92 +123,146 @@ struct TradeRepublicClient: Sendable {
         let socket = session.webSocketTask(with: websocketRequest(cookies: cookies))
         socket.resume()
         defer { socket.cancel(with: .normalClosure, reason: nil) }
+        let inbox = SocketInbox()
         TradeRepublicSample.begin()
         try await socket.send(.string(connectMessage))
         let hello = try await text(from: socket)
         guard hello == "connected" else { throw TradeRepublicFailure.sessionDead }
         var number = account.number
         if number == nil {
-            try await socket.send(.string(subscribe(1, ["type": "accountPairs"])))
-            let pairs = try await text(from: socket)
-            if pairs.contains(" E ") { throw TradeRepublicFailure.unreadable }
-            number = TradeRepublicPortfolio.securitiesAccountNumber(fromAccountPairs: pairs)
+            let id = inbox.take()
+            try await socket.send(.string(subscribe(id, ["type": "accountPairs"])))
+            let pairs = try await inbox.next(on: socket, id: id)
+            guard pairs.ok else { throw TradeRepublicFailure.unreadable }
+            number = TradeRepublicPortfolio.securitiesAccountNumber(fromAccountPairs: pairs.body)
         }
         guard let number, !number.isEmpty else { throw TradeRepublicFailure.unreadable }
-        try await socket.send(.string(subscribe(2, [
+        let portfolioID = inbox.take()
+        try await socket.send(.string(subscribe(portfolioID, [
             "type": "compactPortfolioByType",
             "secAccNo": number
         ])))
-        let payload = try await text(from: socket)
-        TradeRepublicSample.add(name: "compactPortfolio", body: payload)
-        if payload.contains(" E ") { throw TradeRepublicFailure.unreadable }
+        let payload = try await inbox.next(on: socket, id: portfolioID)
+        TradeRepublicSample.add(name: "compactPortfolio", body: payload.body)
+        guard payload.ok, !payload.body.isEmpty else { throw TradeRepublicFailure.unreadable }
         let positions: [TradeRepublicPosition]
-        switch TradeRepublicPortfolio.read(text: payload) {
+        switch TradeRepublicPortfolio.read(text: payload.body) {
         case .positions(let rows):
             positions = rows
         case .unreadable:
             throw TradeRepublicFailure.unreadable
         }
-        let history = await timeline(on: socket, startingAt: 3)
+        let history = await timeline(on: socket, inbox: inbox)
         return TradeRepublicSnapshot(positions: positions, activities: history.items, plans: history.plans)
     }
 
-    private static func timeline(on socket: URLSessionWebSocketTask, startingAt first: Int) async -> (items: [TradeRepublicActivity], plans: [TradeRepublicPlan]) {
-        var page = first
+    /// Answers are matched by subscription id. A following C is only the end of that answer, not the next page.
+    private final class SocketInbox: @unchecked Sendable {
+        private var nextID = 1
+        private var payloads: [Int: String] = [:]
+
+        func take() -> Int {
+            let id = nextID
+            nextID += 1
+            return id
+        }
+
+        func next(on socket: URLSessionWebSocketTask, id: Int) async throws -> (ok: Bool, body: String) {
+            if let ready = payloads.removeValue(forKey: id) { return (true, ready) }
+            while true {
+                let text = try await TradeRepublicClient.text(from: socket)
+                let parsed = TradeRepublicClient.frame(text)
+                guard let messageID = parsed.id else { continue }
+                if parsed.code == "E" {
+                    if messageID == id { return (false, parsed.payload) }
+                    continue
+                }
+                if parsed.code == "C" {
+                    if messageID == id { return (true, "") }
+                    continue
+                }
+                if parsed.code == "A" || parsed.code == "D" {
+                    if messageID == id { return (true, parsed.payload) }
+                    payloads[messageID] = parsed.payload
+                }
+            }
+        }
+    }
+
+    private static func frame(_ text: String) -> (id: Int?, code: String, payload: String) {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let space = trimmed.firstIndex(of: " ") else { return (nil, "", trimmed) }
+        let head = trimmed[..<space]
+        let rest = trimmed[trimmed.index(after: space)...]
+        let id = Int(head)
+        if let codeEnd = rest.firstIndex(of: " ") {
+            let code = String(rest[..<codeEnd])
+            let payload = String(rest[rest.index(after: codeEnd)...]).trimmingCharacters(in: .whitespacesAndNewlines)
+            return (id, code, payload)
+        }
+        return (id, String(rest), "")
+    }
+
+    private static func timeline(on socket: URLSessionWebSocketTask, inbox: SocketInbox) async -> (items: [TradeRepublicActivity], plans: [TradeRepublicPlan]) {
         var after: String?
         var seen = Set<String>()
         var all: [TradeRepublicActivity] = []
-        for _ in 0..<40 {
+        var pages = 0
+        for _ in 0..<120 {
             var payload = ["type": "timelineTransactions"]
             if let after { payload["after"] = after }
+            let id = inbox.take()
             do {
-                try await socket.send(.string(subscribe(page, payload)))
-                let text = try await text(from: socket)
-                if page == first { TradeRepublicSample.add(name: "timelineTransactions", body: text) }
-                if text.contains(" E ") { break }
-                let parsed = TradeRepublicTimeline.read(text: text)
+                try await socket.send(.string(subscribe(id, payload)))
+                let reply = try await inbox.next(on: socket, id: id)
+                guard reply.ok, !reply.body.isEmpty else { break }
+                if pages == 0 { TradeRepublicSample.add(name: "timelineTransactions", body: reply.body) }
+                pages += 1
+                let parsed = TradeRepublicTimeline.read(text: reply.body)
                 for item in parsed.items where seen.insert(item.id).inserted {
                     all.append(item)
                 }
                 guard let next = parsed.after, !next.isEmpty, next != after else { break }
                 after = next
-                page += 1
             } catch {
                 break
             }
         }
         let pending = all.enumerated().filter { $0.element.trade && $0.element.quantity == nil }
             .sorted { $0.element.date > $1.element.date }
-            .prefix(300)
+            .prefix(800)
         var keptBuyDetail = false
         var keptSavingsDetail = false
+        var detailed = 0
         for item in pending {
+            let id = inbox.take()
             let payload = ["type": "timelineDetailV2", "id": item.element.id]
             do {
-                try await socket.send(.string(subscribe(page, payload)))
-                let text = try await text(from: socket)
-                page += 1
+                try await socket.send(.string(subscribe(id, payload)))
+                let reply = try await inbox.next(on: socket, id: id)
+                guard reply.ok, reply.body.contains("{") else { continue }
+                detailed += 1
                 let savings = item.element.savingsPlan
                 if savings, !keptSavingsDetail {
-                    TradeRepublicSample.add(name: "timelineDetailV2 savings \(item.element.eventType)", body: text)
+                    TradeRepublicSample.add(name: "timelineDetailV2 savings \(item.element.eventType)", body: reply.body)
                     keptSavingsDetail = true
                 } else if !savings, !keptBuyDetail {
-                    TradeRepublicSample.add(name: "timelineDetailV2 \(item.element.eventType)", body: text)
+                    TradeRepublicSample.add(name: "timelineDetailV2 \(item.element.eventType)", body: reply.body)
                     keptBuyDetail = true
                 }
-                if text.contains(" E ") { continue }
-                all[item.offset] = TradeRepublicTimeline.enrich(item.element, detail: text)
+                all[item.offset] = TradeRepublicTimeline.enrich(item.element, detail: reply.body)
             } catch {
                 break
             }
         }
         var plans: [TradeRepublicPlan] = []
+        let planID = inbox.take()
         do {
-            try await socket.send(.string(subscribe(page, ["type": "savingsPlans"])))
-            let text = try await text(from: socket)
-            TradeRepublicSample.add(name: "savingsPlans", body: text)
-            if !text.contains(" E ") {
-                plans = TradeRepublicPlans.read(text: text)
+            try await socket.send(.string(subscribe(planID, ["type": "savingsPlans"])))
+            let reply = try await inbox.next(on: socket, id: planID)
+            TradeRepublicSample.add(name: "savingsPlans", body: reply.body)
+            if reply.ok, !reply.body.isEmpty {
+                plans = TradeRepublicPlans.read(text: reply.body)
             }
         } catch {
             plans = []
@@ -216,7 +270,7 @@ struct TradeRepublicClient: Sendable {
         let sized = all.filter { ($0.quantity ?? 0) > 0.0000005 }.count
         TradeRepublicSample.add(
             name: "summary",
-            body: "items \(all.count)\nwith quantity \(sized)\nplans \(plans.count)"
+            body: "pages \(pages)\nitems \(all.count)\ndetails \(detailed)\nwith quantity \(sized)\nplans \(plans.count)"
         )
         return (all, plans)
     }

@@ -210,6 +210,20 @@ enum LififySessionChecks {
             && !unsized.contains { if case .buy = $0 { return true }; return false }
             && enriched.quantity == 2
             && enriched.savingsPlan
+            && abs((TradeRepublicTimeline.enrich(
+                TradeRepublicActivity(
+                    id: "fraction",
+                    date: day,
+                    title: "AI",
+                    eventType: "TRADING_SAVINGSPLAN_EXECUTED",
+                    amountCents: -500,
+                    isin: "IE00BGV5VN51",
+                    trade: true,
+                    status: "EXECUTED",
+                    savingsPlan: true
+                ),
+                detail: #"{"sections":[{"title":"Übersicht","data":[{"title":"Transaktion","detail":{"text":"0,025303 ×  197,60 €","displayValue":{"prefix":"0,025303 × ","text":"197,60 €"}}},{"title":"Aktienkurs","detail":{"text":"197,60 €"}}]}]}"#
+            ).quantity ?? 0) - 0.025303) < 0.000001
             && !TradeRepublicTimeline.enrich(
                 TradeRepublicActivity(
                     id: "plain",
