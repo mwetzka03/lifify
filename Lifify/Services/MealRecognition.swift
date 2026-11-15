@@ -3,21 +3,26 @@ import Security
 import UIKit
 
 enum KeychainStore {
-    private static let service = "lifify.nutrition"
+    static let nutritionService = "lifify.nutrition"
+    /// Session cookie for a manual Trade Republic sign-in. Not the nutrition key.
+    static let tradeRepublicService = "lifify.traderepublic"
+    static let tradeRepublicAccount = "session"
+    /// This device only, so the item is left out of backups. Same rule as the Gemini key.
+    static var deviceOnly: String { kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly as String }
 
-    static func set(_ value: String, account: String) {
-        remove(account: account)
+    static func set(_ value: String, account: String, service: String = nutritionService) {
+        remove(account: account, service: service)
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
             kSecAttrAccount as String: account,
             kSecValueData as String: Data(value.utf8),
-            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+            kSecAttrAccessible as String: deviceOnly
         ]
         SecItemAdd(query as CFDictionary, nil)
     }
 
-    static func string(account: String) -> String? {
+    static func string(account: String, service: String = nutritionService) -> String? {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
@@ -33,7 +38,7 @@ enum KeychainStore {
         return text
     }
 
-    static func remove(account: String) {
+    static func remove(account: String, service: String = nutritionService) {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,

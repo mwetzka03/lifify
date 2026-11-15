@@ -31,7 +31,7 @@ struct FilteredLedgerView: View {
     }
 
     private var periods: [ForecastPeriod] {
-        FinancePeriods.all(entries: entries, forecasts: forecasts)
+        FinancePeriods.all(entries: entries, forecasts: forecasts, accounts: accounts)
     }
 
     private var selectedPeriod: ForecastPeriod? {
@@ -120,6 +120,18 @@ struct FilteredLedgerView: View {
             FinanceFilterControls(periods: periods, accounts: filterAccounts)
                 .padding(.horizontal, 12)
                 .padding(.top, 8)
+            if rowsToken != ledgerToken {
+                VStack {
+                    Spacer(minLength: 48)
+                    ProgressView()
+                        .controlSize(.large)
+                    Text(L("Wird geladen", "Loading"))
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    Spacer(minLength: 48)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
             List {
                 if kind == .income {
                     Section {
@@ -149,20 +161,7 @@ struct FilteredLedgerView: View {
                     }
                     .appGlassRow()
                 }
-                if rowsToken != ledgerToken {
-                    HStack {
-                        Spacer()
-                        VStack(spacing: 8) {
-                            ProgressView()
-                                .controlSize(.large)
-                            Text(L("Wird geladen", "Loading"))
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                        }
-                        .padding(.vertical, 24)
-                        Spacer()
-                    }
-                } else if preparedRows.isEmpty {
+                if preparedRows.isEmpty {
                     Text(emptyText)
                         .foregroundStyle(.secondary)
                 } else {
@@ -173,7 +172,6 @@ struct FilteredLedgerView: View {
                             .foregroundStyle(countedTotal == 0 ? Color.secondary : (kind == .expense ? .red : .green))
                     }
                 }
-                if rowsToken == ledgerToken {
                 ForEach(preparedRows) { row in
                     Button { selected = row.entry } label: {
                         let category = rowCategory(row)
@@ -220,10 +218,11 @@ struct FilteredLedgerView: View {
                     }
                     .buttonStyle(.plain)
                 }
-                }
             }
             .scrollContentBackground(.hidden)
+            }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .task(id: ledgerToken) {
             await refreshRows()
         }
@@ -367,7 +366,7 @@ struct FilteredLedgerView: View {
         case .income: return .green
         case .expense: return .red
         case .savingsPlan, .transfer: return paint.amountColor
-        case .interest, .dividend, .refund, .portfolioBuy, .portfolioSale, .adjustment:
+        case .interest, .dividend, .cashback, .portfolioGift, .refund, .portfolioBuy, .portfolioSale, .adjustment:
             return paint.amountColor
         }
     }
@@ -394,29 +393,9 @@ struct FilteredLedgerView: View {
         hasher.combine(selectedPeriod?.id)
         hasher.combine(RefundLinkStore.fingerprint())
         hasher.combine(HoldingLotStore.cacheRevision)
-        for entry in entries {
-            hasher.combine(entry.id)
-            hasher.combine(entry.date)
-            hasher.combine(entry.amountCents)
-            hasher.combine(entry.kindRaw)
-            hasher.combine(entry.accountID)
-            hasher.combine(entry.fromAccountID)
-            hasher.combine(entry.toAccountID)
-            hasher.combine(entry.title)
-            hasher.combine(entry.notes)
-        }
-        for holding in holdings {
-            hasher.combine(holding.id)
-            hasher.combine(holding.accountID)
-            hasher.combine(holding.symbol)
-            hasher.combine(holding.quantity)
-            hasher.combine(holding.currentPriceCents)
-        }
-        for account in accounts {
-            hasher.combine(account.id)
-            hasher.combine(account.kindRaw)
-            hasher.combine(account.isMain)
-        }
+        hasher.combine(accounts.count)
+        FinanceRenderToken.mix(entries: entries, into: &hasher)
+        FinanceRenderToken.mix(holdings: holdings, into: &hasher)
         return hasher.finalize()
     }
 

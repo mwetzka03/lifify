@@ -3,17 +3,56 @@ import SwiftData
 import SwiftUI
 import UniformTypeIdentifiers
 
+struct OnboardingBroker: Identifiable {
+    var id: String { name }
+    var name: String
+    var supported: Bool
+
+    static var all: [OnboardingBroker] {
+        [
+            OnboardingBroker(name: "Trade Republic", supported: true),
+            OnboardingBroker(name: "Scalable Capital", supported: false),
+            OnboardingBroker(name: "ING", supported: false),
+            OnboardingBroker(name: "comdirect", supported: false),
+            OnboardingBroker(name: "flatex", supported: false),
+            OnboardingBroker(name: "Consorsbank", supported: false),
+            OnboardingBroker(name: "Smartbroker", supported: false),
+            OnboardingBroker(name: "justTRADE", supported: false)
+        ]
+    }
+}
+
 enum OnboardingSteps {
     static var title: String { L("Lifify einrichten", "Set up Lifify") }
     static var start: String { L("Wie möchtest du starten?", "How would you like to start?") }
     static var newSetup: String { L("Neu einrichten", "Set up as new") }
-    static var restore: String { L("JSON-Sicherung laden", "Restore JSON backup") }
+    static var restore: String { L("JSON-Sicherung oder Teile laden", "Restore a JSON backup or parts") }
+    static var restoreNote: String {
+        L(
+            "Die ganze App, oder nur einzelne Bereiche: nur Finanzen, nur Challenges oder nur Training. Mehrere Dateien auf einmal gehen.",
+            "The entire app, or only one area: Finance only, Challenges only, or Training only. You can pick several files at once."
+        )
+    }
     static var welcome: String { L("Willkommen", "Welcome") }
     static var period: String { L("Budgetzeitraum", "Budget period") }
     static var account: String { L("Hauptkonto", "Main account") }
     static var bank: String { L("Hauptkonto importieren (optional)", "Import the main account (optional)") }
     static var tradeRepublic: String { "Trade Republic" }
+    static var broker: String { L("Depot anlegen (optional)", "Add a portfolio (optional)") }
+    static var tradeRepublicSignIn: String {
+        L("Trade Republic anmelden (optional)", "Sign in to Trade Republic (optional)")
+    }
+    static let count = 9
     static var secondaryIncome: String { L("Nebeneinnahmen (optional)", "Secondary income (optional)") }
+}
+
+enum OnboardingResume {
+    /// Unfinished setup always opens on the first step after a relaunch or update.
+    static func launchStep(isComplete: Bool, savedStep: Int) -> Int {
+        if isComplete { return 0 }
+        _ = savedStep
+        return 0
+    }
 }
 
 private struct SecondaryIncomeDraft: Identifiable {
@@ -36,7 +75,7 @@ struct OnboardingView: View {
     @AppStorage("appLanguage") private var language = "de"
     @AppStorage("userName") private var storedName = ""
     @AppStorage("dashboardPeriodMode") private var storedPeriod = DashboardPeriodMode.calendarMonth.rawValue
-    @AppStorage("onboardingStep") private var step = 0
+    @State private var step = 0
 
     @State private var userName = ""
     @State private var birthDate = UserProfile.birthDate() ?? UserProfile.suggestedDate()
@@ -80,7 +119,7 @@ struct OnboardingView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                ProgressView(value: Double(step + 1), total: 8)
+                ProgressView(value: Double(step + 1), total: Double(OnboardingSteps.count))
                     .padding()
                 Form {
                     switch step {
@@ -90,7 +129,8 @@ struct OnboardingView: View {
                     case 3: periodStep
                     case 4: accountStep
                     case 5: bankImportStep
-                    case 6: tradeRepublicStep
+                    case 6: brokerStep
+                    case 7: tradeRepublicStep
                     default: incomeStep
                     }
                 }
@@ -101,7 +141,7 @@ struct OnboardingView: View {
             .fileImporter(
                 isPresented: $importingBackup,
                 allowedContentTypes: [.json],
-                allowsMultipleSelection: false,
+                allowsMultipleSelection: BackupScope.allowsSeveralFiles,
                 onCompletion: restoreBackup
             )
             .fileImporter(
@@ -165,6 +205,7 @@ struct OnboardingView: View {
     @ViewBuilder
     private var startStep: some View {
         Section {
+            backButton()
             Button {
                 step = 2
             } label: {
@@ -175,6 +216,9 @@ struct OnboardingView: View {
             } label: {
                 Label(OnboardingSteps.restore, systemImage: "square.and.arrow.down")
             }
+            Text(OnboardingSteps.restoreNote)
+                .font(.caption)
+                .foregroundStyle(.secondary)
         } header: {
             Text(OnboardingSteps.start)
         }
@@ -224,6 +268,7 @@ struct OnboardingView: View {
         }
         .appGlassRow()
         Section {
+            backButton()
             nextButton {
                 storedName = userName.trimmingCharacters(in: .whitespacesAndNewlines)
                 UserProfile.setBirthDate(birthDate)
@@ -248,6 +293,7 @@ struct OnboardingView: View {
         }
         .appGlassRow()
         Section {
+            backButton()
             nextButton {
                 storedPeriod = periodMode.rawValue
                 step = 4
@@ -270,6 +316,7 @@ struct OnboardingView: View {
         }
         .appGlassRow()
         Section {
+            backButton()
             nextButton {
                 if saveMainAccount() { step = 5 }
             }
@@ -288,16 +335,13 @@ struct OnboardingView: View {
                     Label(L("CSV oder CAMT auswählen", "Select CSV or CAMT"), systemImage: "tablecells")
                 }
             }
-            if let balanceDate = openingBalanceDate, !pendingImportRows.isEmpty {
-                Text(String(
-                    format: L(
-                        "Wie hoch war der Kontostand am %@?",
-                        "What was the account balance on %@?"
-                    ),
-                    AppDate.weekdayAndNumeric(balanceDate)
+            if !pendingImportRows.isEmpty {
+                Text(L(
+                    "Wie hoch ist der aktuelle Kontostand?",
+                    "What is the current account balance?"
                 ))
                 .font(.headline)
-                TextField(L("Kontostand", "Account balance"), text: $openingBalance)
+                TextField(L("Aktueller Kontostand", "Current balance"), text: $openingBalance)
                     .keyboardType(.decimalPad)
                 Button(L("Import abschließen", "Finish import")) {
                     commitBankImport()
@@ -315,12 +359,13 @@ struct OnboardingView: View {
             Text(OnboardingSteps.bank)
         } footer: {
             Text(L(
-                "CSV und CAMT landen auf dem Hauptkonto und legen den ersten Zeitraum fest. Der Trade-Republic-Auszug folgt als eigener Schritt.",
-                "CSV and CAMT go to the main account and define the first period. The Trade Republic statement follows as its own step."
+                "CSV oder CAMT aufs Hauptkonto. Du gibst den aktuellen Kontostand an, den Startsaldo rechnet Lifify zurück.",
+                "CSV or CAMT onto the main account. You enter the current balance, and Lifify works the opening backwards."
             ))
         }
         .appGlassRow()
         Section {
+            backButton()
             if !importedRows.isEmpty {
                 nextButton { step = 6 }
             }
@@ -335,15 +380,8 @@ struct OnboardingView: View {
 
     @ViewBuilder
     private var tradeRepublicStep: some View {
-        Section {
-            if !tradeRepublicImported && pendingDocument == nil {
-                Button {
-                    importingTradeRepublic = true
-                } label: {
-                    Label(L("Trade-Republic-Kontoauszug hochladen", "Upload a Trade Republic statement"), systemImage: "doc.badge.plus")
-                }
-            }
-            if let statement = pendingDocument?.tradeRepublic {
+        if let statement = pendingDocument?.tradeRepublic {
+            Section {
                 Text(String(
                     format: L(
                         "%d Buchungen erkannt. Endsaldo %@.",
@@ -353,20 +391,19 @@ struct OnboardingView: View {
                     Money.string(cents: statement.closingBalanceCents)
                 ))
                 .font(.headline)
-                Text(L(
-                    "Daraus wird ein separates Trade-Republic-Girokonto. Ist die IBAN schon vorhanden, wird dieses Konto verwendet. Das Depot hängt daran.",
-                    "This creates a separate Trade Republic checking account. An existing IBAN is reused. The portfolio is linked to it."
-                ))
-                .font(.caption)
-                .foregroundStyle(.secondary)
                 Button(L("Import abschließen", "Finish import")) {
                     commitTradeRepublicImport()
                 }
                 Button(L("Andere Datei wählen", "Choose another file")) {
                     pendingDocument = nil
                 }
+            } header: {
+                Text(OnboardingSteps.tradeRepublic)
             }
-            if tradeRepublicImported {
+            .appGlassRow()
+        }
+        if tradeRepublicImported {
+            Section {
                 Label(
                     "\(tradeRepublicBooked) \(L("Buchungen importiert", "transactions imported"))",
                     systemImage: "checkmark.circle.fill"
@@ -388,36 +425,71 @@ struct OnboardingView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 }
-                if skippedBeforeStart > 0 {
-                    Text(L(
-                        "Buchungen vor dem Start des ersten Zeitraums wurden nicht angelegt. Spätere Buchungen sind dabei. Die Depotstände sind vollständig.",
-                        "Transactions before the start of the first period were not booked. Later transactions are included. The portfolio positions are complete."
-                    ))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+            }
+            .appGlassRow()
+        }
+        if pendingDocument == nil && !tradeRepublicImported {
+            TradeRepublicSignInControls(
+                showsSkip: false,
+                onUploadStatement: { importingTradeRepublic = true },
+                onSignedIn: {
+                    tradeRepublicImported = true
+                    step = 8
+                }
+            ) {}
+        }
+        Section {
+            backButton()
+            nextButton { step = 8 }
+                .disabled(pendingDocument != nil && !tradeRepublicImported)
+        } footer: {
+            Text(firstPeriodNote)
+        }
+        .appGlassRow()
+    }
+
+    @ViewBuilder
+    private var brokerStep: some View {
+        Section {
+            ForEach(OnboardingBroker.all) { broker in
+                if broker.supported {
+                    Button {
+                        createTradeRepublicAccounts()
+                        step = 7
+                    } label: {
+                        HStack {
+                            Text(broker.name)
+                                .foregroundStyle(.primary)
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                } else {
+                    HStack {
+                        Text(broker.name)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Text(L("Nicht unterstützt", "Not supported"))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
             }
-            Text(firstPeriodNote)
-                .font(.caption)
-                .foregroundStyle(.secondary)
         } header: {
-            Text(OnboardingSteps.tradeRepublic)
+            Text(OnboardingSteps.broker)
         } footer: {
             Text(L(
-                "Kein Zielkonto. Buchungen vor dem Start des ersten Zeitraums werden nicht angelegt, danach schon. Der Startsaldo ist der Saldo aus der rechten Spalte am Starttag, sonst vom letzten Tag davor.",
-                "No destination account. Transactions before the start of the first period are not booked; later ones are. The opening balance is the right-hand balance on the start day, or from the previous day."
+                "Trade Republic legt ein Girokonto an und verknüpft das Depot damit. Andere Broker folgen später.",
+                "Trade Republic creates a checking account and links the portfolio to it. Other brokers come later."
             ))
         }
         .appGlassRow()
         Section {
-            if tradeRepublicImported {
-                nextButton { step = 7 }
+            backButton()
+            Button(L("Ohne Depot fortfahren", "Continue without a portfolio")) {
+                step = 8
             }
-            Button(L("Ohne Import fortfahren", "Continue without import")) {
-                pendingDocument = nil
-                step = 7
-            }
-            .disabled(tradeRepublicImported)
         }
         .appGlassRow()
     }
@@ -488,6 +560,7 @@ struct OnboardingView: View {
             .appGlassRow()
         }
         Section {
+            backButton()
             Button {
                 finishSetup()
             } label: {
@@ -515,11 +588,10 @@ struct OnboardingView: View {
         ) {
             return String(
                 format: L(
-                    "Erster Zeitraum des Hauptkontos: %@. Buchungen vor dem Starttag werden nicht angelegt, spätere schon. Depotstände aus dem ganzen Auszug werden übernommen. Der Startsaldo ist der Saldo am %@, sonst vom letzten Tag davor.",
-                    "First period of the main account: %@. Transactions before the start date are not booked; later ones are. Portfolio positions from the whole statement are imported. The opening balance is the balance on %@, or the previous day."
+                    "Erster Zeitraum des Hauptkontos: %@. Frühere Buchungen auf anderen Konten bleiben außerhalb davon.",
+                    "First period of the main account: %@. Earlier bookings on other accounts stay outside it."
                 ),
-                AppDate.range(from: period.start, to: period.end),
-                AppDate.numeric(period.start)
+                AppDate.range(from: period.start, to: period.end)
             )
         }
         return L(
@@ -559,6 +631,38 @@ struct OnboardingView: View {
                 Image(systemName: "chevron.right")
             }
         }
+    }
+
+    private func backButton() -> some View {
+        Button {
+            step = max(step - 1, 0)
+        } label: {
+            HStack {
+                Image(systemName: "chevron.left")
+                Text(L("Zurück", "Back"))
+                Spacer()
+            }
+        }
+    }
+
+    private func createTradeRepublicAccounts() {
+        let checking: Account
+        if let existing = accounts.first(where: {
+            $0.kind == .checking && $0.name.caseInsensitiveCompare("Trade Republic") == .orderedSame
+        }) {
+            checking = existing
+        } else {
+            let created = Account(name: "Trade Republic", kind: .checking, isLiquid: true, isMain: false)
+            context.insert(created)
+            checking = created
+        }
+        checking.isMain = false
+        if PortfolioLinkStore.portfolioID(for: checking.id) == nil {
+            let portfolio = Account(name: L("Depot", "Portfolio"), kind: .portfolio, isLiquid: false)
+            context.insert(portfolio)
+            PortfolioLinkStore.link(portfolio: portfolio.id, to: checking.id)
+        }
+        try? context.save()
     }
 
     private func saveMainAccount() -> Bool {
@@ -603,11 +707,6 @@ struct OnboardingView: View {
         }
     }
 
-    private var openingBalanceDate: Date? {
-        guard let firstDate = pendingImportRows.first?.date else { return nil }
-        return Calendar.current.date(byAdding: .day, value: -1, to: firstDate)
-    }
-
     private func importTradeRepublicFile(_ result: Result<[URL], Error>) {
         guard case let .success(urls) = result, let url = urls.first else {
             if case let .failure(error) = result { message = error.localizedDescription }
@@ -634,7 +733,7 @@ struct OnboardingView: View {
             let result = try BankImportApplier.apply(
                 document: document,
                 to: .separateChecking,
-                openingBalanceCents: nil,
+                detectDuplicates: false,
                 context: context
             )
             importedEntryIDs.merge(result.entryIDs) { _, new in new }
@@ -655,26 +754,34 @@ struct OnboardingView: View {
     private func commitBankImport() {
         guard let accountID = mainAccountID ?? accounts.first(where: \.isMain)?.id,
               let account = accounts.first(where: { $0.id == accountID }),
-              let balance = Money.cents(from: openingBalance),
+              let current = Money.cents(from: openingBalance),
               let firstDate = pendingImportRows.first?.date
         else {
             return
         }
         var ledger = existingEntries
-        var known = Set(existingEntries.compactMap(\.importFingerprint))
+        var known = Set<String>()
         var review = ImportReview()
         var selectableRows: [ImportedTransaction] = []
         var entryIDs: [String: UUID] = [:]
         var inserted: [LedgerEntry] = []
         if !existingEntries.contains(where: {
-            $0.kind == .adjustment && $0.accountID == accountID
+            $0.kind == .adjustment
+                && $0.accountID == accountID
+                && !ImportBalance.isCurrentPin($0, accountID: accountID)
         }) {
+            let opening = ImportBalance.openingCents(
+                current: current,
+                rowAmounts: pendingImportRows.map(\.amountCents)
+            )
+            let day = Calendar.current.startOfDay(for: firstDate)
             let adjustment = LedgerEntry(
-                date: Calendar.current.date(byAdding: .day, value: -1, to: firstDate) ?? firstDate,
+                date: day,
                 title: L("Eröffnungssaldo", "Opening balance"),
-                amountCents: balance,
+                amountCents: opening,
                 kind: .adjustment,
-                accountID: accountID
+                accountID: accountID,
+                createdAt: day
             )
             context.insert(adjustment)
             inserted.append(adjustment)
@@ -688,18 +795,29 @@ struct OnboardingView: View {
                 entries: &ledger,
                 known: &known,
                 review: &review,
+                detectDuplicates: false,
                 context: context
             ) else { continue }
             inserted.append(entry)
             selectableRows.append(row)
             entryIDs[row.fingerprint] = entry.id
         }
+        let knownIDs = Set(inserted.map(\.id))
+        if let extra = ImportBalance.fitToCurrent(
+            account: account,
+            entries: &ledger,
+            currentCents: current,
+            context: context
+        ), !knownIDs.contains(extra.id) {
+            inserted.append(extra)
+        }
         do {
             try context.save()
+            BankImportCursor.mark(accountID, currentCents: current)
             importedEntryIDs.merge(entryIDs) { _, new in new }
             importedRows = selectableRows
             pendingImportRows = []
-            importReview = review.isEmpty ? nil : review
+            importReview = nil
         } catch {
             inserted.forEach(context.delete)
             message = error.localizedDescription
@@ -799,24 +917,30 @@ struct OnboardingView: View {
             IncomeAssignmentStore.assign(entryID: entryID, to: pair.forecast.id)
         }
         isFinishing = false
+        step = 0
         onboardingInProgress = false
         hasCompletedOnboarding = true
         BirthdayBonusService.settle(context: context)
     }
 
     private func restoreBackup(_ result: Result<[URL], Error>) {
-        guard case let .success(urls) = result, let url = urls.first else {
+        guard case let .success(urls) = result, !urls.isEmpty else {
             if case let .failure(error) = result { message = error.localizedDescription }
             return
         }
-        let access = url.startAccessingSecurityScopedResource()
-        defer { if access { url.stopAccessingSecurityScopedResource() } }
+        var accessors: [URL] = []
+        defer { accessors.forEach { $0.stopAccessingSecurityScopedResource() } }
         do {
-            try BackupService.restore(data: Data(contentsOf: url), into: context)
+            var payloads: [Data] = []
+            for url in urls {
+                if url.startAccessingSecurityScopedResource() { accessors.append(url) }
+                payloads.append(try Data(contentsOf: url))
+            }
+            let scopes = try BackupService.restore(payloads: payloads, into: context)
             let restoredAccounts = try context.fetch(FetchDescriptor<Account>())
             guard restoredAccounts.contains(where: \.isMain) else {
                 step = 4
-                message = L(
+                message = BackupService.restoredMessage(scopes) + " " + L(
                     "Die Sicherung enthält kein Hauptkonto. Bitte richte jetzt eines ein.",
                     "The backup contains no main account. Set one up now."
                 )

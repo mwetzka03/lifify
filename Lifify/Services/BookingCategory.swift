@@ -4,6 +4,8 @@ enum BookingCategory: String, CaseIterable, Identifiable {
     case income
     case interest
     case dividend
+    case cashback
+    case portfolioGift
     case expense
     case refund
     case portfolioBuy
@@ -19,6 +21,8 @@ enum BookingCategory: String, CaseIterable, Identifiable {
         case .income: L("Einnahme", "Income")
         case .interest: L("Zinsen", "Interest")
         case .dividend: L("Dividende", "Dividend")
+        case .cashback: "Cashback"
+        case .portfolioGift: L("Depotgeschenk", "Portfolio gift")
         case .expense: L("Ausgabe", "Expense")
         case .refund: L("Rückerstattung", "Refund")
         case .portfolioBuy: L("Depotkauf", "Portfolio buy")
@@ -34,6 +38,8 @@ enum BookingCategory: String, CaseIterable, Identifiable {
         case .income: "banknote"
         case .interest: "percent"
         case .dividend: "chart.pie"
+        case .cashback: "giftcard"
+        case .portfolioGift: "gift"
         case .expense: "cart"
         case .refund: "arrow.uturn.backward.circle"
         case .portfolioBuy: "chart.line.uptrend.xyaxis"
@@ -47,13 +53,13 @@ enum BookingCategory: String, CaseIterable, Identifiable {
     var usesTwoAccounts: Bool {
         switch self {
         case .portfolioBuy, .portfolioSale, .savingsPlan, .transfer: true
-        case .income, .interest, .dividend, .expense, .refund, .adjustment: false
+        case .income, .interest, .dividend, .cashback, .portfolioGift, .expense, .refund, .adjustment: false
         }
     }
 
     var storedKind: LedgerKind {
         switch self {
-        case .income, .interest, .dividend, .refund: .income
+        case .income, .interest, .dividend, .cashback, .portfolioGift, .refund: .income
         case .expense: .expense
         case .adjustment: .adjustment
         case .portfolioBuy, .portfolioSale, .savingsPlan, .transfer: .transfer
@@ -69,7 +75,7 @@ enum BookingCategory: String, CaseIterable, Identifiable {
     var allowsManualEntry: Bool {
         switch self {
         case .portfolioBuy, .portfolioSale, .savingsPlan: false
-        case .income, .interest, .dividend, .expense, .refund, .transfer, .adjustment: true
+        case .income, .interest, .dividend, .cashback, .portfolioGift, .expense, .refund, .transfer, .adjustment: true
         }
     }
 }
@@ -100,6 +106,8 @@ enum BookingClassification {
         if isPortfolioBuy(entry, portfolios: portfolios) { return .portfolioBuy }
         if isDividend(entry) { return .dividend }
         if isInterest(entry) { return .interest }
+        if isCashback(entry) { return .cashback }
+        if isPortfolioGift(entry) { return .portfolioGift }
         switch entry.kind {
         case .income:
             return .income
@@ -124,7 +132,7 @@ enum BookingClassification {
         switch category {
         case .expense:
             return -amount
-        case .income, .interest, .dividend, .refund:
+        case .income, .interest, .dividend, .cashback, .portfolioGift, .refund:
             return amount
         case .adjustment:
             return entry.amountCents
@@ -175,7 +183,7 @@ enum BookingClassification {
             case .combined: color = .primary
             }
             return BookingPaint(iconColor: color, amountColor: color, differenceCents: differenceCents)
-        case .income, .interest, .dividend:
+        case .income, .interest, .dividend, .cashback, .portfolioGift:
             return BookingPaint(iconColor: .primary, amountColor: signedColor(signed), differenceCents: nil)
         case .expense:
             return BookingPaint(iconColor: .primary, amountColor: signed < 0 ? .red : .primary, differenceCents: differenceCents)
@@ -191,7 +199,7 @@ enum BookingClassification {
             return abs(signed)
         case .portfolioSale:
             return -abs(signed)
-        case .income, .interest, .dividend, .expense, .refund, .transfer, .adjustment:
+        case .income, .interest, .dividend, .cashback, .portfolioGift, .expense, .refund, .transfer, .adjustment:
             return signed
         }
     }
@@ -232,6 +240,10 @@ enum BookingClassification {
             return "Kauf: \(stripped)"
         case .portfolioSale:
             return "Verkauf: \(stripped)"
+        case .cashback:
+            return "Cashback: \(stripped)"
+        case .portfolioGift:
+            return "\(L("Depotgeschenk", "Portfolio gift")): \(stripped)"
         case .income, .interest, .dividend, .expense, .refund, .transfer, .adjustment:
             return stripped
         }
@@ -243,6 +255,10 @@ enum BookingClassification {
             return replacingType(notes, with: "Zinsen")
         case .dividend:
             return replacingType(notes, with: "Ertrag")
+        case .cashback:
+            return replacingType(notes, with: "Cashback")
+        case .portfolioGift:
+            return replacingType(notes, with: "Depotgeschenk")
         case .savingsPlan:
             return replacingType(notes, with: "Sparplan")
         case .refund:
@@ -289,6 +305,18 @@ enum BookingClassification {
             || notes.contains("type: interest")
     }
 
+    private static func isCashback(_ entry: LedgerEntry) -> Bool {
+        guard entry.kind == .income else { return false }
+        let notes = folded(entry.notes)
+        return notes.contains("typ: cashback") || notes.contains("type: cashback")
+    }
+
+    private static func isPortfolioGift(_ entry: LedgerEntry) -> Bool {
+        guard entry.kind == .income else { return false }
+        let notes = folded(entry.notes)
+        return notes.contains("typ: depotgeschenk") || notes.contains("type: portfolio gift")
+    }
+
     private static func hasPrefix(_ title: String, _ prefixes: [String]) -> Bool {
         prefixes.contains { title.hasPrefix($0) }
     }
@@ -297,7 +325,8 @@ enum BookingClassification {
         let prefixes = [
             "Sparplan: ", "Savings plan: ",
             "Kauf: ", "Purchase: ", "Buy: ",
-            "Verkauf: ", "Sale: ", "Sell: "
+            "Verkauf: ", "Sale: ", "Sell: ",
+            "Cashback: ", "Depotgeschenk: ", "Portfolio gift: "
         ]
         for prefix in prefixes where title.hasPrefix(prefix) {
             return String(title.dropFirst(prefix.count)).trimmingCharacters(in: .whitespacesAndNewlines)

@@ -437,10 +437,10 @@ enum CheckStories {
             ("Die drei gesperrten Kategorien fehlen in der Liste und in den Beschriftungen.", "The three locked categories are missing from the list and from the labels.", "LififyFeatureChecks.swift"),
         ),
         "Buchungsfeld und Betrag nutzen dieselben Kategorien": make(
-            "Das Buchungsfeld bietet dieselben sieben Kategorien, und Beträge werden als Cent gelesen.",
-            "The booking field offers the same seven categories, and amounts are read as cents.",
+            "Das Buchungsfeld bietet dieselben neun Kategorien, und Beträge werden als Cent gelesen.",
+            "The booking field offers the same nine categories, and amounts are read as cents.",
             ("19,99 wird 1999 Cent und 1.250,50 wird 125050 Cent.", "19.99 becomes 1999 cents and 1,250.50 becomes 125050 cents.", "Formatters.swift"),
-            ("Die manuelle Liste hat sieben Einträge und enthält Depot und Sparplan nicht.", "The manual list has seven entries and does not contain portfolio or savings plan.", "BookingCategory.swift"),
+            ("Die manuelle Liste hat neun Einträge und enthält Depot und Sparplan nicht.", "The manual list has nine entries and does not contain portfolio or savings plan.", "BookingCategory.swift"),
         ),
         "Die Symbolauswahl enthält Hanfblatt und Zigarette": make(
             "Die Symbolauswahl enthält das Hanfblatt und die Zigarette als eigene Zeichnungen.",
@@ -452,7 +452,7 @@ enum CheckStories {
             "Gesundheit, Einstellungen und die bemalten Flächen zeigen die Titel, die auf dem Bildschirm stehen.",
             "Health, Settings, and the painted screens show the titles that appear on screen.",
             ("Training, Ernährung und die sechs Einstellungszeilen werden gelesen. Nutzereinstellungen steht über Allgemein.", "Training, Nutrition, and the six settings rows are read. User settings sits above General.", "AppChrome.swift"),
-            ("Die bemalten Flächen umfassen Home, Challenges, Gesundheit, Einstellungen, Einrichtung und Finanzen. Die Version ist 0.4.0. Ohne Schlüssel bleibt der Text, dass die Erkennung nicht verbunden ist.", "The painted screens include Home, Challenges, Health, Settings, setup, and Finance. The version is 0.4.0. Without a key the text still says recognition is not connected.", "HealthView.swift"),
+            ("Die bemalten Flächen umfassen Home, Challenges, Gesundheit, Einstellungen, Einrichtung und Finanzen. Die Version ist 0.5.0. Ohne Schlüssel bleibt der Text, dass die Erkennung nicht verbunden ist.", "The painted screens include Home, Challenges, Health, Settings, setup, and Finance. The version is 0.5.0. Without a key the text still says recognition is not connected.", "HealthView.swift"),
         ),
         "Hell und Dunkel haben eigene Flächen": make(
             "Heller und dunkler Modus haben verschiedene Hintergrund- und Kartenfarben.",
@@ -509,10 +509,10 @@ enum CheckStories {
             ("CalendarService.savingsPlanDates für Mai 2026 liefert nur den 4. Der 2. fehlt, weil er ein Samstag nach dem Feiertag ist. Der Wochenplan-Text nennt 2., 9., 16. und 23.", "CalendarService.savingsPlanDates for May 2026 returns only the 4th. The 2nd is missing because it is a Saturday after the holiday. The weekly schedule text names the 2nd, 9th, 16th, and 23rd.", "LififyCoverageChecks.swift"),
         ),
         "Restbudget, Anteil und Zeitraum": make(
-            "Das Restbudget ist geplant minus ausgegeben. Anteile und der Zeitraum bleiben nachvollziehbar.",
-            "The remaining budget is planned minus spent. Shares and the period stay traceable.",
-            ("Ein Budget mit Ausgabe wird direkt gebaut, ohne Nutzerdaten zu schreiben.", "A budget with spending is built directly, without writing user data.", "HomeBudget.swift"),
-            ("Der Rest ist die Differenz, auch wenn er negativ ist.", "The remainder is the difference, even when it is negative.", "LififyCoverageChecks.swift"),
+            "Das Restbudget ist geplant minus ausgegeben. Anteile und der Zeitraum bleiben nachvollziehbar. Der erste Gehaltszeitraum beginnt mit der ersten Buchung auf dem Hauptkonto, nicht mit einem früheren Zahltag und nicht mit einer früheren Buchung auf einem anderen Konto. Der aktuelle Kontostand ergibt den Startsaldo rückwärts, eine Abweichung wird zur Korrektur.",
+            "The remaining budget is planned minus spent. Shares and the period stay traceable. The first salary period begins with the first booking on the main account, not with an earlier payday and not with an earlier booking on another account. The current balance works the opening backwards, and a mismatch becomes a correction.",
+            ("Ein Budget mit Ausgabe wird direkt gebaut, ohne Nutzerdaten zu schreiben. Der erste Zeitraum wird aus dem letzten Bankarbeitstag, dem Startdatum 17.5.2026 und dem Hauptkonto geschnitten.", "A budget with spending is built directly, without writing user data. The first period is clipped from the last banking day, the start date 17 May 2026, and the main account.", "HomeBudget.swift"),
+            ("Der Rest ist die Differenz, auch wenn er negativ ist. Der erste Zeitraum startet am 17.5. und endet am 28.5., nicht am 30.4. und nicht am 5.5. Startsaldo 12000 und Korrektur minus 800 stimmen.", "The remainder is the difference, even when it is negative. The first period starts on 17 May and ends on 28 May, not on 30 April and not on 5 May. Opening 12000 and a correction of minus 800 match.", "LififyCoverageChecks.swift"),
         ),
         "Übertrag, Einkauf und Ausgabengruppe": make(
             "Budgetpools übertragen den Rest. Der Einkaufszettel verschiebt Geplantes. Eine Gruppenzeile ändert die Buchung nicht.",
@@ -521,8 +521,8 @@ enum CheckStories {
             ("Der Übertrag stimmt vor einer Änderung der Skalierung, und die Buchung bleibt unangetastet.", "The carry is correct before a scale change, and the booking stays untouched.", "LififyCoverageChecks.swift"),
         ),
         "Einstand und Sortierung im Depot": make(
-            "Der Einstand ist der Durchschnitt der Käufe. Die Sortierung zeigt ihre Beschriftungen.",
-            "Cost basis is the average of the purchases. The sort order shows its labels.",
+            "Der Einstand ist der Durchschnitt der Käufe. Ein Geschenk zählt mit Kaufkurs 0. Die Sortierung zeigt ihre Beschriftungen.",
+            "Cost basis is the average of the purchases. A gift counts at a purchase price of 0. The sort order shows its labels.",
             ("Käufe werden zu einem Durchschnittspreis gemischt.", "Purchases are mixed into an average price.", "PortfolioActivity.swift"),
             ("Menge und Preis des Schnitts stimmen, und die Sortiernamen sind nicht leer.", "The average quantity and price match, and the sort names are not empty.", "LififyCoverageChecks.swift"),
         ),
@@ -533,10 +533,16 @@ enum CheckStories {
             ("Die Tagesänderung fehlt dann, und ein Kauf zählt als Depotkauf.", "The day change is then missing, and a purchase counts as a portfolio buy.", "LififyCoverageChecks.swift"),
         ),
         "CSV und CAMT zeigen die Buchung": make(
-            "CSV und CAMT werden zu Buchungen mit Betrag und Text.",
-            "CSV and CAMT become bookings with an amount and text.",
+            "CSV und CAMT werden zu Buchungen mit Betrag und Text. Zwei Zahlungen an denselben Empfänger am selben Tag mit unterschiedlicher Referenz bleiben zwei Buchungen, auch wenn der alte Fingerabdruck gleich ist. Vorgemerkte Umsätze werden nicht importiert. Zwei Buchungen am selben Tag mit demselben Betrag bleiben beide, auch nach dem Verknüpfen eigener Konten.",
+            "CSV and CAMT become bookings with an amount and text. Two payments to the same payee on the same day with a different reference stay two bookings, even when the old fingerprint is the same. Pending rows are not imported. Two bookings on the same day with the same amount both stay, including after own-account linking.",
             ("Eine CSV-Zeile und eine CAMT-Zahlung werden gelesen.", "One CSV row and one CAMT payment are read.", "BankImportService.swift"),
-            ("Anzahl und Betrag entsprechen der Datei.", "The count and the amount match the file.", "LififyCoverageChecks.swift"),
+            ("Anzahl und Betrag entsprechen der Datei. Zwei PayPal-Zeilen bleiben zwei, Dietz und Snack Mall am selben Tag mit 10 Euro bleiben zwei, ihre alten Fingerabdrücke sind gleich, die neuen nicht, und eine vorgemerkte fällt raus.", "The count and the amount match the file. Two PayPal rows stay two, Dietz and Snack Mall on the same day at 10 euros stay two, their old fingerprints match, the new ones do not, and a pending row is dropped.", "LififyCoverageChecks.swift"),
+        ),
+        "Import fragt nach fehlenden Tagesbuchungen": make(
+            "Ein späterer Import überspringt ältere Tage, deren Anzahl schon stimmt. Fehlt an einem Tag eine zweite Zahlung, oder ist es der letzte Buchungstag, erscheint die Prüfung. Der Kontostand wird erst nach Übernehmen gesetzt.",
+            "A later import skips older days whose count already matches. If a second payment is missing on a day, or it is the last booking day, the review appears. The cash stand is set only after Apply.",
+            ("Vier Fälle und eine CSV mit PayPal-Zwillingen, Dietz und Snack Mall werden gegen den Bestand gelesen.", "Four cases and a CSV with PayPal twins, Dietz, and Snack Mall are read against the ledger.", "BankImportDuplicates.swift"),
+            ("Fehlende Zweit-Zahlungen stehen in der Prüfung mit Übernehmen an. Vollständige alte Tage fallen raus. Neue Tage danach kommen ohne Nachfrage.", "Missing second payments sit in the review with import on. Complete old days are dropped. New days after that come in without asking.", "LififyCoverageChecks.swift"),
         ),
         "Fingerabdruck und Import-Hinweise": make(
             "Jede importierte Buchung bekommt einen Fingerabdruck. Unlesbare PDFs nennen den Hinweis.",
@@ -545,10 +551,10 @@ enum CheckStories {
             ("Ein leeres PDF liefert den Fehlerhinweis statt einer Buchung.", "An empty PDF returns the error message instead of a booking.", "LififyCoverageChecks.swift"),
         ),
         "Sicherung behält das Konto": make(
-            "Eine Sicherung schreibt das Konto ins JSON und wieder heraus. Die Dateinamen tragen das Bereichskürzel.",
-            "A backup writes the account into JSON and back out. The file names carry the area prefix.",
-            ("Ein Konto wird kodiert und wieder dekodiert.", "An account is encoded and decoded again.", "BackupService.swift"),
-            ("Name und Art bleiben, und die Exportnamen beginnen mit Lifify.", "Name and kind stay, and the export names start with Lifify.", "LififyCoverageChecks.swift"),
+            "Eine Sicherung schreibt das Konto ins JSON und wieder heraus. Der Finanzexport enthält auch Depotstücke. Die Dateinamen tragen das Bereichskürzel. Eine Teilsicherung Finanzen bleibt Finanzen.",
+            "A backup writes the account into JSON and back out. The finance export also includes lots. The file names carry the area prefix. A Finance part backup stays Finance.",
+            ("Ein Konto und ein Depotstück werden kodiert und wieder dekodiert. Eine Finanzen-Sicherung nennt ihren Bereich.", "An account and a lot are encoded and decoded again. A Finance backup names its area.", "BackupService.swift"),
+            ("Name und Art bleiben, das Stück kommt als holdingLot zurück, die Exportnamen beginnen mit Lifify, und Finanzen bleibt Finanzen.", "Name and kind stay, the lot comes back as holdingLot, the export names start with Lifify, and Finance stays Finance.", "LififyCoverageChecks.swift"),
         ),
         "Löschen und Zurücksetzen sagen, was bleibt": make(
             "Löschen und Zurücksetzen erklären in Titel und Text, welche Daten bleiben.",
@@ -581,10 +587,11 @@ enum CheckStories {
             ("Es gibt kein Bucketlist-Tab und kein vision-Symbol.", "There is no bucket-list tab and no vision symbol.", "LififyCoverageChecks.swift"),
         ),
         "Tabs, Einrichtung und Weitere Bereiche": make(
-            "Einrichtung, Tabs und Weitere Bereiche zeigen die Texte der Oberfläche. Die Links sind mittelgroß.",
-            "Setup, tabs, and More show the on-screen texts. The links are a middle size.",
+            "Einrichtung, Tabs und Weitere Bereiche zeigen die Texte der Oberfläche. Die Einrichtung lädt die ganze App oder nur einzelne Bereiche. Die Links sind mittelgroß.",
+            "Setup, tabs, and More show the on-screen texts. Setup restores the entire app or only one area. The links are a middle size.",
             ("Die Einrichtungstitel, die fünf Tabs und die drei Links unter Weitere Bereiche werden gelesen.", "The setup titles, the five tabs, and the three More links are read.", "OnboardingView.swift"),
-            ("Die Zeilen nutzen die Schrift body, die Überschrift headline, 14 Punkt Abstand und höchstens 8 Punkt zur nächsten Sektion. Finanzen liegt auf derselben Fläche.", "The rows use the body font, the heading uses headline, 14 points of padding, and at most 8 points before the next section. Finance sits on the same wash.", "FinanceRoute.swift"),
+            ("Die Zeilen nutzen die Schrift body, die Überschrift headline, 14 Punkt Abstand und höchstens 8 Punkt zur nächsten Sektion. Finanzen liegt auf derselben Fläche. Die Sicherung lädt die ganze App oder nur Finanzen, Challenges oder Training.", "The rows use the body font, the heading uses headline, 14 points of padding, and at most 8 points before the next section. Finance sits on the same wash. The backup restores the entire app or only Finance, Challenges, or Training.", "FinanceRoute.swift"),
+            ("Ist die Einrichtung nicht fertig, startet sie nach jedem Start oder Update bei Schritt 0.", "If setup is not finished, it starts at step 0 after every launch or update.", "OnboardingView.swift"),
         ),
         "Entwicklertag und Schalter": make(
             "Der Entwicklertag behält die Uhrzeit, und der Schalter heißt Entwicklermodus.",
@@ -675,6 +682,49 @@ enum CheckStories {
             "Green, blue, bordeaux, and violet each have a light and a dark surface. The accents stay distinct.",
             ("Jeder Stil prüft Helligkeit von Grund und Karte in Hell und Dunkel.", "Each style checks the brightness of the wash and the card in light and dark.", "AppSurface.swift"),
             ("Blau ist blauer, Bordeaux röter und Violett tiefer als Grün.", "Blue is bluer, bordeaux is redder, and violet is deeper than green.", "LififyFeatureChecks.swift"),
+        ),
+        "Eine Mitteilung nennt Betrag, Richtung und Titel": make(
+            "Aus dem Mitteilungstext werden Betrag, Richtung und ein kurzer Titel gelesen.",
+            "Amount, direction, and a short title are read from the notice text.",
+            ("Eine Abbuchung von 12,34 EUR und eine Gutschrift von 1.250,00 € werden gelesen.", "A debit of 12.34 EUR and a credit of 1,250.00 € are read.", "BankNotice.swift"),
+            ("Die Messung ist -1234, aus, REWE, 125000, ein, Gehalt, ungelesen. Ein nackter Betrag bleibt ungelesen.", "The reading is -1234, aus, REWE, 125000, ein, Gehalt, ungelesen. A bare amount stays unread.", "BankNotice.swift"),
+        ),
+        "Dieselbe Buchung im kurzen Fenster zählt einmal": make(
+            "Dieselbe Buchung auf demselben Konto, mit demselben Betrag und derselben Richtung, zählt sechs Stunden lang nur einmal.",
+            "The same booking on the same account, with the same amount and the same direction, counts only once for six hours.",
+            ("Eine Ausgabe von 4,20 und dieselbe Ausgabe eine Stunde später werden verglichen.", "An expense of 4.20 and the same expense one hour later are compared.", "BankNotice.swift"),
+            ("Die zweite ist doppelt. Eine Einnahme und eine Buchung nach sieben Stunden sind neu.", "The second one is a duplicate. An income, and a booking after seven hours, are new.", "BankNotice.swift"),
+        ),
+        "Ein Depotstand setzt Menge und Einstand und erfindet nichts": make(
+            "Eine gelesene Position setzt Menge und, wenn die Sitzung ihn nennt, den Einstand. Eine leere oder unlesbare Antwort erfindet nichts. Ein späterer Login ersetzt den bisherigen Trade-Republic-Stand. Ein Geschenk bleibt ein Geschenk zum Eventdatum mit Kaufkurs 0, auch wenn das Ereignis den Namen nicht trägt. Es gibt nur ein Geschenk, wenn diese ISIN nicht gekauft wurde. Die Buchung zeigt den Wert der Stücke. Das Datum kommt vom Geschenk, nicht von einer Kartenprüfung oder einem Saveback. Eine IPO-Zeichnung ist ein Depotkauf nur auf dem Girokonto, ohne Stücke, bis die Zuteilung da ist. Eine zugeteilte IPO ist ein Kauf. Ein Optionsschein bewegt nur Cash, nicht die Aktie. Saveback kauft Stücke und geht vom Girokonto ab. Der Live-Cash-Stand aus der Sitzung setzt das Trade-Republic-Girokonto als aktuellen Stand. Zwei Kartenzahlungen am selben Tag mit demselben Betrag bleiben beide. Verkäufe aus der Historie werden gebucht, ein Rest ohne Verkaufszeile nicht. Eine XF-ISIN ist ein Kurs. Der Auszug ist die komplette Timeline plus Aktivitätslog. Speichern geht in die Dateien-App, wie Finanzen exportieren, nur im Entwicklermodus, nicht in die Einstellungen, und der Bildschirm zeigt nicht den ganzen Text.",
+            "A position that was read sets the quantity and, when the session names it, the cost basis. An empty or unreadable reply invents nothing. A later sign-in replaces the previous Trade Republic state. A gift stays a gift on the event date at a purchase price of 0, even when the event does not name the stock. There is a gift only when that ISIN was not bought. The booking shows the value of the shares. The date comes from the gift, not from a card check or a Saveback. An IPO subscription is a depot purchase on the cash account only, with no shares until it is allocated. An allocated IPO is a purchase. A warrant moves cash only, not the stock. Saveback buys shares and leaves the cash account. The live cash figure from the session sets the Trade Republic checking account as the current stand. Two card payments on the same day with the same amount both stay. Sales from the history are booked, and a leftover without a sale row is not. An XF identifier is a price. The extract is the complete timeline plus the activity log. Saving goes into the Files app, like Export finance, only in developer mode, not into Settings, and the screen does not show the whole text.",
+            ("Eine Position mit ISIN, Menge 2,5 und Einstand 80 wird gelesen. Eine ohne Einstand trifft eine vorhandene Position.", "A position with an ISIN, quantity 2.5, and cost 80 is read. One without a cost meets an existing position.", "TradeRepublicSession.swift"),
+            ("Die Messung ist 2.5, 8000, behalten. Die leere Liste und die unlesbare Antwort bleiben bei null neuen Positionen. Ein Kauf einer anderen ISIN macht aus einem Geschenk keinen Anfangsbestand. Ein namenloses Geschenk behält das Eventdatum. Eine Kartenprüfung oder eine NVIDIA-Zeile ohne Kauf ist kein Geschenk. Eine IPO-Zuteilung ist ein Kauf, eine Optionsschein-Zeile kein Aktienverkauf. Der Cash-Stand 1234,56 aus der Sitzung wird gelesen.", "The reading is 2.5, 8000, kept. The empty list and the unreadable reply stay at zero new positions. A purchase of another ISIN does not turn a gift into an opening lot. An unnamed gift keeps the event date. A card check or an NVIDIA row without a purchase is not a gift. An IPO allocation is a purchase, and a warrant row is not a stock sale. The session cash figure 1234.56 is read.", "TradeRepublicSync.swift"),
+            ("Auszug speichern schreibt die Datei wie der Finanzexport und steht nur im Entwicklermodus. Ein alter Eintrag in den Einstellungen wird entfernt. Eine Lifify-Sicherung ist kein Auszug.", "Save extract writes the file like the finance export and sits only in developer mode. An old Settings entry is removed. A Lifify backup is not an extract.", "TradeRepublicSession.swift"),
+        ),
+        "Eine tote Sitzung startet keine neue Anmeldung": make(
+            "Eine abgelaufene Sitzung wird nicht still erneuert. Die Anmeldung bleibt manuell, und ein Beispielwert kommt nicht in die Meldung.",
+            "An expired session is not renewed quietly. Sign-in stays manual, and an example value does not enter the message.",
+            ("Status 401 und der Fehlercode NUMBER_INVALID werden gelesen.", "Status 401 and the error code NUMBER_INVALID are read.", "TradeRepublicSession.swift"),
+            ("Die Messung ist 401 manual. Die Meldung enthält den Beispielwert nicht.", "The reading is 401 manual. The message does not contain the example value.", "TradeRepublicSession.swift"),
+        ),
+        "Kurzbefehl-Vorlage bucht die Mitteilung": make(
+            "Eine Vorlage merkt sich, wie die Bankmitteilung aussieht und ob sie Ausgabe, Einnahme oder Umbuchung ist. Der Apple-Kurzbefehl schickt den Text, Lifify bucht nach der Vorlage.",
+            "A template remembers what the bank notice looks like and whether it is an expense, income, or a transfer. The Apple Shortcut sends the text, and Lifify books it from the template.",
+            ("Eine Abbuchungs-Vorlage, eine Gutschrift-Vorlage und eine Überweisungs-Vorlage werden gegen neue Texte gelesen.", "A debit template, a credit template, and a transfer template are read against new texts.", "NoticeTemplate.swift"),
+            ("Steam ist Ausgabe minus 999, Gehalt Einnahme 125000, die Überweisung eine Umbuchung über 8000. Eine Gutschrift passt nicht auf die Abbuchungs-Vorlage.", "Steam is an expense of minus 999, salary is income of 125000, and the transfer is an own-account move of 8000. A credit does not match the debit template.", "LififySessionChecks.swift"),
+        ),
+        "Sparkasse und Trade Republic landen auf dem passenden Konto": make(
+            "Eine Sparkassen-Mitteilung bucht auf dem Girokonto Sparkasse, eine Trade-Republic-Mitteilung auf dem Konto Trade Republic. Eine erhaltene Überweisung ist eine Umbuchung vom Hauptkonto, ausgegeben ist eine Ausgabe. Dieselbe Buchung im Fenster wird nicht doppelt angelegt.",
+            "A Sparkasse notice books on the Sparkasse checking account, and a Trade Republic notice on the Trade Republic account. A transfer received is an own-account transfer from the main checking account, and spent is an expense. The same booking inside the window is not created twice.",
+            ("Die URL lifify://notice und zwei Mitteilungen werden gegen die Konten gelesen.", "The URL lifify://notice and two notices are read against the accounts.", "BankNotice.swift"),
+            ("Die Messung ist Sparkasse -420, duplicate, Trade Republic 5000.", "The reading is Sparkasse -420, duplicate, Trade Republic 5000.", "BankNotice.swift"),
+        ),
+        "Anmeldung und Aktualisieren laufen nur von Hand": make(
+            "Die Einrichtung hat neun Schritte, darunter die optionale Anmeldung. Es gibt keine gespeicherte Sitzung und keine gespeicherte PIN. Anmelden startet nicht von allein.",
+            "Setup has nine steps, including the optional sign-in. There is no stored session and no stored PIN. Sign-in does not start by itself.",
+            ("Die Schrittzahl, die Schalter und der gemessene Anmeldeversuch werden gelesen.", "The step count, the switches, and the measured sign-in attempt are read.", "OnboardingView.swift"),
+            ("Die Messung ist 9 manual 400. Die Sitzung wird nicht gespeichert.", "The reading is 9 manual 400. The session is not stored.", "TradeRepublicSession.swift"),
         ),
         "Jede Prüfung erklärt ihre Schritte": make(
             "Jede Prüfung in der Liste nennt die wichtigen Dateien, die Methoden und eine Lesart der Messung. Dazu kommen mindestens zwei Schritte, und jeder Schritt zeigt auf eine Swift-Datei.",

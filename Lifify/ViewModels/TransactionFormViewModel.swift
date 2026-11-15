@@ -130,6 +130,9 @@ final class TransactionFormViewModel: ObservableObject {
         case .transfer:
             if let fromAccountID, !checkingIDs.contains(fromAccountID) { self.fromAccountID = nil }
             if let toAccountID, !checkingIDs.contains(toAccountID) { self.toAccountID = nil }
+        case .cashback, .portfolioGift:
+            let allowed = checkingIDs.union(portfolioIDs)
+            if let accountID, !allowed.contains(accountID) { self.accountID = nil }
         case .income, .interest, .dividend, .expense, .refund, .adjustment:
             if let accountID, !checkingIDs.contains(accountID) { self.accountID = nil }
         }
@@ -188,13 +191,13 @@ final class TransactionFormViewModel: ObservableObject {
                     errorMessage = L("Eine Umbuchung läuft nicht über das Depot.", "A transfer does not use the portfolio.")
                     return false
                 }
-            case .income, .interest, .dividend, .expense, .refund, .adjustment:
+            case .income, .interest, .dividend, .cashback, .portfolioGift, .expense, .refund, .adjustment:
                 break
             }
         } else if accountID == nil {
             errorMessage = L("Bitte ein Konto auswählen.", "Please select an account.")
             return false
-        } else if let accountID, portfolios.contains(accountID) {
+        } else if let accountID, portfolios.contains(accountID), category != .cashback, category != .portfolioGift {
             errorMessage = L("Für diese Buchung steht das Depot nicht zur Auswahl.", "The portfolio is not available for this transaction.")
             return false
         }

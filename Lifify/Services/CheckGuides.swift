@@ -320,8 +320,8 @@ enum CheckGuides {
         ),
         "Gesundheit, Einstellungen und Glasflächen zeigen dieselben Titel": g(
             "HealthScreen.sectionTitles(), SettingsDirectory.rows(), AppChrome.glassScreens, AppChrome.version",
-            "Vor dem Schrägstrich stehen die Titel, die Gesundheit zeigt. Dahinter steht die Version 0.4.0. Die Einstellungen beginnen mit Nutzereinstellungen. Ohne Schlüssel bleibt der Satz, dass die Erkennung nicht verbunden ist.",
-            "Before the slash are the titles Health shows. After it is version 0.4.0. Settings start with User settings. Without a key the sentence still says recognition is not connected."
+            "Vor dem Schrägstrich stehen die Titel, die Gesundheit zeigt. Dahinter steht die Version 0.5.0. Die Einstellungen beginnen mit Nutzereinstellungen. Ohne Schlüssel bleibt der Satz, dass die Erkennung nicht verbunden ist.",
+            "Before the slash are the titles Health shows. After it is version 0.5.0. Settings start with User settings. Without a key the sentence still says recognition is not connected."
         ),
         "Hell und Dunkel haben eigene Flächen": g(
             "AppLook.modesDiffer(palette:), AppLook.canvasTop(_:palette:), AppLook.cardFill(_:palette:)",
@@ -369,9 +369,9 @@ enum CheckGuides {
             "Monthly means three occurrences on the 15th. Weekly means four. May [4] means the May 2026 charge lands on the 4th. 1 May is a holiday and the 2nd is a Saturday, so the next banking day is Monday the 4th."
         ),
         "Restbudget, Anteil und Zeitraum": g(
-            "HomeBudgetSnapshot.remaining, VariableBudgetAccounts.share(total:accountID:targets:), CalendarService.periodKey(for:mode:startDay:)",
-            "Die Messung ist der Rest als Geldbetrag. Geplant sind 1000 Cent, ausgegeben 2500 Cent, der Rest ist minus 1500 Cent. Ein Anteil von 100 auf drei Konten wird 34, 33 und 33. März bleibt ein Zeitraum, April ein anderer, das Jahr ist 2026.",
-            "The reading is the remainder as an amount of money. Planned is 1000 cents, spent is 2500 cents, and the remainder is minus 1500 cents. A share of 100 across three accounts becomes 34, 33, and 33. March stays one period, April another, and the year is 2026."
+            "HomeBudgetSnapshot.remaining, VariableBudgetAccounts.share(total:accountID:targets:), CalendarService.periodKey(for:mode:startDay:), FinanceService.forecastPeriods(primary:earliest:latest:), FinancePeriods.all(entries:forecasts:accounts:), ImportBalance.openingCents(current:rowAmounts:), ImportBalance.fittedOpeningCents(current:laterEffect:), ImportBalance.correctionCents(current:computed:)",
+            "Die Messung ist der Rest als Geldbetrag und der erste Gehaltszeitraum. Geplant sind 1000 Cent, ausgegeben 2500 Cent, der Rest ist minus 1500 Cent. Ein Anteil von 100 auf drei Konten wird 34, 33 und 33. März bleibt ein Zeitraum, April ein anderer, das Jahr ist 2026. Der letzte Bankarbeitstag im April 2026 ist der 30., der im Mai der 29., also wäre das Fenster 30.4.–28.5. Liegt die erste Buchung am 17.5., startet der erste Zeitraum am 17.5. und endet am 28.5. Eine frühere Buchung auf einem anderen Konto am 5.5. verschiebt den Start nicht. Aus aktuellem Stand 10000 Cent und Buchungen minus 3000 plus 1000 wird der Startsaldo 12000 Cent. Derselbe Stand minus spätere Buchungen minus 2000 Cent ergibt denselben Eröffnungssaldo. 10000 gegen 10800 ergibt die Korrektur minus 800 Cent.",
+            "The reading is the remainder as an amount of money and the first salary period. Planned is 1000 cents, spent is 2500 cents, and the remainder is minus 1500 cents. A share of 100 across three accounts becomes 34, 33, and 33. March stays one period, April another, and the year is 2026. The last banking day in April 2026 is the 30th, and in May the 29th, so the window would be 30 Apr–28 May. When the first booking is 17 May, the first period starts on 17 May and ends on 28 May. An earlier booking on another account on 5 May does not move the start. From a current balance of 10000 cents and bookings of minus 3000 plus 1000, the opening is 12000 cents. The same stand minus later bookings of minus 2000 cents yields the same opening. 10000 against 10800 yields a correction of minus 800 cents."
         ),
         "Übertrag, Einkauf und Ausgabengruppe": g(
             "FinanceService.poolCarry(pool:currentPeriodKey:splits:), FinanceService.shoppingBias(shopping:entries:period:), CalendarService.splitCounts(in:splitKey:pool:)",
@@ -380,8 +380,8 @@ enum CheckGuides {
         ),
         "Einstand und Sortierung im Depot": g(
             "HoldingMaintenance.averagePurchaseCents(for:)",
-            "Die Zahl ist der durchschnittliche Kaufpreis in Cent. Zwei Stück zu 500 Cent und ein Verkauf von einem Stück lassen ein Stück zu 500 Cent. Die Sortiernamen Wert, Kauf und A–Z und die Einheiten Prozent und Euro sind nicht leer.",
-            "The number is the average purchase price in cents. Two shares at 500 cents and a sale of one share leave one share at 500 cents. The sort names value, purchase, and A–Z, and the units percent and euro, are not empty."
+            "Die Zahl ist der durchschnittliche Kaufpreis in Cent. Zwei Stück zu 500 Cent und ein Verkauf von einem Stück lassen ein Stück zu 500 Cent. Ein Geschenk hat Kaufkurs 0. Gemischte Stücke rechnen nur das bezahlte Geld. Die Sortiernamen Wert, Kauf und A–Z und die Einheiten Prozent und Euro sind nicht leer.",
+            "The number is the average purchase price in cents. Two shares at 500 cents and a sale of one share leave one share at 500 cents. A gift has a purchase price of 0. Mixed lots use only the cash that was paid. The sort names value, purchase, and A–Z, and the units percent and euro, are not empty."
         ),
         "Kaufveränderung und Depotkauf": g(
             "holdingPerformance(_:), PortfolioCashFlow.isSecurityPurchase(_:portfolioIDs:), ExternalIncome.countsInHomeBudget(_:accounts:)",
@@ -389,19 +389,24 @@ enum CheckGuides {
             "Value 300 cents is quantity 2 times a price of 150. Purchase 100 cents is the stored purchase price per share, not the day’s price. The day change is missing because no previous close is stored. A transfer onto the portfolio counts as a portfolio buy, and a transfer to another account does not."
         ),
         "CSV und CAMT zeigen die Buchung": g(
-            "BankImportService.parseCSV(_:), BankImportService.parseCAMT(data:)",
-            "CSV 1 ist eine Zeile über minus 1250 Cent mit dem Titel Bäcker. CAMT minus 1999 Cent ist die Zahlung Cafe. Dieselbe CSV-Zeile bekommt denselben Fingerabdruck.",
-            "CSV 1 is one row of minus 1250 cents titled Baker. CAMT minus 1999 cents is the Cafe payment. The same CSV row gets the same fingerprint."
+            "BankImportService.parseCSV(_:), BankImportService.parseCAMT(data:), BankImportService.purposeMark(notes:), BankImportService.isPendingBankRow(_:)",
+            "CSV 1 ist eine Zeile über minus 1250 Cent mit dem Titel Bäcker. CAMT minus 1999 Cent ist die Zahlung Cafe. Dieselbe CSV-Zeile bekommt denselben Fingerabdruck. Zwei PayPal-Zeilen am selben Tag mit derselben Summe und unterschiedlicher Referenz bleiben zwei Buchungen. Der alte Fingerabdruck ohne Referenz ist bei beiden gleich, der neue nicht. Die zweite Referenz steht nicht in den Notizen der ersten. Eine vorgemerkte Zeile fällt raus. Zwei Buchungen am selben Tag mit demselben Betrag bleiben beide, auch nach dem Verknüpfen eigener Konten.",
+            "CSV 1 is one row of minus 1250 cents titled Baker. CAMT minus 1999 cents is the Cafe payment. The same CSV row gets the same fingerprint. Two PayPal rows on the same day with the same amount and a different reference stay two bookings. The old fingerprint without a reference is the same for both, the new one is not. The second reference is not in the first row’s notes. A pending row is dropped. Two bookings on the same day with the same amount both stay, including after own-account linking."
+        ),
+        "Import fragt nach fehlenden Tagesbuchungen": g(
+            "BankImportDuplicates.action(day:lastExistingDay:existingCount:importCount:identical:matchedExisting:), BankImportDuplicates.plan(rows:entries:accountID:calendar:)",
+            "Die vier Aktionen sind fehlende Zweit-Zahlung an einem älteren Tag (prüfen, Übernehmen an), vollständiger älterer Tag (überspringen), ähnlicher Treffer am letzten Buchungstag (prüfen, Übernehmen aus) und eine Zeile nach dem letzten Tag (übernehmen). Die Messung extras 2, parsed 6 sind die zweite PayPal-Zeile und Snack Mall, beide angeschaltet, bei sechs CSV-Zeilen.",
+            "The four actions are a missing second payment on an older day (review, import on), a complete older day (skip), a similar hit on the last booking day (review, import off), and a row after the last day (ingest). The reading extras 2, parsed 6 is the second PayPal row and Snack Mall, both on, from six CSV rows."
         ),
         "Fingerabdruck und Import-Hinweise": g(
-            "BankImportService.makeFingerprint(date:amount:title:iban:), BankImportService.parseDocument(data:fileExtension:), BankImportService.parseCSV(_:)",
+            "BankImportService.makeFingerprint(date:amount:title:iban:distinct:), BankImportService.parseDocument(data:fileExtension:), BankImportService.parseCSV(_:)",
             "Die Messung ist der Hinweis zum leeren PDF. PDF-Dateien gehören in den separaten Trade-Republic-Import. Eine CSV ohne erkannte Spalten nennt ihren eigenen Hinweis. Dieselbe Buchung ergibt denselben Fingerabdruck aus 64 Zeichen, ein anderer Betrag einen anderen.",
             "The reading is the message for the empty PDF. PDF files belong in the separate Trade Republic import. A CSV without recognized columns names its own message. The same booking produces the same 64-character fingerprint, and a different amount produces another."
         ),
         "Sicherung behält das Konto": g(
-            "LififyBackup Codable, BackupScope.exportFilenamePrefix",
-            "Die Messung listet die Dateinamen-Kürzel Lifify, Lifify-Finanzen, Lifify-Challenges und Lifify-Training. Das kodierte Konto kommt mit demselben Namen und derselben Kennung wieder heraus.",
-            "The reading lists the file-name prefixes Lifify, Lifify-Finanzen, Lifify-Challenges, and Lifify-Training. The encoded account comes back out with the same name and the same identifier."
+            "LififyBackup Codable, BackupScope.exportFilenamePrefix, BackupRecord type holdingLot",
+            "Die Messung listet die Dateinamen-Kürzel Lifify, Lifify-Finanzen, Lifify-Challenges und Lifify-Training. Das kodierte Konto kommt mit demselben Namen und derselben Kennung wieder heraus. Ein Depotstück kommt als holdingLot wieder heraus. Eine Finanzen-Sicherung bleibt Finanzen, und mehrere Dateien sind erlaubt.",
+            "The reading lists the file-name prefixes Lifify, Lifify-Finanzen, Lifify-Challenges, and Lifify-Training. The encoded account comes back out with the same name and the same identifier. A lot comes back out as holdingLot. A Finance backup stays Finance, and several files are allowed."
         ),
         "Löschen und Zurücksetzen sagen, was bleibt": g(
             "DestructiveAction.deleteData, DestructiveAction.resetApp, DestructiveAction.deleteFinance",
@@ -429,9 +434,9 @@ enum CheckGuides {
             "The reading lists the five tab titles: Home, Finance, Challenges, Health, and Settings. There is no bucket-list tab and no vision symbol."
         ),
         "Tabs, Einrichtung und Weitere Bereiche": g(
-            "OnboardingSteps.title, AppTabs.items(), FinanceMoreDirectory.rows",
-            "Die Messung listet die drei Links unter Weitere Bereiche. Die Zeilen nutzen die Schrift body, die Überschrift headline, 14 Punkt Abstand und höchstens 8 Punkt zur nächsten Sektion. Finanzen liegt auf derselben Fläche.",
-            "The reading lists the three links under More. The rows use the body font, the heading uses headline, 14 points of padding, and at most 8 points before the next section. Finance sits on the same wash."
+            "OnboardingSteps.title, OnboardingSteps.restore, AppTabs.items(), FinanceMoreDirectory.rows, OnboardingResume.launchStep(isComplete:savedStep:)",
+            "Die Messung listet die drei Links unter Weitere Bereiche. Die Zeilen nutzen die Schrift body, die Überschrift headline, 14 Punkt Abstand und höchstens 8 Punkt zur nächsten Sektion. Finanzen liegt auf derselben Fläche. Die Einrichtung lädt die ganze App oder nur einzelne Bereiche. Ist die Einrichtung nicht fertig, wird ein gespeicherter Schritt 8 oder 4 zu 0.",
+            "The reading lists the three links under More. The rows use the body font, the heading uses headline, 14 points of padding, and at most 8 points before the next section. Finance sits on the same wash. Setup restores the entire app or only one area. If setup is not finished, a saved step 8 or 4 becomes 0."
         ),
         "Entwicklertag und Schalter": g(
             "AppClock.combining(day:time:calendar:), DeveloperCopy.toggle",
@@ -507,6 +512,41 @@ enum CheckGuides {
             "AppLook.modesDiffer(palette:), AppLook.accent(_:palette:)",
             "Jeder Stil, Grün, Blau, Bordeaux und Violett, hat eine helle Fläche über 0,75 und eine dunkle unter 0,2. Die Karten sind deckend. Blau ist blauer, Bordeaux röter und Violett tiefer als Grün.",
             "Each style, green, blue, bordeaux, and violet, has a light wash above 0.75 and a dark wash below 0.2. The cards are opaque. Blue is bluer, bordeaux is redder, and violet is deeper than green."
+        ),
+        "Eine Mitteilung nennt Betrag, Richtung und Titel": g(
+            "BankNotice.parse(_:fallbackTitle:), BankNotice.plan(text:bank:accounts:existing:now:)",
+            "Die Messung ist -1234, aus, REWE, 125000, ein, Gehalt, ungelesen. Ein Betrag ohne Richtung wird nicht gebucht. Die PIN und der Sitzungstoken kommen in dieser Zeile nicht vor.",
+            "The reading is -1234, aus, REWE, 125000, ein, Gehalt, ungelesen. An amount without a direction is not booked. The PIN and the session token do not appear in this line."
+        ),
+        "Dieselbe Buchung im kurzen Fenster zählt einmal": g(
+            "BankNotice.isDuplicate(_:accountID:existing:now:), BankNotice.duplicateWindow",
+            "Die Messung ist 6 Stunden und doppelt. Gleicher Betrag und gleiche Richtung im Fenster sind eine Buchung. Eine andere Richtung oder eine Buchung danach ist eine neue.",
+            "The reading is 6 hours and duplicate. The same amount and direction inside the window are one booking. Another direction, or a booking after the window, is a new one."
+        ),
+        "Ein Depotstand setzt Menge und Einstand und erfindet nichts": g(
+            "TradeRepublicPortfolio.read(_:), TradeRepublicSync.changes(positions:holdings:activities:known:), TradeRepublicDepotApplier.shouldReplace(_:checkingID:portfolioID:), TradeRepublicCash.cents(from:), MarketDataService.cryptoTicker(from:), TradeRepublicSample.purgeLegacyPreferences()",
+            "Die Messung ist 2.5, 8000, behalten. Eine leere Liste und eine unlesbare Antwort legen keine Position an. Fehlt der Einstand, bleibt der bisherige Preis. Ein Kauf einer anderen ISIN macht aus einem Geschenk keinen Anfangsbestand. Ein namenloses Geschenk behält das Eventdatum. Nur ohne Kauf dieser ISIN gibt es ein Geschenk, die Buchung zeigt den Wert. Eine IPO-Zeichnung ist nur Cash, die Zuteilung ein Kauf. Ein Optionsschein verkauft die Aktie nicht. Saveback geht vom Girokonto ab. Der Live-Cash-Stand aus der Sitzung setzt das Trade-Republic-Girokonto. Total schlägt available. Der Auszug ist nicht auf eine Seite gekürzt. Speichern geht in die Dateien-App, nur im Entwicklermodus, nicht in die Einstellungen.",
+            "The reading is 2.5, 8000, kept. An empty list and an unreadable reply create no position. When the cost basis is missing, the previous price stays. A purchase of another ISIN does not turn a gift into an opening lot. An unnamed gift keeps the event date. There is a gift only when that ISIN was not bought, and the booking shows the value. An IPO subscription is cash only, and the allocation is a purchase. A warrant does not sell the stock. Saveback leaves the cash account. The live cash figure from the session sets the Trade Republic checking account. Total beats available. The extract is not clipped to one page. Saving goes into the Files app, only in developer mode, not into Settings."
+        ),
+        "Eine tote Sitzung startet keine neue Anmeldung": g(
+            "TradeRepublicRequest.failure(statusCode:errorCode:), TradeRepublicRefresh.manualOnly, TradeRepublicCookies.keepsSession(_:)",
+            "Die Messung ist 401 manual. Ein abgelaufener Stand verlangt eine neue Bestätigung. Es gibt keine Anmeldung mit einer gespeicherten PIN, und ein Beispielwert steht nicht in der Meldung.",
+            "The reading is 401 manual. An expired session asks for a new confirmation. There is no sign-in with a stored PIN, and an example value is not in the message."
+        ),
+        "Kurzbefehl-Vorlage bucht die Mitteilung": g(
+            "NoticeTemplate.matches(_:), NoticeTemplate.markers(in:), BankNotice.plan(text:bank:accounts:existing:now:templates:)",
+            "Die Messung ist Steam minus 999, Gehalt 125000, Umbuchung 8000. Die Abbuchungs-Vorlage erkennt Steam, nicht die Gutschrift. Die Überweisungs-Vorlage wird eine Umbuchung.",
+            "The reading is Steam minus 999, salary 125000, transfer 8000. The debit template recognizes Steam, not the credit. The transfer template becomes an own-account transfer."
+        ),
+        "Sparkasse und Trade Republic landen auf dem passenden Konto": g(
+            "BankNotice.plan(text:bank:accounts:existing:now:), BankNotice.records(_:), BankNoticeURL.decode(_:)",
+            "Die Messung nennt Sparkasse mit -420, danach doppelt, und Trade Republic mit 5000. Das Depotkonto wird nicht benutzt. Die URL lifify://notice übergibt denselben Text. Ausgegeben ist eine Ausgabe, eine erhaltene Überweisung eine Umbuchung.",
+            "The reading names Sparkasse with -420, then duplicate, and Trade Republic with 5000. The portfolio account is not used. The URL lifify://notice passes the same text. Spent is an expense, and a transfer received is an own-account transfer."
+        ),
+        "Anmeldung und Aktualisieren laufen nur von Hand": g(
+            "OnboardingSteps.count, TradeRepublicRefresh.manualOnly, TradeRepublicGap.probedStatus, KeychainStore.deviceOnly",
+            "Die Messung ist 9 manual 400. Die Einrichtung hat den optionalen Anmeldeschritt. Es gibt keine gespeicherte Sitzung und keine PIN. Anmelden startet nicht von allein.",
+            "The reading is 9 manual 400. Setup has the optional sign-in step. There is no stored session and no stored PIN. Sign-in does not start by itself."
         ),
         "Jede Prüfung erklärt ihre Schritte": g(
             "CheckStories.isComplete(_:), CheckGuides.guide(named:)",

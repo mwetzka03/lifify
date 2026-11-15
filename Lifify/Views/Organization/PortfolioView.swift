@@ -7,6 +7,7 @@ struct PortfolioView: View {
     @Query(sort: \PortfolioHolding.name) private var holdings: [PortfolioHolding]
     @Query private var entries: [LedgerEntry]
     @Query private var forecasts: [IncomeForecast]
+    @Query private var accounts: [Account]
     @AppStorage("portfolioPerformanceBasis") private var basis = PortfolioBasis.today.rawValue
     @AppStorage("portfolioPerformanceUnit") private var unit = PortfolioUnit.percent.rawValue
     @AppStorage("portfolioSort") private var sort = PortfolioSort.value.rawValue
@@ -153,7 +154,7 @@ struct PortfolioView: View {
     }
 
     private var projectionDay: Date {
-        let periods = FinancePeriods.all(entries: entries, forecasts: forecasts)
+        let periods = FinancePeriods.all(entries: entries, forecasts: forecasts, accounts: accounts)
         return filters.period(in: periods)?.end ?? .now
     }
 
@@ -215,6 +216,7 @@ struct PortfolioElementsView: View {
     @Query(sort: \PortfolioHolding.name) private var holdings: [PortfolioHolding]
     @Query private var entries: [LedgerEntry]
     @Query private var forecasts: [IncomeForecast]
+    @Query private var accounts: [Account]
     @AppStorage("portfolioPerformanceBasis") private var basis = PortfolioBasis.today.rawValue
     @AppStorage("portfolioPerformanceUnit") private var unit = PortfolioUnit.percent.rawValue
     @AppStorage("portfolioSort") private var sort = PortfolioSort.value.rawValue
@@ -225,7 +227,7 @@ struct PortfolioElementsView: View {
     @State private var savingsPlans: [SavingsPlanRecord] = []
 
     private var projectionDay: Date {
-        let periods = FinancePeriods.all(entries: entries, forecasts: forecasts)
+        let periods = FinancePeriods.all(entries: entries, forecasts: forecasts, accounts: accounts)
         return filters.period(in: periods)?.end ?? .now
     }
 
@@ -718,7 +720,7 @@ struct SavingsPlansView: View {
     }
 
     private var bookedExecutions: [LedgerEntry] {
-        let periods = FinancePeriods.all(entries: entries, forecasts: forecasts)
+        let periods = FinancePeriods.all(entries: entries, forecasts: forecasts, accounts: accounts)
         guard let period = filters.period(in: periods) else { return [] }
         return entries
             .filter { BookingClassification.isSavingsPlan($0) && period.contains($0.date) }
@@ -1098,6 +1100,9 @@ private struct HoldingDetailView: View {
     private func lotTitle(_ lot: HoldingLot) -> String {
         if lot.isSale { return L("Verkauf", "Sale") }
         if lot.isSavingsPlan { return L("Sparplan", "Savings plan") }
+        if lot.source == "cashback" { return "Cashback" }
+        if lot.source == "gift" { return L("Depotgeschenk", "Portfolio gift") }
+        if lot.source == "opening" { return L("Anfangsbestand", "Opening position") }
         return L("Kauf", "Purchase")
     }
 
@@ -1211,7 +1216,7 @@ private struct HoldingForm: View {
                         Label(L("Aktie suchen", "Search stock"), systemImage: "magnifyingglass")
                     }
                 }
-                .disabled(isSearching || !MarketDataService.isValidISIN(symbol))
+                .disabled(isSearching || !MarketDataService.isQuoteable(symbol))
 
                 ForEach(suggestions) { suggestion in
                     Button {
@@ -1284,7 +1289,7 @@ private struct HoldingForm: View {
                         let unchangedLegacyIdentifier = existing.map {
                             $0.symbol.trimmingCharacters(in: .whitespacesAndNewlines).uppercased() == normalizedISIN
                         } ?? false
-                        guard MarketDataService.isValidISIN(normalizedISIN) || unchangedLegacyIdentifier else {
+                        guard MarketDataService.isQuoteable(normalizedISIN) || unchangedLegacyIdentifier else {
                             validationMessage = L("Bitte eine gültige zwölfstellige ISIN eingeben.", "Enter a valid twelve-character ISIN.")
                             return
                         }
@@ -1507,7 +1512,9 @@ private struct HoldingTradeSheet: View {
                     }
                 }
                 AppDateField(title: L("Datum", "Date"), selection: $date)
-                if !isTransfer || portfolioAccount == nil || portfolioNeedsLink {
+                if let linked = preferredCheckingAccount, portfolioAccount != nil, !portfolioNeedsLink {
+                    LabeledContent(L("Girokonto", "Checking account"), value: linked.name)
+                } else if !isTransfer || portfolioAccount == nil || portfolioNeedsLink {
                     if checkingAccounts.isEmpty {
                         Text(L("Lege zuerst ein Girokonto an.", "Create a checking account first."))
                             .foregroundStyle(.secondary)
@@ -1515,6 +1522,12 @@ private struct HoldingTradeSheet: View {
                         Picker(L("Girokonto", "Checking account"), selection: $checkingAccountID) {
                             ForEach(checkingAccounts) { Text($0.name).tag(Optional($0.id)) }
                         }
+                        Text(L(
+                            "Dieses Girokonto bleibt an dem Depot. Ein zweites Depot bekommt ein eigenes.",
+                            "This checking account stays with this portfolio. A second portfolio gets its own."
+                        ))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                     }
                 }
                 if portfolioAccount == nil {
@@ -1636,7 +1649,9 @@ private struct HoldingTradeSheet: View {
             portfolio = account
             createdPortfolio = account
         }
-        if PortfolioLinkStore.checkingID(for: portfolio.id) == nil {
+        if let linked = PortfolioLinkStore.checkingID(for: portfolio.id) {
+            checkingAccountID = linked
+        } else if PortfolioLinkStore.checkingID(for: portfolio.id) == nil {
             guard let checkingAccountID else {
                 if let createdPortfolio { context.delete(createdPortfolio) }
                 validationMessage = L(

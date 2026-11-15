@@ -57,8 +57,15 @@ final class FinanceFilterStore: ObservableObject {
 
 enum FinancePeriods {
     @MainActor
-    static func all(entries: [LedgerEntry], forecasts: [IncomeForecast]) -> [ForecastPeriod] {
-        let earliest = entries.map(\.date).min() ?? .now
+    static func all(entries: [LedgerEntry], forecasts: [IncomeForecast], accounts: [Account]) -> [ForecastPeriod] {
+        let main = accounts.first(where: \.isMain)
+        let relevant = entries.filter { entry in
+            guard let main else { return false }
+            return entry.accountID == main.id
+                || entry.fromAccountID == main.id
+                || entry.toAccountID == main.id
+        }
+        guard let earliest = relevant.map(\.date).min() else { return [] }
         let latest = Calendar.current.date(byAdding: .month, value: 18, to: .now) ?? .now
         return FinanceService.forecastPeriods(
             primary: primaryForecast(in: forecasts),
@@ -84,11 +91,39 @@ enum FinancePeriods {
         if account == nil, !depotIDs.isEmpty {
             return entry.fromAccountID.map { depotIDs.contains($0) } == true
                 || entry.toAccountID.map { depotIDs.contains($0) } == true
+                || entry.accountID.map { depotIDs.contains($0) } == true
         }
         guard let account else { return true }
         return entry.accountID == account.id
             || entry.fromAccountID == account.id
             || entry.toAccountID == account.id
+    }
+}
+
+/// Cheap change token for finance screens. Full title/notes hashing on every frame made the tab hitch.
+enum FinanceRenderToken {
+    static func mix(entries: [LedgerEntry], into hasher: inout Hasher) {
+        hasher.combine(entries.count)
+        var amounts = 0
+        for entry in entries {
+            amounts = amounts &+ entry.amountCents
+        }
+        hasher.combine(amounts)
+        hasher.combine(entries.first?.id)
+        hasher.combine(entries.last?.id)
+        hasher.combine(entries.first?.date)
+        hasher.combine(entries.last?.date)
+    }
+
+    static func mix(holdings: [PortfolioHolding], into hasher: inout Hasher) {
+        hasher.combine(holdings.count)
+        var mix = 0
+        for holding in holdings {
+            mix = mix &+ holding.quantity.hashValue &+ holding.currentPriceCents &+ holding.purchasePriceCents
+        }
+        hasher.combine(mix)
+        hasher.combine(holdings.first?.id)
+        hasher.combine(holdings.last?.id)
     }
 }
 

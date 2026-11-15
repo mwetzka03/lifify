@@ -7,6 +7,9 @@ final class DataImportViewModel: ObservableObject {
     @Published var destination: BankImportDestination?
     @Published var message: String?
     @Published var review: ImportReview?
+    @Published var pendingBank: BankImportDocument?
+    @Published var currentBalanceText = ""
+    private var finishedMessage: String?
 
     func importBankFile(
         from url: URL,
@@ -17,17 +20,39 @@ final class DataImportViewModel: ObservableObject {
         defer { if accessing { url.stopAccessingSecurityScopedResource() } }
         do {
             let data = try Data(contentsOf: url)
-            guard let destination else {
+            guard destination != nil else {
                 message = L("Bitte zuerst ein Zielkonto auswählen.", "Select a destination account first.")
                 return
             }
             let document = try BankImportService.parseDocument(data: data, fileExtension: url.pathExtension)
-            let target = destination
-            let known = Set(existingEntries.compactMap(\.importFingerprint))
+            guard !document.rows.isEmpty else {
+                message = L("Der Export enthält keine Buchungen.", "The export contains no transactions.")
+                return
+            }
+            pendingBank = document
+            currentBalanceText = ""
+        } catch {
+            message = error.localizedDescription
+        }
+    }
+
+    func commitPendingBank(
+        context: ModelContext,
+        existingEntries: [LedgerEntry]
+    ) {
+        guard let document = pendingBank else { return }
+        guard let destination else {
+            message = L("Bitte zuerst ein Zielkonto auswählen.", "Select a destination account first.")
+            return
+        }
+        guard let current = Money.cents(from: currentBalanceText) else { return }
+        let known = Set(existingEntries.compactMap(\.importFingerprint))
+        do {
             let result = try BankImportApplier.apply(
                 document: document,
-                to: target,
-                openingBalanceCents: nil,
+                to: destination,
+                currentBalanceCents: current,
+                detectDuplicates: true,
                 context: context
             )
             for row in document.rows where row.amountCents > 0 && row.trade == nil {
@@ -38,11 +63,17 @@ final class DataImportViewModel: ObservableObject {
                 else { continue }
                 IncomeAssignmentStore.assign(entryID: entryID, to: forecastID)
             }
-            message = importMessage(for: result)
-            review = result.review.isEmpty ? nil : result.review
+            pendingBank = nil
+            currentBalanceText = ""
+            present(result)
         } catch {
             message = error.localizedDescription
         }
+    }
+
+    func cancelPendingBank() {
+        pendingBank = nil
+        currentBalanceText = ""
     }
 
     func importTradeRepublic(
@@ -59,7 +90,7 @@ final class DataImportViewModel: ObservableObject {
             let result = try BankImportApplier.apply(
                 document: document,
                 to: .separateChecking,
-                openingBalanceCents: nil,
+                detectDuplicates: true,
                 context: context
             )
             for row in document.rows where row.amountCents > 0 && row.trade == nil {
@@ -70,10 +101,35 @@ final class DataImportViewModel: ObservableObject {
                 else { continue }
                 IncomeAssignmentStore.assign(entryID: entryID, to: forecastID)
             }
-            message = importMessage(for: result)
-            review = result.review.isEmpty ? nil : result.review
+            present(result)
         } catch {
             message = error.localizedDescription
+        }
+    }
+
+    func finishReview(_ updated: ImportReview, context: ModelContext) {
+        do {
+            try BankImportApplier.commitReview(updated, context: context)
+            message = finishedMessage
+        } catch {
+            message = error.localizedDescription
+        }
+        finishedMessage = nil
+    }
+
+    private func present(_ result: BankImportResult) {
+        if result.review.isEmpty {
+            finishedMessage = nil
+            message = importMessage(for: result)
+            review = nil
+            return
+        }
+        message = nil
+        finishedMessage = importMessage(for: result)
+        let pending = result.review
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(300))
+            self.review = pending
         }
     }
 
@@ -108,26 +164,35 @@ final class DataImportViewModel: ObservableObject {
         }
         if !result.review.isEmpty {
             parts.append(L(
-                "Prüfe mögliche Umbuchungen und ähnliche Buchungen.",
-                "Review possible transfers and similar transactions."
+                "Prüfe fehlende Zeilen und ähnliche Buchungen, dann Übernehmen.",
+                "Review missing rows and similar bookings, then Apply."
             ))
         }
         return parts.joined(separator: " ")
     }
 
     func restoreBackup(from url: URL, context: ModelContext) {
-        let accessing = url.startAccessingSecurityScopedResource()
-        defer { if accessing { url.stopAccessingSecurityScopedResource() } }
+        restoreBackups(from: [url], context: context)
+    }
+
+    func restoreBackups(from urls: [URL], context: ModelContext) {
+        var accessors: [URL] = []
+        defer { accessors.forEach { $0.stopAccessingSecurityScopedResource() } }
         do {
-            try BackupService.restore(data: Data(contentsOf: url), into: context)
+            var payloads: [Data] = []
+            for url in urls {
+                if url.startAccessingSecurityScopedResource() { accessors.append(url) }
+                payloads.append(try Data(contentsOf: url))
+            }
+            let scopes = try BackupService.restore(payloads: payloads, into: context)
             let accounts = try context.fetch(FetchDescriptor<Account>())
             if accounts.contains(where: \.isMain) {
-                message = L("Sicherung erfolgreich wiederhergestellt.", "Backup restored successfully.")
+                message = BackupService.restoredMessage(scopes)
             } else {
                 UserDefaults.standard.set(false, forKey: "hasCompletedOnboarding")
                 UserDefaults.standard.set(false, forKey: "onboardingInProgress")
-                UserDefaults.standard.set(4, forKey: "onboardingStep")
-                message = L(
+                UserDefaults.standard.set(0, forKey: "onboardingStep")
+                message = BackupService.restoredMessage(scopes) + " " + L(
                     "Die Sicherung enthält kein Hauptkonto. Die Einrichtung wird fortgesetzt.",
                     "The backup contains no main account. Setup will continue."
                 )

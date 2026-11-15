@@ -16,6 +16,7 @@ enum LififyCoverageChecks {
             holdingChangeAndSecurityPurchases(),
             importFilesKeepTheirRows(),
             fingerprintsAndImportErrors(),
+            importAsksAboutMissingDayRows(),
             backupRoundTripKeepsTheRecord(),
             deleteAndResetSayWhatRemains(),
             shopBalanceAndRedemptionLabels(),
@@ -64,9 +65,20 @@ enum LififyCoverageChecks {
         let checkingBalance = FinanceService.balance(for: checking, entries: entries, holdings: [])
         let depotBalance = FinanceService.balance(for: depot, entries: [], holdings: [holding])
         let total = FinanceService.totalBalance(accounts: [checking, group, pot, depot], entries: entries, holdings: [holding])
+        let pin = LedgerEntry(
+            date: day3,
+            title: "Saldo-Korrektur",
+            notes: "Typ: Saldo-Korrektur",
+            amountCents: 50_000,
+            kind: .adjustment,
+            accountID: checking.id,
+            createdAt: day3.addingTimeInterval(10)
+        )
+        let pinned = FinanceService.balance(for: checking, entries: entries + [pin], holdings: [])
         let passed = checkingBalance == 9_800
             && depotBalance == 300
             && total == 15_100
+            && pinned == 50_000
             && shows(checking.kind.label, "Girokonto", "Checking")
             && shows(depot.kind.label, "Depot", "Portfolio")
         return check(
@@ -173,6 +185,43 @@ enum LififyCoverageChecks {
         let year = CalendarService.periodKey(for: berlin(2026, 11, 8), mode: .calendarYear, startDay: 1)
         let modes = DashboardPeriodMode.allCases.map(\.label)
         let themes = AppTheme.allCases.map(\.label)
+        let salary = IncomeForecast(
+            name: "Gehalt",
+            amountCents: 1,
+            cadence: .monthly,
+            firstPaymentDate: berlin(2026, 1, 31),
+            dueRule: .lastBusinessDay,
+            dayOfMonth: 31
+        )
+        let periods = FinanceService.forecastPeriods(
+            primary: salary,
+            earliest: berlin(2026, 5, 17),
+            latest: berlin(2026, 6, 15)
+        )
+        let periodStart = periods.first.map { berlinParts($0.start) }
+        let periodEnd = periods.first.map { berlinParts($0.end) }
+        let main = Account(name: "Giro", kind: .checking, isMain: true)
+        let other = Account(name: "Broker", kind: .checking)
+        let opening = LedgerEntry(
+            date: berlin(2026, 5, 17),
+            title: "Eröffnungssaldo",
+            amountCents: 92_091,
+            kind: .adjustment,
+            accountID: main.id
+        )
+        let early = LedgerEntry(
+            date: berlin(2026, 5, 5),
+            title: "Karte",
+            amountCents: -400,
+            kind: .expense,
+            accountID: other.id
+        )
+        let fromMain = FinancePeriods.all(
+            entries: [opening, early],
+            forecasts: [],
+            accounts: [main, other]
+        )
+        let mainStart = fromMain.first.map { berlinParts($0.start) }
         let passed = snapshot.remaining == -1_500
             && Money.signed(cents: snapshot.remaining).contains("15")
             && VariableBudgetAccounts.share(total: 100, accountID: first, targets: [first, second, third]) == 34
@@ -187,7 +236,19 @@ enum LififyCoverageChecks {
             && shows(themes[2], "Dunkel", "Dark")
             && shows(FinanceTileCopy.applied, "Angewendet", "Applied")
             && shows(FinanceTileCopy.planned, "Geplant", "Planned")
-        return check("Restbudget, Anteil und Zeitraum", .budget, .unit, passed, Money.signed(cents: snapshot.remaining))
+            && periodStart?.day == 17 && periodStart?.month == 5
+            && periodEnd?.day == 28 && periodEnd?.month == 5
+            && mainStart?.day == 17 && mainStart?.month == 5
+            && ImportBalance.openingCents(current: 10_000, rowAmounts: [-3_000, 1_000]) == 12_000
+            && ImportBalance.fittedOpeningCents(current: 10_000, laterEffect: -2_000) == 12_000
+            && ImportBalance.correctionCents(current: 10_000, computed: 10_800) == -800
+        return check(
+            "Restbudget, Anteil und Zeitraum",
+            .budget,
+            .unit,
+            passed,
+            "Rest \(Money.signed(cents: snapshot.remaining)), erster Zeitraum \(periodStart?.day ?? 0).\(periodStart?.month ?? 0).–\(periodEnd?.day ?? 0).\(periodEnd?.month ?? 0), Hauptkonto \(mainStart?.day ?? 0).\(mainStart?.month ?? 0)."
+        )
     }
 
     private static func carryShoppingAndGroupsStaySeparate() -> LififyCheckResult {
@@ -233,10 +294,26 @@ enum LififyCoverageChecks {
         let buy = HoldingLot(date: berlin(2026, 2, 1), quantity: 2, unitPriceCents: 500, amountCents: 1_000, isSale: false, isSavingsPlan: false)
         let sale = HoldingLot(date: berlin(2026, 3, 1), quantity: 1, unitPriceCents: 500, amountCents: 700, isSale: true, isSavingsPlan: false)
         let average = HoldingMaintenance.averagePurchaseCents(for: [buy, sale])
+        let gift = HoldingLot(
+            date: berlin(2026, 11, 6),
+            quantity: 0.436442,
+            unitPriceCents: 5724,
+            amountCents: 0,
+            isSale: false,
+            isSavingsPlan: false,
+            source: "gift"
+        )
+        let giftCost = HoldingMaintenance.averagePurchaseCents(for: [gift])
+        let mixed = HoldingMaintenance.averagePurchaseCents(for: [
+            HoldingLot(date: berlin(2026, 2, 1), quantity: 1, unitPriceCents: 5000, amountCents: -5000, isSale: false, isSavingsPlan: false),
+            HoldingLot(date: berlin(2026, 11, 6), quantity: 1, unitPriceCents: 0, amountCents: 0, isSale: false, isSavingsPlan: false, source: "gift")
+        ])
         let sorts = PortfolioSort.allCases.map(\.label)
         let units = PortfolioUnit.allCases.map(\.label)
         let passed = average?.quantity == 1.0
             && average?.priceCents == 500
+            && giftCost?.priceCents == 0
+            && mixed?.priceCents == 2500
             && shows(sorts[0], "Wert", "Value")
             && shows(sorts[1], "Kauf", "Purchase")
             && sorts[2] == "A–Z"
@@ -272,9 +349,18 @@ enum LififyCoverageChecks {
         let xml = """
         <Document><Ntry><Amt>19.99</Amt><CdtDbtInd>DBIT</CdtDbtInd><BookgDt><Dt>2026-01-02</Dt></BookgDt><AddtlNtryInf>Cafe</AddtlNtryInf><CdtrAcct><IBAN>DE89370400440532013000</IBAN></CdtrAcct></Ntry></Document>
         """
+        let paypal = """
+        Buchungstag;Betrag;Verwendungszweck;Beguenstigter/Zahlungspflichtiger;Kontonummer/IBAN;Kundenreferenz (End-to-End);Info
+        03.11.26;-38,80;1054118451739;PayPal Europe;DE89370400440532013000;1054118451739;Umsatz gebucht
+        03.11.26;-38,80;1054124404910;PayPal Europe;DE89370400440532013000;1054124404910;Umsatz gebucht
+        29.06.26;-10,00;EDEKA;Dietz GmbH;DE89370400440532013000;dietz-1;Umsatz gebucht
+        29.06.26;-10,00;REWE;Snack Mall;DE89370400440532013000;snack-1;Umsatz gebucht
+        16.11.26;-9,05;Steam;Steam;DE89370400440532013000;steam-1;Umsatz vorgemerkt
+        """
         let rows = (try? BankImportService.parseCSV(csv)) ?? []
         let camt = (try? BankImportService.parseCAMT(data: Data(xml.utf8))) ?? []
         let again = (try? BankImportService.parseCSV(csv)) ?? []
+        let twins = (try? BankImportService.parseCSV(paypal)) ?? []
         let passed = rows.count == 1
             && rows[0].title == "Bäcker"
             && rows[0].amountCents == -1_250
@@ -285,7 +371,19 @@ enum LififyCoverageChecks {
             && camt[0].title == "Cafe"
             && camt[0].amountCents == -1_999
             && again.first?.fingerprint == rows.first?.fingerprint
-        return check("CSV und CAMT zeigen die Buchung", .bankImport, .unit, passed, "CSV \(rows.count), CAMT \(camt.first?.amountCents ?? 0)")
+            && twins.count == 4
+            && twins[0].fingerprint != twins[1].fingerprint
+            && twins[0].legacyFingerprint != nil
+            && twins[0].legacyFingerprint == twins[1].legacyFingerprint
+            && twins.filter { $0.amountCents == -3_880 }.count == 2
+            && twins.filter { $0.amountCents == -1_000 }.count == 2
+            && Set(twins.map(\.fingerprint)).count == 4
+            && BankImportService.purposeMark(notes: twins[0].notes).contains("1054118451739")
+            && BankImportService.purposeMark(notes: twins[1].notes).contains("1054124404910")
+            && !twins[0].notes.contains(BankImportService.purposeMark(notes: twins[1].notes))
+            && BankImportService.isPendingBankRow("Umsatz vorgemerkt")
+            && twins.allSatisfy { $0.amountCents != -905 }
+        return check("CSV und CAMT zeigen die Buchung", .bankImport, .unit, passed, "CSV \(rows.count), CAMT \(camt.first?.amountCents ?? 0), twins \(twins.count)")
     }
 
     private static func fingerprintsAndImportErrors() -> LififyCheckResult {
@@ -317,6 +415,99 @@ enum LififyCoverageChecks {
         return check("Fingerabdruck und Import-Hinweise", .bankImport, .integration, passed, pdf)
     }
 
+    private static func importAsksAboutMissingDayRows() -> LififyCheckResult {
+        let last = berlin(2026, 11, 13)
+        let june = berlin(2026, 6, 29)
+        let extraOld = BankImportDuplicates.action(
+            day: june,
+            lastExistingDay: last,
+            existingCount: 1,
+            importCount: 2,
+            identical: false,
+            matchedExisting: false
+        )
+        let completeOld = BankImportDuplicates.action(
+            day: june,
+            lastExistingDay: last,
+            existingCount: 2,
+            importCount: 2,
+            identical: false,
+            matchedExisting: true
+        )
+        let lastSimilar = BankImportDuplicates.action(
+            day: last,
+            lastExistingDay: last,
+            existingCount: 4,
+            importCount: 4,
+            identical: false,
+            matchedExisting: true
+        )
+        let afterLast = BankImportDuplicates.action(
+            day: berlin(2026, 11, 14),
+            lastExistingDay: last,
+            existingCount: 0,
+            importCount: 1,
+            identical: false,
+            matchedExisting: false
+        )
+        let csv = """
+        Buchungstag;Betrag;Verwendungszweck;Beguenstigter/Zahlungspflichtiger;Kontonummer/IBAN;Kundenreferenz (End-to-End);Info
+        13.11.26;-5,00;Shop;Shop;DE89370400440532013000;shop-1;Umsatz gebucht
+        03.11.26;-38,80;1054118451739;PayPal Europe;DE89370400440532013000;1054118451739;Umsatz gebucht
+        03.11.26;-38,80;1054124404910;PayPal Europe;DE89370400440532013000;1054124404910;Umsatz gebucht
+        29.06.26;-10,00;EDEKA;Dietz GmbH;DE89370400440532013000;dietz-1;Umsatz gebucht
+        29.06.26;-10,00;REWE;Snack Mall;DE89370400440532013000;snack-1;Umsatz gebucht
+        02.01.26;-12,50;Bäcker;Bäcker;DE89370400440532013000;baecker-1;Umsatz gebucht
+        """
+        let parsed = (try? BankImportService.parseCSV(csv)) ?? []
+        let paypal = parsed.filter { $0.amountCents == -3_880 }
+        let shops = parsed.filter { $0.amountCents == -1_000 }
+        let shop = parsed.first { $0.amountCents == -500 }
+        let baker = parsed.first { $0.amountCents == -1_250 }
+        let accountID = UUID()
+        func entry(_ row: ImportedTransaction) -> LedgerEntry {
+            LedgerEntry(
+                date: row.date,
+                title: row.title,
+                notes: row.notes,
+                amountCents: row.amountCents,
+                kind: .expense,
+                accountID: accountID,
+                importFingerprint: row.fingerprint
+            )
+        }
+        let entries: [LedgerEntry]
+        if paypal.count == 2, shops.count == 2, let shop, let baker {
+            entries = [entry(paypal[0]), entry(shops[0]), entry(shop), entry(baker)]
+        } else {
+            entries = []
+        }
+        let plan = BankImportDuplicates.plan(rows: parsed, entries: entries, accountID: accountID)
+        let extras = plan.reviewByFingerprint.values.filter(\.isExtra)
+        let passed = extraOld == .review(include: true)
+            && completeOld == .skip
+            && lastSimilar == .review(include: false)
+            && afterLast == .ingest
+            && parsed.count == 6
+            && paypal.count == 2
+            && shops.count == 2
+            && extras.count == 2
+            && extras.allSatisfy(\.include)
+            && extras.allSatisfy(\.isExtra)
+            && extras.contains(where: { $0.fingerprint == paypal[1].fingerprint })
+            && extras.contains(where: { $0.fingerprint == shops[1].fingerprint })
+            && plan.shouldSkip(paypal[0].fingerprint)
+            && baker.map { plan.shouldSkip($0.fingerprint) } == true
+            && shop.map { plan.shouldSkip($0.fingerprint) } == true
+        return check(
+            "Import fragt nach fehlenden Tagesbuchungen",
+            .bankImport,
+            .unit,
+            passed,
+            "extras \(extras.count), parsed \(parsed.count)"
+        )
+    }
+
     private static func backupRoundTripKeepsTheRecord() -> LififyCheckResult {
         let id = UUID()
         let backup = LififyBackup(
@@ -327,10 +518,28 @@ enum LififyCoverageChecks {
         let data = (try? JSONEncoder().encode(backup)) ?? Data()
         let decoded = try? JSONDecoder().decode(LififyBackup.self, from: data)
         let prefixes = BackupScope.allCases.map(\.exportFilenamePrefix)
+        let lotID = UUID()
+        let lots = LififyBackup(
+            version: 4,
+            exportedAt: berlin(2026, 11, 8),
+            records: [BackupRecord(type: "holdingLot", id: lotID, strings: ["gift"], integers: [0, 0], doubles: [1], booleans: [false, false])]
+        )
+        let decodedLots = try? JSONDecoder().decode(LififyBackup.self, from: (try? JSONEncoder().encode(lots)) ?? Data())
         let passed = decoded?.version == 4
             && decoded?.records.first?.id == id
             && decoded?.records.first?.strings == ["Giro"]
+            && decodedLots?.records.first?.type == "holdingLot"
+            && decodedLots?.records.first?.id == lotID
+            && decodedLots?.records.first?.strings == ["gift"]
             && prefixes == ["Lifify", "Lifify-Finanzen", "Lifify-Challenges", "Lifify-Training"]
+            && BackupScope.restoreOrder == [.all, .finance, .challenges, .training]
+            && BackupScope.allowsSeveralFiles
+            && BackupService.scope(of: LififyBackup(
+                version: 1,
+                exportedAt: berlin(2026, 11, 8),
+                records: [BackupRecord(type: "backupScope", id: UUID(), strings: ["finance"])]
+            )) == .finance
+            && shows(BackupService.restoredMessage([.finance]), "Finanzen wiederhergestellt.", "Finance restored.")
         return check("Sicherung behält das Konto", .backup, .unit, passed, prefixes.joined(separator: ", "))
     }
 
@@ -434,9 +643,17 @@ enum LififyCoverageChecks {
             && AppChrome.glassScreens.contains("finance")
             && shows(OnboardingSteps.title, "Lifify einrichten", "Set up Lifify")
             && shows(OnboardingSteps.newSetup, "Neu einrichten", "Set up as new")
-            && shows(OnboardingSteps.restore, "JSON-Sicherung laden", "Restore JSON backup")
+            && shows(OnboardingSteps.restore, "JSON-Sicherung oder Teile laden", "Restore a JSON backup or parts")
+            && shows(
+                OnboardingSteps.restoreNote,
+                "Die ganze App, oder nur einzelne Bereiche: nur Finanzen, nur Challenges oder nur Training. Mehrere Dateien auf einmal gehen.",
+                "The entire app, or only one area: Finance only, Challenges only, or Training only. You can pick several files at once."
+            )
             && shows(OnboardingSteps.account, "Hauptkonto", "Main account")
             && OnboardingSteps.tradeRepublic == "Trade Republic"
+            && OnboardingResume.launchStep(isComplete: false, savedStep: 8) == 0
+            && OnboardingResume.launchStep(isComplete: false, savedStep: 4) == 0
+            && OnboardingResume.launchStep(isComplete: true, savedStep: 8) == 0
             && more.map(\.route) == [.budgetPools, .expenseGroups, .debts]
             && shows(more[0].title, "Budgetpools", "Budget pools")
             && shows(more[2].title, "Schulden", "Debts")

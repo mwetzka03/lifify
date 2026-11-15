@@ -142,7 +142,7 @@ enum MarketDataService {
     static func refresh(holdings: [PortfolioHolding], context: ModelContext) async {
         var changed = false
         var fxRates: [String: [String: Double]] = [:]
-        for holding in holdings where isValidISIN(holding.symbol) {
+        for holding in holdings where isQuoteable(holding.symbol) {
             let loaded: (history: [String: Int], priceCents: Int, previousCloseCents: Int?, fxRates: [String: [String: Double]])?
             if let history = try? await history(for: holding, fxRates: fxRates) {
                 loaded = history
@@ -184,34 +184,59 @@ enum MarketDataService {
         let normalizedISIN = isin
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .uppercased()
-        guard isValidISIN(normalizedISIN) else { throw MarketDataError.invalidISIN }
+        guard isQuoteable(normalizedISIN) else { throw MarketDataError.invalidISIN }
 
-        let urls = ["https://query1.finance.yahoo.com/v1/finance/search", "https://query2.finance.yahoo.com/v1/finance/search"].compactMap { host -> URL? in
-            var components = URLComponents(string: host)
-            components?.queryItems = [
-                URLQueryItem(name: "q", value: normalizedISIN),
-                URLQueryItem(name: "quotesCount", value: "8"),
-                URLQueryItem(name: "newsCount", value: "0")
-            ]
-            return components?.url
+        var queries = [normalizedISIN]
+        if let ticker = cryptoTicker(from: normalizedISIN) {
+            queries.append("\(ticker)-EUR")
+            queries.append(ticker)
         }
-        let search: YahooSearchResponse = try await requestFirst(urls)
-        let mapped: [(suggestion: StockSuggestion, listed: Bool)] = search.quotes.compactMap { quote in
-            guard ["EQUITY", "ETF", "MUTUALFUND"].contains(quote.quoteType ?? ""),
-                  let symbol = quote.symbol,
-                  !symbol.isEmpty
-            else { return nil }
-            return (
-                StockSuggestion(
-                    symbol: symbol,
-                    name: quote.longname ?? quote.shortname ?? symbol,
-                    exchange: quote.exchDisp ?? quote.exchange ?? ""
-                ),
-                quote.isYahooFinance != false
-            )
+        var mapped: [(suggestion: StockSuggestion, listed: Bool)] = []
+        var lastError: Error = MarketDataError.instrumentNotFound
+        for query in queries {
+            let urls = ["https://query1.finance.yahoo.com/v1/finance/search", "https://query2.finance.yahoo.com/v1/finance/search"].compactMap { host -> URL? in
+                var components = URLComponents(string: host)
+                components?.queryItems = [
+                    URLQueryItem(name: "q", value: query),
+                    URLQueryItem(name: "quotesCount", value: "8"),
+                    URLQueryItem(name: "newsCount", value: "0")
+                ]
+                return components?.url
+            }
+            do {
+                let search: YahooSearchResponse = try await requestFirst(urls)
+                let rows: [(suggestion: StockSuggestion, listed: Bool)] = search.quotes.compactMap { quote in
+                    guard let symbol = quote.symbol, !symbol.isEmpty else { return nil }
+                    let type = (quote.quoteType ?? "").uppercased()
+                    guard ["EQUITY", "ETF", "MUTUALFUND", "CRYPTOCURRENCY", "CRYPTO", "ECC"].contains(type) else {
+                        return nil
+                    }
+                    return (
+                        StockSuggestion(
+                            symbol: symbol,
+                            name: quote.longname ?? quote.shortname ?? symbol,
+                            exchange: quote.exchDisp ?? quote.exchange ?? ""
+                        ),
+                        quote.isYahooFinance != false
+                    )
+                }
+                mapped.append(contentsOf: rows)
+                if !rows.isEmpty, query != normalizedISIN { break }
+            } catch {
+                lastError = error
+            }
         }
-        let listed = mapped.filter(\.listed).map(\.suggestion)
-        return listed.isEmpty ? mapped.map(\.suggestion) : listed
+        var unique: [(suggestion: StockSuggestion, listed: Bool)] = []
+        var seenSymbols = Set<String>()
+        for row in mapped {
+            if seenSymbols.insert(row.suggestion.symbol.uppercased()).inserted {
+                unique.append(row)
+            }
+        }
+        let listed = unique.filter(\.listed).map(\.suggestion)
+        let result = listed.isEmpty ? unique.map(\.suggestion) : listed
+        if result.isEmpty { throw lastError }
+        return result
     }
 
     /// Prefer a German listing. Lang & Schwarz has no public price API, so Xetra,
@@ -229,6 +254,7 @@ enum MarketDataService {
         let symbol = item.symbol.uppercased()
         let exchange = item.exchange.uppercased()
         var score = 0
+        if symbol.hasSuffix("-EUR") { score += 90 }
         if symbol.hasSuffix(".DE") { score += 80 }
         if symbol.hasSuffix(".F") || symbol.hasSuffix(".SG") || symbol.hasSuffix(".MU")
             || symbol.hasSuffix(".DU") || symbol.hasSuffix(".HM") || symbol.hasSuffix(".BE") {
@@ -278,6 +304,18 @@ enum MarketDataService {
             euroPrice = basePrice * rate
         }
         return Int((euroPrice * 100).rounded())
+    }
+
+    static func isQuoteable(_ value: String) -> Bool {
+        isValidISIN(value) || cryptoTicker(from: value) != nil
+    }
+
+    /// Trade Republic crypto instruments use XF… identifiers that fail the ISIN checksum.
+    static func cryptoTicker(from isin: String) -> String? {
+        let value = isin.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        guard value.count == 12, value.hasPrefix("XF") else { return nil }
+        let ticker = value.dropFirst(2).drop(while: { $0.isNumber }).prefix(while: { $0.isLetter })
+        return ticker.count >= 3 ? String(ticker) : nil
     }
 
     static func isValidISIN(_ value: String) -> Bool {

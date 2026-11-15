@@ -13,6 +13,299 @@ struct BankImportResult {
     var review: ImportReview = ImportReview()
 }
 
+@MainActor
+enum ImportBalance {
+    static let currentFingerprint = "saldo-korrektur"
+
+    static func openingCents(current: Int, rowAmounts: [Int]) -> Int {
+        current - rowAmounts.reduce(0, +)
+    }
+
+    static func correctionCents(current: Int, computed: Int) -> Int {
+        current - computed
+    }
+
+    static func fittedOpeningCents(current: Int, laterEffect: Int) -> Int {
+        current - laterEffect
+    }
+
+    static func isCurrentPin(_ entry: LedgerEntry, accountID: UUID) -> Bool {
+        guard entry.accountID == accountID, entry.kind == .adjustment else { return false }
+        if entry.importFingerprint == currentFingerprint { return true }
+        return entry.notes.contains("Typ: Saldo-Korrektur")
+    }
+
+    /// First import: the opening on day one is current minus every later booking.
+    /// Later import: skip old rows, then a Saldo-Korrektur from the last import.
+    @discardableResult
+    static func fitToCurrent(
+        account: Account,
+        entries: inout [LedgerEntry],
+        currentCents: Int,
+        context: ModelContext
+    ) -> LedgerEntry? {
+        removeAbsolutePins(accountID: account.id, entries: &entries, context: context)
+        let result: LedgerEntry?
+        if BankImportCursor.currentCents(for: account.id) == nil {
+            result = fitFirstOpening(account: account, entries: &entries, currentCents: currentCents, context: context)
+        } else {
+            result = insertDelta(account: account, entries: &entries, currentCents: currentCents, context: context)
+        }
+        return result
+    }
+
+    /// Rewrites the first opening so FinanceService live cash equals the entered stand.
+    @discardableResult
+    static func fitFirstOpening(
+        account: Account,
+        entries: inout [LedgerEntry],
+        currentCents: Int,
+        context: ModelContext
+    ) -> LedgerEntry? {
+        let opening = firstOpening(accountID: account.id, in: entries) ?? makeOpening(
+            account: account,
+            entries: &entries,
+            context: context
+        )
+        anchorOpening(opening, entries: &entries, context: context)
+        let computed = FinanceService.currentBalance(for: account, entries: entries)
+        opening.amountCents += currentCents - computed
+        return opening
+    }
+
+    /// Turns a leftover today's pin into a fitted first-day opening.
+    static func adoptPinsIfNeeded(
+        accounts: [Account],
+        entries: inout [LedgerEntry],
+        context: ModelContext
+    ) -> [(accountID: UUID, currentCents: Int)] {
+        var changed: [(accountID: UUID, currentCents: Int)] = []
+        for account in accounts where account.kind != .portfolio && account.kind != .savingsGroup {
+            guard !isTradeRepublicChecking(account, entries: entries) else { continue }
+            guard let pin = entries.filter({ isCurrentPin($0, accountID: account.id) }).max(by: { $0.createdAt < $1.createdAt }) else {
+                continue
+            }
+            let current = pin.amountCents
+            removeAbsolutePins(accountID: account.id, entries: &entries, context: context)
+            _ = fitFirstOpening(account: account, entries: &entries, currentCents: current, context: context)
+            changed.append((account.id, current))
+        }
+        return changed
+    }
+
+    /// Same-day bookings must sit after the opening, or Endsaldo and live cash diverge.
+    static func repairOpeningAnchors(
+        accounts: [Account],
+        entries: inout [LedgerEntry],
+        context: ModelContext
+    ) -> Bool {
+        var changed = false
+        for account in accounts where account.kind != .portfolio && account.kind != .savingsGroup {
+            guard !isTradeRepublicChecking(account, entries: entries) else { continue }
+            guard let opening = firstOpening(accountID: account.id, in: entries) else { continue }
+            if anchorOpening(opening, entries: &entries, context: context) {
+                changed = true
+            }
+        }
+        return changed
+    }
+
+    /// Absolute pin for callers that still need today's stand as the last adjustment.
+    @discardableResult
+    static func correction(
+        account: Account,
+        entries: inout [LedgerEntry],
+        currentCents: Int,
+        date: Date,
+        context: ModelContext
+    ) -> LedgerEntry? {
+        let day = Calendar.current.startOfDay(for: date)
+        let stale = entries.filter { isCurrentPin($0, accountID: account.id) }
+        if let existing = stale.max(by: { $0.createdAt < $1.createdAt }) {
+            for entry in stale where entry.id != existing.id {
+                context.delete(entry)
+            }
+            entries.removeAll { isCurrentPin($0, accountID: account.id) && $0.id != existing.id }
+            existing.date = day
+            existing.amountCents = currentCents
+            existing.kind = .adjustment
+            existing.title = L("Saldo-Korrektur", "Balance adjustment")
+            existing.notes = "Typ: Saldo-Korrektur"
+            existing.importFingerprint = currentFingerprint
+            existing.accountID = account.id
+            return existing
+        }
+        let entry = LedgerEntry(
+            date: day,
+            title: L("Saldo-Korrektur", "Balance adjustment"),
+            notes: "Typ: Saldo-Korrektur",
+            amountCents: currentCents,
+            kind: .adjustment,
+            accountID: account.id,
+            importFingerprint: currentFingerprint
+        )
+        context.insert(entry)
+        entries.append(entry)
+        return entry
+    }
+
+    private static func removeAbsolutePins(
+        accountID: UUID,
+        entries: inout [LedgerEntry],
+        context: ModelContext
+    ) {
+        let stale = entries.filter { isCurrentPin($0, accountID: accountID) }
+        for entry in stale {
+            context.delete(entry)
+        }
+        entries.removeAll { isCurrentPin($0, accountID: accountID) }
+    }
+
+    private static func firstOpening(accountID: UUID, in entries: [LedgerEntry]) -> LedgerEntry? {
+        entries
+            .filter { $0.kind == .adjustment && $0.accountID == accountID && !isCurrentPin($0, accountID: accountID) }
+            .sorted { lhs, rhs in
+                lhs.date == rhs.date ? lhs.createdAt < rhs.createdAt : lhs.date < rhs.date
+            }
+            .first
+    }
+
+    private static func makeOpening(
+        account: Account,
+        entries: inout [LedgerEntry],
+        context: ModelContext
+    ) -> LedgerEntry {
+        let first = entries
+            .filter { $0.accountID == account.id || $0.fromAccountID == account.id || $0.toAccountID == account.id }
+            .map(\.date)
+            .min() ?? Date()
+        let day = Calendar.current.startOfDay(for: first)
+        let opening = LedgerEntry(
+            date: day,
+            title: L("Eröffnungssaldo", "Opening balance"),
+            amountCents: 0,
+            kind: .adjustment,
+            accountID: account.id,
+            createdAt: day
+        )
+        context.insert(opening)
+        entries.append(opening)
+        return opening
+    }
+
+    private static func insertDelta(
+        account: Account,
+        entries: inout [LedgerEntry],
+        currentCents: Int,
+        context: ModelContext
+    ) -> LedgerEntry? {
+        let computed = FinanceService.currentBalance(for: account, entries: entries)
+        let delta = correctionCents(current: currentCents, computed: computed)
+        guard delta != 0 else { return nil }
+        let last = BankImportCursor.date(for: account.id) ?? Date()
+        let entry = LedgerEntry(
+            date: Calendar.current.startOfDay(for: last),
+            title: L("Saldo-Korrektur", "Balance adjustment"),
+            notes: "Typ: Saldo-Korrektur",
+            amountCents: delta,
+            kind: delta >= 0 ? .income : .expense,
+            accountID: account.id
+        )
+        context.insert(entry)
+        entries.append(entry)
+        return entry
+    }
+
+    @discardableResult
+    private static func anchorOpening(
+        _ opening: LedgerEntry,
+        entries: inout [LedgerEntry],
+        context: ModelContext
+    ) -> Bool {
+        let day = Calendar.current.startOfDay(for: opening.date)
+        var changed = false
+        if opening.date != day {
+            opening.date = day
+            changed = true
+        }
+        if opening.createdAt != day {
+            opening.createdAt = day
+            changed = true
+        }
+        let extras = entries.filter {
+            $0.id != opening.id
+                && $0.kind == .adjustment
+                && $0.accountID == opening.accountID
+                && isOpeningTitle($0)
+        }
+        for extra in extras {
+            context.delete(extra)
+            changed = true
+        }
+        if !extras.isEmpty {
+            let ids = Set(extras.map(\.id))
+            entries.removeAll { ids.contains($0.id) }
+        }
+        return changed
+    }
+
+    private static func isOpeningTitle(_ entry: LedgerEntry) -> Bool {
+        entry.title == L("Eröffnungssaldo", "Opening balance")
+            || entry.title == L("Startsaldo", "Opening balance")
+            || entry.title == "Eröffnungssaldo"
+            || entry.title == "Startsaldo"
+            || entry.title == "Opening balance"
+    }
+
+    private static func isTradeRepublicChecking(_ account: Account, entries: [LedgerEntry]) -> Bool {
+        entries.contains {
+            $0.accountID == account.id
+                && ($0.importFingerprint == TradeRepublicTimeline.openingBalanceFingerprint
+                    || $0.importFingerprint == "tr-startsaldo")
+        }
+    }
+}
+
+enum BankImportCursor {
+    private static let prefix = "lifify.bankImport.cursor."
+    private static let currentPrefix = "lifify.bankImport.current."
+
+    static func date(for accountID: UUID) -> Date? {
+        let stored = UserDefaults.standard.double(forKey: key(accountID))
+        guard stored > 0 else { return nil }
+        return Date(timeIntervalSince1970: stored)
+    }
+
+    static func currentCents(for accountID: UUID) -> Int? {
+        let key = currentKey(accountID)
+        guard UserDefaults.standard.object(forKey: key) != nil else { return nil }
+        return UserDefaults.standard.integer(forKey: key)
+    }
+
+    static func mark(_ accountID: UUID, at date: Date = Date(), currentCents: Int? = nil) {
+        UserDefaults.standard.set(date.timeIntervalSince1970, forKey: key(accountID))
+        if let currentCents {
+            UserDefaults.standard.set(currentCents, forKey: currentKey(accountID))
+        }
+    }
+
+    static func reset() {
+        let defaults = UserDefaults.standard
+        for key in defaults.dictionaryRepresentation().keys
+        where key.hasPrefix(prefix) || key.hasPrefix(currentPrefix) {
+            defaults.removeObject(forKey: key)
+        }
+    }
+
+    private static func key(_ accountID: UUID) -> String {
+        prefix + accountID.uuidString
+    }
+
+    private static func currentKey(_ accountID: UUID) -> String {
+        currentPrefix + accountID.uuidString
+    }
+}
+
 enum PortfolioLinkStore {
     private static func key(for checkingID: UUID) -> String {
         "lifify.portfolioLink.\(checkingID.uuidString)"
@@ -49,6 +342,18 @@ enum PortfolioLinkStore {
             UserDefaults.standard.removeObject(forKey: key)
         }
     }
+
+    static func allLinks() -> [(checkingID: UUID, portfolioID: UUID)] {
+        let prefix = "lifify.portfolioLink."
+        return UserDefaults.standard.dictionaryRepresentation().compactMap { key, value in
+            guard key.hasPrefix(prefix),
+                  let checkingID = UUID(uuidString: String(key.dropFirst(prefix.count))),
+                  let raw = value as? String,
+                  let portfolioID = UUID(uuidString: raw)
+            else { return nil }
+            return (checkingID, portfolioID)
+        }
+    }
 }
 
 @MainActor
@@ -80,7 +385,8 @@ enum BankImportApplier {
     static func apply(
         document: BankImportDocument,
         to destination: BankImportDestination,
-        openingBalanceCents: Int?,
+        currentBalanceCents: Int? = nil,
+        detectDuplicates: Bool = true,
         context: ModelContext
     ) throws -> BankImportResult {
         if document.tradeRepublic != nil {
@@ -107,18 +413,29 @@ enum BankImportApplier {
             ? nil
             : firstMainAccountPeriod(entries: entries, accounts: accounts, context: context)
 
-        if document.tradeRepublic == nil, let openingBalanceCents,
-           !entries.contains(where: { $0.kind == .adjustment && $0.accountID == checking.account.id }),
+        if document.tradeRepublic == nil, let currentBalanceCents,
+           !entries.contains(where: {
+               $0.kind == .adjustment
+                   && $0.accountID == checking.account.id
+                   && !ImportBalance.isCurrentPin($0, accountID: checking.account.id)
+           }),
            let firstDate = document.rows.map(\.date).min() {
+            let opening = ImportBalance.openingCents(
+                current: currentBalanceCents,
+                rowAmounts: document.rows.map(\.amountCents)
+            )
+            let day = Calendar.current.startOfDay(for: firstDate)
             let adjustment = LedgerEntry(
-                date: Calendar.current.date(byAdding: .day, value: -1, to: firstDate) ?? firstDate,
+                date: day,
                 title: L("Eröffnungssaldo", "Opening balance"),
-                amountCents: openingBalanceCents,
+                amountCents: opening,
                 kind: .adjustment,
-                accountID: checking.account.id
+                accountID: checking.account.id,
+                createdAt: day
             )
             context.insert(adjustment)
             insertedEntries.append(adjustment)
+            entries.append(adjustment)
         } else if let statement = document.tradeRepublic, let period {
             let saldo = statementBalance(
                 before: period.start,
@@ -155,27 +472,13 @@ enum BankImportApplier {
         var entryIDs: [String: UUID] = [:]
         var selectable: [ImportedTransaction] = []
         var imported = 0
-        var skippedBeforeStart = 0
         var review = ImportReview()
+        let duplicates: BankImportDuplicates.Plan? =
+            detectDuplicates && document.tradeRepublic == nil
+            ? BankImportDuplicates.plan(rows: document.rows, entries: entries, accountID: checking.account.id)
+            : nil
         let directory = accounts + checking.created
-        let periodStart = period.map { Calendar.current.startOfDay(for: $0.start) }
         for row in document.rows {
-            if let periodStart, Calendar.current.startOfDay(for: row.date) < periodStart {
-                if let trade = row.trade, let portfolio {
-                    apply(
-                        trade,
-                        cashCents: row.amountCents,
-                        date: row.date,
-                        portfolio: portfolio.account,
-                        context: context,
-                        holdings: &holdings,
-                        insertedHoldings: &insertedHoldings,
-                        ledgerEntryID: nil
-                    )
-                }
-                skippedBeforeStart += 1
-                continue
-            }
             if row.trade != nil {
                 let fingerprints = [row.fingerprint, row.legacyFingerprint].compactMap { $0 }
                 if entries.contains(where: { entry in
@@ -212,6 +515,8 @@ enum BankImportApplier {
                 entries: &entries,
                 known: &known,
                 review: &review,
+                detectDuplicates: detectDuplicates,
+                duplicates: duplicates,
                 context: context
             ) {
                 insertedEntries.append(entry)
@@ -249,14 +554,36 @@ enum BankImportApplier {
         let holdingCount = holdings.filter { holding in
             holding.accountID == portfolioID && holding.quantity > 0.0000005
         }.count
+        var fittedAccountID: UUID?
+        if document.tradeRepublic == nil, let currentBalanceCents {
+            if review.isEmpty {
+                let knownIDs = Set(insertedEntries.map(\.id))
+                if let extra = ImportBalance.fitToCurrent(
+                    account: checking.account,
+                    entries: &entries,
+                    currentCents: currentBalanceCents,
+                    context: context
+                ), !knownIDs.contains(extra.id) {
+                    insertedEntries.append(extra)
+                }
+                fittedAccountID = checking.account.id
+            } else {
+                review.accountID = checking.account.id
+                review.currentCents = currentBalanceCents
+            }
+        }
         do {
             try context.save()
+            if let fittedAccountID, let currentBalanceCents {
+                BankImportCursor.mark(fittedAccountID, currentCents: currentBalanceCents)
+            }
         } catch {
             insertedEntries.forEach(context.delete)
             insertedHoldings.forEach(context.delete)
             insertedAccounts.forEach(context.delete)
             throw error
         }
+        relinkOwnAccounts(context: context)
         return BankImportResult(
             importedCount: imported,
             holdingCount: holdingCount,
@@ -265,7 +592,7 @@ enum BankImportApplier {
             createdSeparateChecking: checking.createdSeparate,
             entryIDs: entryIDs,
             selectableRows: selectable,
-            skippedBeforeStart: skippedBeforeStart,
+            skippedBeforeStart: 0,
             review: review
         )
     }
@@ -277,7 +604,7 @@ enum BankImportApplier {
     ) -> ForecastPeriod? {
         guard let main = accounts.first(where: \.isMain) else { return nil }
         let dates = entries.compactMap { entry -> Date? in
-            guard entry.kind != .adjustment, entryTouches(entry, accountID: main.id) else { return nil }
+            guard entryTouches(entry, accountID: main.id) else { return nil }
             return entry.date
         }
         guard let earliest = dates.min() else { return nil }
@@ -318,6 +645,14 @@ enum BankImportApplier {
                 $0.kind == .checking && $0.iban.replacingOccurrences(of: " ", with: "").uppercased() == iban
             }) {
                 return (existing, [], false)
+            }
+            if document.tradeRepublic != nil, let named = accounts.first(where: {
+                $0.kind == .checking && $0.name.caseInsensitiveCompare("Trade Republic") == .orderedSame
+            }) {
+                if named.iban.trimmingCharacters(in: .whitespaces).isEmpty, !iban.isEmpty {
+                    named.iban = iban
+                }
+                return (named, [], false)
             }
             let account = Account(
                 name: document.tradeRepublic == nil ? L("Girokonto", "Checking account") : "Trade Republic",
@@ -421,14 +756,14 @@ enum BankImportApplier {
         second: UUID,
         entries: [LedgerEntry]
     ) -> Bool {
-        let day = Calendar.current.startOfDay(for: date)
-        let absAmount = abs(amount)
-        return entries.contains { entry in
-            guard entry.kind == .transfer, abs(entry.amountCents) == absAmount else { return false }
-            guard Calendar.current.startOfDay(for: entry.date) == day else { return false }
-            let ends = Set([entry.fromAccountID, entry.toAccountID].compactMap { $0 })
-            return ends == [first, second]
-        }
+        existingTransfer(
+            on: date,
+            amount: amount,
+            first: first,
+            second: second,
+            entries: entries,
+            windowDays: ownAccountWindowDays
+        ) != nil
     }
 
     private static func bookTransfer(
@@ -453,6 +788,7 @@ enum BankImportApplier {
         }
     }
 
+    @discardableResult
     private static func removeMirror(
         of row: ImportedTransaction,
         on accountID: UUID,
@@ -460,10 +796,10 @@ enum BankImportApplier {
         entries: inout [LedgerEntry],
         context: ModelContext,
         windowDays: Int = 0
-    ) {
+    ) -> Date? {
         let counterparty = normalizedIBAN(row.amountCents >= 0 ? row.senderIBAN : row.recipientIBAN)
         let markers = [counterparty, normalizedIBAN(checking.iban)].filter { !$0.isEmpty }
-        guard !markers.isEmpty else { return }
+        guard !markers.isEmpty else { return nil }
         guard let mirror = entries.first(where: { entry in
             guard entry.accountID == accountID else { return false }
             guard entry.kind == .income || entry.kind == .expense else { return false }
@@ -471,9 +807,11 @@ enum BankImportApplier {
             guard withinDays(entry.date, of: row.date, days: windowDays) else { return false }
             let haystack = normalizedIBAN(entry.notes + " " + entry.title)
             return markers.contains { haystack.contains($0) }
-        }) else { return }
+        }) else { return nil }
+        let date = mirror.date
         context.delete(mirror)
         entries.removeAll { $0.id == mirror.id }
+        return date
     }
 
     private static func ledgerEntry(for row: ImportedTransaction, checkingID: UUID, portfolioID: UUID?) -> LedgerEntry {
@@ -586,52 +924,80 @@ enum BankImportApplier {
         entries: inout [LedgerEntry],
         known: inout Set<String>,
         review: inout ImportReview,
+        detectDuplicates: Bool = true,
+        duplicates: BankImportDuplicates.Plan? = nil,
         context: ModelContext
     ) -> LedgerEntry? {
-        let fingerprints = [row.fingerprint, row.legacyFingerprint].compactMap { $0 }
-        if let existing = entries.first(where: { entry in
-            guard let fingerprint = entry.importFingerprint else { return false }
-            return fingerprints.contains(fingerprint)
-        }) {
-            review.similar.append(similarChoice(row: row, existing: existing, accountID: checking.id))
-            known.formUnion(fingerprints)
+        if known.contains(row.fingerprint) {
             return nil
         }
-        guard known.isDisjoint(with: fingerprints) else { return nil }
-
-        if let other = counterpartyAccount(for: row, checking: checking, accounts: accounts) {
-            if let existing = existingTransfer(
-                on: row.date,
-                amount: row.amountCents,
-                first: checking.id,
-                second: other.id,
-                entries: entries,
-                windowDays: 3
-            ) {
-                review.similar.append(similarChoice(row: row, existing: existing, accountID: checking.id))
-                known.formUnion(fingerprints)
+        if detectDuplicates {
+            if entries.contains(where: { $0.importFingerprint == row.fingerprint }) {
+                known.insert(row.fingerprint)
                 return nil
             }
-            if let match = transferMatch(row: row, other: other, entries: entries) {
-                let entry = ledgerEntry(for: row, checkingID: checking.id, portfolioID: nil)
-                context.insert(entry)
-                entries.append(entry)
-                known.formUnion(fingerprints)
-                review.transfers.append(transferChoice(entry: entry, row: row, checking: checking, other: other, match: match))
-                return entry
+            if let legacy = row.legacyFingerprint,
+               let existing = entries.first(where: { $0.importFingerprint == legacy }) {
+                let purpose = BankImportService.purposeMark(notes: row.notes)
+                if purpose.isEmpty || existing.notes.contains(purpose) {
+                    existing.importFingerprint = row.fingerprint
+                    known.insert(row.fingerprint)
+                    return nil
+                }
             }
         }
 
-        if let existing = similarMatch(row: row, entries: entries) {
+        if let other = counterpartyAccount(for: row, checking: checking, accounts: accounts) {
+            if transferExists(on: row.date, amount: row.amountCents, first: checking.id, second: other.id, entries: entries)
+                || existingTransfer(
+                    on: row.date,
+                    amount: row.amountCents,
+                    first: checking.id,
+                    second: other.id,
+                    entries: entries,
+                    windowDays: 3
+                ) != nil {
+                known.insert(row.fingerprint)
+                return nil
+            }
+            let entry = ledgerEntry(for: row, checkingID: checking.id, portfolioID: nil)
+            context.insert(entry)
+            entries.append(entry)
+            known.insert(row.fingerprint)
+            bookTransfer(entry, row: row, checkingID: checking.id, otherID: other.id, entries: &entries)
+            if let mirrorDate = removeMirror(of: row, on: other.id, checking: checking, entries: &entries, context: context, windowDays: 3),
+               mirrorDate < entry.date {
+                entry.date = mirrorDate
+            }
+            return entry
+        }
+
+        if detectDuplicates, let duplicates {
+            if duplicates.shouldSkip(row.fingerprint) {
+                known.insert(row.fingerprint)
+                return nil
+            }
+            if let choice = duplicates.reviewChoice(for: row.fingerprint) {
+                review.similar.append(choice)
+                known.insert(row.fingerprint)
+                return nil
+            }
+        } else if detectDuplicates, let existing = similarMatch(row: row, entries: entries, accountID: checking.id) {
+            let rowPurpose = BankImportService.purposeMark(notes: row.notes)
+            if !rowPurpose.isEmpty, existing.notes.contains(rowPurpose) {
+                existing.importFingerprint = row.fingerprint
+                known.insert(row.fingerprint)
+                return nil
+            }
             review.similar.append(similarChoice(row: row, existing: existing, accountID: checking.id))
-            known.formUnion(fingerprints)
+            known.insert(row.fingerprint)
             return nil
         }
 
         let entry = ledgerEntry(for: row, checkingID: checking.id, portfolioID: nil)
         context.insert(entry)
         entries.append(entry)
-        known.formUnion(fingerprints)
+        known.insert(row.fingerprint)
         return entry
     }
 
@@ -671,23 +1037,28 @@ enum BankImportApplier {
                 otherID: choice.otherAccountID,
                 entries: &entries
             )
+            var earliest = choice.date
             if let mirror = entries.first(where: { $0.id == choice.matchedEntryID }),
                mirror.id != entry.id,
                mirror.kind == .income || mirror.kind == .expense {
+                earliest = min(earliest, mirror.date)
                 context.delete(mirror)
                 entries.removeAll { $0.id == mirror.id }
             }
-            removeMirror(
+            if let mirrorDate = removeMirror(
                 of: row,
                 on: choice.otherAccountID,
                 checking: checking,
                 entries: &entries,
                 context: context,
                 windowDays: 3
-            )
+            ) {
+                earliest = min(earliest, mirrorDate)
+            }
+            entry.date = earliest
         }
         for choice in review.similar where choice.include {
-            context.insert(LedgerEntry(
+            let entry = LedgerEntry(
                 date: choice.date,
                 title: choice.title,
                 notes: choice.notes,
@@ -695,9 +1066,222 @@ enum BankImportApplier {
                 kind: choice.signedAmountCents < 0 ? .expense : .income,
                 accountID: choice.accountID,
                 importFingerprint: choice.fingerprint
-            ))
+            )
+            context.insert(entry)
+            entries.append(entry)
+        }
+        if let accountID = review.accountID,
+           let cents = review.currentCents,
+           let account = accounts.first(where: { $0.id == accountID }) {
+            _ = ImportBalance.fitToCurrent(
+                account: account,
+                entries: &entries,
+                currentCents: cents,
+                context: context
+            )
         }
         try context.save()
+        relinkOwnAccounts(context: context)
+        if let accountID = review.accountID, let cents = review.currentCents {
+            BankImportCursor.mark(accountID, currentCents: cents)
+        }
+    }
+
+    /// Own-account transfers can land a banking day or two later than they left.
+    static let ownAccountWindowDays = 3
+
+    /// A booking between two of your own accounts is a transfer. Combined it is neutral.
+    /// On the sending account it leaves, and on the receiving account it arrives.
+    /// Two cash bookings on the same day with the same amount both stay.
+    static func relinkOwnAccounts(context: ModelContext) {
+        guard var entries = try? context.fetch(FetchDescriptor<LedgerEntry>()) else { return }
+        let accounts = (try? context.fetch(FetchDescriptor<Account>())) ?? []
+        rememberTradeRepublicIBAN(entries: entries, accounts: accounts)
+        let checking = accounts.filter { $0.kind != .portfolio && $0.kind != .savingsGroup }
+        let checkingIDs = Set(checking.map(\.id))
+        let withIBAN = checking.filter { !normalizedIBAN($0.iban).isEmpty }
+        var changed = false
+        if withIBAN.count > 1 {
+            for entry in entries where entry.kind == .income || entry.kind == .expense {
+                guard let accountID = entry.accountID else { continue }
+                let parsed = BankImportService.ibans(from: entry.notes, amountCents: entry.amountCents)
+                let counterparty = normalizedIBAN(entry.amountCents >= 0 ? parsed.sender : parsed.recipient)
+                guard !counterparty.isEmpty,
+                      let other = withIBAN.first(where: { $0.id != accountID && normalizedIBAN($0.iban) == counterparty })
+                else { continue }
+                if let existing = existingTransfer(
+                    on: entry.date,
+                    amount: entry.amountCents,
+                    first: accountID,
+                    second: other.id,
+                    entries: entries,
+                    windowDays: ownAccountWindowDays
+                ) {
+                    if entry.date < existing.date { existing.date = entry.date }
+                    context.delete(entry)
+                    entries.removeAll { $0.id == entry.id }
+                    changed = true
+                    continue
+                }
+                let inbound = entry.amountCents >= 0
+                let row = ImportedTransaction(
+                    date: entry.date,
+                    title: entry.title,
+                    notes: entry.notes,
+                    amountCents: entry.amountCents,
+                    iban: counterparty,
+                    senderIBAN: inbound ? counterparty : "",
+                    recipientIBAN: inbound ? "" : counterparty,
+                    fingerprint: entry.importFingerprint ?? entry.id.uuidString
+                )
+                bookTransfer(entry, row: row, checkingID: accountID, otherID: other.id, entries: &entries)
+                if let source = accounts.first(where: { $0.id == accountID }) {
+                    if let mirrorDate = removeMirror(of: row, on: other.id, checking: source, entries: &entries, context: context, windowDays: 3),
+                       mirrorDate < entry.date {
+                        entry.date = mirrorDate
+                    }
+                }
+                changed = true
+            }
+        }
+        if collapseTransferMirrors(entries: &entries, checkingIDs: checkingIDs, context: context) {
+            changed = true
+        }
+        if mergeNamedTradeRepublicMoves(entries: &entries, accounts: checking, context: context) {
+            changed = true
+        }
+        guard changed else { return }
+        try? context.save()
+    }
+
+    /// An income or expense that already has a matching own-account transfer is the same payment twice.
+    private static func collapseTransferMirrors(
+        entries: inout [LedgerEntry],
+        checkingIDs: Set<UUID>,
+        context: ModelContext
+    ) -> Bool {
+        var changed = false
+        for entry in entries where entry.kind == .income || entry.kind == .expense {
+            guard let accountID = entry.accountID, checkingIDs.contains(accountID) else { continue }
+            let matches = entries.filter { transfer in
+                guard transfer.kind == .transfer, abs(transfer.amountCents) == abs(entry.amountCents) else {
+                    return false
+                }
+                guard withinDays(transfer.date, of: entry.date, days: ownAccountWindowDays) else { return false }
+                let ends = Set([transfer.fromAccountID, transfer.toAccountID].compactMap { $0 })
+                return ends.contains(accountID) && ends.contains(where: { checkingIDs.contains($0) && $0 != accountID })
+            }
+            guard !matches.isEmpty else { continue }
+            let earliest = ([entry.date] + matches.map(\.date)).min() ?? entry.date
+            for transfer in matches where transfer.date > earliest {
+                transfer.date = earliest
+            }
+            context.delete(entry)
+            entries.removeAll { $0.id == entry.id }
+            changed = true
+        }
+        return changed
+    }
+
+    /// A payment that names Trade Republic on one account and lands as cash on Trade Republic is one transfer.
+    private static func mergeNamedTradeRepublicMoves(
+        entries: inout [LedgerEntry],
+        accounts: [Account],
+        context: ModelContext
+    ) -> Bool {
+        guard let tradeRepublic = accounts.first(where: {
+            $0.kind == .checking && $0.name.caseInsensitiveCompare("Trade Republic") == .orderedSame
+        }) else { return false }
+        var changed = false
+        for entry in entries where entry.kind == .income || entry.kind == .expense {
+            guard let accountID = entry.accountID, accountID != tradeRepublic.id else { continue }
+            guard mentionsTradeRepublic(entry) else { continue }
+            let matches = entries.filter { other in
+                guard other.id != entry.id else { return false }
+                guard other.accountID == tradeRepublic.id, other.kind == .income || other.kind == .expense else {
+                    return false
+                }
+                guard abs(other.amountCents) == abs(entry.amountCents) else { return false }
+                return withinDays(other.date, of: entry.date, days: ownAccountWindowDays)
+            }
+            if let existing = existingTransfer(
+                on: entry.date,
+                amount: entry.amountCents,
+                first: accountID,
+                second: tradeRepublic.id,
+                entries: entries,
+                windowDays: ownAccountWindowDays
+            ) {
+                let earliest = ([entry.date, existing.date] + matches.map(\.date)).min() ?? entry.date
+                existing.date = earliest
+                context.delete(entry)
+                entries.removeAll { $0.id == entry.id }
+                for match in matches {
+                    context.delete(match)
+                    entries.removeAll { $0.id == match.id }
+                }
+                changed = true
+                continue
+            }
+            let earliest = ([entry.date] + matches.map(\.date)).min() ?? entry.date
+            let row = ImportedTransaction(
+                date: earliest,
+                title: entry.title,
+                notes: entry.notes,
+                amountCents: entry.amountCents,
+                iban: "",
+                senderIBAN: "",
+                recipientIBAN: "",
+                fingerprint: entry.importFingerprint ?? entry.id.uuidString
+            )
+            bookTransfer(entry, row: row, checkingID: accountID, otherID: tradeRepublic.id, entries: &entries)
+            entry.date = earliest
+            for match in matches {
+                context.delete(match)
+                entries.removeAll { $0.id == match.id }
+            }
+            changed = true
+        }
+        return changed
+    }
+
+    private static func mentionsTradeRepublic(_ entry: LedgerEntry) -> Bool {
+        "\(entry.title)\n\(entry.notes)"
+            .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "de_DE"))
+            .contains("trade republic")
+    }
+
+    /// A booking that names Trade Republic and already shows the other account's IBAN
+    /// fills the empty Trade Republic IBAN, so the payment can become a transfer.
+    private static func rememberTradeRepublicIBAN(entries: [LedgerEntry], accounts: [Account]) {
+        guard let tradeRepublic = accounts.first(where: {
+            $0.kind == .checking
+                && $0.name.caseInsensitiveCompare("Trade Republic") == .orderedSame
+                && normalizedIBAN($0.iban).isEmpty
+        }) else { return }
+        let owned = Set(accounts.compactMap { account -> String? in
+            let value = normalizedIBAN(account.iban)
+            return value.isEmpty ? nil : value
+        })
+        for entry in entries {
+            let text = "\(entry.title)\n\(entry.notes)"
+                .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "de_DE"))
+            guard text.contains("trade republic") else { continue }
+            let parsed = BankImportService.ibans(from: entry.notes, amountCents: entry.amountCents)
+            let sender = normalizedIBAN(parsed.sender)
+            let recipient = normalizedIBAN(parsed.recipient)
+            guard !sender.isEmpty, !recipient.isEmpty, sender != recipient else { continue }
+            let candidate: String
+            if owned.contains(sender), !owned.contains(recipient) {
+                candidate = recipient
+            } else if owned.contains(recipient), !owned.contains(sender) {
+                candidate = sender
+            } else {
+                continue
+            }
+            tradeRepublic.iban = candidate
+            return
+        }
     }
 
     private static func transferChoice(
@@ -760,14 +1344,39 @@ enum BankImportApplier {
         }
     }
 
-    private static func similarMatch(row: ImportedTransaction, entries: [LedgerEntry]) -> LedgerEntry? {
+    private static func similarMatch(
+        row: ImportedTransaction,
+        entries: [LedgerEntry],
+        accountID: UUID
+    ) -> LedgerEntry? {
         let amount = abs(row.amountCents)
+        let rowPurpose = BankImportService.purposeMark(notes: row.notes)
         return entries.first { entry in
             guard entry.kind != .adjustment else { return false }
+            guard entry.accountID == accountID else { return false }
             guard abs(entry.amountCents) == amount else { return false }
             guard withinDays(entry.date, of: row.date, days: 3) else { return false }
-            return titlesMatch(row.title, entry.title) || sharesIBAN(row, entry: entry)
+            guard payeesMatch(row.title, entry.title) else { return false }
+            if !rowPurpose.isEmpty, !entry.notes.contains(rowPurpose) { return false }
+            return true
         }
+    }
+
+    /// The shop or payee, without the place that Sparkasse appends after a slash.
+    private static func payeesMatch(_ lhs: String, _ rhs: String) -> Bool {
+        let left = payeeKey(lhs)
+        let right = payeeKey(rhs)
+        guard left.count >= 4, right.count >= 4 else { return false }
+        if left == right { return true }
+        let shorter = left.count <= right.count ? left : right
+        let longer = left.count <= right.count ? right : left
+        return shorter.count >= 8 && longer.hasPrefix(shorter)
+    }
+
+    private static func payeeKey(_ title: String) -> String {
+        let head = title.split(whereSeparator: { $0 == "/" || $0 == "|" }).first.map(String.init) ?? title
+        let folded = head.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "de_DE"))
+        return String(folded.filter { $0.isLetter || $0.isNumber })
     }
 
     private static func existingTransfer(
@@ -795,13 +1404,6 @@ enum BankImportApplier {
             to: calendar.startOfDay(for: other)
         ).day ?? 0)
         return delta <= days
-    }
-
-    private static func titlesMatch(_ lhs: String, _ rhs: String) -> Bool {
-        let left = lhs.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        let right = rhs.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        guard !left.isEmpty, !right.isEmpty else { return false }
-        return left == right
     }
 
     private static func sharesIBAN(_ row: ImportedTransaction, entry: LedgerEntry) -> Bool {

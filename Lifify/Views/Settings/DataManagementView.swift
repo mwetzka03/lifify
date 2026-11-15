@@ -25,8 +25,6 @@ struct DataManagementView: View {
     @Query private var purchases: [RewardPurchase]
     @Query private var bucketItems: [BucketListItem]
     @StateObject private var viewModel = DataImportViewModel()
-    @State private var importingBank = false
-    @State private var importingTradeRepublic = false
     @EnvironmentObject private var workouts: WorkoutStore
     @State private var importingBackup = false
     @State private var exportingBackup = false
@@ -46,47 +44,6 @@ struct DataManagementView: View {
 
     var body: some View {
         Form {
-            Section {
-                Picker(L("Zielkonto", "Destination account"), selection: $viewModel.destination) {
-                    Text(L("Auswählen", "Select")).tag(Optional<BankImportDestination>.none)
-                    Text(L("Neues separates Girokonto", "New separate checking account")).tag(Optional(BankImportDestination.separateChecking))
-                    ForEach(accounts.filter { $0.kind != .portfolio && $0.kind != .savingsGroup }) { account in
-                        Text(account.name).tag(Optional(BankImportDestination.account(account.id)))
-                    }
-                }
-                Button {
-                    importingBank = true
-                } label: {
-                    Label(L("CSV oder CAMT importieren", "Import CSV or CAMT"), systemImage: "square.and.arrow.down")
-                }
-                Text(L(
-                    "Das Zielkonto gilt nur für CSV und CAMT. Ein PDF wird hier nicht gelesen.",
-                    "The destination account is only for CSV and CAMT. A PDF is not read here."
-                ))
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            } header: {
-                Text(L("Bankimport", "Bank import"))
-            }
-            .appGlassRow()
-
-            Section {
-                Button {
-                    importingTradeRepublic = true
-                } label: {
-                    Label(L("Kontoauszug hochladen", "Upload statement"), systemImage: "doc.badge.plus")
-                }
-                Text(L(
-                    "Nur die Umsatzübersicht. Das Girokonto wird über die IBAN wiederverwendet oder neu angelegt, das Depot hängt daran. Buchungen vor dem Start des ersten Zeitraums vom Hauptkonto werden nicht angelegt, spätere schon. Die Depotstände aus dem ganzen Auszug werden übernommen. Der Startsaldo ist der Saldo am Starttag, sonst vom letzten Tag davor.",
-                    "Only the transaction overview. The checking account is reused by IBAN or created, and the portfolio is linked to it. Transactions before the start of the main account’s first period are not booked; later ones are. Portfolio positions from the whole statement are imported. The opening balance is the balance on the start day, or the previous day."
-                ))
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            } header: {
-                Text("Trade Republic")
-            }
-            .appGlassRow()
-
             Section(L("JSON-Sicherung", "JSON backup")) {
                 Button {
                     createBackup(.all)
@@ -114,8 +71,8 @@ struct DataManagementView: View {
                     Label(L("Sicherung wiederherstellen", "Restore backup"), systemImage: "arrow.clockwise.icloud")
                 }
                 Text(L(
-                    "Eine Teilsicherung ersetzt nur diesen Bereich. Verknüpfungen zwischen Challenges und Trainings liegen in beiden Sicherungen. Eine volle Sicherung ersetzt alles.",
-                    "A partial backup replaces only that area. Links between challenges and workouts are stored in both backups. A full backup replaces everything."
+                    "Eine Teilsicherung ersetzt nur diesen Bereich. Eine volle Sicherung ersetzt alles.",
+                    "A partial backup replaces only that area. A full backup replaces everything."
                 ))
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -180,34 +137,12 @@ struct DataManagementView: View {
             Text(resetError ?? "")
         }
         .fileImporter(
-            isPresented: $importingBank,
-            allowedContentTypes: [.commaSeparatedText, .xml, .plainText],
-            allowsMultipleSelection: false
-        ) { result in
-            if case let .success(urls) = result, let url = urls.first {
-                viewModel.importBankFile(from: url, context: context, existingEntries: entries)
-            } else if case let .failure(error) = result {
-                viewModel.message = error.localizedDescription
-            }
-        }
-        .fileImporter(
-            isPresented: $importingTradeRepublic,
-            allowedContentTypes: [.pdf],
-            allowsMultipleSelection: false
-        ) { result in
-            if case let .success(urls) = result, let url = urls.first {
-                viewModel.importTradeRepublic(from: url, context: context, existingEntries: entries)
-            } else if case let .failure(error) = result {
-                viewModel.message = error.localizedDescription
-            }
-        }
-        .fileImporter(
             isPresented: $importingBackup,
             allowedContentTypes: [.json],
-            allowsMultipleSelection: false
+            allowsMultipleSelection: BackupScope.allowsSeveralFiles
         ) { result in
-            if case let .success(urls) = result, let url = urls.first {
-                viewModel.restoreBackup(from: url, context: context)
+            if case let .success(urls) = result, !urls.isEmpty {
+                viewModel.restoreBackups(from: urls, context: context)
             } else if case let .failure(error) = result {
                 viewModel.message = error.localizedDescription
             }
@@ -219,15 +154,6 @@ struct DataManagementView: View {
             defaultFilename: exportFilename
         ) { result in
             if case let .failure(error) = result { viewModel.message = error.localizedDescription }
-        }
-        .sheet(item: $viewModel.review) { review in
-            ImportReviewSheet(review: review) { updated in
-                do {
-                    try BankImportApplier.commitReview(updated, context: context)
-                } catch {
-                    viewModel.message = error.localizedDescription
-                }
-            }
         }
         .alert(L("Lifify", "Lifify"), isPresented: Binding(
             get: { viewModel.message != nil && viewModel.review == nil },
@@ -307,6 +233,67 @@ struct DataManagementView: View {
         }
     }
 
+}
+
+struct FinanceImportSettings: View {
+    @ObservedObject var viewModel: DataImportViewModel
+    @Binding var importingBank: Bool
+    @Environment(\.modelContext) private var context
+    @Query(sort: \Account.name) private var accounts: [Account]
+    @Query private var entries: [LedgerEntry]
+
+    var body: some View {
+        Section {
+            Picker(L("Zielkonto", "Destination account"), selection: $viewModel.destination) {
+                Text(L("Auswählen", "Select")).tag(Optional<BankImportDestination>.none)
+                Text(L("Neues separates Girokonto", "New separate checking account")).tag(Optional(BankImportDestination.separateChecking))
+                ForEach(accounts.filter { $0.kind != .portfolio && $0.kind != .savingsGroup }) { account in
+                    Text(account.name).tag(Optional(BankImportDestination.account(account.id)))
+                }
+            }
+            Button {
+                importingBank = true
+            } label: {
+                Label(L("CSV oder CAMT importieren", "Import CSV or CAMT"), systemImage: "square.and.arrow.down")
+            }
+            if viewModel.pendingBank != nil {
+                Text(L(
+                    "Wie hoch ist der aktuelle Kontostand auf diesem Konto?",
+                    "What is the current balance on this account?"
+                ))
+                .font(.headline)
+                TextField(L("Aktueller Kontostand", "Current balance"), text: $viewModel.currentBalanceText)
+                    .keyboardType(.decimalPad)
+                Button(L("Import abschließen", "Finish import")) {
+                    viewModel.commitPendingBank(context: context, existingEntries: entries)
+                }
+                .disabled(Money.cents(from: viewModel.currentBalanceText) == nil)
+                Button(L("Abbrechen", "Cancel"), role: .cancel) {
+                    viewModel.cancelPendingBank()
+                }
+            }
+            Text(L(
+                "CSV oder CAMT aufs gewählte Konto. Tage, deren Anzahl schon stimmt, werden übersprungen. Am letzten Buchungstag und bei fehlenden Zeilen kannst du übernehmen. Du gibst den aktuellen Kontostand an.",
+                "CSV or CAMT onto the chosen account. Days whose count already matches are skipped. On the last booking day and for missing rows you can import. You enter the current balance."
+            ))
+            .font(.caption)
+            .foregroundStyle(.secondary)
+        } header: {
+            Text(L("Bankimport", "Bank import"))
+        }
+        .appGlassRow()
+        .fileImporter(
+            isPresented: $importingBank,
+            allowedContentTypes: [.commaSeparatedText, .xml, .plainText],
+            allowsMultipleSelection: false
+        ) { result in
+            if case let .success(urls) = result, let url = urls.first {
+                viewModel.importBankFile(from: url, context: context, existingEntries: entries)
+            } else if case let .failure(error) = result {
+                viewModel.message = error.localizedDescription
+            }
+        }
+    }
 }
 
 enum DestructiveAction {

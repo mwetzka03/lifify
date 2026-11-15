@@ -147,6 +147,15 @@ enum FinanceService {
             .reduce(0) { $0 + balance(for: $1, entries: entries, holdings: [], through: date) }
     }
 
+    /// Cash on this account at the end of today. The last adjustment is the stand.
+    static func currentBalance(
+        for account: Account,
+        entries: [LedgerEntry],
+        holdings: [PortfolioHolding] = []
+    ) -> Int {
+        balance(for: account, entries: entries, holdings: holdings, through: endOfDay(Date()))
+    }
+
     /// Cash at the end of the previous period. Adjustments dated on the period
     /// start stay in, so a Startsaldo on that day is the opening figure. Other
     /// bookings on the first day do not.
@@ -214,8 +223,9 @@ enum FinanceService {
             let start = unique[index]
             let next = unique[index + 1]
             guard let end = calendar.date(byAdding: .day, value: -1, to: next) else { continue }
-            if end < floor || start > horizon { continue }
-            periods.append(ForecastPeriod(start: start, end: calendar.startOfDay(for: end)))
+            if let period = clippedPeriod(start: start, end: end, floor: floor, horizon: horizon) {
+                periods.append(period)
+            }
         }
         return periods.isEmpty ? monthPeriods(from: floor, through: horizon) : periods
     }
@@ -397,12 +407,23 @@ enum FinanceService {
             guard let next = calendar.date(byAdding: .month, value: 1, to: cursor),
                   let end = calendar.date(byAdding: .day, value: -1, to: next)
             else { break }
-            if end >= floor {
-                periods.append(ForecastPeriod(start: cursor, end: calendar.startOfDay(for: end)))
+            if let period = clippedPeriod(start: cursor, end: end, floor: floor, horizon: horizon) {
+                periods.append(period)
             }
             cursor = next
         }
         return periods
+    }
+
+    /// The first period starts on the first booking or opening balance, not on an earlier payday.
+    private static func clippedPeriod(start: Date, end: Date, floor: Date, horizon: Date) -> ForecastPeriod? {
+        let calendar = Calendar.current
+        var start = calendar.startOfDay(for: start)
+        let end = calendar.startOfDay(for: end)
+        if end < floor || start > horizon { return nil }
+        if start < floor { start = floor }
+        guard start <= end else { return nil }
+        return ForecastPeriod(start: start, end: end)
     }
 
     private static func projectedCash(

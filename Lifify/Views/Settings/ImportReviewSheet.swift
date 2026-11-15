@@ -35,26 +35,35 @@ struct ImportReviewSheet: View {
                         Text(L("Mögliche Umbuchung", "Possible transfer"))
                     } footer: {
                         Text(L(
-                            "Gleicher Betrag, bekannte IBAN und ähnliches Datum. Nur angeschaltete Zeilen werden eine Umbuchung.",
-                            "Same amount, known IBAN and a similar date. Only enabled rows become a transfer."
+                            "Gleicher Betrag und bekannte IBAN. Nur angeschaltete Zeilen werden eine Umbuchung.",
+                            "Same amount and a known IBAN. Only enabled rows become a transfer."
                         ))
                     }
                     .appGlassRow()
                 }
-                if !review.similar.isEmpty {
+                if review.similar.contains(where: \.isExtra) {
+                    Section {
+                        ForEach($review.similar) { $choice in
+                            if choice.isExtra {
+                                similarToggle($choice)
+                            }
+                        }
+                    } header: {
+                        Text(L("Noch nicht gebucht", "Not booked yet"))
+                    } footer: {
+                        Text(L(
+                            "An diesem Tag hat die Datei mehr Zeilen als das Konto. Übernehmen ist an. Ausschalten lässt die Zeile weg.",
+                            "This day has more rows in the file than on the account. Import is on. Turn it off to leave the row out."
+                        ))
+                    }
+                    .appGlassRow()
+                }
+                if review.similar.contains(where: { !$0.isExtra }) {
                     Section {
                         DisclosureGroup {
                             ForEach($review.similar) { $choice in
-                                Toggle(isOn: $choice.include) {
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        Text(choice.title.isEmpty ? L("Buchung", "Transaction") : choice.title)
-                                        Text("\(Money.string(cents: choice.signedAmountCents)) · \(AppDate.numeric(choice.date))")
-                                            .font(.caption)
-                                            .foregroundStyle(.secondary)
-                                        Text("\(L("Vorhanden", "Already booked")): \(choice.existingTitle) · \(AppDate.numeric(choice.existingDate)) · \(Money.string(cents: choice.existingAmountCents))")
-                                            .font(.caption)
-                                            .foregroundStyle(.secondary)
-                                    }
+                                if !choice.isExtra {
+                                    similarToggle($choice)
                                 }
                             }
                         } label: {
@@ -62,8 +71,8 @@ struct ImportReviewSheet: View {
                         }
                     } footer: {
                         Text(L(
-                            "Doppelte Buchungen sind ausgelassen. Klappe die Liste auf, um eine trotzdem zu übernehmen.",
-                            "Duplicate transactions are left out. Expand the list to import one anyway."
+                            "Gleicher Empfänger, gleicher Betrag, nahes Datum. Klappe die Liste auf, um eine trotzdem zu übernehmen.",
+                            "Same payee, same amount, nearby date. Expand the list to import one anyway."
                         ))
                     }
                     .appGlassRow()
@@ -72,6 +81,7 @@ struct ImportReviewSheet: View {
             .appGlassList()
             .navigationTitle(L("Import prüfen", "Review import"))
             .navigationBarTitleDisplayMode(.inline)
+            .interactiveDismissDisabled()
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(L("Abbrechen", "Cancel")) { dismiss() }
@@ -82,6 +92,20 @@ struct ImportReviewSheet: View {
                         dismiss()
                     }
                 }
+            }
+        }
+    }
+
+    private func similarToggle(_ choice: Binding<ImportSimilarChoice>) -> some View {
+        Toggle(isOn: choice.include) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(choice.wrappedValue.title.isEmpty ? L("Buchung", "Transaction") : choice.wrappedValue.title)
+                Text("\(Money.string(cents: choice.wrappedValue.signedAmountCents)) · \(AppDate.numeric(choice.wrappedValue.date))")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Text("\(L("Vorhanden", "Already booked")): \(choice.wrappedValue.existingTitle) · \(AppDate.numeric(choice.wrappedValue.existingDate)) · \(Money.string(cents: choice.wrappedValue.existingAmountCents))")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
         }
     }

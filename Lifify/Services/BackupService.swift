@@ -74,6 +74,9 @@ enum BackupScope: String, CaseIterable {
     case challenges
     case training
 
+    static let restoreOrder: [BackupScope] = [.all, .finance, .challenges, .training]
+    static let allowsSeveralFiles = true
+
     var exportFilenamePrefix: String {
         switch self {
         case .all: "Lifify"
@@ -82,13 +85,23 @@ enum BackupScope: String, CaseIterable {
         case .training: "Lifify-Training"
         }
     }
+
+    var restoreName: String {
+        switch self {
+        case .all: L("gesamte App", "entire app")
+        case .finance: L("Finanzen", "Finance")
+        case .challenges: L("Challenges", "Challenges")
+        case .training: L("Training", "Training")
+        }
+    }
 }
 
 @MainActor
 enum BackupService {
     private static let financeTypes: Set<String> = [
         "account", "entry", "split", "fixed", "variable", "pool", "forecast", "shopping", "debt",
-        "group", "line", "holding", "marketSymbol", "previousClose", "purchaseDate",
+        "group", "line", "holding", "holdingLot", "savingsPlan", "closedPosition", "portfolioLink",
+        "marketSymbol", "previousClose", "purchaseDate",
         "primaryIncome", "secondaryIncome", "incomeAssignment", "expenseGroupAssignment"
     ]
     private static let challengeTypes: Set<String> = [
@@ -101,7 +114,8 @@ enum BackupService {
         "customCategory"
     ]
     private static let sideTypes: Set<String> = [
-        "iconPreference", "reminderRecurrence", "eventRecurrence", "marketSymbol", "previousClose", "purchaseDate",
+        "iconPreference", "reminderRecurrence", "eventRecurrence", "holdingLot", "savingsPlan", "closedPosition", "portfolioLink",
+        "marketSymbol", "previousClose", "purchaseDate",
         "rewardPolicy", "reminderSync", "streakState", "streakMultiplier", "streakFreezeFactor",
         "abstinenceDifficulty", "abstinenceAwarded", "abstinenceMultiplier",
         "abstinenceRelapse", "abstinenceNotice", "abstinenceException", "abstinenceRewardLink",
@@ -186,6 +200,41 @@ enum BackupService {
             HoldingPurchaseDateStore.date(for: holding.id).map {
                 BackupRecord(type: "purchaseDate", id: holding.id, dates: [$0])
             }
+        }
+        records += HoldingLotStore.allByHolding().flatMap { holdingID, lots in
+            lots.map { lot in
+                BackupRecord(
+                    type: "holdingLot",
+                    id: lot.id,
+                    strings: [lot.source],
+                    integers: [lot.unitPriceCents, lot.amountCents],
+                    doubles: [lot.quantity],
+                    booleans: [lot.isSale, lot.isSavingsPlan],
+                    dates: [lot.date],
+                    uuids: [holdingID, lot.ledgerEntryID]
+                )
+            }
+        }
+        records += SavingsPlanStore.all().map { plan in
+            BackupRecord(
+                type: "savingsPlan",
+                id: plan.id,
+                strings: [plan.isin, plan.name, plan.cadenceRaw],
+                integers: [plan.amountCents],
+                booleans: [plan.active],
+                dates: [plan.lastExecution, plan.historyThrough],
+                uuids: [plan.checkingAccountID, plan.portfolioAccountID, plan.holdingID, plan.fixedCostID]
+            )
+        }
+        records += ClosedPositionStore.all().map { closed in
+            BackupRecord(
+                type: "closedPosition",
+                id: UUID(),
+                strings: [closed.isin, closed.name, lotsJSON(closed.lots)]
+            )
+        }
+        records += PortfolioLinkStore.allLinks().map { link in
+            BackupRecord(type: "portfolioLink", id: link.checkingID, uuids: [link.portfolioID])
         }
         records += calendarEvents.map {
             BackupRecord(type: "challengeEvent", id: $0.id, strings: [$0.title, $0.details, $0.colorHex, $0.icon, $0.externalIdentifier ?? ""], booleans: [$0.isAllDay, $0.isReadOnly], dates: [$0.startDate, $0.endDate], uuids: [$0.linkedChallengeID, $0.linkedChallengeGroupID, $0.linkedRewardID])
@@ -341,21 +390,51 @@ enum BackupService {
 
     @MainActor
     static func restore(data: Data, into context: ModelContext) throws {
+        try restore(payloads: [data], into: context)
+    }
+
+    @discardableResult
+    @MainActor
+    static func restore(payloads: [Data], into context: ModelContext) throws -> [BackupScope] {
+        guard !payloads.isEmpty else { throw CocoaError(.fileReadCorruptFile) }
+        var decoded: [(BackupScope, LififyBackup)] = []
+        for data in payloads {
+            let backup = try decode(data)
+            decoded.append((scope(of: backup), backup))
+        }
+        for wanted in BackupScope.restoreOrder {
+            for (scope, backup) in decoded where scope == wanted {
+                switch scope {
+                case .all:
+                    try restoreAll(backup, into: context)
+                case .finance:
+                    try restoreFinance(backup, into: context)
+                case .challenges:
+                    try restoreChallenges(backup, into: context)
+                case .training:
+                    try restoreTraining(backup)
+                }
+            }
+        }
+        return decoded.map(\.0)
+    }
+
+    private static func decode(_ data: Data) throws -> LififyBackup {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         let backup = try decoder.decode(LififyBackup.self, from: data)
         guard backup.version == 1 else { throw CocoaError(.fileReadUnsupportedScheme) }
-        let scope = BackupScope(rawValue: backup.records.first { $0.type == "backupScope" }?.strings.first ?? "") ?? .all
-        switch scope {
-        case .all:
-            try restoreAll(backup, into: context)
-        case .finance:
-            try restoreFinance(backup, into: context)
-        case .challenges:
-            try restoreChallenges(backup, into: context)
-        case .training:
-            try restoreTraining(backup)
-        }
+        return backup
+    }
+
+    static func scope(of backup: LififyBackup) -> BackupScope {
+        BackupScope(rawValue: backup.records.first { $0.type == "backupScope" }?.strings.first ?? "") ?? .all
+    }
+
+    static func restoredMessage(_ scopes: [BackupScope]) -> String {
+        let names = BackupScope.restoreOrder.filter { scopes.contains($0) }.map(\.restoreName)
+        let list = names.isEmpty ? BackupScope.all.restoreName : names.joined(separator: ", ")
+        return String(format: L("%@ wiederhergestellt.", "%@ restored."), list)
     }
 
     static func deleteUserData(from context: ModelContext) throws {
@@ -453,8 +532,7 @@ enum BackupService {
         try clearFinance(context, includingAccounts: false)
         try context.save()
         clearSideStores(oldSideStores)
-        IncomeAssignmentStore.reset()
-        ExpenseGroupAssignmentStore.reset()
+        resetFinanceSideStores()
         let accounts = try context.fetch(FetchDescriptor<Account>())
         if backup.records.contains(where: { $0.type == "account" && $0.booleans.count > 1 && $0.booleans[1] }) {
             accounts.forEach { $0.isMain = false }
@@ -557,6 +635,18 @@ enum BackupService {
         ForecastSkipStore.reset()
         ForecastPeriodLinkStore.reset()
         ForecastMatchRejectionStore.reset()
+        HoldingLotStore.reset()
+        SavingsPlanStore.reset()
+        ClosedPositionStore.reset()
+        BankImportCursor.reset()
+        NoticeTemplateStore.reset()
+    }
+
+    private static func lotsJSON(_ lots: [HoldingLot]) -> String {
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        guard let data = try? encoder.encode(lots) else { return "[]" }
+        return String(decoding: data, as: UTF8.self)
     }
 
     private static func applyAccount(_ record: BackupRecord, to account: Account) {
@@ -718,6 +808,49 @@ enum BackupService {
             PreviousCloseStore.set(int(0), for: r.id)
         case "purchaseDate":
             if let purchased = date(0) { HoldingPurchaseDateStore.set(purchased, for: r.id) }
+        case "holdingLot":
+            guard let holdingID = uuid(0) else { break }
+            HoldingLotStore.add(
+                HoldingLot(
+                    id: r.id,
+                    date: date(0) ?? .now,
+                    quantity: r.doubles.first ?? 0,
+                    unitPriceCents: int(0),
+                    amountCents: int(1),
+                    isSale: bool(0),
+                    isSavingsPlan: bool(1),
+                    ledgerEntryID: uuid(1),
+                    source: string(0)
+                ),
+                holdingID: holdingID
+            )
+        case "savingsPlan":
+            guard let checkingID = uuid(0), let portfolioID = uuid(1) else { break }
+            SavingsPlanStore.upsert(
+                SavingsPlanRecord(
+                    id: r.id,
+                    isin: string(0),
+                    name: string(1),
+                    amountCents: int(0),
+                    cadenceRaw: string(2).isEmpty ? Cadence.monthly.rawValue : string(2),
+                    checkingAccountID: checkingID,
+                    portfolioAccountID: portfolioID,
+                    holdingID: uuid(2),
+                    lastExecution: date(0) ?? .now,
+                    historyThrough: date(1) ?? date(0) ?? .now,
+                    active: bool(0),
+                    fixedCostID: uuid(3)
+                )
+            )
+        case "closedPosition":
+            let decoder = JSONDecoder()
+            decoder.dateDecodingStrategy = .iso8601
+            let lots = (try? decoder.decode([HoldingLot].self, from: Data(string(2).utf8))) ?? []
+            ClosedPositionStore.archive(isin: string(0), name: string(1), lots: lots)
+        case "portfolioLink":
+            if let portfolioID = uuid(0) {
+                PortfolioLinkStore.link(portfolio: portfolioID, to: r.id)
+            }
         case "rewardPolicy":
             RewardPolicyStore.setAllowsMultiplePurchases(bool(0), for: r.id)
         case "reminderSync":

@@ -63,7 +63,7 @@ enum LififyFeatureChecks {
             BookingCategory.savingsPlan.label
         ]
         let cents = Money.cents(from: "19,99") == 1999 && Money.cents(from: "1.250,50") == 125050
-        let passed = cents && blocked.allSatisfy { !labels.contains($0) } && labels.count == 7
+        let passed = cents && blocked.allSatisfy { !labels.contains($0) } && labels.count == 9
         return LififyCheckResult(
             name: "Buchungsfeld und Betrag nutzen dieselben Kategorien",
             passed: passed,
@@ -111,7 +111,7 @@ enum LififyFeatureChecks {
             ]
             && AppChrome.glassScreens == ["home", "challenges", "health", "settings", "onboarding", "finance"]
             && AppChrome.glassScreens.contains("finance")
-            && AppChrome.version == "0.4.0"
+            && AppChrome.version == "0.5.0"
             && NutritionCopy.recognitionPending == L("Die Erkennung ist noch nicht verbunden.", "Recognition is not connected yet.")
         return LififyCheckResult(
             name: "Gesundheit, Einstellungen und Glasflächen zeigen dieselben Titel",

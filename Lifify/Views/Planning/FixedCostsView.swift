@@ -14,7 +14,7 @@ struct FixedCostsView: View {
     @State private var savingsPlans: [SavingsPlanRecord] = []
 
     private var periods: [ForecastPeriod] {
-        FinancePeriods.all(entries: entries, forecasts: forecasts)
+        FinancePeriods.all(entries: entries, forecasts: forecasts, accounts: accounts)
     }
 
     private var filterAccounts: [Account] {

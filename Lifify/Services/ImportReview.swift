@@ -30,21 +30,28 @@ struct ImportSimilarChoice: Identifiable {
     var existingDate: Date
     var existingAmountCents: Int
     var include = false
+    var isExtra = false
 }
 
 struct ImportReview: Identifiable {
     let id: UUID
     var transfers: [ImportTransferChoice]
     var similar: [ImportSimilarChoice]
+    var accountID: UUID?
+    var currentCents: Int?
 
     init(
         id: UUID = UUID(),
         transfers: [ImportTransferChoice] = [],
-        similar: [ImportSimilarChoice] = []
+        similar: [ImportSimilarChoice] = [],
+        accountID: UUID? = nil,
+        currentCents: Int? = nil
     ) {
         self.id = id
         self.transfers = transfers
         self.similar = similar
+        self.accountID = accountID
+        self.currentCents = currentCents
     }
 
     var isEmpty: Bool { transfers.isEmpty && similar.isEmpty }

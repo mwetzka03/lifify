@@ -53,23 +53,18 @@ struct DashboardView: View {
                         .padding(.horizontal, 12)
                         .padding(.top, 8)
                         .padding(.bottom, 4)
+                    if pageReady {
                     List {
                     Section {
                         if filters.showsDepot {
-                            if DepotLoad.shouldSpin(ready: depotReady, opened: true) {
-                                summaryLoading
-                            } else {
-                                depotContent(period)
-                            }
-                        } else if let summary, summarySelection == selectionToken {
+                            depotContent(period)
+                        } else if let summary {
                             financeSummary(
                                 summary.forecast,
                                 period: period,
                                 liquidStart: summary.liquidStart,
                                 liquidEnd: summary.liquidEnd
                             )
-                        } else {
-                            summaryLoading
                         }
                     }
                     .listRowInsets(EdgeInsets(top: 8, leading: 12, bottom: 4, trailing: 12))
@@ -150,7 +145,11 @@ struct DashboardView: View {
                     .scrollContentBackground(.hidden)
                     .appAccentTint()
                     .listSectionSpacing(FinanceMoreDirectory.sectionSpacing)
+                    } else {
+                        pageLoading
+                    }
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .task(id: filters.showsDepot) {
                     guard filters.showsDepot else {
                         depotReady = false
@@ -167,10 +166,9 @@ struct DashboardView: View {
                 }
                 .task(id: forecastToken) {
                     guard !filters.showsDepot else { return }
-                    if summarySelection != selectionToken {
-                        try? await Task.sleep(for: .milliseconds(400))
-                        guard !Task.isCancelled else { return }
-                    }
+                    await Task.yield()
+                    try? await Task.sleep(for: .milliseconds(32))
+                    guard !Task.isCancelled else { return }
                     await refreshSummary()
                 }
             } else {
@@ -571,8 +569,15 @@ struct DashboardView: View {
         case .income: return .green
         case .expense: return .red
         case .savingsPlan, .transfer: return paint.amountColor
-        case .interest, .dividend, .refund, .portfolioBuy, .portfolioSale, .adjustment: return paint.amountColor
+        case .interest, .dividend, .cashback, .portfolioGift, .refund, .portfolioBuy, .portfolioSale, .adjustment: return paint.amountColor
         }
+    }
+
+    private var pageReady: Bool {
+        if filters.showsDepot {
+            return !DepotLoad.shouldSpin(ready: depotReady, opened: true)
+        }
+        return summary != nil && summarySelection == selectionToken
     }
 
     private var summaryLoading: some View {
@@ -586,6 +591,15 @@ struct DashboardView: View {
         .frame(maxWidth: .infinity)
         .padding(.vertical, 36)
         .financeCard()
+    }
+
+    private var pageLoading: some View {
+        VStack {
+            Spacer(minLength: 48)
+            summaryLoading
+            Spacer(minLength: 48)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private var bookingSearchRow: some View {
@@ -783,7 +797,7 @@ struct DashboardView: View {
     }
 
     private var periods: [ForecastPeriod] {
-        FinancePeriods.all(entries: entries, forecasts: forecasts)
+        FinancePeriods.all(entries: entries, forecasts: forecasts, accounts: accounts)
     }
 
     private var selectedPeriod: ForecastPeriod? {
@@ -894,7 +908,23 @@ struct DashboardView: View {
         if combined {
             snapshot.startBalance = await combinedOpening(for: period)
         }
+        applyNetWorth(to: &snapshot, period: period)
         return snapshot
+    }
+
+    /// Current period shows the live cash. Past and future show that period's Endsaldo.
+    private func applyNetWorth(to snapshot: inout PeriodForecast, period: ForecastPeriod) {
+        guard !filters.showsDepot else { return }
+        let today = Calendar.current.startOfDay(for: .now)
+        if period.contains(today) {
+            if let account = selectedFilterAccount, account.kind != .portfolio {
+                snapshot.netWorth = FinanceService.currentBalance(for: account, entries: scopedEntries)
+            }
+            return
+        }
+        snapshot.netWorth = snapshot.startBalance
+            + snapshot.bookedIncome + snapshot.openIncome
+            - snapshot.bookedExpenses - snapshot.openExpenses
     }
 
     /// All-accounts opening is each account's own opening plus the depot on the day before.
@@ -1029,82 +1059,15 @@ struct DashboardView: View {
         hasher.combine(SavingsPlanStore.cacheRevision)
         hasher.combine(HoldingLotStore.cacheRevision)
         hasher.combine(HistoricalPriceStore.cacheRevision)
-        for forecast in TransferForecastStore.all().sorted(by: { $0.id.uuidString < $1.id.uuidString }) {
-            hasher.combine(forecast)
-        }
-        for account in accounts {
-            hasher.combine(account.id)
-            hasher.combine(account.kindRaw)
-            hasher.combine(account.isMain)
-            hasher.combine(account.isLiquid)
-        }
-        for entry in entries {
-            hasher.combine(entry.id)
-            hasher.combine(entry.date)
-            hasher.combine(entry.amountCents)
-            hasher.combine(entry.kindRaw)
-            hasher.combine(entry.accountID)
-            hasher.combine(entry.fromAccountID)
-            hasher.combine(entry.toAccountID)
-            hasher.combine(entry.fixedCostID)
-            hasher.combine(entry.variableBudgetID)
-            hasher.combine(entry.shoppingItemID)
-            hasher.combine(entry.title)
-            hasher.combine(entry.notes)
-        }
-        for holding in holdings {
-            hasher.combine(holding.id)
-            hasher.combine(holding.accountID)
-            hasher.combine(holding.symbol)
-            hasher.combine(holding.quantity)
-            hasher.combine(holding.currentPriceCents)
-            hasher.combine(holding.purchasePriceCents)
-        }
-        for cost in fixedCosts {
-            hasher.combine(cost.id)
-            hasher.combine(cost.accountID)
-            hasher.combine(cost.amountCents)
-            hasher.combine(cost.cadenceRaw)
-            hasher.combine(cost.dueRuleRaw)
-            hasher.combine(cost.dayOfMonth)
-            hasher.combine(cost.firstChargeDate)
-            hasher.combine(cost.endChargeDate)
-            hasher.combine(cost.isActive)
-            hasher.combine(cost.name)
-        }
-        for forecast in forecasts {
-            hasher.combine(forecast.id)
-            hasher.combine(forecast.accountID)
-            hasher.combine(forecast.amountCents)
-            hasher.combine(forecast.cadenceRaw)
-            hasher.combine(forecast.dueRuleRaw)
-            hasher.combine(forecast.dayOfMonth)
-            hasher.combine(forecast.firstPaymentDate)
-            hasher.combine(forecast.endPaymentDate)
-            hasher.combine(forecast.isActive)
-            hasher.combine(forecast.name)
-        }
-        for budget in variableBudgets {
-            hasher.combine(budget.id)
-            hasher.combine(budget.accountID)
-            hasher.combine(budget.monthlyAmountCents)
-            hasher.combine(budget.name)
-        }
-        for item in shopping {
-            hasher.combine(item.id)
-            hasher.combine(item.amountCents)
-            hasher.combine(item.isPurchased)
-            hasher.combine(item.plannedDate)
-            hasher.combine(item.name)
-        }
-        for split in splits {
-            hasher.combine(split.id)
-            hasher.combine(split.transactionID)
-            hasher.combine(split.targetID)
-            hasher.combine(split.amountCents)
-            hasher.combine(split.kindRaw)
-            hasher.combine(split.periodKey)
-        }
+        hasher.combine(TransferForecastStore.all().count)
+        hasher.combine(accounts.count)
+        hasher.combine(fixedCosts.count)
+        hasher.combine(forecasts.count)
+        hasher.combine(variableBudgets.count)
+        hasher.combine(shopping.count)
+        hasher.combine(splits.count)
+        FinanceRenderToken.mix(entries: entries, into: &hasher)
+        FinanceRenderToken.mix(holdings: holdings, into: &hasher)
         return hasher.finalize()
     }
 
@@ -1113,6 +1076,7 @@ struct DashboardView: View {
         await Task.yield()
         guard !Task.isCancelled else { return }
         warmFinanceStores()
+        adoptEnteredCashIfNeeded()
         await Task.yield()
         guard !Task.isCancelled else { return }
         guard let period = selectedPeriod else {
@@ -1152,6 +1116,23 @@ struct DashboardView: View {
         if let holding = holdings.first {
             _ = HoldingLotStore.lots(for: holding.id)
             _ = HistoricalPriceStore.cents(for: holding.id, dayKey: Date.now.dayKey)
+        }
+    }
+
+    /// A leftover today's pin is the entered cash. Fit the first-day opening from it.
+    private func adoptEnteredCashIfNeeded() {
+        var ledger = Array(entries)
+        let accounts = Array(self.accounts)
+        let adopted = ImportBalance.adoptPinsIfNeeded(accounts: accounts, entries: &ledger, context: context)
+        let repaired = ImportBalance.repairOpeningAnchors(accounts: accounts, entries: &ledger, context: context)
+        guard !adopted.isEmpty || repaired else { return }
+        do {
+            try context.save()
+            for item in adopted {
+                BankImportCursor.mark(item.accountID, currentCents: item.currentCents)
+            }
+        } catch {
+            return
         }
     }
 

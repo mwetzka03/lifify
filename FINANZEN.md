@@ -5,7 +5,7 @@
 ## English
 
 This file describes how Lifify calculates accounts, periods, income, expenses,
-the portfolio, and the home budget. The calculations are unchanged in 0.4.0.
+the portfolio, and the home budget. The calculations are unchanged in 0.5.0.
 This is the 0.3.0 rule set, and it still applies.
 
 Period and account are one shared filter. A change applies in the finance
@@ -34,11 +34,25 @@ view, in transactions, and in the income and expense lists.
   registers.
 - Periods follow the primary income when the salary period is active.
   Otherwise they are calendar months.
-- The first period begins with the bookings of the main account. Its start is
-  the cutoff date.
-- Trade Republic bookings before the cutoff date are not created. Bookings on
-  the cutoff date and after are created, even when the first period has
-  already ended.
+- The first period begins with the bookings of the main account, including the
+  opening-balance adjustment. Its start is the cutoff date. Bookings on other
+  accounts before that date stay in the ledger and sit outside the first period.
+  They do not move the period start. A salary window that would start before that
+  date is clipped to it, so the opening amount of the main account is the
+  Startsaldo of the first period.
+- A bank import asks for the current account balance. The opening balance is
+  that figure minus the imported amounts, dated on the first booking day. A
+  balance adjustment on today stores the entered current amount as the last
+  stand. Setup imports every row. An import from Settings skips identical rows
+  and older days whose booking count already matches. On the last booking day
+  and on days where the file has extra rows, Lifify asks whether to import.
+  Missing second payments are on by default. The entered cash is applied after
+  you confirm the review. On the current period, net worth is
+  the live cash. On a past or future period it is that period's Endsaldo.
+  Depot stays the market value.
+- Trade Republic bookings before the cutoff date stay in the ledger and sit
+  outside the first period. Bookings on the cutoff date and after are created,
+  even when the first period has already ended.
 - Portfolio positions from the whole statement are still taken, including buys
   before the cutoff date.
 - If the main account has no booking yet, there is no period yet. Then every
@@ -535,10 +549,18 @@ in, money out, and balance.
 For the purchase-to-sale difference of names that have already been sold in
 full to be right, the statement has to be imported again after a rule change.
 
+### Trade Republic session
+
+A manual sign-in can place positions from the private web session into the
+depot. It sets the quantity, and the cost basis when the session returns one.
+It does not change the calculations above. PDF import stays. A refresh runs
+only from the button in Finance. Other holdings stay when the session does
+not mention them.
+
 ## Deutsch
 
 Diese Datei beschreibt, wie Lifify Konten, Zeiträume, Einnahmen, Ausgaben,
-Depot und das Home-Budget rechnet. Die Rechnung ist in 0.4.0 unverändert.
+Depot und das Home-Budget rechnet. Die Rechnung ist in 0.5.0 unverändert.
 Das ist der Regelstand von 0.3.0, und er gilt weiter.
 
 Zeitraum und Konto sind ein gemeinsamer Filter. Eine Änderung gilt in der
@@ -566,11 +588,35 @@ Finanzansicht, in den Buchungen und in den Listen für Einnahmen und Ausgaben.
   immer ankommt.
 - Zeiträume folgen der Haupteinnahme, wenn der Gehaltszeitraum aktiv ist.
   Sonst sind es Kalendermonate.
-- Der erste Zeitraum beginnt mit den Buchungen des Hauptkontos. Sein Start ist
-  der Stichtag.
-- Trade-Republic-Buchungen vor dem Stichtag werden nicht angelegt. Buchungen am
-  Stichtag und danach werden angelegt, auch wenn der erste Zeitraum schon vorbei
-  ist.
+- Der erste Zeitraum beginnt mit den Buchungen des Hauptkontos, inklusive der
+  Saldo-Korrektur für den Eröffnungssaldo. Sein Start ist der Stichtag. Buchungen
+  auf anderen Konten davor bleiben in der Liste und liegen außerhalb des ersten
+  Zeitraums. Sie verschieben den Start nicht. Ein Gehaltsfenster, das davor
+  beginnen würde, wird auf dieses Datum geschnitten, damit der Eröffnungssaldo
+  des Hauptkontos der Startsaldo des ersten Zeitraums ist.
+- Ein Bankimport fragt nach dem aktuellen Kontostand. Der Eröffnungssaldo sitzt
+  am Anfang des ersten Buchungstags, vor den Buchungen dieses Tages. Er ist so
+  gesetzt, dass dieser Stand plus alle späteren Buchungen den angegebenen
+  Kontostand ergeben. Eine heutige Saldo-Korrektur als letzter Stand entfällt.
+  Ein späterer Import überspringt identische alte Zeilen, übernimmt neue und
+  setzt nur eine Saldo-Korrektur seit dem letzten Import, nicht den
+  Eröffnungssaldo neu. Die Einrichtung übernimmt jede Zeile.
+  Ein Import aus den Einstellungen überspringt identische Zeilen und ältere Tage,
+  deren Buchungsanzahl schon zur Datei passt. Am letzten Buchungstag und an Tagen,
+  an denen die Datei mehr Zeilen hat als das Konto, erscheint die Prüfung. Fehlende
+  Zweit-Zahlungen stehen angeschaltet. Der angegebene Kontostand wird erst nach
+  Übernehmen gesetzt. Zwei Buchungen am selben Tag mit demselben Betrag
+  bleiben beide, auch mit unterschiedlicher End-to-End-Referenz. Unter Finanzen,
+  Kurzbefehle, liegt pro Girokonto eine Vorlage: Beispielmitteilung und ob
+  Ausgabe, Einnahme oder Umbuchung gebucht wird. Der Apple-Kurzbefehl schickt
+  den Text, Lifify bucht nach der Vorlage. Im aktuellen Zeitraum ist Gesamtvermögen der
+  Live-Cash. Sind in diesem Zeitraum keine Kosten mehr offen, ist der Endsaldo
+  derselbe Stand, und der nächste Zeitraum startet damit. In einem vergangenen
+  oder zukünftigen Zeitraum ist Gesamtvermögen der Endsaldo dieses Zeitraums.
+  Depot bleibt der Marktwert.
+- Trade-Republic-Buchungen vor dem Stichtag bleiben in der Liste und liegen
+  außerhalb des ersten Zeitraums. Buchungen am Stichtag und danach werden
+  angelegt, auch wenn der erste Zeitraum schon vorbei ist.
 - Depotpositionen aus dem ganzen Auszug werden trotzdem übernommen, auch Käufe
   vor dem Stichtag.
 - Gibt es auf dem Hauptkonto noch keine Buchung, gibt es noch keinen Zeitraum.
@@ -1065,13 +1111,23 @@ Zahlungsausgang und Saldo.
   und Datum im Abstand von höchstens drei Tagen. Der Schalter ist aus. Nur wenn
   er an ist, werden die beiden Seiten eine Umbuchung und die doppelte Buchung
   auf dem anderen Konto entfällt.
-- Unter „Ähnliche Buchungen“ stehen bereits vorhandene Treffer. Der Bereich ist
-  eingeklappt. Fingerabdruck oder gleicher Betrag, ähnliches Datum und gleicher
-  Titel oder gleiche IBAN gelten als doppelt und werden ausgelassen. Aufklappen
-  und anhaken übernimmt eine Zeile trotzdem. Ausführungen im Wochenabstand
-  liegen außerhalb des Drei-Tage-Fensters und bleiben eigene Buchungen.
+- Unter „Noch nicht gebucht“ stehen Zeilen an Tagen, an denen die Datei mehr
+  Buchungen hat als das Konto, etwa zwei PayPal-Zahlungen mit unterschiedlicher
+  End-to-End-Referenz. Übernehmen ist an. Unter „Ähnliche Buchungen“ stehen
+  Treffer am letzten Buchungstag. Der Bereich ist eingeklappt. Ältere Tage, deren
+  Anzahl schon stimmt, fallen ohne Nachfrage raus. Aufklappen und anhaken
+  übernimmt eine ähnliche Zeile trotzdem. Der Kontostand wird erst nach
+  Übernehmen gesetzt.
 - Ein erneuter Import ersetzt den vorherigen Auszug dieses Girokontos und baut
   das verknüpfte Depot neu auf.
 
 Damit die Kursdifferenz bereits vollständig verkaufter Papiere stimmt, muss der
 Auszug nach einer Regeländerung neu importiert werden.
+
+### Trade-Republic-Sitzung
+
+Eine manuelle Anmeldung kann Positionen aus der privaten Web-Sitzung ins Depot
+legen. Sie setzt die Menge und den Einstand, wenn die Sitzung ihn liefert. Die
+Rechnung oben ändert sich nicht. Der PDF-Import bleibt. Eine Aktualisierung
+läuft nur über den Knopf unter Finanzen. Andere Positionen bleiben stehen,
+wenn die Sitzung sie nicht nennt.
