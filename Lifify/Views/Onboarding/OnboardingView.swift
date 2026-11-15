@@ -774,12 +774,14 @@ struct OnboardingView: View {
                 current: current,
                 rowAmounts: pendingImportRows.map(\.amountCents)
             )
+            let day = Calendar.current.startOfDay(for: firstDate)
             let adjustment = LedgerEntry(
-                date: Calendar.current.startOfDay(for: firstDate),
+                date: day,
                 title: L("Eröffnungssaldo", "Opening balance"),
                 amountCents: opening,
                 kind: .adjustment,
-                accountID: accountID
+                accountID: accountID,
+                createdAt: day
             )
             context.insert(adjustment)
             inserted.append(adjustment)
@@ -811,7 +813,7 @@ struct OnboardingView: View {
         }
         do {
             try context.save()
-            BankImportCursor.mark(accountID)
+            BankImportCursor.mark(accountID, currentCents: current)
             importedEntryIDs.merge(entryIDs) { _, new in new }
             importedRows = selectableRows
             pendingImportRows = []

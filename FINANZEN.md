@@ -591,12 +591,13 @@ Finanzansicht, in den Buchungen und in den Listen für Einnahmen und Ausgaben.
   Zeitraums. Sie verschieben den Start nicht. Ein Gehaltsfenster, das davor
   beginnen würde, wird auf dieses Datum geschnitten, damit der Eröffnungssaldo
   des Hauptkontos der Startsaldo des ersten Zeitraums ist.
-- Ein Bankimport fragt nach dem aktuellen Kontostand. Der Eröffnungssaldo am
-  ersten Buchungstag ist dieser Stand minus alle späteren Buchungen, damit
-  Startsaldo plus Buchungen den Kontostand ergeben. Eine heutige Saldo-Korrektur
-  als letzter Stand entfällt. Ein späterer Import überspringt identische alte
-  Zeilen, übernimmt neue und setzt nur eine Saldo-Korrektur seit dem letzten
-  Import, nicht den Eröffnungssaldo neu. Die Einrichtung übernimmt jede Zeile.
+- Ein Bankimport fragt nach dem aktuellen Kontostand. Der Eröffnungssaldo sitzt
+  am Anfang des ersten Buchungstags, vor den Buchungen dieses Tages. Er ist so
+  gesetzt, dass dieser Stand plus alle späteren Buchungen den angegebenen
+  Kontostand ergeben. Eine heutige Saldo-Korrektur als letzter Stand entfällt.
+  Ein späterer Import überspringt identische alte Zeilen, übernimmt neue und
+  setzt nur eine Saldo-Korrektur seit dem letzten Import, nicht den
+  Eröffnungssaldo neu. Die Einrichtung übernimmt jede Zeile.
   Ein Import aus den Einstellungen überspringt eine identische Zeile und bietet
   eine ähnliche zur Prüfung an. Im aktuellen Zeitraum ist Gesamtvermögen der
   Live-Cash. Sind in diesem Zeitraum keine Kosten mehr offen, ist der Endsaldo

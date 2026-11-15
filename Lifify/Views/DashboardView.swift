@@ -1122,12 +1122,14 @@ struct DashboardView: View {
     /// A leftover today's pin is the entered cash. Fit the first-day opening from it.
     private func adoptEnteredCashIfNeeded() {
         var ledger = Array(entries)
-        let adopted = ImportBalance.adoptPinsIfNeeded(accounts: Array(accounts), entries: &ledger, context: context)
-        guard !adopted.isEmpty else { return }
+        let accounts = Array(self.accounts)
+        let adopted = ImportBalance.adoptPinsIfNeeded(accounts: accounts, entries: &ledger, context: context)
+        let repaired = ImportBalance.repairOpeningAnchors(accounts: accounts, entries: &ledger, context: context)
+        guard !adopted.isEmpty || repaired else { return }
         do {
             try context.save()
-            for accountID in adopted {
-                BankImportCursor.mark(accountID)
+            for item in adopted {
+                BankImportCursor.mark(item.accountID, currentCents: item.currentCents)
             }
         } catch {
             return
