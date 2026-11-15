@@ -13,6 +13,7 @@ struct BankImportResult {
     var review: ImportReview = ImportReview()
 }
 
+@MainActor
 enum ImportBalance {
     static func openingCents(current: Int, rowAmounts: [Int]) -> Int {
         current - rowAmounts.reduce(0, +)
