@@ -194,8 +194,8 @@ private struct NoticeTemplateForm: View {
                     Text(L("Vorlage", "Template"))
                 } footer: {
                     Text(L(
-                        "Diese Vorlage wird für neue Mitteilungen benutzt. Der Betrag kommt aus der neuen Nachricht. Ein Depotverkauf landet auf dem Giro und geht vom Depotwert ab. Die Stückzahl kommt weiter aus der Anmeldung.",
-                        "This template is used for new notices. The amount comes from the new message. A portfolio sale lands on checking and leaves the depot value. The share count still comes from sign-in."
+                        "Diese Vorlage wird für neue Mitteilungen benutzt. Der Betrag kommt aus der neuen Nachricht. Ein Depotverkauf landet auf dem Giro und geht vom Depotwert ab. Die Stückzahl kommt aus der Anmeldung oder du trägst sie selbst ein; die Mitteilung ändert sie nicht.",
+                        "This template is used for new notices. The amount comes from the new message. A portfolio sale lands on checking and leaves the depot value. The share count comes from sign-in or you enter it yourself; the notice does not change it."
                     ))
                 }
                 .appGlassRow()

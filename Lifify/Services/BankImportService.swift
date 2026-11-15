@@ -408,7 +408,12 @@ private final class CAMTParserDelegate: NSObject, XMLParserDelegate {
     private var amountText = ""
     private var creditDebit = ""
     private var dateText = ""
-    private var title = ""
+    private var additionalInfo = ""
+    private var purpose = ""
+    private var reference = ""
+    private var status = ""
+    private var debtorName = ""
+    private var creditorName = ""
     private var senderIBAN = ""
     private var recipientIBAN = ""
     private var genericIBAN = ""
@@ -423,7 +428,12 @@ private final class CAMTParserDelegate: NSObject, XMLParserDelegate {
             amountText = ""
             creditDebit = ""
             dateText = ""
-            title = ""
+            additionalInfo = ""
+            purpose = ""
+            reference = ""
+            status = ""
+            debtorName = ""
+            creditorName = ""
             senderIBAN = ""
             recipientIBAN = ""
             genericIBAN = ""
@@ -444,9 +454,19 @@ private final class CAMTParserDelegate: NSObject, XMLParserDelegate {
         }
         if name == "Amt", amountText.isEmpty { amountText = value }
         if name == "CdtDbtInd" { creditDebit = value }
+        if name == "Sts" { status = value }
         if name == "Dt", path.contains("BookgDt") { dateText = value }
-        if ["Ustrd", "AddtlNtryInf", "Nm"].contains(name), !value.isEmpty {
-            title = title.isEmpty ? value : "\(title) · \(value)"
+        if name == "AddtlNtryInf" { additionalInfo = value }
+        if name == "Ustrd", !value.isEmpty {
+            purpose = purpose.isEmpty ? value : "\(purpose) \(value)"
+        }
+        if name == "EndToEndId", reference.isEmpty { reference = value }
+        if name == "Nm", !value.isEmpty {
+            if path.contains("Cdtr") {
+                creditorName = value
+            } else if path.contains("Dbtr") {
+                debtorName = value
+            }
         }
         if name == "IBAN", !value.isEmpty {
             legacyIBAN = value
@@ -459,41 +479,51 @@ private final class CAMTParserDelegate: NSObject, XMLParserDelegate {
             }
         }
         if name == "Ntry" {
-            if let date = BankImportService.parseDate(dateText), let unsigned = Money.cents(from: amountText) {
-                let amount = creditDebit.uppercased().contains("DBIT") ? -abs(unsigned) : abs(unsigned)
-                if amount > 0, senderIBAN.isEmpty { senderIBAN = genericIBAN }
-                if amount < 0, recipientIBAN.isEmpty { recipientIBAN = genericIBAN }
-                senderIBAN = senderIBAN.replacingOccurrences(of: " ", with: "").uppercased()
-                recipientIBAN = recipientIBAN.replacingOccurrences(of: " ", with: "").uppercased()
-                let iban = amount >= 0 ? senderIBAN : recipientIBAN
-                let fingerprint = BankImportService.makeFingerprint(
-                    date: date,
-                    amount: amount,
-                    title: title,
-                    iban: iban
-                )
-                let legacyFingerprint = BankImportService.makeFingerprint(
-                    date: date,
-                    amount: amount,
-                    title: title,
-                    iban: legacyIBAN
-                )
-                rows.append(ImportedTransaction(
-                    date: date,
-                    title: title.isEmpty ? L("CAMT-Buchung", "CAMT transaction") : title,
-                    notes: BankImportService.ibanNotes(sender: senderIBAN, recipient: recipientIBAN),
-                    amountCents: amount,
-                    iban: iban,
-                    senderIBAN: senderIBAN,
-                    recipientIBAN: recipientIBAN,
-                    fingerprint: fingerprint,
-                    legacyFingerprint: legacyFingerprint == fingerprint ? nil : legacyFingerprint
-                ))
-            }
+            appendEntry()
             inEntry = false
         }
         _ = path.popLast()
         text = ""
+    }
+
+    private func appendEntry() {
+        guard let date = BankImportService.parseDate(dateText), let unsigned = Money.cents(from: amountText) else { return }
+        let amount = creditDebit.uppercased().contains("DBIT") ? -abs(unsigned) : abs(unsigned)
+        if status.uppercased() == "PDNG"
+            || BankImportService.isPendingBankRow(status)
+            || BankImportService.isPendingBankRow(additionalInfo) {
+            return
+        }
+        if amount > 0, senderIBAN.isEmpty { senderIBAN = genericIBAN }
+        if amount < 0, recipientIBAN.isEmpty { recipientIBAN = genericIBAN }
+        let counterparty = amount < 0 ? creditorName : debtorName
+        let purposeText = purpose.isEmpty ? reference : purpose
+        let title = [counterparty, additionalInfo, purposeText]
+            .first(where: { !$0.isEmpty }) ?? L("CAMT-Buchung", "CAMT transaction")
+        let legacyTitle = [purposeText, additionalInfo, counterparty]
+            .first(where: { !$0.isEmpty }) ?? title
+        let details = [
+            additionalInfo.isEmpty ? nil : "\(L("Buchungstext", "Booking text")): \(additionalInfo)",
+            purposeText.isEmpty ? nil : "\(L("Verwendungszweck", "Purpose")): \(purposeText)",
+            reference.isEmpty ? nil : "\(L("Referenz", "Reference")): \(reference)",
+            counterparty.isEmpty ? nil : "\(L("Gegenpartei", "Counterparty")): \(counterparty)"
+        ]
+        .compactMap { $0 }
+        .joined(separator: "\n")
+        let distinct = [purposeText, additionalInfo, reference].filter { !$0.isEmpty }.joined(separator: "|")
+        rows.append(
+            BankImportService.imported(
+                date: date,
+                title: title,
+                amount: amount,
+                senderIBAN: senderIBAN,
+                recipientIBAN: recipientIBAN,
+                legacyIBAN: legacyIBAN,
+                legacyTitle: legacyTitle,
+                details: details,
+                distinct: distinct
+            )
+        )
     }
 }
 

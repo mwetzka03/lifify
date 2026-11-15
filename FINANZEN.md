@@ -613,7 +613,8 @@ Finanzansicht, in den Buchungen und in den Listen für Einnahmen und Ausgaben.
   Kurzbefehle, fügst du die Mitteilung 1:1 ein. Darunter entsteht die Vorlage,
   und die Buchung kann Ausgabe, Einnahme, Umbuchung, Depotkauf, Depotverkauf,
   Dividende oder Zinsen sein. Ein Depotverkauf kommt aufs Giro und geht vom
-  Depotwert ab. Der Apple-Kurzbefehl schickt den Text, Lifify
+  Depotwert ab. Die Stückzahl kommt aus der Anmeldung oder von Hand, nicht
+  aus der Mitteilung. Der Apple-Kurzbefehl schickt den Text, Lifify
   bucht nach der Vorlage. Im aktuellen Zeitraum ist Gesamtvermögen der
   Live-Cash. Sind in diesem Zeitraum keine Kosten mehr offen, ist der Endsaldo
   derselbe Stand, und der nächste Zeitraum startet damit. In einem vergangenen

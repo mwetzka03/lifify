@@ -101,8 +101,12 @@ Symbolauswahl enthält ein Hanfblatt und eine Zigarette.
 9. **Import:** CSV erwartet eine Kopfzeile und erkennt deutsche sowie englische
     Spaltennamen für Datum, Betrag, Verwendungszweck sowie Sender- und
     Empfänger-IBAN. CAMT verarbeitet genau eine XML-Datei und liest
-    Buchungsdatum, Betrag, Soll/Haben, Beschreibung sowie Schuldner- und
-    Gläubiger-IBAN. Fehlt im CSV die Richtung, wird eine allgemeine
+    Buchungsdatum, Betrag, Soll/Haben, Beschreibung, End-to-End-Referenz sowie
+    Schuldner- und Gläubiger-IBAN. Zwei Zahlungen mit demselben Betrag am
+    selben Tag und unterschiedlicher Referenz bleiben zwei Buchungen. Ein
+    späterer überlappender Auszug übernimmt nur die neuen Zeilen. Die
+    Beispiel-CAMT im Entwicklertest sind erfunden und lesen keine Nutzerdaten.
+    Fehlt im CSV die Richtung, wird eine allgemeine
     Gegenkonto-IBAN bei Einnahmen als Sender und bei Ausgaben als Empfänger
     behandelt. ZIP und MT940 sind absichtlich nicht enthalten.
 10. **Import-Deduplizierung:** Importierte Zeilen erhalten aus den Quelldaten
@@ -164,9 +168,10 @@ Symbolauswahl enthält ein Hanfblatt und eine Zigarette.
     die Mitteilung 1:1 ein; darunter entsteht die Vorlage. Die Buchung kann
     Ausgabe, Einnahme, Umbuchung, Depotkauf, Depotverkauf, Dividende oder
     Zinsen sein. Ein Depotverkauf kommt aufs Giro und geht vom Depotwert ab.
-    Dieselbe Buchung im Fenster von sechs Stunden zählt einmal. Laden deckt
-    den ganzen Bildschirm und schreibt Geladen. Beim Start wird zuerst nur
-    Home gebaut. Ein Tab zeigt erst die Fläche, dann den Inhalt.
+    Die Stückzahl kommt aus der Anmeldung oder von Hand, nicht aus der
+    Mitteilung. Dieselbe Buchung im Fenster von sechs Stunden zählt einmal.
+    Laden deckt den ganzen Bildschirm und schreibt Geladen. Beim Start wird
+    zuerst nur Home gebaut. Ein Tab zeigt erst die Fläche, dann den Inhalt.
 
 ## Technische Leitplanken
 

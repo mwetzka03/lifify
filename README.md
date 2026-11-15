@@ -315,9 +315,11 @@ trotzdem nach Tippen auf Ausführen fragen.
 Unter Einstellungen, Finanzen, Kurzbefehle fügst du die Mitteilung 1:1 ein.
 Darunter erscheint die Vorlage, und du wählst die Buchung, auch Depotkauf,
 Verkauf, Dividende oder Zinsen. Ein Verkauf kommt aufs Giro und geht vom
-Depotwert ab. Der Kurzbefehl schickt weiter den Text; Lifify nutzt diese
-Vorlage. Laden deckt den ganzen Bildschirm und schreibt Geladen. Beim Start
-wird zuerst nur Home gebaut, und ein Tab zeigt erst die Fläche, dann den Inhalt.
+Depotwert ab. Die Stückzahl kommt aus der Anmeldung oder du trägst sie selbst
+ein; die Mitteilung ändert sie nicht. Der Kurzbefehl schickt weiter den Text;
+Lifify nutzt diese Vorlage. Laden deckt den ganzen Bildschirm und schreibt
+Geladen. Beim Start wird zuerst nur Home gebaut, und ein Tab zeigt erst die
+Fläche, dann den Inhalt.
 
 Derselbe Aufruf ist die URL `lifify://notice?account=sparkasse&text=` mit dem
 Mitteilungstext in `text`. Bei Trade Republic ist das Konto `traderepublic`.
