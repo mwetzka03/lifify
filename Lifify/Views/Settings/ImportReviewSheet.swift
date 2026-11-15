@@ -62,8 +62,8 @@ struct ImportReviewSheet: View {
                         }
                     } footer: {
                         Text(L(
-                            "Doppelte Buchungen sind ausgelassen. Klappe die Liste auf, um eine trotzdem zu übernehmen.",
-                            "Duplicate transactions are left out. Expand the list to import one anyway."
+                            "Nur derselbe Empfänger, derselbe Betrag und ein nahes Datum. Ein anderer Text ist keine Doppelung. Klappe die Liste auf, um eine trotzdem zu übernehmen.",
+                            "Only the same payee, the same amount, and a nearby date. A different text is not a duplicate. Expand the list to import one anyway."
                         ))
                     }
                     .appGlassRow()

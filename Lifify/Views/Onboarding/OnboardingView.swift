@@ -3,6 +3,25 @@ import SwiftData
 import SwiftUI
 import UniformTypeIdentifiers
 
+struct OnboardingBroker: Identifiable {
+    var id: String { name }
+    var name: String
+    var supported: Bool
+
+    static var all: [OnboardingBroker] {
+        [
+            OnboardingBroker(name: "Trade Republic", supported: true),
+            OnboardingBroker(name: "Scalable Capital", supported: false),
+            OnboardingBroker(name: "ING", supported: false),
+            OnboardingBroker(name: "comdirect", supported: false),
+            OnboardingBroker(name: "flatex", supported: false),
+            OnboardingBroker(name: "Consorsbank", supported: false),
+            OnboardingBroker(name: "Smartbroker", supported: false),
+            OnboardingBroker(name: "justTRADE", supported: false)
+        ]
+    }
+}
+
 enum OnboardingSteps {
     static var title: String { L("Lifify einrichten", "Set up Lifify") }
     static var start: String { L("Wie möchtest du starten?", "How would you like to start?") }
@@ -13,6 +32,7 @@ enum OnboardingSteps {
     static var account: String { L("Hauptkonto", "Main account") }
     static var bank: String { L("Hauptkonto importieren (optional)", "Import the main account (optional)") }
     static var tradeRepublic: String { "Trade Republic" }
+    static var broker: String { L("Depot anlegen (optional)", "Add a portfolio (optional)") }
     static var tradeRepublicSignIn: String {
         L("Trade Republic anmelden (optional)", "Sign in to Trade Republic (optional)")
     }
@@ -94,8 +114,8 @@ struct OnboardingView: View {
                     case 3: periodStep
                     case 4: accountStep
                     case 5: bankImportStep
-                    case 6: tradeRepublicStep
-                    case 7: tradeRepublicSignInStep
+                    case 6: brokerStep
+                    case 7: tradeRepublicStep
                     default: incomeStep
                     }
                 }
@@ -320,8 +340,8 @@ struct OnboardingView: View {
             Text(OnboardingSteps.bank)
         } footer: {
             Text(L(
-                "CSV und CAMT landen auf dem Hauptkonto und legen den ersten Zeitraum fest. Der Trade-Republic-Auszug folgt als eigener Schritt.",
-                "CSV and CAMT go to the main account and define the first period. The Trade Republic statement follows as its own step."
+                "CSV und CAMT landen auf dem Hauptkonto und legen den ersten Zeitraum fest. Danach kannst du ein Depot anlegen.",
+                "CSV and CAMT go to the main account and define the first period. You can add a portfolio after that."
             ))
         }
         .appGlassRow()
@@ -359,8 +379,8 @@ struct OnboardingView: View {
                 ))
                 .font(.headline)
                 Text(L(
-                    "Daraus wird ein separates Trade-Republic-Girokonto. Ist die IBAN schon vorhanden, wird dieses Konto verwendet. Das Depot hängt daran.",
-                    "This creates a separate Trade Republic checking account. An existing IBAN is reused. The portfolio is linked to it."
+                    "Der Auszug landet auf dem Trade-Republic-Girokonto aus dem vorherigen Schritt. Die IBAN wird übernommen, wenn das Konto noch keine hat. Das Depot bleibt daran verknüpft.",
+                    "The statement is booked on the Trade Republic checking account from the previous step. The IBAN is stored when that account does not have one yet. The portfolio stays linked to it."
                 ))
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -409,27 +429,62 @@ struct OnboardingView: View {
             Text(OnboardingSteps.tradeRepublic)
         } footer: {
             Text(L(
-                "Kein Zielkonto. Buchungen vor dem Start des ersten Zeitraums werden nicht angelegt, danach schon. Der Startsaldo ist der Saldo aus der rechten Spalte am Starttag, sonst vom letzten Tag davor.",
-                "No destination account. Transactions before the start of the first period are not booked; later ones are. The opening balance is the right-hand balance on the start day, or from the previous day."
+                "PDF-Auszug oder Anmeldung, beides auf dieser Seite. Buchungen vor dem Start des ersten Zeitraums werden nicht angelegt, danach schon. Der Startsaldo ist der Saldo aus der rechten Spalte am Starttag, sonst vom letzten Tag davor.",
+                "The PDF statement or sign-in, both on this page. Transactions before the start of the first period are not booked; later ones are. The opening balance is the right-hand balance on the start day, or from the previous day."
             ))
         }
         .appGlassRow()
+        TradeRepublicSignInControls(showsSkip: false) {}
         Section {
-            if tradeRepublicImported {
-                nextButton { step = 7 }
-            }
-            Button(L("Ohne Import fortfahren", "Continue without import")) {
-                pendingDocument = nil
-                step = 7
-            }
-            .disabled(tradeRepublicImported)
+            nextButton { step = 8 }
+                .disabled(pendingDocument != nil && !tradeRepublicImported)
         }
         .appGlassRow()
     }
 
     @ViewBuilder
-    private var tradeRepublicSignInStep: some View {
-        TradeRepublicSignInControls(showsSkip: true) { step = 8 }
+    private var brokerStep: some View {
+        Section {
+            ForEach(OnboardingBroker.all) { broker in
+                if broker.supported {
+                    Button {
+                        createTradeRepublicAccounts()
+                        step = 7
+                    } label: {
+                        HStack {
+                            Text(broker.name)
+                                .foregroundStyle(.primary)
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                } else {
+                    HStack {
+                        Text(broker.name)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Text(L("Nicht unterstützt", "Not supported"))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+        } header: {
+            Text(OnboardingSteps.broker)
+        } footer: {
+            Text(L(
+                "Trade Republic legt ein Girokonto als Nebenkonto an und verknüpft das Depot damit. Die anderen Broker sind noch nicht angebunden.",
+                "Trade Republic creates a checking account as a secondary account and links the portfolio to it. The other brokers are not connected yet."
+            ))
+        }
+        .appGlassRow()
+        Section {
+            Button(L("Ohne Depot fortfahren", "Continue without a portfolio")) {
+                step = 8
+            }
+        }
+        .appGlassRow()
     }
 
     @ViewBuilder
@@ -569,6 +624,26 @@ struct OnboardingView: View {
                 Image(systemName: "chevron.right")
             }
         }
+    }
+
+    private func createTradeRepublicAccounts() {
+        let checking: Account
+        if let existing = accounts.first(where: {
+            $0.kind == .checking && $0.name.caseInsensitiveCompare("Trade Republic") == .orderedSame
+        }) {
+            checking = existing
+        } else {
+            let created = Account(name: "Trade Republic", kind: .checking, isLiquid: true, isMain: false)
+            context.insert(created)
+            checking = created
+        }
+        checking.isMain = false
+        if PortfolioLinkStore.portfolioID(for: checking.id) == nil {
+            let portfolio = Account(name: L("Depot", "Portfolio"), kind: .portfolio, isLiquid: false)
+            context.insert(portfolio)
+            PortfolioLinkStore.link(portfolio: portfolio.id, to: checking.id)
+        }
+        try? context.save()
     }
 
     private func saveMainAccount() -> Bool {

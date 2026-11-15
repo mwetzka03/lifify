@@ -319,6 +319,14 @@ enum BankImportApplier {
             }) {
                 return (existing, [], false)
             }
+            if document.tradeRepublic != nil, let named = accounts.first(where: {
+                $0.kind == .checking && $0.name.caseInsensitiveCompare("Trade Republic") == .orderedSame
+            }) {
+                if named.iban.trimmingCharacters(in: .whitespaces).isEmpty, !iban.isEmpty {
+                    named.iban = iban
+                }
+                return (named, [], false)
+            }
             let account = Account(
                 name: document.tradeRepublic == nil ? L("Girokonto", "Checking account") : "Trade Republic",
                 kind: .checking,
@@ -622,7 +630,7 @@ enum BankImportApplier {
             }
         }
 
-        if let existing = similarMatch(row: row, entries: entries) {
+        if let existing = similarMatch(row: row, entries: entries, accountID: checking.id) {
             review.similar.append(similarChoice(row: row, existing: existing, accountID: checking.id))
             known.formUnion(fingerprints)
             return nil
@@ -760,14 +768,36 @@ enum BankImportApplier {
         }
     }
 
-    private static func similarMatch(row: ImportedTransaction, entries: [LedgerEntry]) -> LedgerEntry? {
+    private static func similarMatch(
+        row: ImportedTransaction,
+        entries: [LedgerEntry],
+        accountID: UUID
+    ) -> LedgerEntry? {
         let amount = abs(row.amountCents)
         return entries.first { entry in
             guard entry.kind != .adjustment else { return false }
+            guard entry.accountID == accountID else { return false }
             guard abs(entry.amountCents) == amount else { return false }
             guard withinDays(entry.date, of: row.date, days: 3) else { return false }
-            return titlesMatch(row.title, entry.title) || sharesIBAN(row, entry: entry)
+            return payeesMatch(row.title, entry.title)
         }
+    }
+
+    /// The shop or payee, without the place that Sparkasse appends after a slash.
+    private static func payeesMatch(_ lhs: String, _ rhs: String) -> Bool {
+        let left = payeeKey(lhs)
+        let right = payeeKey(rhs)
+        guard left.count >= 4, right.count >= 4 else { return false }
+        if left == right { return true }
+        let shorter = left.count <= right.count ? left : right
+        let longer = left.count <= right.count ? right : left
+        return shorter.count >= 8 && longer.hasPrefix(shorter)
+    }
+
+    private static func payeeKey(_ title: String) -> String {
+        let head = title.split(whereSeparator: { $0 == "/" || $0 == "|" }).first.map(String.init) ?? title
+        let folded = head.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "de_DE"))
+        return String(folded.filter { $0.isLetter || $0.isNumber })
     }
 
     private static func existingTransfer(
@@ -795,13 +825,6 @@ enum BankImportApplier {
             to: calendar.startOfDay(for: other)
         ).day ?? 0)
         return delta <= days
-    }
-
-    private static func titlesMatch(_ lhs: String, _ rhs: String) -> Bool {
-        let left = lhs.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        let right = rhs.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        guard !left.isEmpty, !right.isEmpty else { return false }
-        return left == right
     }
 
     private static func sharesIBAN(_ row: ImportedTransaction, entry: LedgerEntry) -> Bool {
