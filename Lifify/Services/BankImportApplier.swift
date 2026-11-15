@@ -290,7 +290,7 @@ enum BankImportApplier {
     ) -> ForecastPeriod? {
         guard let main = accounts.first(where: \.isMain) else { return nil }
         let dates = entries.compactMap { entry -> Date? in
-            guard entry.kind != .adjustment, entryTouches(entry, accountID: main.id) else { return nil }
+            guard entryTouches(entry, accountID: main.id) else { return nil }
             return entry.date
         }
         guard let earliest = dates.min() else { return nil }
@@ -612,15 +612,19 @@ enum BankImportApplier {
         review: inout ImportReview,
         context: ModelContext
     ) -> LedgerEntry? {
-        let fingerprints = [row.fingerprint, row.legacyFingerprint].compactMap { $0 }
-        if entries.contains(where: { entry in
-            guard let fingerprint = entry.importFingerprint else { return false }
-            return fingerprints.contains(fingerprint)
-        }) {
-            known.formUnion(fingerprints)
+        if entries.contains(where: { $0.importFingerprint == row.fingerprint }) || known.contains(row.fingerprint) {
+            known.insert(row.fingerprint)
             return nil
         }
-        guard known.isDisjoint(with: fingerprints) else { return nil }
+        if let legacy = row.legacyFingerprint,
+           let existing = entries.first(where: { $0.importFingerprint == legacy }) {
+            let purpose = BankImportService.purposeMark(notes: row.notes)
+            if purpose.isEmpty || existing.notes.contains(purpose) {
+                existing.importFingerprint = row.fingerprint
+                known.insert(row.fingerprint)
+                return nil
+            }
+        }
 
         if let other = counterpartyAccount(for: row, checking: checking, accounts: accounts) {
             if transferExists(on: row.date, amount: row.amountCents, first: checking.id, second: other.id, entries: entries)
@@ -632,13 +636,13 @@ enum BankImportApplier {
                     entries: entries,
                     windowDays: 3
                 ) != nil {
-                known.formUnion(fingerprints)
+                known.insert(row.fingerprint)
                 return nil
             }
             let entry = ledgerEntry(for: row, checkingID: checking.id, portfolioID: nil)
             context.insert(entry)
             entries.append(entry)
-            known.formUnion(fingerprints)
+            known.insert(row.fingerprint)
             bookTransfer(entry, row: row, checkingID: checking.id, otherID: other.id, entries: &entries)
             if let mirrorDate = removeMirror(of: row, on: other.id, checking: checking, entries: &entries, context: context, windowDays: 3),
                mirrorDate < entry.date {
@@ -649,21 +653,20 @@ enum BankImportApplier {
 
         if let existing = similarMatch(row: row, entries: entries, accountID: checking.id) {
             let rowPurpose = BankImportService.purposeMark(notes: row.notes)
-            let entryPurpose = BankImportService.purposeMark(notes: existing.notes)
-            if !rowPurpose.isEmpty, !entryPurpose.isEmpty {
+            if !rowPurpose.isEmpty, existing.notes.contains(rowPurpose) {
                 existing.importFingerprint = row.fingerprint
-                known.formUnion(fingerprints)
+                known.insert(row.fingerprint)
                 return nil
             }
             review.similar.append(similarChoice(row: row, existing: existing, accountID: checking.id))
-            known.formUnion(fingerprints)
+            known.insert(row.fingerprint)
             return nil
         }
 
         let entry = ledgerEntry(for: row, checkingID: checking.id, portfolioID: nil)
         context.insert(entry)
         entries.append(entry)
-        known.formUnion(fingerprints)
+        known.insert(row.fingerprint)
         return entry
     }
 
@@ -1041,15 +1044,9 @@ enum BankImportApplier {
             guard abs(entry.amountCents) == amount else { return false }
             guard withinDays(entry.date, of: row.date, days: 3) else { return false }
             guard payeesMatch(row.title, entry.title) else { return false }
-            let entryPurpose = BankImportService.purposeMark(notes: entry.notes)
-            if !rowPurpose.isEmpty, !entryPurpose.isEmpty, !marksOverlap(rowPurpose, entryPurpose) { return false }
+            if !rowPurpose.isEmpty, !entry.notes.contains(rowPurpose) { return false }
             return true
         }
-    }
-
-    private static func marksOverlap(_ lhs: String, _ rhs: String) -> Bool {
-        if lhs == rhs { return true }
-        return lhs.contains(rhs) || rhs.contains(lhs)
     }
 
     /// The shop or payee, without the place that Sparkasse appends after a slash.

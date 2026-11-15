@@ -241,7 +241,6 @@ struct FinanceImportSettings: View {
     @Query private var entries: [LedgerEntry]
     @StateObject private var viewModel = DataImportViewModel()
     @State private var importingBank = false
-    @State private var importingTradeRepublic = false
 
     var body: some View {
         Group {
@@ -268,23 +267,6 @@ struct FinanceImportSettings: View {
             Text(L("Bankimport", "Bank import"))
         }
         .appGlassRow()
-
-        Section {
-            Button {
-                importingTradeRepublic = true
-            } label: {
-                Label(L("Kontoauszug hochladen", "Upload statement"), systemImage: "doc.badge.plus")
-            }
-            Text(L(
-                "Nur die Umsatzübersicht. Das Girokonto wird über die IBAN wiederverwendet oder neu angelegt, das Depot hängt daran. Buchungen vor dem Start des ersten Zeitraums vom Hauptkonto werden nicht angelegt, spätere schon. Die Depotstände aus dem ganzen Auszug werden übernommen. Der Startsaldo ist der Saldo am Starttag, sonst vom letzten Tag davor.",
-                "Only the transaction overview. The checking account is reused by IBAN or created, and the portfolio is linked to it. Transactions before the start of the main account’s first period are not booked; later ones are. Portfolio positions from the whole statement are imported. The opening balance is the balance on the start day, or the previous day."
-            ))
-            .font(.caption)
-            .foregroundStyle(.secondary)
-        } header: {
-            Text("Trade Republic")
-        }
-        .appGlassRow()
         .fileImporter(
             isPresented: $importingBank,
             allowedContentTypes: [.commaSeparatedText, .xml, .plainText],
@@ -292,17 +274,6 @@ struct FinanceImportSettings: View {
         ) { result in
             if case let .success(urls) = result, let url = urls.first {
                 viewModel.importBankFile(from: url, context: context, existingEntries: entries)
-            } else if case let .failure(error) = result {
-                viewModel.message = error.localizedDescription
-            }
-        }
-        .fileImporter(
-            isPresented: $importingTradeRepublic,
-            allowedContentTypes: [.pdf],
-            allowsMultipleSelection: false
-        ) { result in
-            if case let .success(urls) = result, let url = urls.first {
-                viewModel.importTradeRepublic(from: url, context: context, existingEntries: entries)
             } else if case let .failure(error) = result {
                 viewModel.message = error.localizedDescription
             }

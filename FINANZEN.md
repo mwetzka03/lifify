@@ -34,8 +34,10 @@ view, in transactions, and in the income and expense lists.
   registers.
 - Periods follow the primary income when the salary period is active.
   Otherwise they are calendar months.
-- The first period begins with the bookings of the main account. Its start is
-  the cutoff date.
+- The first period begins with the bookings of the main account, including the
+  opening-balance adjustment. Its start is the cutoff date. A salary window that
+  would start before that date is clipped to it, so the opening amount entered
+  for that day is the Startsaldo of the first period.
 - Trade Republic bookings before the cutoff date are not created. Bookings on
   the cutoff date and after are created, even when the first period has
   already ended.
@@ -574,8 +576,10 @@ Finanzansicht, in den Buchungen und in den Listen für Einnahmen und Ausgaben.
   immer ankommt.
 - Zeiträume folgen der Haupteinnahme, wenn der Gehaltszeitraum aktiv ist.
   Sonst sind es Kalendermonate.
-- Der erste Zeitraum beginnt mit den Buchungen des Hauptkontos. Sein Start ist
-  der Stichtag.
+- Der erste Zeitraum beginnt mit den Buchungen des Hauptkontos, inklusive der
+  Saldo-Korrektur für den Eröffnungssaldo. Sein Start ist der Stichtag. Ein
+  Gehaltsfenster, das davor beginnen würde, wird auf dieses Datum geschnitten,
+  damit der eingegebene Eröffnungssaldo der Startsaldo des ersten Zeitraums ist.
 - Trade-Republic-Buchungen vor dem Stichtag werden nicht angelegt. Buchungen am
   Stichtag und danach werden angelegt, auch wenn der erste Zeitraum schon vorbei
   ist.

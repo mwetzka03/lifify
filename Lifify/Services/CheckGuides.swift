@@ -369,9 +369,9 @@ enum CheckGuides {
             "Monthly means three occurrences on the 15th. Weekly means four. May [4] means the May 2026 charge lands on the 4th. 1 May is a holiday and the 2nd is a Saturday, so the next banking day is Monday the 4th."
         ),
         "Restbudget, Anteil und Zeitraum": g(
-            "HomeBudgetSnapshot.remaining, VariableBudgetAccounts.share(total:accountID:targets:), CalendarService.periodKey(for:mode:startDay:)",
-            "Die Messung ist der Rest als Geldbetrag. Geplant sind 1000 Cent, ausgegeben 2500 Cent, der Rest ist minus 1500 Cent. Ein Anteil von 100 auf drei Konten wird 34, 33 und 33. März bleibt ein Zeitraum, April ein anderer, das Jahr ist 2026.",
-            "The reading is the remainder as an amount of money. Planned is 1000 cents, spent is 2500 cents, and the remainder is minus 1500 cents. A share of 100 across three accounts becomes 34, 33, and 33. March stays one period, April another, and the year is 2026."
+            "HomeBudgetSnapshot.remaining, VariableBudgetAccounts.share(total:accountID:targets:), CalendarService.periodKey(for:mode:startDay:), FinanceService.forecastPeriods(primary:earliest:latest:)",
+            "Die Messung ist der Rest als Geldbetrag und der erste Gehaltszeitraum. Geplant sind 1000 Cent, ausgegeben 2500 Cent, der Rest ist minus 1500 Cent. Ein Anteil von 100 auf drei Konten wird 34, 33 und 33. März bleibt ein Zeitraum, April ein anderer, das Jahr ist 2026. Der letzte Bankarbeitstag im April 2026 ist der 30., der im Mai der 29., also wäre das Fenster 30.4.–28.5. Liegt die erste Buchung am 17.5., startet der erste Zeitraum am 17.5. und endet am 28.5.",
+            "The reading is the remainder as an amount of money and the first salary period. Planned is 1000 cents, spent is 2500 cents, and the remainder is minus 1500 cents. A share of 100 across three accounts becomes 34, 33, and 33. March stays one period, April another, and the year is 2026. The last banking day in April 2026 is the 30th, and in May the 29th, so the window would be 30 Apr–28 May. When the first booking is 17 May, the first period starts on 17 May and ends on 28 May."
         ),
         "Übertrag, Einkauf und Ausgabengruppe": g(
             "FinanceService.poolCarry(pool:currentPeriodKey:splits:), FinanceService.shoppingBias(shopping:entries:period:), CalendarService.splitCounts(in:splitKey:pool:)",
@@ -390,8 +390,8 @@ enum CheckGuides {
         ),
         "CSV und CAMT zeigen die Buchung": g(
             "BankImportService.parseCSV(_:), BankImportService.parseCAMT(data:), BankImportService.purposeMark(notes:), BankImportService.isPendingBankRow(_:)",
-            "CSV 1 ist eine Zeile über minus 1250 Cent mit dem Titel Bäcker. CAMT minus 1999 Cent ist die Zahlung Cafe. Dieselbe CSV-Zeile bekommt denselben Fingerabdruck. Zwei PayPal-Zeilen am selben Tag mit derselben Summe und unterschiedlicher Referenz bleiben zwei Buchungen. Eine vorgemerkte Zeile fällt raus.",
-            "CSV 1 is one row of minus 1250 cents titled Baker. CAMT minus 1999 cents is the Cafe payment. The same CSV row gets the same fingerprint. Two PayPal rows on the same day with the same amount and a different reference stay two bookings. A pending row is dropped."
+            "CSV 1 ist eine Zeile über minus 1250 Cent mit dem Titel Bäcker. CAMT minus 1999 Cent ist die Zahlung Cafe. Dieselbe CSV-Zeile bekommt denselben Fingerabdruck. Zwei PayPal-Zeilen am selben Tag mit derselben Summe und unterschiedlicher Referenz bleiben zwei Buchungen. Der alte Fingerabdruck ohne Referenz ist bei beiden gleich, der neue nicht. Die zweite Referenz steht nicht in den Notizen der ersten. Eine vorgemerkte Zeile fällt raus.",
+            "CSV 1 is one row of minus 1250 cents titled Baker. CAMT minus 1999 cents is the Cafe payment. The same CSV row gets the same fingerprint. Two PayPal rows on the same day with the same amount and a different reference stay two bookings. The old fingerprint without a reference is the same for both, the new one is not. The second reference is not in the first row’s notes. A pending row is dropped."
         ),
         "Fingerabdruck und Import-Hinweise": g(
             "BankImportService.makeFingerprint(date:amount:title:iban:distinct:), BankImportService.parseDocument(data:fileExtension:), BankImportService.parseCSV(_:)",

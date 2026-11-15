@@ -509,10 +509,10 @@ enum CheckStories {
             ("CalendarService.savingsPlanDates für Mai 2026 liefert nur den 4. Der 2. fehlt, weil er ein Samstag nach dem Feiertag ist. Der Wochenplan-Text nennt 2., 9., 16. und 23.", "CalendarService.savingsPlanDates for May 2026 returns only the 4th. The 2nd is missing because it is a Saturday after the holiday. The weekly schedule text names the 2nd, 9th, 16th, and 23rd.", "LififyCoverageChecks.swift"),
         ),
         "Restbudget, Anteil und Zeitraum": make(
-            "Das Restbudget ist geplant minus ausgegeben. Anteile und der Zeitraum bleiben nachvollziehbar.",
-            "The remaining budget is planned minus spent. Shares and the period stay traceable.",
-            ("Ein Budget mit Ausgabe wird direkt gebaut, ohne Nutzerdaten zu schreiben.", "A budget with spending is built directly, without writing user data.", "HomeBudget.swift"),
-            ("Der Rest ist die Differenz, auch wenn er negativ ist.", "The remainder is the difference, even when it is negative.", "LififyCoverageChecks.swift"),
+            "Das Restbudget ist geplant minus ausgegeben. Anteile und der Zeitraum bleiben nachvollziehbar. Der erste Gehaltszeitraum beginnt mit der ersten Buchung, nicht mit einem früheren Zahltag.",
+            "The remaining budget is planned minus spent. Shares and the period stay traceable. The first salary period begins with the first booking, not with an earlier payday.",
+            ("Ein Budget mit Ausgabe wird direkt gebaut, ohne Nutzerdaten zu schreiben. Der erste Zeitraum wird aus dem letzten Bankarbeitstag und dem Startdatum 17.5.2026 geschnitten.", "A budget with spending is built directly, without writing user data. The first period is clipped from the last banking day and the start date 17 May 2026.", "HomeBudget.swift"),
+            ("Der Rest ist die Differenz, auch wenn er negativ ist. Der erste Zeitraum startet am 17.5. und endet am 28.5., nicht am 30.4.", "The remainder is the difference, even when it is negative. The first period starts on 17 May and ends on 28 May, not on 30 April.", "LififyCoverageChecks.swift"),
         ),
         "Übertrag, Einkauf und Ausgabengruppe": make(
             "Budgetpools übertragen den Rest. Der Einkaufszettel verschiebt Geplantes. Eine Gruppenzeile ändert die Buchung nicht.",
@@ -533,10 +533,10 @@ enum CheckStories {
             ("Die Tagesänderung fehlt dann, und ein Kauf zählt als Depotkauf.", "The day change is then missing, and a purchase counts as a portfolio buy.", "LififyCoverageChecks.swift"),
         ),
         "CSV und CAMT zeigen die Buchung": make(
-            "CSV und CAMT werden zu Buchungen mit Betrag und Text. Zwei Zahlungen an denselben Empfänger am selben Tag mit unterschiedlicher Referenz bleiben zwei Buchungen. Vorgemerkte Umsätze werden nicht importiert.",
-            "CSV and CAMT become bookings with an amount and text. Two payments to the same payee on the same day with a different reference stay two bookings. Pending rows are not imported.",
+            "CSV und CAMT werden zu Buchungen mit Betrag und Text. Zwei Zahlungen an denselben Empfänger am selben Tag mit unterschiedlicher Referenz bleiben zwei Buchungen, auch wenn der alte Fingerabdruck gleich ist. Vorgemerkte Umsätze werden nicht importiert.",
+            "CSV and CAMT become bookings with an amount and text. Two payments to the same payee on the same day with a different reference stay two bookings, even when the old fingerprint is the same. Pending rows are not imported.",
             ("Eine CSV-Zeile und eine CAMT-Zahlung werden gelesen.", "One CSV row and one CAMT payment are read.", "BankImportService.swift"),
-            ("Anzahl und Betrag entsprechen der Datei. Zwei PayPal-Zeilen bleiben zwei, eine vorgemerkte fällt raus.", "The count and the amount match the file. Two PayPal rows stay two, and a pending row is dropped.", "LififyCoverageChecks.swift"),
+            ("Anzahl und Betrag entsprechen der Datei. Zwei PayPal-Zeilen bleiben zwei, ihre alten Fingerabdrücke sind gleich, die neuen nicht, und eine vorgemerkte fällt raus.", "The count and the amount match the file. Two PayPal rows stay two, their old fingerprints match, the new ones do not, and a pending row is dropped.", "LififyCoverageChecks.swift"),
         ),
         "Fingerabdruck und Import-Hinweise": make(
             "Jede importierte Buchung bekommt einen Fingerabdruck. Unlesbare PDFs nennen den Hinweis.",

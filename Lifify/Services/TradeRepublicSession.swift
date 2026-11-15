@@ -343,6 +343,18 @@ enum TradeRepublicCopy {
         )
     }
     static var copied: String { L("Kopiert", "Copied") }
+    static var twoUpdatePaths: String {
+        L(
+            "Zwei Wege, denselben Stand zu holen: den Kontoauszug hochladen oder dich bei Trade Republic anmelden.",
+            "Two ways to fetch the same data: upload the statement, or sign in to Trade Republic."
+        )
+    }
+    static var statementCaption: String {
+        L(
+            "Nur die Umsatzübersicht. Das Girokonto wird über die IBAN wiederverwendet oder neu angelegt, das Depot hängt daran. Buchungen vor dem Start des ersten Zeitraums vom Hauptkonto werden nicht angelegt, spätere schon. Die Depotstände aus dem ganzen Auszug werden übernommen. Der Startsaldo ist der Saldo am Starttag, sonst vom letzten Tag davor.",
+            "Only the transaction overview. The checking account is reused by IBAN or created, and the portfolio is linked to it. Transactions before the start of the main account’s first period are not booked; later ones are. Portfolio positions from the whole statement are imported. The opening balance is the balance on the start day, or the previous day."
+        )
+    }
     static var footnote: String {
         L(
             "Die PIN ist dieselbe wie beim Öffnen der Trade-Republic-App, kein Code per SMS. Eine 0 am Anfang wird zu +49. Nur wenn du hier tippst. PIN und Sitzung werden nicht gespeichert. Jedes Mal neu anmelden.",

@@ -173,6 +173,21 @@ enum LififyCoverageChecks {
         let year = CalendarService.periodKey(for: berlin(2026, 11, 8), mode: .calendarYear, startDay: 1)
         let modes = DashboardPeriodMode.allCases.map(\.label)
         let themes = AppTheme.allCases.map(\.label)
+        let salary = IncomeForecast(
+            name: "Gehalt",
+            amountCents: 1,
+            cadence: .monthly,
+            firstPaymentDate: berlin(2026, 1, 31),
+            dueRule: .lastBusinessDay,
+            dayOfMonth: 31
+        )
+        let periods = FinanceService.forecastPeriods(
+            primary: salary,
+            earliest: berlin(2026, 5, 17),
+            latest: berlin(2026, 6, 15)
+        )
+        let periodStart = periods.first.map { berlinParts($0.start) }
+        let periodEnd = periods.first.map { berlinParts($0.end) }
         let passed = snapshot.remaining == -1_500
             && Money.signed(cents: snapshot.remaining).contains("15")
             && VariableBudgetAccounts.share(total: 100, accountID: first, targets: [first, second, third]) == 34
@@ -187,7 +202,15 @@ enum LififyCoverageChecks {
             && shows(themes[2], "Dunkel", "Dark")
             && shows(FinanceTileCopy.applied, "Angewendet", "Applied")
             && shows(FinanceTileCopy.planned, "Geplant", "Planned")
-        return check("Restbudget, Anteil und Zeitraum", .budget, .unit, passed, Money.signed(cents: snapshot.remaining))
+            && periodStart?.day == 17 && periodStart?.month == 5
+            && periodEnd?.day == 28 && periodEnd?.month == 5
+        return check(
+            "Restbudget, Anteil und Zeitraum",
+            .budget,
+            .unit,
+            passed,
+            "Rest \(Money.signed(cents: snapshot.remaining)), erster Zeitraum \(periodStart?.day ?? 0).\(periodStart?.month ?? 0).–\(periodEnd?.day ?? 0).\(periodEnd?.month ?? 0)."
+        )
     }
 
     private static func carryShoppingAndGroupsStaySeparate() -> LififyCheckResult {
@@ -310,9 +333,12 @@ enum LififyCoverageChecks {
             && again.first?.fingerprint == rows.first?.fingerprint
             && twins.count == 2
             && twins[0].fingerprint != twins[1].fingerprint
+            && twins[0].legacyFingerprint != nil
+            && twins[0].legacyFingerprint == twins[1].legacyFingerprint
             && twins.allSatisfy { $0.amountCents == -3_880 }
             && BankImportService.purposeMark(notes: twins[0].notes).contains("1054118451739")
             && BankImportService.purposeMark(notes: twins[1].notes).contains("1054124404910")
+            && !twins[0].notes.contains(BankImportService.purposeMark(notes: twins[1].notes))
         return check("CSV und CAMT zeigen die Buchung", .bankImport, .unit, passed, "CSV \(rows.count), CAMT \(camt.first?.amountCents ?? 0), twins \(twins.count)")
     }
 

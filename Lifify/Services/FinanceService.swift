@@ -214,8 +214,9 @@ enum FinanceService {
             let start = unique[index]
             let next = unique[index + 1]
             guard let end = calendar.date(byAdding: .day, value: -1, to: next) else { continue }
-            if end < floor || start > horizon { continue }
-            periods.append(ForecastPeriod(start: start, end: calendar.startOfDay(for: end)))
+            if let period = clippedPeriod(start: start, end: end, floor: floor, horizon: horizon) {
+                periods.append(period)
+            }
         }
         return periods.isEmpty ? monthPeriods(from: floor, through: horizon) : periods
     }
@@ -397,12 +398,23 @@ enum FinanceService {
             guard let next = calendar.date(byAdding: .month, value: 1, to: cursor),
                   let end = calendar.date(byAdding: .day, value: -1, to: next)
             else { break }
-            if end >= floor {
-                periods.append(ForecastPeriod(start: cursor, end: calendar.startOfDay(for: end)))
+            if let period = clippedPeriod(start: cursor, end: end, floor: floor, horizon: horizon) {
+                periods.append(period)
             }
             cursor = next
         }
         return periods
+    }
+
+    /// The first period starts on the first booking or opening balance, not on an earlier payday.
+    private static func clippedPeriod(start: Date, end: Date, floor: Date, horizon: Date) -> ForecastPeriod? {
+        let calendar = Calendar.current
+        var start = calendar.startOfDay(for: start)
+        let end = calendar.startOfDay(for: end)
+        if end < floor || start > horizon { return nil }
+        if start < floor { start = floor }
+        guard start <= end else { return nil }
+        return ForecastPeriod(start: start, end: end)
     }
 
     private static func projectedCash(

@@ -2,6 +2,7 @@ import PhotosUI
 import SwiftData
 import SwiftUI
 import UIKit
+import UniformTypeIdentifiers
 
 struct SettingsView: View {
     @AppStorage("userName") private var userName = ""
@@ -553,8 +554,12 @@ private struct DeveloperTestsView: View {
 }
 
 private struct FinanceSettingsView: View {
+    @Environment(\.modelContext) private var context
+    @Query private var entries: [LedgerEntry]
     @AppStorage(TradeFeePreference.storageKey) private var defaultTradeFeeCents = TradeFeePreference.defaultCents
     @State private var feeText = ""
+    @StateObject private var importModel = DataImportViewModel()
+    @State private var importingTradeRepublic = false
 
     var body: some View {
         Form {
@@ -566,6 +571,11 @@ private struct FinanceSettingsView: View {
                 }
             }
             .appGlassRow()
+            FinanceImportSettings()
+            TradeRepublicSignInControls(
+                showsSkip: false,
+                onUploadStatement: { importingTradeRepublic = true }
+            ) {}
             Section {
                 HStack {
                     Text(L("Gebühr pro Buchung", "Fee per booking"))
@@ -586,13 +596,39 @@ private struct FinanceSettingsView: View {
                 ))
             }
             .appGlassRow()
-            FinanceImportSettings()
-            TradeRepublicSignInControls(showsSkip: false) {}
         }
         .appGlassList()
         .scrollDismissesKeyboard(.immediately)
         .navigationTitle(L("Finanzen", "Finance"))
         .navigationBarTitleDisplayMode(.inline)
+        .fileImporter(
+            isPresented: $importingTradeRepublic,
+            allowedContentTypes: [.pdf],
+            allowsMultipleSelection: false
+        ) { result in
+            if case let .success(urls) = result, let url = urls.first {
+                importModel.importTradeRepublic(from: url, context: context, existingEntries: entries)
+            } else if case let .failure(error) = result {
+                importModel.message = error.localizedDescription
+            }
+        }
+        .sheet(item: $importModel.review) { review in
+            ImportReviewSheet(review: review) { updated in
+                do {
+                    try BankImportApplier.commitReview(updated, context: context)
+                } catch {
+                    importModel.message = error.localizedDescription
+                }
+            }
+        }
+        .alert(L("Lifify", "Lifify"), isPresented: Binding(
+            get: { importModel.message != nil && importModel.review == nil },
+            set: { if !$0 { importModel.message = nil } }
+        )) {
+            Button("OK") { importModel.message = nil }
+        } message: {
+            Text(importModel.message ?? "")
+        }
         .onAppear {
             if feeText.isEmpty {
                 feeText = TradeFeePreference.editString(cents: defaultTradeFeeCents)

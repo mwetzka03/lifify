@@ -22,6 +22,7 @@ struct TradeRepublicExtractDocument: FileDocument {
 struct TradeRepublicSignInControls: View {
     @Environment(\.modelContext) private var context
     var showsSkip: Bool
+    var onUploadStatement: (() -> Void)? = nil
     var onContinue: () -> Void
 
     @State private var phone = ""
@@ -44,6 +45,16 @@ struct TradeRepublicSignInControls: View {
 
     var body: some View {
         Section {
+            if let onUploadStatement {
+                Button {
+                    onUploadStatement()
+                } label: {
+                    Label(L("Kontoauszug hochladen", "Upload statement"), systemImage: "doc.badge.plus")
+                }
+                Text(TradeRepublicCopy.statementCaption)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
             Button(TradeRepublicCopy.signIn) {
                 hideKeyboard()
                 clearSecrets()
@@ -78,11 +89,17 @@ struct TradeRepublicSignInControls: View {
                 Button(TradeRepublicCopy.skip, action: onContinue)
             }
         } header: {
-            if showsSkip {
+            if onUploadStatement != nil {
+                Text("Trade Republic")
+            } else if showsSkip {
                 Text(OnboardingSteps.tradeRepublicSignIn)
             }
         } footer: {
-            Text(TradeRepublicCopy.footnote)
+            if onUploadStatement != nil {
+                Text("\(TradeRepublicCopy.twoUpdatePaths)\n\n\(TradeRepublicCopy.footnote)")
+            } else {
+                Text(TradeRepublicCopy.footnote)
+            }
         }
         .appGlassRow()
         .onAppear {
