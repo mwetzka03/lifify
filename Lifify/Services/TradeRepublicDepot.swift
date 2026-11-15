@@ -740,6 +740,7 @@ enum TradeRepublicDepotApplier {
     }
 }
 
+@MainActor
 enum TradeRepublicOpeningBalance {
     /// The cash balance is missing for the start of the main account's first period.
     static func missingDate(context: ModelContext) -> Date? {
