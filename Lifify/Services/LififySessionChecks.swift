@@ -210,6 +210,19 @@ enum LififySessionChecks {
             && !unsized.contains { if case .buy = $0 { return true }; return false }
             && enriched.quantity == 2
             && enriched.savingsPlan
+            && !TradeRepublicTimeline.enrich(
+                TradeRepublicActivity(
+                    id: "plain",
+                    date: day,
+                    title: "NVIDIA",
+                    eventType: "ORDER_EXECUTED",
+                    amountCents: -30340,
+                    isin: "US67066G1040",
+                    trade: true,
+                    status: "EXECUTED"
+                ),
+                detail: #"{"sections":[{"title":"Sparplan","data":[{"title":"Hinweis","detail":{"text":"Sparplan anlegen"}}]}]}"#
+            ).savingsPlan
             && !again.contains { if case .buy(let id, _, _, _, _, _, _, _) = $0 { return id == "buy1" }; return false }
             && sold.contains { if case .sale(_, let date, _, let isin, _, let quantity, let amount) = $0 { return isin == "US0378331005" && quantity == 2 && amount == 1800 && date == soldDay }; return false }
             && sold.contains { if case .drop(let isin) = $0 { return isin == "US0378331005" }; return false }

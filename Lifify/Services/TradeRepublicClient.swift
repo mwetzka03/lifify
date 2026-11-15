@@ -69,7 +69,7 @@ struct TradeRepublicClient: Sendable {
     }
 
     func snapshot(cookies: String) async throws -> TradeRepublicSnapshot {
-        try await Self.withTimeout(seconds: 60) {
+        try await Self.withTimeout(seconds: 180) {
             try await Self.loadSnapshot(cookies: cookies)
         }
     }
@@ -147,16 +147,16 @@ struct TradeRepublicClient: Sendable {
         case .unreadable:
             throw TradeRepublicFailure.unreadable
         }
-        let activities = await timeline(on: socket, startingAt: 3)
-        return TradeRepublicSnapshot(positions: positions, activities: activities)
+        let history = await timeline(on: socket, startingAt: 3)
+        return TradeRepublicSnapshot(positions: positions, activities: history.items, plans: history.plans)
     }
 
-    private static func timeline(on socket: URLSessionWebSocketTask, startingAt first: Int) async -> [TradeRepublicActivity] {
+    private static func timeline(on socket: URLSessionWebSocketTask, startingAt first: Int) async -> (items: [TradeRepublicActivity], plans: [TradeRepublicPlan]) {
         var page = first
         var after: String?
         var seen = Set<String>()
         var all: [TradeRepublicActivity] = []
-        for _ in 0..<20 {
+        for _ in 0..<40 {
             var payload = ["type": "timelineTransactions"]
             if let after { payload["after"] = after }
             do {
@@ -176,20 +176,30 @@ struct TradeRepublicClient: Sendable {
         }
         let pending = all.enumerated().filter { $0.element.trade && $0.element.quantity == nil }
             .sorted { $0.element.date > $1.element.date }
-            .prefix(25)
+            .prefix(300)
         for item in pending {
             let payload = ["type": "timelineDetailV2", "id": item.element.id]
             do {
                 try await socket.send(.string(subscribe(page, payload)))
                 let text = try await text(from: socket)
-                if text.contains(" E ") { break }
-                all[item.offset] = TradeRepublicTimeline.enrich(item.element, detail: text)
                 page += 1
+                if text.contains(" E ") { continue }
+                all[item.offset] = TradeRepublicTimeline.enrich(item.element, detail: text)
             } catch {
                 break
             }
         }
-        return all
+        var plans: [TradeRepublicPlan] = []
+        do {
+            try await socket.send(.string(subscribe(page, ["type": "savingsPlans"])))
+            let text = try await text(from: socket)
+            if !text.contains(" E ") {
+                plans = TradeRepublicPlans.read(text: text)
+            }
+        } catch {
+            plans = []
+        }
+        return (all, plans)
     }
 
     private static func accountLookup(cookies: String, session: URLSession) async throws -> (dead: Bool, number: String?) {

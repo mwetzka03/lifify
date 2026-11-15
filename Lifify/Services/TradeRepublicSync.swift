@@ -14,9 +14,18 @@ struct TradeRepublicActivity: Equatable, Sendable {
     var savingsPlan: Bool = false
 }
 
+struct TradeRepublicPlan: Equatable, Sendable {
+    var isin: String
+    var name: String
+    var amountCents: Int
+    var interval: String
+    var active: Bool
+}
+
 struct TradeRepublicSnapshot: Equatable, Sendable {
     var positions: [TradeRepublicPosition]
     var activities: [TradeRepublicActivity]
+    var plans: [TradeRepublicPlan] = []
 }
 
 struct HeldPosition: Equatable {
@@ -78,14 +87,24 @@ enum TradeRepublicTimeline {
               let object = try? JSONSerialization.jsonObject(with: Data(text[start...].utf8))
         else { return item }
         var copy = item
-        if let shares = labeledNumber(in: object, titles: ["share", "stück", "stueck", "anteil", "quantity", "anteile"]) {
+        if let shares = labeledNumber(in: object, titles: ["share", "stück", "stueck", "anteil", "quantity", "anteile", "stückzahl", "anzahl"]) {
             copy.quantity = shares
+        }
+        if copy.quantity == nil {
+            copy.quantity = mentionedQuantity(in: object)
+        }
+        if copy.quantity == nil,
+           let price = labeledNumber(in: object, titles: ["kurs", "share price", "stückpreis", "anteilspreis"]),
+           price > 0 {
+            copy.quantity = Double(abs(copy.amountCents)) / (price * 100)
         }
         if let symbol = labeledText(in: object, titles: ["isin"]), !symbol.isEmpty {
             copy.isin = symbol
             copy.trade = true
         }
-        if treeMentionsSavings(object) { copy.savingsPlan = true }
+        if let savings = orderTypeIsSavings(in: object) {
+            copy.savingsPlan = savings
+        }
         return copy
     }
 
@@ -98,10 +117,11 @@ enum TradeRepublicTimeline {
         guard !isin.isEmpty else { return false }
         let folded = eventType.uppercased()
         if folded.contains("DIVIDEND") || folded.contains("INTEREST") || folded.contains("CARD")
-            || folded.contains("BANK") || folded.contains("PAYMENT") {
+            || folded.contains("BANK") || folded.contains("PAYMENT") || folded.contains("TAX")
+            || folded.contains("FEE") {
             return false
         }
-        return folded.contains("ORDER") || folded.contains("TRADING") || folded.contains("SAVING") || folded.contains("SAVE")
+        return true
     }
 
     private static func isin(from icon: String) -> String {
@@ -178,18 +198,53 @@ enum TradeRepublicTimeline {
         return nil
     }
 
-    private static func treeMentionsSavings(_ object: Any) -> Bool {
+    /// Only the order-type row decides. A section that merely links a savings plan does not.
+    private static func orderTypeIsSavings(in object: Any) -> Bool? {
+        guard let text = exactLabeledText(in: object, titles: ["orderart", "ordertype", "order type", "art"]) else { return nil }
+        let folded = text.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "de_DE"))
+        return folded == "sparplan" || folded == "savings plan" || folded == "savingsplan"
+    }
+
+    private static func exactLabeledText(in object: Any, titles: [String]) -> String? {
+        if let row = object as? [String: Any] {
+            let title = ((row["title"] as? String) ?? "")
+                .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "de_DE"))
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            if titles.contains(title) {
+                if let text = row["detail"] as? [String: Any], let value = text["text"] as? String, !value.isEmpty {
+                    return value
+                }
+                if let value = row["detail"] as? String, !value.isEmpty { return value }
+            }
+            for value in row.values {
+                if let found = exactLabeledText(in: value, titles: titles) { return found }
+            }
+        } else if let list = object as? [Any] {
+            for value in list {
+                if let found = exactLabeledText(in: value, titles: titles) { return found }
+            }
+        }
+        return nil
+    }
+
+    private static func mentionedQuantity(in object: Any) -> Double? {
         if let text = object as? String {
             let folded = text.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "de_DE"))
-            return folded.contains("sparplan") || folded.contains("savings plan") || folded.contains("savingsplan")
+            if folded.contains("anteil") || folded.contains("share") {
+                return number(in: folded, unit: false)
+            }
+            return nil
         }
         if let row = object as? [String: Any] {
-            return row.values.contains { treeMentionsSavings($0) }
+            for value in row.values {
+                if let found = mentionedQuantity(in: value) { return found }
+            }
+        } else if let list = object as? [Any] {
+            for value in list {
+                if let found = mentionedQuantity(in: value) { return found }
+            }
         }
-        if let list = object as? [Any] {
-            return list.contains { treeMentionsSavings($0) }
-        }
-        return false
+        return nil
     }
 
     private static func number(in text: String, unit: Bool) -> Double? {
@@ -316,7 +371,7 @@ enum TradeRepublicSync {
     ) {
         let symbol = position.isin.uppercased()
         let name = position.name.isEmpty ? (holding?.name ?? symbol) : position.name
-        let chosen = trades(isin: symbol, activities: activities, buying: true, after: holding?.latestLotDate)
+        let chosen = trades(isin: symbol, activities: activities, buying: true, after: nil)
         let sized = chosen.filter { ($0.quantity ?? 0) > 0.0000005 }
         if !sized.isEmpty {
             for event in sized {
@@ -333,19 +388,19 @@ enum TradeRepublicSync {
             }
             return
         }
-        guard holding == nil else { return }
-        let newest = chosen.last
+        guard holding == nil, chosen.isEmpty else { return }
         let cost = position.averageBuyInCents ?? 0
-        let amount = cost > 0 ? -Int((position.quantity * Double(cost)).rounded()) : (newest?.amountCents ?? 0)
+        let amount = cost > 0 ? -Int((position.quantity * Double(cost)).rounded()) : 0
+        guard amount != 0 else { return }
         moves.append(.buy(
-            id: newest?.id ?? "open-\(symbol)",
-            date: newest?.date ?? now,
-            title: newest?.title ?? name,
+            id: "open-\(symbol)",
+            date: now,
+            title: name,
             isin: symbol,
             name: name,
             quantity: position.quantity,
             amountCents: amount,
-            savingsPlan: newest?.savingsPlan ?? false
+            savingsPlan: false
         ))
     }
 
@@ -447,5 +502,74 @@ enum TradeRepublicSync {
             return rows.filter { $0.date > latest }
         }
         return rows
+    }
+}
+
+enum TradeRepublicPlans {
+    static func read(text: String) -> [TradeRepublicPlan] {
+        guard let start = text.firstIndex(where: { $0 == "{" || $0 == "[" }),
+              let object = try? JSONSerialization.jsonObject(with: Data(text[start...].utf8))
+        else { return [] }
+        var found: [TradeRepublicPlan] = []
+        collect(object, into: &found)
+        var byISIN: [String: TradeRepublicPlan] = [:]
+        for plan in found {
+            let key = plan.isin.uppercased()
+            if let existing = byISIN[key], existing.active, !plan.active { continue }
+            byISIN[key] = plan
+        }
+        return byISIN.values.sorted { $0.isin < $1.isin }
+    }
+
+    static func cadence(for interval: String) -> Cadence {
+        let folded = interval.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "de_DE"))
+        if folded.contains("second") || folded.contains("two") || folded.contains("bi") { return .biweekly }
+        if folded.contains("week") { return .weekly }
+        if folded.contains("year") { return .yearly }
+        return .monthly
+    }
+
+    private static func collect(_ object: Any, into found: inout [TradeRepublicPlan]) {
+        if let row = object as? [String: Any] {
+            if let plan = plan(from: row) { found.append(plan) }
+            for value in row.values { collect(value, into: &found) }
+        } else if let list = object as? [Any] {
+            for value in list { collect(value, into: &found) }
+        }
+    }
+
+    private static func plan(from row: [String: Any]) -> TradeRepublicPlan? {
+        let isin = ((row["instrumentId"] as? String) ?? (row["isin"] as? String) ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .uppercased()
+        guard isin.count == 12 else { return nil }
+        let interval = (row["interval"] as? String) ?? ""
+        guard !interval.isEmpty else { return nil }
+        guard let amount = cents(row["amount"]), amount > 0 else { return nil }
+        let status = ((row["status"] as? String) ?? "ACTIVE").uppercased()
+        let inactive = status.contains("CANCEL") || status.contains("DELETE") || status.contains("PAUSE") || status.contains("INACTIVE")
+        let name = ((row["name"] as? String) ?? (row["instrumentName"] as? String) ?? (row["title"] as? String) ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return TradeRepublicPlan(isin: isin, name: name, amountCents: amount, interval: interval, active: !inactive)
+    }
+
+    private static func cents(_ value: Any?) -> Int? {
+        if let row = value as? [String: Any] {
+            let number: Double?
+            switch row["value"] {
+            case let amount as Double: number = amount
+            case let amount as Int: number = Double(amount)
+            case let amount as NSNumber: number = amount.doubleValue
+            case let text as String: number = Double(text.replacingOccurrences(of: ",", with: "."))
+            default: number = nil
+            }
+            guard let number else { return nil }
+            let digits = (row["fractionDigits"] as? Int) ?? (row["fractionDigits"] as? NSNumber)?.intValue ?? 2
+            return Int((number * pow(10, Double(digits))).rounded())
+        }
+        if let number = value as? Double { return Int((number * 100).rounded()) }
+        if let number = value as? Int { return number * 100 }
+        if let number = value as? NSNumber { return Int((number.doubleValue * 100).rounded()) }
+        return nil
     }
 }
