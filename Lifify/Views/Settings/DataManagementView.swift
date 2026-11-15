@@ -274,8 +274,8 @@ struct FinanceImportSettings: View {
                 }
             }
             Text(L(
-                "CSV oder CAMT aufs gewählte Konto. Identische Buchungen werden übersprungen, ähnliche zur Prüfung angeboten. Du gibst den aktuellen Kontostand an.",
-                "CSV or CAMT onto the chosen account. Identical bookings are skipped, similar ones offered for review. You enter the current balance."
+                "CSV oder CAMT aufs gewählte Konto. Tage, deren Anzahl schon stimmt, werden übersprungen. Am letzten Buchungstag und bei fehlenden Zeilen kannst du übernehmen. Du gibst den aktuellen Kontostand an.",
+                "CSV or CAMT onto the chosen account. Days whose count already matches are skipped. On the last booking day and for missing rows you can import. You enter the current balance."
             ))
             .font(.caption)
             .foregroundStyle(.secondary)

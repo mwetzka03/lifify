@@ -139,8 +139,8 @@ final class DataImportViewModel: ObservableObject {
         }
         if !result.review.isEmpty {
             parts.append(L(
-                "Prüfe mögliche Umbuchungen und ähnliche Buchungen.",
-                "Review possible transfers and similar transactions."
+                "Prüfe fehlende Zeilen und ähnliche Buchungen, dann Übernehmen.",
+                "Review missing rows and similar bookings, then Apply."
             ))
         }
         return parts.joined(separator: " ")

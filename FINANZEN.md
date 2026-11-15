@@ -43,8 +43,11 @@ view, in transactions, and in the income and expense lists.
 - A bank import asks for the current account balance. The opening balance is
   that figure minus the imported amounts, dated on the first booking day. A
   balance adjustment on today stores the entered current amount as the last
-  stand. Setup imports every row. An import from Settings skips an identical
-  row and offers a similar row for review. On the current period, net worth is
+  stand. Setup imports every row. An import from Settings skips identical rows
+  and older days whose booking count already matches. On the last booking day
+  and on days where the file has extra rows, Lifify asks whether to import.
+  Missing second payments are on by default. The entered cash is applied after
+  you confirm the review. On the current period, net worth is
   the live cash. On a past or future period it is that period's Endsaldo.
   Depot stays the market value.
 - Trade Republic bookings before the cutoff date stay in the ledger and sit
@@ -598,8 +601,11 @@ Finanzansicht, in den Buchungen und in den Listen für Einnahmen und Ausgaben.
   Ein späterer Import überspringt identische alte Zeilen, übernimmt neue und
   setzt nur eine Saldo-Korrektur seit dem letzten Import, nicht den
   Eröffnungssaldo neu. Die Einrichtung übernimmt jede Zeile.
-  Ein Import aus den Einstellungen überspringt eine identische Zeile und bietet
-  eine ähnliche zur Prüfung an. Zwei Buchungen am selben Tag mit demselben Betrag
+  Ein Import aus den Einstellungen überspringt identische Zeilen und ältere Tage,
+  deren Buchungsanzahl schon zur Datei passt. Am letzten Buchungstag und an Tagen,
+  an denen die Datei mehr Zeilen hat als das Konto, erscheint die Prüfung. Fehlende
+  Zweit-Zahlungen stehen angeschaltet. Der angegebene Kontostand wird erst nach
+  Übernehmen gesetzt. Zwei Buchungen am selben Tag mit demselben Betrag
   bleiben beide, auch mit unterschiedlicher End-to-End-Referenz. Im aktuellen Zeitraum ist Gesamtvermögen der
   Live-Cash. Sind in diesem Zeitraum keine Kosten mehr offen, ist der Endsaldo
   derselbe Stand, und der nächste Zeitraum startet damit. In einem vergangenen
@@ -1102,11 +1108,13 @@ Zahlungsausgang und Saldo.
   und Datum im Abstand von höchstens drei Tagen. Der Schalter ist aus. Nur wenn
   er an ist, werden die beiden Seiten eine Umbuchung und die doppelte Buchung
   auf dem anderen Konto entfällt.
-- Unter „Ähnliche Buchungen“ stehen bereits vorhandene Treffer. Der Bereich ist
-  eingeklappt. Fingerabdruck oder gleicher Betrag, ähnliches Datum und gleicher
-  Titel oder gleiche IBAN gelten als doppelt und werden ausgelassen. Aufklappen
-  und anhaken übernimmt eine Zeile trotzdem. Ausführungen im Wochenabstand
-  liegen außerhalb des Drei-Tage-Fensters und bleiben eigene Buchungen.
+- Unter „Noch nicht gebucht“ stehen Zeilen an Tagen, an denen die Datei mehr
+  Buchungen hat als das Konto, etwa zwei PayPal-Zahlungen mit unterschiedlicher
+  End-to-End-Referenz. Übernehmen ist an. Unter „Ähnliche Buchungen“ stehen
+  Treffer am letzten Buchungstag. Der Bereich ist eingeklappt. Ältere Tage, deren
+  Anzahl schon stimmt, fallen ohne Nachfrage raus. Aufklappen und anhaken
+  übernimmt eine ähnliche Zeile trotzdem. Der Kontostand wird erst nach
+  Übernehmen gesetzt.
 - Ein erneuter Import ersetzt den vorherigen Auszug dieses Girokontos und baut
   das verknüpfte Depot neu auf.
 

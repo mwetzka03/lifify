@@ -16,6 +16,7 @@ enum LififyCoverageChecks {
             holdingChangeAndSecurityPurchases(),
             importFilesKeepTheirRows(),
             fingerprintsAndImportErrors(),
+            importAsksAboutMissingDayRows(),
             backupRoundTripKeepsTheRecord(),
             deleteAndResetSayWhatRemains(),
             shopBalanceAndRedemptionLabels(),
@@ -412,6 +413,99 @@ enum LififyCoverageChecks {
             && shows(pdf, "PDF-Dateien gehören in den separaten Trade-Republic-Import.", "PDF files belong in the separate Trade Republic import.")
             && shows(columns, "CSV-Spalten wurden nicht erkannt.", "CSV columns were not recognized.")
         return check("Fingerabdruck und Import-Hinweise", .bankImport, .integration, passed, pdf)
+    }
+
+    private static func importAsksAboutMissingDayRows() -> LififyCheckResult {
+        let last = berlin(2026, 11, 13)
+        let june = berlin(2026, 6, 29)
+        let extraOld = BankImportDuplicates.action(
+            day: june,
+            lastExistingDay: last,
+            existingCount: 1,
+            importCount: 2,
+            identical: false,
+            matchedExisting: false
+        )
+        let completeOld = BankImportDuplicates.action(
+            day: june,
+            lastExistingDay: last,
+            existingCount: 2,
+            importCount: 2,
+            identical: false,
+            matchedExisting: true
+        )
+        let lastSimilar = BankImportDuplicates.action(
+            day: last,
+            lastExistingDay: last,
+            existingCount: 4,
+            importCount: 4,
+            identical: false,
+            matchedExisting: true
+        )
+        let afterLast = BankImportDuplicates.action(
+            day: berlin(2026, 11, 14),
+            lastExistingDay: last,
+            existingCount: 0,
+            importCount: 1,
+            identical: false,
+            matchedExisting: false
+        )
+        let csv = """
+        Buchungstag;Betrag;Verwendungszweck;Beguenstigter/Zahlungspflichtiger;Kontonummer/IBAN;Kundenreferenz (End-to-End);Info
+        13.11.26;-5,00;Shop;Shop;DE89370400440532013000;shop-1;Umsatz gebucht
+        03.11.26;-38,80;1054118451739;PayPal Europe;DE89370400440532013000;1054118451739;Umsatz gebucht
+        03.11.26;-38,80;1054124404910;PayPal Europe;DE89370400440532013000;1054124404910;Umsatz gebucht
+        29.06.26;-10,00;EDEKA;Dietz GmbH;DE89370400440532013000;dietz-1;Umsatz gebucht
+        29.06.26;-10,00;REWE;Snack Mall;DE89370400440532013000;snack-1;Umsatz gebucht
+        02.01.26;-12,50;Bäcker;Bäcker;DE89370400440532013000;baecker-1;Umsatz gebucht
+        """
+        let parsed = (try? BankImportService.parseCSV(csv)) ?? []
+        let paypal = parsed.filter { $0.amountCents == -3_880 }
+        let shops = parsed.filter { $0.amountCents == -1_000 }
+        let shop = parsed.first { $0.amountCents == -500 }
+        let baker = parsed.first { $0.amountCents == -1_250 }
+        let accountID = UUID()
+        func entry(_ row: ImportedTransaction) -> LedgerEntry {
+            LedgerEntry(
+                date: row.date,
+                title: row.title,
+                notes: row.notes,
+                amountCents: row.amountCents,
+                kind: .expense,
+                accountID: accountID,
+                importFingerprint: row.fingerprint
+            )
+        }
+        let entries: [LedgerEntry]
+        if paypal.count == 2, shops.count == 2, let shop, let baker {
+            entries = [entry(paypal[0]), entry(shops[0]), entry(shop), entry(baker)]
+        } else {
+            entries = []
+        }
+        let plan = BankImportDuplicates.plan(rows: parsed, entries: entries, accountID: accountID)
+        let extras = plan.reviewByFingerprint.values.filter(\.isExtra)
+        let passed = extraOld == .review(include: true)
+            && completeOld == .skip
+            && lastSimilar == .review(include: false)
+            && afterLast == .ingest
+            && parsed.count == 6
+            && paypal.count == 2
+            && shops.count == 2
+            && extras.count == 2
+            && extras.allSatisfy(\.include)
+            && extras.allSatisfy(\.isExtra)
+            && extras.contains(where: { $0.fingerprint == paypal[1].fingerprint })
+            && extras.contains(where: { $0.fingerprint == shops[1].fingerprint })
+            && plan.shouldSkip(paypal[0].fingerprint)
+            && baker.map { plan.shouldSkip($0.fingerprint) } == true
+            && shop.map { plan.shouldSkip($0.fingerprint) } == true
+        return check(
+            "Import fragt nach fehlenden Tagesbuchungen",
+            .bankImport,
+            .unit,
+            passed,
+            "extras \(extras.count), parsed \(parsed.count)"
+        )
     }
 
     private static func backupRoundTripKeepsTheRecord() -> LififyCheckResult {

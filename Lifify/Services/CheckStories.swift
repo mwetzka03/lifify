@@ -538,6 +538,12 @@ enum CheckStories {
             ("Eine CSV-Zeile und eine CAMT-Zahlung werden gelesen.", "One CSV row and one CAMT payment are read.", "BankImportService.swift"),
             ("Anzahl und Betrag entsprechen der Datei. Zwei PayPal-Zeilen bleiben zwei, Dietz und Snack Mall am selben Tag mit 10 Euro bleiben zwei, ihre alten Fingerabdrücke sind gleich, die neuen nicht, und eine vorgemerkte fällt raus.", "The count and the amount match the file. Two PayPal rows stay two, Dietz and Snack Mall on the same day at 10 euros stay two, their old fingerprints match, the new ones do not, and a pending row is dropped.", "LififyCoverageChecks.swift"),
         ),
+        "Import fragt nach fehlenden Tagesbuchungen": make(
+            "Ein späterer Import überspringt ältere Tage, deren Anzahl schon stimmt. Fehlt an einem Tag eine zweite Zahlung, oder ist es der letzte Buchungstag, erscheint die Prüfung. Der Kontostand wird erst nach Übernehmen gesetzt.",
+            "A later import skips older days whose count already matches. If a second payment is missing on a day, or it is the last booking day, the review appears. The cash stand is set only after Apply.",
+            ("Vier Fälle und eine CSV mit PayPal-Zwillingen, Dietz und Snack Mall werden gegen den Bestand gelesen.", "Four cases and a CSV with PayPal twins, Dietz, and Snack Mall are read against the ledger.", "BankImportDuplicates.swift"),
+            ("Fehlende Zweit-Zahlungen stehen in der Prüfung mit Übernehmen an. Vollständige alte Tage fallen raus. Neue Tage danach kommen ohne Nachfrage.", "Missing second payments sit in the review with import on. Complete old days are dropped. New days after that come in without asking.", "LififyCoverageChecks.swift"),
+        ),
         "Fingerabdruck und Import-Hinweise": make(
             "Jede importierte Buchung bekommt einen Fingerabdruck. Unlesbare PDFs nennen den Hinweis.",
             "Every imported booking gets a fingerprint. Unreadable PDFs name the message.",

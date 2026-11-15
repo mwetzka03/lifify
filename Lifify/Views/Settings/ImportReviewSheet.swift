@@ -41,20 +41,29 @@ struct ImportReviewSheet: View {
                     }
                     .appGlassRow()
                 }
-                if !review.similar.isEmpty {
+                if review.similar.contains(where: \.isExtra) {
+                    Section {
+                        ForEach($review.similar) { $choice in
+                            if choice.isExtra {
+                                similarToggle($choice)
+                            }
+                        }
+                    } header: {
+                        Text(L("Noch nicht gebucht", "Not booked yet"))
+                    } footer: {
+                        Text(L(
+                            "An diesem Tag hat die Datei mehr Zeilen als das Konto. Übernehmen ist an. Ausschalten lässt die Zeile weg.",
+                            "This day has more rows in the file than on the account. Import is on. Turn it off to leave the row out."
+                        ))
+                    }
+                    .appGlassRow()
+                }
+                if review.similar.contains(where: { !$0.isExtra }) {
                     Section {
                         DisclosureGroup {
                             ForEach($review.similar) { $choice in
-                                Toggle(isOn: $choice.include) {
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        Text(choice.title.isEmpty ? L("Buchung", "Transaction") : choice.title)
-                                        Text("\(Money.string(cents: choice.signedAmountCents)) · \(AppDate.numeric(choice.date))")
-                                            .font(.caption)
-                                            .foregroundStyle(.secondary)
-                                        Text("\(L("Vorhanden", "Already booked")): \(choice.existingTitle) · \(AppDate.numeric(choice.existingDate)) · \(Money.string(cents: choice.existingAmountCents))")
-                                            .font(.caption)
-                                            .foregroundStyle(.secondary)
-                                    }
+                                if !choice.isExtra {
+                                    similarToggle($choice)
                                 }
                             }
                         } label: {
@@ -82,6 +91,20 @@ struct ImportReviewSheet: View {
                         dismiss()
                     }
                 }
+            }
+        }
+    }
+
+    private func similarToggle(_ choice: Binding<ImportSimilarChoice>) -> some View {
+        Toggle(isOn: choice.include) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(choice.wrappedValue.title.isEmpty ? L("Buchung", "Transaction") : choice.wrappedValue.title)
+                Text("\(Money.string(cents: choice.wrappedValue.signedAmountCents)) · \(AppDate.numeric(choice.wrappedValue.date))")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Text("\(L("Vorhanden", "Already booked")): \(choice.wrappedValue.existingTitle) · \(AppDate.numeric(choice.wrappedValue.existingDate)) · \(Money.string(cents: choice.wrappedValue.existingAmountCents))")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
         }
     }

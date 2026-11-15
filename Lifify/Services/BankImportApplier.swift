@@ -473,6 +473,10 @@ enum BankImportApplier {
         var selectable: [ImportedTransaction] = []
         var imported = 0
         var review = ImportReview()
+        let duplicates: BankImportDuplicates.Plan? =
+            detectDuplicates && document.tradeRepublic == nil
+            ? BankImportDuplicates.plan(rows: document.rows, entries: entries, accountID: checking.account.id)
+            : nil
         let directory = accounts + checking.created
         for row in document.rows {
             if row.trade != nil {
@@ -512,6 +516,7 @@ enum BankImportApplier {
                 known: &known,
                 review: &review,
                 detectDuplicates: detectDuplicates,
+                duplicates: duplicates,
                 context: context
             ) {
                 insertedEntries.append(entry)
@@ -551,16 +556,21 @@ enum BankImportApplier {
         }.count
         var fittedAccountID: UUID?
         if document.tradeRepublic == nil, let currentBalanceCents {
-            let knownIDs = Set(insertedEntries.map(\.id))
-            if let extra = ImportBalance.fitToCurrent(
-                account: checking.account,
-                entries: &entries,
-                currentCents: currentBalanceCents,
-                context: context
-            ), !knownIDs.contains(extra.id) {
-                insertedEntries.append(extra)
+            if review.isEmpty {
+                let knownIDs = Set(insertedEntries.map(\.id))
+                if let extra = ImportBalance.fitToCurrent(
+                    account: checking.account,
+                    entries: &entries,
+                    currentCents: currentBalanceCents,
+                    context: context
+                ), !knownIDs.contains(extra.id) {
+                    insertedEntries.append(extra)
+                }
+                fittedAccountID = checking.account.id
+            } else {
+                review.accountID = checking.account.id
+                review.currentCents = currentBalanceCents
             }
-            fittedAccountID = checking.account.id
         }
         do {
             try context.save()
@@ -915,6 +925,7 @@ enum BankImportApplier {
         known: inout Set<String>,
         review: inout ImportReview,
         detectDuplicates: Bool = true,
+        duplicates: BankImportDuplicates.Plan? = nil,
         context: ModelContext
     ) -> LedgerEntry? {
         if known.contains(row.fingerprint) {
@@ -961,7 +972,17 @@ enum BankImportApplier {
             return entry
         }
 
-        if detectDuplicates, let existing = similarMatch(row: row, entries: entries, accountID: checking.id) {
+        if detectDuplicates, let duplicates {
+            if duplicates.shouldSkip(row.fingerprint) {
+                known.insert(row.fingerprint)
+                return nil
+            }
+            if let choice = duplicates.reviewChoice(for: row.fingerprint) {
+                review.similar.append(choice)
+                known.insert(row.fingerprint)
+                return nil
+            }
+        } else if detectDuplicates, let existing = similarMatch(row: row, entries: entries, accountID: checking.id) {
             let rowPurpose = BankImportService.purposeMark(notes: row.notes)
             if !rowPurpose.isEmpty, existing.notes.contains(rowPurpose) {
                 existing.importFingerprint = row.fingerprint
@@ -1037,7 +1058,7 @@ enum BankImportApplier {
             entry.date = earliest
         }
         for choice in review.similar where choice.include {
-            context.insert(LedgerEntry(
+            let entry = LedgerEntry(
                 date: choice.date,
                 title: choice.title,
                 notes: choice.notes,
@@ -1045,9 +1066,25 @@ enum BankImportApplier {
                 kind: choice.signedAmountCents < 0 ? .expense : .income,
                 accountID: choice.accountID,
                 importFingerprint: choice.fingerprint
-            ))
+            )
+            context.insert(entry)
+            entries.append(entry)
+        }
+        if let accountID = review.accountID,
+           let cents = review.currentCents,
+           let account = accounts.first(where: { $0.id == accountID }) {
+            _ = ImportBalance.fitToCurrent(
+                account: account,
+                entries: &entries,
+                currentCents: cents,
+                context: context
+            )
         }
         try context.save()
+        relinkOwnAccounts(context: context)
+        if let accountID = review.accountID, let cents = review.currentCents {
+            BankImportCursor.mark(accountID, currentCents: cents)
+        }
     }
 
     /// Own-account transfers can land a banking day or two later than they left.
