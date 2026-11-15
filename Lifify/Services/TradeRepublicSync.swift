@@ -15,7 +15,7 @@ struct TradeRepublicActivity: Equatable, Sendable {
     var quantity: Double? = nil
     var savingsPlan: Bool = false
 
-    var isGrant: Bool { statementType == "Cashback" || statementType == "Depotgeschenk" }
+    var isGrant: Bool { statementType == "Depotgeschenk" }
 }
 
 struct TradeRepublicPlan: Equatable, Sendable {
@@ -67,6 +67,11 @@ enum TradeRepublicTimeline {
 
     static func fingerprint(_ id: String) -> String { "tr-\(id)" }
 
+    static func isSessionFingerprint(_ value: String?) -> Bool {
+        guard let value else { return false }
+        return value.hasPrefix("tr-")
+    }
+
     private static func activity(_ row: [String: Any]) -> TradeRepublicActivity? {
         guard let id = row["id"] as? String, !id.isEmpty else { return nil }
         let status = (row["status"] as? String) ?? ""
@@ -77,7 +82,7 @@ enum TradeRepublicTimeline {
         let isin = isin(from: (row["icon"] as? String) ?? "")
         let title = ((row["title"] as? String) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         let subtitle = (row["subtitle"] as? String) ?? ""
-        let trade = amount != 0 && isTrade(eventType, isin: isin)
+        let trade = amount != 0 && isTrade(eventType, isin: isin, title: title)
         let kind = statementType(eventType: eventType, title: title, subtitle: subtitle, isin: isin, amountCents: amount, trade: trade)
         guard amount != 0 || kind == "Cashback" || kind == "Depotgeschenk" || kind == "IPO" || mightBeGrant(eventType) || title.count >= 4 else { return nil }
         var item = TradeRepublicActivity(
@@ -104,7 +109,7 @@ enum TradeRepublicTimeline {
         if let symbol = labeledText(in: object, titles: ["isin"]), !symbol.isEmpty, copy.isin.isEmpty {
             copy.isin = symbol.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
         }
-        copy.trade = copy.amountCents != 0 && isTrade(copy.eventType, isin: copy.isin)
+        copy.trade = copy.amountCents != 0 && isTrade(copy.eventType, isin: copy.isin, title: copy.title)
         copy.statementType = statementType(
             eventType: copy.eventType,
             title: copy.title,
@@ -167,6 +172,8 @@ enum TradeRepublicTimeline {
             || folded.contains("INCOMINGTRANSFER")
             || folded.contains("UBERTRAG")
             || folded.contains("BENEFIT")
+            || folded.contains("VERLOSUNG")
+            || folded.contains("GIVEAWAY")
     }
 
     private static func activity(fromIndexLine line: String) -> TradeRepublicActivity? {
@@ -181,7 +188,7 @@ enum TradeRepublicTimeline {
         let title = parts[5]
         let id = parts[6]
         guard !id.isEmpty else { return nil }
-        let trade = amount != 0 && isTrade(eventType, isin: isin)
+        let trade = amount != 0 && isTrade(eventType, isin: isin, title: title)
         let kind = statementType(eventType: eventType, title: title, subtitle: "", isin: isin, amountCents: amount, trade: trade)
         guard amount != 0 || kind == "Cashback" || kind == "Depotgeschenk" || kind == "IPO" || mightBeGrant(eventType) || title.count >= 4 else { return nil }
         var item = TradeRepublicActivity(
@@ -213,9 +220,12 @@ enum TradeRepublicTimeline {
             .replacingOccurrences(of: "_", with: "")
         if compact.contains("SAVEBACK") || compact.contains("CASHBACK") { return "Cashback" }
         if compact.contains("PERK"), amountCents != 0 { return "Cashback" }
+        if compact.contains("IPOSUBSCRIPTION") { return "IPO" }
+        if compact.contains("IPOTRADE") { return "Handel" }
         if compact.contains("IPO") { return "IPO" }
         if isGift(compact, isin: isin) { return "Depotgeschenk" }
         if amountCents == 0, !isin.isEmpty, !isCorporateAction(compact) { return "Depotgeschenk" }
+        if isDerivative(title) { return "" }
         if trade { return "Handel" }
         if compact.contains("DIVIDEND") || compact.contains("DIVIDENDE") { return "Ertrag" }
         if compact.contains("INTEREST") || compact.contains("ZINS") { return "Zinsen" }
@@ -229,7 +239,13 @@ enum TradeRepublicTimeline {
     }
 
     private static func isGift(_ compact: String, isin: String) -> Bool {
-        if compact.contains("GIFT") || compact.contains("GESCHENK") || compact.contains("PERK") || compact.contains("WELCOME") {
+        if compact.contains("GIFT")
+            || compact.contains("GESCHENK")
+            || compact.contains("PERK")
+            || compact.contains("WELCOME")
+            || compact.contains("VERLOSUNG")
+            || compact.contains("GIVEAWAY")
+            || compact.contains("GIVE AWAY") {
             return true
         }
         guard !isin.isEmpty else { return false }
@@ -257,15 +273,32 @@ enum TradeRepublicTimeline {
         return folded.contains("SAVINGSPLAN") || folded.contains("SAVINGPLAN")
     }
 
-    private static func isTrade(_ eventType: String, isin: String) -> Bool {
+    private static func isTrade(_ eventType: String, isin: String, title: String) -> Bool {
+        if isDerivative(title) { return false }
         guard !isin.isEmpty else { return false }
         let folded = eventType.uppercased().replacingOccurrences(of: "_", with: "")
+        if folded.contains("IPOTRADE") || folded.contains("SAVEBACK") || folded.contains("SPARECHANGE") {
+            return true
+        }
         if folded.contains("DIVIDEND") || folded.contains("INTEREST") || folded.contains("ZINS") || folded.contains("IPO")
-            || folded.contains("SAVEBACK") || folded.contains("CASHBACK")
+            || folded.contains("CASHBACK")
             || folded.contains("GIFT") || folded.contains("GESCHENK") || folded.contains("PERK") {
             return false
         }
         return folded.contains("TRADINGTRADE") || folded.contains("TRADINGSAVING") || folded.contains("ORDEREXECUTED")
+    }
+
+    /// Factor warrants reuse the underlying ISIN. They move cash, not the stock lots.
+    private static func isDerivative(_ title: String) -> Bool {
+        let compact = title
+            .uppercased()
+            .folding(options: .diacriticInsensitive, locale: Locale(identifier: "de_DE"))
+            .replacingOccurrences(of: " ", with: "")
+            .replacingOccurrences(of: "-", with: "")
+        return compact.contains("OPTIONSSCHEIN")
+            || compact.contains("KNOCKOUT")
+            || compact.contains("HEBELPRODUKT")
+            || compact.contains("WARRANT")
     }
 
     private static func isin(from icon: String) -> String {
@@ -417,7 +450,16 @@ enum TradeRepublicTimeline {
 enum TradeRepublicSync {
     /// A buy whose price is a few cents per share is a dividend, not a purchase.
     static func purchase(_ item: TradeRepublicActivity, averageCents: Int) -> Bool {
-        guard item.trade, item.amountCents < 0, let quantity = item.quantity, quantity > 0.0000005 else { return false }
+        guard item.trade, item.amountCents < 0 else { return false }
+        let quantity: Double
+        if let shares = item.quantity, shares > 0.0000005 {
+            quantity = shares
+        } else if averageCents > 0 {
+            quantity = Double(abs(item.amountCents)) / Double(averageCents)
+        } else {
+            return true
+        }
+        guard quantity > 0.0000005 else { return false }
         guard averageCents > 0 else { return true }
         let unit = Int((Double(abs(item.amountCents)) / quantity).rounded())
         return unit >= max(averageCents / 8, 1) && unit <= averageCents * 8
@@ -634,8 +676,7 @@ enum TradeRepublicSync {
         let symbol = position.isin.uppercased()
         let name = position.name.isEmpty ? (holding?.name ?? symbol) : position.name
         let giftEvents = history.filter {
-            ($0.isGrant || ($0.amountCents == 0 && !$0.trade))
-                && matchesInstrument($0, isin: symbol, name: name)
+            $0.isGrant && matchesInstrument($0, isin: symbol, name: name)
         }.sorted { $0.date < $1.date }
         let given = giftEvents.filter { ($0.quantity ?? 0) > 0.0000005 }
         for event in given {
@@ -655,7 +696,13 @@ enum TradeRepublicSync {
             ))
         }
         let chosen = trades(isin: symbol, activities: activities, buying: true, after: nil)
-        var sized = chosen.filter { purchase($0, averageCents: position.averageBuyInCents ?? 0) }
+        var sized = chosen.compactMap { event -> TradeRepublicActivity? in
+            var copy = event
+            if (copy.quantity ?? 0) <= 0.0000005, let average = position.averageBuyInCents, average > 0, copy.amountCents != 0 {
+                copy.quantity = Double(abs(copy.amountCents)) / Double(average)
+            }
+            return purchase(copy, averageCents: position.averageBuyInCents ?? 0) ? copy : nil
+        }
         let saleEvents = trades(isin: symbol, activities: history, buying: false, after: nil)
         var covered = sized.reduce(0.0) { $0 + ($1.quantity ?? 0) } + given.reduce(0.0) { $0 + ($1.quantity ?? 0) }
         if holding == nil, saleEvents.isEmpty, position.quantity > 0.0000005, covered > position.quantity + 0.001 {
@@ -717,9 +764,7 @@ enum TradeRepublicSync {
         positions: [TradeRepublicPosition],
         activities: [TradeRepublicActivity]
     ) -> [String: Date] {
-        var unused = activities.filter {
-            $0.isGrant || ($0.amountCents == 0 && !$0.trade)
-        }.sorted { $0.date < $1.date }
+        var unused = activities.filter(\.isGrant).sorted { $0.date < $1.date }
         let gifts = positions.filter { position in
             !activities.contains {
                 $0.isin.caseInsensitiveCompare(position.isin) == .orderedSame
@@ -737,7 +782,8 @@ enum TradeRepublicSync {
         let remaining = gifts.filter { dates[$0.isin.uppercased()] == nil }.sorted {
             $0.name.localizedStandardCompare($1.name) == .orderedAscending
         }
-        for (position, event) in zip(remaining, unused) {
+        let unnamed = unused.filter(\.isin.isEmpty)
+        for (position, event) in zip(remaining, unnamed) {
             dates[position.isin.uppercased()] = event.date
         }
         return dates

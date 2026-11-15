@@ -209,32 +209,30 @@ struct TradeRepublicClient: Sendable {
         inbox: SocketInbox,
         positions: [TradeRepublicPosition]
     ) async -> (items: [TradeRepublicActivity], plans: [TradeRepublicPlan]) {
-        var after: String?
+        let cashID = inbox.take()
+        do {
+            try await socket.send(.string(subscribe(cashID, ["type": "cash"])))
+            let cash = try await inbox.next(on: socket, id: cashID)
+            if cash.ok, !cash.body.isEmpty {
+                TradeRepublicSample.add(name: "cash", body: cash.body)
+            }
+        } catch {
+            // The cash snapshot is only for the extract. Missing it must not stop the timeline.
+        }
         var seen = Set<String>()
         var all: [TradeRepublicActivity] = []
         var indexLines: [String] = []
-        var pages = 0
-        for _ in 0..<120 {
-            var payload = ["type": "timelineTransactions"]
-            if let after { payload["after"] = after }
-            let id = inbox.take()
-            do {
-                try await socket.send(.string(subscribe(id, payload)))
-                let reply = try await inbox.next(on: socket, id: id)
-                guard reply.ok, !reply.body.isEmpty else { break }
-                pages += 1
-                TradeRepublicSample.add(name: "timelineTransactions \(pages)", body: reply.body)
-                indexLines.append(contentsOf: TradeRepublicTimeline.indexLines(from: reply.body))
-                let parsed = TradeRepublicTimeline.read(text: reply.body)
-                for item in parsed.items where seen.insert(item.id).inserted {
-                    all.append(item)
-                }
-                guard let next = parsed.after, !next.isEmpty, next != after else { break }
-                after = next
-            } catch {
-                break
-            }
+        let transactions = await fetchPages(type: "timelineTransactions", on: socket, inbox: inbox)
+        indexLines.append(contentsOf: transactions.indexLines)
+        for item in transactions.items where seen.insert(item.id).inserted {
+            all.append(item)
         }
+        let log = await fetchPages(type: "timelineActivityLog", on: socket, inbox: inbox)
+        indexLines.append(contentsOf: log.indexLines)
+        for item in log.items where seen.insert(item.id).inserted {
+            all.append(item)
+        }
+        let pages = transactions.pages + log.pages
         if !indexLines.isEmpty {
             TradeRepublicSample.add(name: "timelineIndex", body: indexLines.joined(separator: "\n"))
         }
@@ -297,10 +295,44 @@ struct TradeRepublicClient: Sendable {
         let sized = all.filter { ($0.quantity ?? 0) > 0.0000005 }.count
         TradeRepublicSample.add(
             name: "summary",
-            body: "pages \(pages)\nitems \(all.count)\nindex \(indexLines.count)\ndetails \(detailed)\nwith quantity \(sized)\nplans \(plans.count)"
+            body: "pages \(pages)\ntransactions \(transactions.pages)\nactivityLog \(log.pages)\nitems \(all.count)\nindex \(indexLines.count)\ndetails \(detailed)\nwith quantity \(sized)\nplans \(plans.count)"
         )
         TradeRepublicSample.finish()
         return (all, plans)
+    }
+
+    private static func fetchPages(
+        type: String,
+        on socket: URLSessionWebSocketTask,
+        inbox: SocketInbox
+    ) async -> (items: [TradeRepublicActivity], pages: Int, indexLines: [String]) {
+        var after: String?
+        var seen = Set<String>()
+        var all: [TradeRepublicActivity] = []
+        var indexLines: [String] = []
+        var pages = 0
+        for _ in 0..<120 {
+            var payload = ["type": type]
+            if let after { payload["after"] = after }
+            let id = inbox.take()
+            do {
+                try await socket.send(.string(subscribe(id, payload)))
+                let reply = try await inbox.next(on: socket, id: id)
+                guard reply.ok, !reply.body.isEmpty else { break }
+                pages += 1
+                TradeRepublicSample.add(name: "\(type) \(pages)", body: reply.body)
+                indexLines.append(contentsOf: TradeRepublicTimeline.indexLines(from: reply.body))
+                let parsed = TradeRepublicTimeline.read(text: reply.body)
+                for item in parsed.items where seen.insert(item.id).inserted {
+                    all.append(item)
+                }
+                guard let next = parsed.after, !next.isEmpty, next != after else { break }
+                after = next
+            } catch {
+                break
+            }
+        }
+        return (all, pages, indexLines)
     }
 
     private static func accountLookup(cookies: String, session: URLSession) async throws -> (dead: Bool, number: String?) {

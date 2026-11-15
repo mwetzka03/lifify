@@ -200,10 +200,13 @@ enum TradeRepublicSample {
             merge(text, positions: &positions, activities: &activities, plans: &plans)
         } else {
             for (name, body) in sections {
-                if name.lowercased().hasPrefix("timelineindex") {
+                let heading = name.lowercased()
+                if heading.hasPrefix("timelineindex") {
                     for item in TradeRepublicTimeline.activities(fromIndex: body) where !activities.contains(where: { $0.id == item.id }) {
                         activities.append(item)
                     }
+                } else if heading.hasPrefix("timelinedetail") {
+                    applyDetail(body, name: name, to: &activities)
                 } else {
                     merge(body, positions: &positions, activities: &activities, plans: &plans)
                 }
@@ -246,6 +249,13 @@ enum TradeRepublicSample {
         }
         let found = TradeRepublicPlans.read(text: text)
         if !found.isEmpty { plans = found }
+    }
+
+    private static func applyDetail(_ body: String, name: String, to activities: inout [TradeRepublicActivity]) {
+        let token = name.split(whereSeparator: \.isWhitespace).last.map(String.init) ?? ""
+        guard token.count == 36, token.filter({ $0 == "-" }).count == 4 else { return }
+        guard let index = activities.firstIndex(where: { $0.id == token }) else { return }
+        activities[index] = TradeRepublicTimeline.enrich(activities[index], detail: body)
     }
 }
 

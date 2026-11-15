@@ -442,9 +442,44 @@ enum LififySessionChecks {
         berlin.timeZone = TimeZone(identifier: "Europe/Berlin") ?? .gmt
         let fourteenth = berlin.date(from: DateComponents(year: 2026, month: 11, day: 14)) ?? day
         let sixteenth = berlin.date(from: DateComponents(year: 2026, month: 11, day: 16)) ?? day
-        let receipts = saveback.items.first?.trade == false
+        let cardCheck = TradeRepublicTimeline.read(Data(#"{"items":[{"id":"amazon-card","timestamp":"2026-08-19T20:32:49.000Z","title":"Amazon","subtitle":"Kartenprüfung","status":"EXECUTED","amount":{"value":0,"fractionDigits":2},"eventType":"CARD_VERIFICATION"}]}"#.utf8)).items
+        let appleGift = TradeRepublicPosition(isin: "US0378331005", name: "Apple", quantity: 0.0423, averageBuyInCents: 23885)
+        let cardDated = TradeRepublicSync.changes(
+            positions: [appleGift],
+            holdings: [],
+            activities: cardCheck + [nvidia],
+            known: []
+        )
+        let ipoFillRows = TradeRepublicTimeline.read(Data(#"{"items":[{"id":"sx-ipo-1","timestamp":"2026-06-06T13:11:46.000Z","title":"SpaceX","subtitle":"IPO","icon":"logos/US84615Q1031/v2","status":"EXECUTED","amount":{"value":-20.27,"fractionDigits":2},"eventType":"IPO_TRADE_EXECUTED"},{"id":"sx-ipo-2","timestamp":"2026-06-08T14:35:20.000Z","title":"SpaceX","subtitle":"IPO","icon":"logos/US84615Q1031/v2","status":"EXECUTED","amount":{"value":-39.80,"fractionDigits":2},"eventType":"IPO_TRADE_EXECUTED"}]}"#.utf8))
+        let ipoFill = TradeRepublicSync.changes(
+            positions: [privateShare],
+            holdings: [],
+            activities: ipoFillRows.items,
+            known: []
+        )
+        let warrantRows = TradeRepublicTimeline.read(Data(#"{"items":[{"id":"sx-opt","timestamp":"2026-06-23T16:27:18.000Z","title":"Short Faktor Optionsschein 10","subtitle":"Verkaufsorder","icon":"logos/US84615Q1031/v2","status":"EXECUTED","amount":{"value":31.97,"fractionDigits":2},"eventType":"TRADING_TRADE_EXECUTED"}]}"#.utf8))
+        let warrants = TradeRepublicSync.changes(
+            positions: [privateShare],
+            holdings: [],
+            activities: ipoFillRows.items + warrantRows.items,
+            known: []
+        )
+        let savebackBuys = TradeRepublicSync.changes(
+            positions: [TradeRepublicPosition(isin: "IE00BJ0KDQ92", name: "MSCI World", quantity: 0.105, averageBuyInCents: 14222)],
+            holdings: [],
+            activities: saveback.items,
+            known: []
+        )
+        let lottery = TradeRepublicTimeline.read(Data(#"{"items":[{"id":"draw","timestamp":"2026-11-06T12:00:00.000Z","title":"Apple","subtitle":"Verlosung","icon":"logos/US0378331005/v2","status":"EXECUTED","amount":{"value":0,"fractionDigits":2},"eventType":"GIFTER_TRANSACTION"}]}"#.utf8))
+        let lotteryGift = TradeRepublicSync.changes(
+            positions: [appleGift],
+            holdings: [],
+            activities: lottery.items,
+            known: []
+        )
+        let receipts = saveback.items.first?.trade == true
             && saveback.items.first?.statementType == "Cashback"
-            && namedSaveback.items.first?.trade == false
+            && namedSaveback.items.first?.trade == true
             && namedSaveback.items.first?.statementType == "Cashback"
             && perk.items.first?.trade == false
             && perk.items.first?.statementType == "Depotgeschenk"
@@ -517,6 +552,40 @@ enum LififySessionChecks {
             && BankNotice.transferWindowDays == BankImportApplier.ownAccountWindowDays
             && abs(Calendar.current.dateComponents([.day], from: Calendar.current.startOfDay(for: fourteenth), to: Calendar.current.startOfDay(for: sixteenth)).day ?? 99) == 2
             && sessionImportReplacesPreviousTradeRepublic()
+            && ipoFillRows.items.allSatisfy { $0.trade && $0.statementType == "Handel" }
+            && ipoFill.contains { move in
+                if case .buy(_, _, _, let isin, _, let quantity, _, _) = move {
+                    return isin == "US84615Q1031" && quantity > 0.0000005
+                }
+                return false
+            }
+            && !ipoFill.contains { if case .grant = $0 { return true }; return false }
+            && warrantRows.items.first?.trade == false
+            && warrants.contains { move in
+                if case .cash(let id, _, _, let amount, _) = move { return id == "sx-opt" && amount == 3197 }
+                return false
+            }
+            && !warrants.contains { if case .sale = $0 { return true }; return false }
+            && savebackBuys.contains { move in
+                if case .buy(let id, _, _, let isin, _, _, _, _) = move { return id == "back" && isin == "IE00BJ0KDQ92" }
+                return false
+            }
+            && !savebackBuys.contains { if case .grant = $0 { return true }; return false }
+            && cardDated.contains { move in
+                if case .grant(_, let date, _, let isin, _, _, _, _) = move {
+                    return isin == "US0378331005" && date != cardCheck.first?.date
+                }
+                return false
+            }
+            && lottery.items.first?.statementType == "Depotgeschenk"
+            && lotteryGift.contains { move in
+                if case .grant(_, let date, _, let isin, _, _, _, _) = move {
+                    return isin == "US0378331005" && date == lottery.items.first?.date
+                }
+                return false
+            }
+            && TradeRepublicTimeline.isSessionFingerprint("tr-card")
+            && !TradeRepublicTimeline.isSessionFingerprint("notice-1")
         return result("Ein Depotstand setzt Menge und Einstand und erfindet nichts", .portfolio, .unit, passed && synced && categories && receipts, reading)
     }
 

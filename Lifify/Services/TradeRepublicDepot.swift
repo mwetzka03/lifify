@@ -334,7 +334,7 @@ enum TradeRepublicDepotApplier {
         return true
     }
 
-    /// Cash reserved for an IPO is a depot purchase. A later refund or official buy nets against it.
+    /// Cash reserved for an IPO is a Depotkauf on the checking account. Shares wait until the IPO is allocated.
     private static func insertIPO(
         id: String,
         date: Date,
@@ -342,24 +342,22 @@ enum TradeRepublicDepotApplier {
         amountCents: Int,
         eventType: String,
         checking: Account,
-        portfolio: Account,
+        portfolio _: Account,
         known: Set<String>,
         context: ModelContext
     ) -> Bool {
         let fingerprint = TradeRepublicTimeline.fingerprint(id)
         guard !known.contains(fingerprint), amountCents != 0 else { return false }
-        let cash = abs(amountCents)
         let name = title.trimmingCharacters(in: .whitespacesAndNewlines)
         let label = name.isEmpty ? "IPO" : name
-        let outbound = amountCents < 0
+        let action = L("Depotkauf", "Portfolio buy")
         context.insert(LedgerEntry(
             date: date,
-            title: "IPO: \(label)",
+            title: "\(action): \(label)",
             notes: extractNotes(statementType: "IPO", symbol: nil, quantity: nil, unitCents: nil, eventType: eventType),
-            amountCents: cash,
-            kind: .transfer,
-            fromAccountID: outbound ? checking.id : portfolio.id,
-            toAccountID: outbound ? portfolio.id : checking.id,
+            amountCents: amountCents,
+            kind: amountCents < 0 ? .expense : .income,
+            accountID: checking.id,
             importFingerprint: fingerprint
         ))
         return true
@@ -383,7 +381,9 @@ enum TradeRepublicDepotApplier {
             guard abs(entry.amountCents) == absAmount else { return false }
             if entry.kind == .income || entry.kind == .expense {
                 guard Calendar.current.isDate(entry.date, inSameDayAs: date) else { return false }
-                return entry.accountID == checking.id
+                guard entry.accountID == checking.id else { return false }
+                // Two real card payments can share a day and an amount. Session rows stay distinct.
+                return !TradeRepublicTimeline.isSessionFingerprint(entry.importFingerprint)
             }
             guard entry.kind == .transfer else { return false }
             guard withinDays(entry.date, of: date, days: BankImportApplier.ownAccountWindowDays) else { return false }
@@ -433,6 +433,11 @@ enum TradeRepublicDepotApplier {
             ) {
                 reserved.date = date
                 reserved.title = "\(action): \(label)"
+                reserved.kind = .transfer
+                reserved.amountCents = cash
+                reserved.accountID = nil
+                reserved.fromAccountID = checking.id
+                reserved.toAccountID = portfolio.id
                 reserved.notes = extractNotes(
                     statementType: "Handel",
                     symbol: holding.symbol,
@@ -545,14 +550,20 @@ enum TradeRepublicDepotApplier {
         let label = holding.name.trimmingCharacters(in: .whitespacesAndNewlines)
         let symbol = holding.symbol.trimmingCharacters(in: .whitespacesAndNewlines)
         return entries.first { entry in
-            guard entry.kind == .transfer,
-                  entry.toAccountID == portfolio.id,
-                  entry.fromAccountID == checking.id,
-                  abs(abs(entry.amountCents) - cash) <= 150
-            else { return false }
+            guard abs(abs(entry.amountCents) - cash) <= 150 else { return false }
+            let onChecking = (entry.kind == .expense || entry.kind == .income) && entry.accountID == checking.id
+            let asTransfer = entry.kind == .transfer
+                && entry.fromAccountID == checking.id
+                && entry.toAccountID == portfolio.id
+            guard onChecking || asTransfer else { return false }
             let notes = entry.notes.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "de_DE"))
             let titled = entry.title.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "de_DE"))
-            guard notes.contains("typ: ipo") || titled.hasPrefix("ipo:") else { return false }
+            guard notes.contains("typ: ipo")
+                || titled.hasPrefix("ipo:")
+                || titled.hasPrefix("depotkauf:")
+                || titled.contains("depotkauf")
+                || titled.contains("portfolio buy")
+            else { return false }
             if !symbol.isEmpty, notes.localizedCaseInsensitiveContains(symbol) { return true }
             if !label.isEmpty, entry.title.localizedStandardContains(label) { return true }
             return abs(entry.amountCents) == cash
