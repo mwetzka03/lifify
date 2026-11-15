@@ -123,6 +123,7 @@ struct TradeRepublicClient: Sendable {
         let socket = session.webSocketTask(with: websocketRequest(cookies: cookies))
         socket.resume()
         defer { socket.cancel(with: .normalClosure, reason: nil) }
+        TradeRepublicSample.begin()
         try await socket.send(.string(connectMessage))
         let hello = try await text(from: socket)
         guard hello == "connected" else { throw TradeRepublicFailure.sessionDead }
@@ -139,6 +140,7 @@ struct TradeRepublicClient: Sendable {
             "secAccNo": number
         ])))
         let payload = try await text(from: socket)
+        TradeRepublicSample.add(name: "compactPortfolio", body: payload)
         if payload.contains(" E ") { throw TradeRepublicFailure.unreadable }
         let positions: [TradeRepublicPosition]
         switch TradeRepublicPortfolio.read(text: payload) {
@@ -162,6 +164,7 @@ struct TradeRepublicClient: Sendable {
             do {
                 try await socket.send(.string(subscribe(page, payload)))
                 let text = try await text(from: socket)
+                if page == first { TradeRepublicSample.add(name: "timelineTransactions", body: text) }
                 if text.contains(" E ") { break }
                 let parsed = TradeRepublicTimeline.read(text: text)
                 for item in parsed.items where seen.insert(item.id).inserted {
@@ -177,12 +180,22 @@ struct TradeRepublicClient: Sendable {
         let pending = all.enumerated().filter { $0.element.trade && $0.element.quantity == nil }
             .sorted { $0.element.date > $1.element.date }
             .prefix(300)
+        var keptBuyDetail = false
+        var keptSavingsDetail = false
         for item in pending {
             let payload = ["type": "timelineDetailV2", "id": item.element.id]
             do {
                 try await socket.send(.string(subscribe(page, payload)))
                 let text = try await text(from: socket)
                 page += 1
+                let savings = item.element.savingsPlan
+                if savings, !keptSavingsDetail {
+                    TradeRepublicSample.add(name: "timelineDetailV2 savings \(item.element.eventType)", body: text)
+                    keptSavingsDetail = true
+                } else if !savings, !keptBuyDetail {
+                    TradeRepublicSample.add(name: "timelineDetailV2 \(item.element.eventType)", body: text)
+                    keptBuyDetail = true
+                }
                 if text.contains(" E ") { continue }
                 all[item.offset] = TradeRepublicTimeline.enrich(item.element, detail: text)
             } catch {
@@ -193,12 +206,18 @@ struct TradeRepublicClient: Sendable {
         do {
             try await socket.send(.string(subscribe(page, ["type": "savingsPlans"])))
             let text = try await text(from: socket)
+            TradeRepublicSample.add(name: "savingsPlans", body: text)
             if !text.contains(" E ") {
                 plans = TradeRepublicPlans.read(text: text)
             }
         } catch {
             plans = []
         }
+        let sized = all.filter { ($0.quantity ?? 0) > 0.0000005 }.count
+        TradeRepublicSample.add(
+            name: "summary",
+            body: "items \(all.count)\nwith quantity \(sized)\nplans \(plans.count)"
+        )
         return (all, plans)
     }
 

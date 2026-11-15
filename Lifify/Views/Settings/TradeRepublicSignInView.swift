@@ -1,5 +1,6 @@
 import SwiftData
 import SwiftUI
+import UIKit
 
 struct TradeRepublicSignInControls: View {
     @Environment(\.modelContext) private var context
@@ -18,6 +19,8 @@ struct TradeRepublicSignInControls: View {
     @State private var task: Task<Void, Never>?
     @State private var advance = false
     @State private var client = TradeRepublicClient()
+    @AppStorage(AppClock.modeKey) private var developerMode = false
+    @AppStorage(TradeRepublicSample.revisionKey) private var sampleRevision = 0
 
     var body: some View {
         Section {
@@ -31,6 +34,13 @@ struct TradeRepublicSignInControls: View {
             }
             Button(TradeRepublicCopy.refresh) { refresh() }
                 .disabled(!sessionSaved || phase == .loading)
+            if developerMode, sampleRevision > 0, !TradeRepublicSample.text.isEmpty {
+                NavigationLink {
+                    TradeRepublicSampleView()
+                } label: {
+                    Label(TradeRepublicCopy.sample, systemImage: "doc.on.doc")
+                }
+            }
             if let note, phase == .idle {
                 Text(note)
                     .font(.caption)
@@ -299,6 +309,36 @@ struct TradeRepublicSignInControls: View {
         case code
         case loading
         case message
+    }
+}
+
+struct TradeRepublicSampleView: View {
+    @State private var copied = false
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+                Text(TradeRepublicCopy.sampleNote)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                Text(TradeRepublicSample.text)
+                    .font(.caption.monospaced())
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .padding(16)
+        }
+        .appGlassList()
+        .navigationTitle(TradeRepublicCopy.sample)
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button(copied ? TradeRepublicCopy.copied : TradeRepublicCopy.sample) {
+                    UIPasteboard.general.string = TradeRepublicSample.text
+                    copied = true
+                }
+            }
+        }
     }
 }
 

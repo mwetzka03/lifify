@@ -106,6 +106,7 @@ private struct GeneralSettingsView: View {
     @AppStorage("appTheme") private var theme = AppTheme.system.rawValue
     @AppStorage(AppPalette.storageKey) private var palette = AppPalette.green.rawValue
     @AppStorage(AppClock.modeKey) private var developerMode = false
+    @AppStorage(TradeRepublicSample.revisionKey) private var tradeRepublicSampleRevision = 0
     @AppStorage(AppClock.dayKey) private var developerDay = 0.0
     @AppStorage(LififyNotifications.briefingEnabledKey) private var briefingEnabled = true
     @AppStorage(LififyNotifications.briefingRevisionKey) private var briefingRevision = 0
@@ -116,6 +117,7 @@ private struct GeneralSettingsView: View {
             set: { enabled in
                 developerMode = enabled
                 AppClock.resetSimulatedDay()
+                if !enabled { TradeRepublicSample.clear() }
             }
         )
     }
@@ -194,6 +196,13 @@ private struct GeneralSettingsView: View {
                         DeveloperTestsView()
                     } label: {
                         Label(L("Tests ausführen", "Run tests"), systemImage: "checkmark.seal")
+                    }
+                    if tradeRepublicSampleRevision > 0, !TradeRepublicSample.text.isEmpty {
+                        NavigationLink {
+                            TradeRepublicSampleView()
+                        } label: {
+                            Label(TradeRepublicCopy.sample, systemImage: "doc.on.doc")
+                        }
                     }
                 }
             } footer: {

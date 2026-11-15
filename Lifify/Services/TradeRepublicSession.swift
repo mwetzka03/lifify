@@ -75,6 +75,38 @@ enum TradeRepublicFailure: Error, Equatable {
     }
 }
 
+enum TradeRepublicSample {
+    static let revisionKey = "lifify.tradeRepublic.sampleRevision"
+    private static let key = "lifify.tradeRepublic.sample"
+    private static let pieceLimit = 20_000
+    private static let totalLimit = 90_000
+
+    static var text: String {
+        UserDefaults.standard.string(forKey: key) ?? ""
+    }
+
+    static func begin() {
+        guard AppClock.isDeveloperMode else { return }
+        UserDefaults.standard.set("Trade Republic\n", forKey: key)
+    }
+
+    static func add(name: String, body: String) {
+        guard AppClock.isDeveloperMode else { return }
+        var current = text
+        guard current.count < totalLimit else { return }
+        let clipped = body.count > pieceLimit ? String(body.prefix(pieceLimit)) + "\n…" : body
+        current += "\n===== \(name) =====\n\(clipped)\n"
+        UserDefaults.standard.set(current, forKey: key)
+        let revision = UserDefaults.standard.integer(forKey: revisionKey) + 1
+        UserDefaults.standard.set(revision, forKey: revisionKey)
+    }
+
+    static func clear() {
+        UserDefaults.standard.removeObject(forKey: key)
+        UserDefaults.standard.set(0, forKey: revisionKey)
+    }
+}
+
 enum TradeRepublicCopy {
     static var signIn: String { L("Bei Trade Republic anmelden", "Sign in to Trade Republic") }
     static var refresh: String { L("Depot aus der Sitzung aktualisieren", "Refresh the depot from the session") }
@@ -108,6 +140,14 @@ enum TradeRepublicCopy {
         )
     }
     static var close: String { L("Schließen", "Close") }
+    static var sample: String { L("Antwort kopieren", "Copy the response") }
+    static var sampleNote: String {
+        L(
+            "Das ist die letzte Antwort von Trade Republic. Sie enthält deine Buchungen. Schwärze, was du nicht schicken willst, und kopiere den Rest hierher.",
+            "This is the latest response from Trade Republic. It contains your bookings. Black out anything you do not want to send, then copy the rest here."
+        )
+    }
+    static var copied: String { L("Kopiert", "Copied") }
     static var footnote: String {
         L(
             "Die PIN ist dieselbe wie beim Öffnen der Trade-Republic-App, kein Code per SMS. Eine 0 am Anfang wird zu +49. Nur wenn du hier tippst. Die PIN wird nicht gespeichert.",
