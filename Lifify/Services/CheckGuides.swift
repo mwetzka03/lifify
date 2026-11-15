@@ -399,9 +399,9 @@ enum CheckGuides {
             "The reading is the message for the empty PDF. PDF files belong in the separate Trade Republic import. A CSV without recognized columns names its own message. The same booking produces the same 64-character fingerprint, and a different amount produces another."
         ),
         "Sicherung behält das Konto": g(
-            "LififyBackup Codable, BackupScope.exportFilenamePrefix",
-            "Die Messung listet die Dateinamen-Kürzel Lifify, Lifify-Finanzen, Lifify-Challenges und Lifify-Training. Das kodierte Konto kommt mit demselben Namen und derselben Kennung wieder heraus.",
-            "The reading lists the file-name prefixes Lifify, Lifify-Finanzen, Lifify-Challenges, and Lifify-Training. The encoded account comes back out with the same name and the same identifier."
+            "LififyBackup Codable, BackupScope.exportFilenamePrefix, BackupRecord type holdingLot",
+            "Die Messung listet die Dateinamen-Kürzel Lifify, Lifify-Finanzen, Lifify-Challenges und Lifify-Training. Das kodierte Konto kommt mit demselben Namen und derselben Kennung wieder heraus. Ein Depotstück kommt als holdingLot wieder heraus.",
+            "The reading lists the file-name prefixes Lifify, Lifify-Finanzen, Lifify-Challenges, and Lifify-Training. The encoded account comes back out with the same name and the same identifier. A lot comes back out as holdingLot."
         ),
         "Löschen und Zurücksetzen sagen, was bleibt": g(
             "DestructiveAction.deleteData, DestructiveAction.resetApp, DestructiveAction.deleteFinance",
@@ -520,8 +520,8 @@ enum CheckGuides {
         ),
         "Ein Depotstand setzt Menge und Einstand und erfindet nichts": g(
             "TradeRepublicPortfolio.read(_:), TradeRepublicSync.changes(positions:holdings:activities:known:), TradeRepublicDepotApplier.shouldReplace(_:checkingID:portfolioID:), MarketDataService.cryptoTicker(from:)",
-            "Die Messung ist 2.5, 8000, behalten. Eine leere Liste und eine unlesbare Antwort legen keine Position an. Fehlt der Einstand, bleibt der bisherige Preis. Ein Kauf einer anderen ISIN macht aus einem Geschenk keinen Anfangsbestand. Eine spätere Anmeldung ersetzt die bisherigen Trade-Republic-Buchungen. Eine IPO-Zeichnung wird gebucht.",
-            "The reading is 2.5, 8000, kept. An empty list and an unreadable reply create no position. When the cost basis is missing, the previous price stays. A purchase of another ISIN does not turn a gift into an opening lot. A later sign-in replaces the previous Trade Republic bookings. An IPO subscription is booked."
+            "Die Messung ist 2.5, 8000, behalten. Eine leere Liste und eine unlesbare Antwort legen keine Position an. Fehlt der Einstand, bleibt der bisherige Preis. Ein Kauf einer anderen ISIN macht aus einem Geschenk keinen Anfangsbestand. Ein namenloses Geschenk behält das Eventdatum. Ein Überhang ohne Verkaufszeile wird nicht als Verkauf von heute gebucht. Eine spätere Anmeldung ersetzt die bisherigen Trade-Republic-Buchungen. Eine IPO-Zeichnung wird gebucht. Der Auszug ist nicht auf eine Seite gekürzt.",
+            "The reading is 2.5, 8000, kept. An empty list and an unreadable reply create no position. When the cost basis is missing, the previous price stays. A purchase of another ISIN does not turn a gift into an opening lot. An unnamed gift keeps the event date. A leftover without a sale row is not booked as a sale dated today. A later sign-in replaces the previous Trade Republic bookings. An IPO subscription is booked. The extract is not clipped to one page."
         ),
         "Eine tote Sitzung startet keine neue Anmeldung": g(
             "TradeRepublicRequest.failure(statusCode:errorCode:), TradeRepublicRefresh.manualOnly, TradeRepublicCookies.keepsSession(_:)",

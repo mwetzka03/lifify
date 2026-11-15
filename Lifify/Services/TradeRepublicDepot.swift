@@ -797,6 +797,8 @@ enum TradeRepublicDepotApplier {
         known: inout Set<String>,
         context: ModelContext
     ) {
+        let dates = TradeRepublicSync.giftDates(positions: positions, activities: activities)
+        let entries = (try? context.fetch(FetchDescriptor<LedgerEntry>())) ?? []
         for holding in holdings {
             let symbol = holding.symbol.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
             guard !symbol.isEmpty else { continue }
@@ -813,7 +815,7 @@ enum TradeRepublicDepotApplier {
                 ($0.isGrant || ($0.amountCents == 0 && !$0.trade))
                     && TradeRepublicSync.matchesInstrument($0, isin: symbol, name: holding.name)
             }.min(by: { $0.date < $1.date })
-            let entries = (try? context.fetch(FetchDescriptor<LedgerEntry>())) ?? []
+            let giftDate = grant?.date ?? dates[symbol]
             var changed = false
             for index in lots.indices where !lots[index].isSale {
                 let unlabeled = lots[index].source == "opening" || lots[index].source.isEmpty
@@ -827,7 +829,7 @@ enum TradeRepublicDepotApplier {
                 lots[index].amountCents = 0
                 lots[index].unitPriceCents = 0
                 lots[index].source = "gift"
-                if let grant { lots[index].date = grant.date }
+                if let giftDate { lots[index].date = giftDate }
                 changed = true
             }
             if changed {
@@ -836,7 +838,7 @@ enum TradeRepublicDepotApplier {
             guard changed else { continue }
             _ = insertGrant(
                 id: "gift-\(symbol)",
-                date: grant?.date ?? lots.map(\.date).min() ?? Date(),
+                date: giftDate ?? lots.map(\.date).min() ?? Date(),
                 title: holding.name,
                 quantity: 0,
                 amountCents: 0,
@@ -1071,7 +1073,7 @@ enum TradeRepublicDepotApplier {
         SavingsPlanFixedCosts.sync(context: context)
     }
 
-    /// Whole-share lots that overshoot a fractional broker quantity, with no sale in the history, are scaled.
+    /// Lots that overshoot the live quantity, with no sale in the history, are scaled.
     private static func scaleWholeLotsToLive(
         holdings: [PortfolioHolding],
         positions: [TradeRepublicPosition],
@@ -1092,13 +1094,8 @@ enum TradeRepublicDepotApplier {
                     $0.trade && $0.amountCents > 0 && $0.isin.caseInsensitiveCompare(symbol) == .orderedSame
                 }
             guard !sold else { continue }
-            let buys = lots.filter { !$0.isSale }
-            let whole = buys.allSatisfy { lot in
-                lot.quantity >= 0.999 && abs(lot.quantity - lot.quantity.rounded()) < 0.000001
-            }
-            guard whole, abs(live - live.rounded()) > 0.000001 else { continue }
             let factor = live / have
-            guard factor < 0.95 else { continue }
+            guard factor > 0.000001, factor < 0.999 else { continue }
             for index in lots.indices where !lots[index].isSale {
                 lots[index].quantity *= factor
             }

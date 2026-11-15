@@ -125,6 +125,7 @@ struct TradeRepublicClient: Sendable {
         defer { socket.cancel(with: .normalClosure, reason: nil) }
         let inbox = SocketInbox()
         TradeRepublicSample.begin()
+        defer { TradeRepublicSample.finish() }
         try await socket.send(.string(connectMessage))
         let hello = try await text(from: socket)
         guard hello == "connected" else { throw TradeRepublicFailure.sessionDead }
@@ -221,8 +222,8 @@ struct TradeRepublicClient: Sendable {
                 try await socket.send(.string(subscribe(id, payload)))
                 let reply = try await inbox.next(on: socket, id: id)
                 guard reply.ok, !reply.body.isEmpty else { break }
-                if pages == 0 { TradeRepublicSample.add(name: "timelineTransactions", body: reply.body) }
                 pages += 1
+                TradeRepublicSample.add(name: "timelineTransactions \(pages)", body: reply.body)
                 indexLines.append(contentsOf: TradeRepublicTimeline.indexLines(from: reply.body))
                 let parsed = TradeRepublicTimeline.read(text: reply.body)
                 for item in parsed.items where seen.insert(item.id).inserted {
@@ -257,7 +258,6 @@ struct TradeRepublicClient: Sendable {
             .prefix(800)
         var keptBuyDetail = false
         var keptSavingsDetail = false
-        var keptGrantDetail = false
         var detailed = 0
         for item in pending {
             let id = inbox.take()
@@ -268,9 +268,8 @@ struct TradeRepublicClient: Sendable {
                 guard reply.ok, reply.body.contains("{") else { continue }
                 detailed += 1
                 let savings = item.element.savingsPlan
-                if item.element.isGrant, !keptGrantDetail {
-                    TradeRepublicSample.add(name: "timelineDetailV2 grant \(item.element.eventType)", body: reply.body)
-                    keptGrantDetail = true
+                if item.element.isGrant {
+                    TradeRepublicSample.add(name: "timelineDetailV2 grant \(item.element.id)", body: reply.body)
                 } else if savings, !keptSavingsDetail {
                     TradeRepublicSample.add(name: "timelineDetailV2 savings \(item.element.eventType)", body: reply.body)
                     keptSavingsDetail = true
@@ -300,6 +299,7 @@ struct TradeRepublicClient: Sendable {
             name: "summary",
             body: "pages \(pages)\nitems \(all.count)\nindex \(indexLines.count)\ndetails \(detailed)\nwith quantity \(sized)\nplans \(plans.count)"
         )
+        TradeRepublicSample.finish()
         return (all, plans)
     }
 

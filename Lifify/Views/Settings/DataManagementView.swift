@@ -71,8 +71,8 @@ struct DataManagementView: View {
                     Label(L("Sicherung wiederherstellen", "Restore backup"), systemImage: "arrow.clockwise.icloud")
                 }
                 Text(L(
-                    "Eine Teilsicherung ersetzt nur diesen Bereich. Verknüpfungen zwischen Challenges und Trainings liegen in beiden Sicherungen. Eine volle Sicherung ersetzt alles.",
-                    "A partial backup replaces only that area. Links between challenges and workouts are stored in both backups. A full backup replaces everything."
+                    "Eine Teilsicherung ersetzt nur diesen Bereich. Der Finanzexport enthält Konten, Buchungen, Depotstücke, Sparpläne, geschlossene Positionen und die Depotverknüpfung, nicht nur die Kontostände. Verknüpfungen zwischen Challenges und Trainings liegen in beiden Sicherungen. Eine volle Sicherung ersetzt alles.",
+                    "A partial backup replaces only that area. The finance export includes accounts, bookings, lots, savings plans, closed positions, and the depot link, not only the account balances. Links between challenges and workouts are stored in both backups. A full backup replaces everything."
                 ))
                 .font(.caption)
                 .foregroundStyle(.secondary)

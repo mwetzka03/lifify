@@ -78,33 +78,55 @@ enum TradeRepublicFailure: Error, Equatable {
 
 enum TradeRepublicSample {
     static let revisionKey = "lifify.tradeRepublic.sampleRevision"
-    private static let key = "lifify.tradeRepublic.sample"
-    private static let pieceLimit = 60_000
-    private static let totalLimit = 180_000
+    static let clipsExtract = false
+    private static let legacyKey = "lifify.tradeRepublic.sample"
+    private static var pending: String?
+
+    static var fileURL: URL {
+        let folder = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+            ?? FileManager.default.temporaryDirectory
+        try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        return folder.appendingPathComponent("traderepublic.extract.txt")
+    }
 
     static var text: String {
-        UserDefaults.standard.string(forKey: key) ?? ""
+        if let pending { return pending }
+        if let file = try? String(contentsOf: fileURL, encoding: .utf8), !file.isEmpty { return file }
+        return UserDefaults.standard.string(forKey: legacyKey) ?? ""
     }
 
     static func begin() {
         guard AppClock.isDeveloperMode else { return }
-        UserDefaults.standard.set("Trade Republic\n", forKey: key)
+        pending = "Trade Republic\n"
+        persist()
     }
 
     static func add(name: String, body: String) {
         guard AppClock.isDeveloperMode else { return }
-        var current = text
-        guard current.count < totalLimit else { return }
-        let clipped = body.count > pieceLimit ? String(body.prefix(pieceLimit)) + "\n…" : body
-        current += "\n===== \(name) =====\n\(clipped)\n"
-        UserDefaults.standard.set(current, forKey: key)
-        let revision = UserDefaults.standard.integer(forKey: revisionKey) + 1
-        UserDefaults.standard.set(revision, forKey: revisionKey)
+        var current = pending ?? text
+        current += "\n===== \(name) =====\n\(body)\n"
+        pending = current
+    }
+
+    static func finish() {
+        guard pending != nil else { return }
+        persist()
     }
 
     static func clear() {
-        UserDefaults.standard.removeObject(forKey: key)
+        pending = nil
+        try? FileManager.default.removeItem(at: fileURL)
+        UserDefaults.standard.removeObject(forKey: legacyKey)
         UserDefaults.standard.set(0, forKey: revisionKey)
+    }
+
+    private static func persist() {
+        let value = pending ?? ""
+        try? value.write(to: fileURL, atomically: true, encoding: .utf8)
+        UserDefaults.standard.removeObject(forKey: legacyKey)
+        let revision = UserDefaults.standard.integer(forKey: revisionKey) + 1
+        UserDefaults.standard.set(revision, forKey: revisionKey)
+        pending = value
     }
 
     /// Rebuilds a snapshot from a copied sample or a pasted timeline JSON.
@@ -219,8 +241,8 @@ enum TradeRepublicCopy {
     }
     static var sampleNote: String {
         L(
-            "Das ist die letzte Antwort von Trade Republic, inklusive einer kompakten Timeline. Schwärze, was du nicht schicken willst, und kopiere den Rest hierher. Im Entwicklermodus kannst du einen Auszug auch einfügen, damit Lifify ihn ohne neue Anmeldung einliest.",
-            "This is the latest response from Trade Republic, including a compact timeline. Black out anything you do not want to send, then copy the rest here. In developer mode you can also paste an extract so Lifify reads it without signing in again."
+            "Das ist die letzte Antwort von Trade Republic als Datei, mit jeder Timeline-Seite, den Geschenk-Details und den Sparplänen. Nicht nur die erste Seite. Wenn der Text lang ist, teile die Datei statt zu kopieren. Schwärze, was du nicht schicken willst. Im Entwicklermodus kannst du einen Auszug auch einfügen, damit Lifify ihn ohne neue Anmeldung einliest.",
+            "This is the latest response from Trade Republic as a file, with every timeline page, the gift details, and the savings plans. Not only the first page. When the text is long, share the file instead of copying. Black out anything you do not want to send. In developer mode you can also paste an extract so Lifify reads it without signing in again."
         )
     }
     static var copied: String { L("Kopiert", "Copied") }

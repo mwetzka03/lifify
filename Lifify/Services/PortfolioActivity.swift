@@ -83,6 +83,12 @@ enum HoldingLotStore {
         snapshot()[holdingID.uuidString] ?? []
     }
 
+    static func allByHolding() -> [UUID: [HoldingLot]] {
+        Dictionary(uniqueKeysWithValues: snapshot().compactMap { key, lots in
+            UUID(uuidString: key).map { ($0, lots) }
+        })
+    }
+
     static func add(_ lot: HoldingLot, holdingID: UUID) {
         var map = snapshot()
         var rows = map[holdingID.uuidString] ?? []

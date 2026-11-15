@@ -343,9 +343,19 @@ enum LififyCoverageChecks {
         let data = (try? JSONEncoder().encode(backup)) ?? Data()
         let decoded = try? JSONDecoder().decode(LififyBackup.self, from: data)
         let prefixes = BackupScope.allCases.map(\.exportFilenamePrefix)
+        let lotID = UUID()
+        let lots = LififyBackup(
+            version: 4,
+            exportedAt: berlin(2026, 11, 8),
+            records: [BackupRecord(type: "holdingLot", id: lotID, strings: ["gift"], integers: [0, 0], doubles: [1], booleans: [false, false])]
+        )
+        let decodedLots = try? JSONDecoder().decode(LififyBackup.self, from: (try? JSONEncoder().encode(lots)) ?? Data())
         let passed = decoded?.version == 4
             && decoded?.records.first?.id == id
             && decoded?.records.first?.strings == ["Giro"]
+            && decodedLots?.records.first?.type == "holdingLot"
+            && decodedLots?.records.first?.id == lotID
+            && decodedLots?.records.first?.strings == ["gift"]
             && prefixes == ["Lifify", "Lifify-Finanzen", "Lifify-Challenges", "Lifify-Training"]
         return check("Sicherung behält das Konto", .backup, .unit, passed, prefixes.joined(separator: ", "))
     }

@@ -49,6 +49,18 @@ enum PortfolioLinkStore {
             UserDefaults.standard.removeObject(forKey: key)
         }
     }
+
+    static func allLinks() -> [(checkingID: UUID, portfolioID: UUID)] {
+        let prefix = "lifify.portfolioLink."
+        return UserDefaults.standard.dictionaryRepresentation().compactMap { key, value in
+            guard key.hasPrefix(prefix),
+                  let checkingID = UUID(uuidString: String(key.dropFirst(prefix.count))),
+                  let raw = value as? String,
+                  let portfolioID = UUID(uuidString: raw)
+            else { return nil }
+            return (checkingID, portfolioID)
+        }
+    }
 }
 
 @MainActor

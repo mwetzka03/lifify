@@ -250,7 +250,8 @@ enum LififySessionChecks {
             && !again.contains { if case .buy(let id, _, _, _, _, _, _, _) = $0 { return id == "buy1" }; return false }
             && sold.contains { if case .sale(_, let date, _, let isin, _, let quantity, let amount) = $0 { return isin == "US0378331005" && quantity == 2 && amount == 1800 && date == soldDay }; return false }
             && sold.contains { if case .drop(let isin) = $0 { return isin == "US0378331005" }; return false }
-            && soldWithoutEvent.contains { if case .sale(_, _, _, let isin, _, let quantity, let amount) = $0 { return isin == "US0378331005" && quantity == 2 && amount == 1000 }; return false }
+            && !soldWithoutEvent.contains { if case .sale = $0 { return true }; return false }
+            && !soldWithoutEvent.contains { if case .drop = $0 { return true }; return false }
         let incomeRows = TradeRepublicTimeline.read(Data(#"{"items":[{"id":"div","timestamp":"2026-06-08T12:00:00.000Z","title":"Micron","subtitle":"Dividende","icon":"logos/US5951121038/v2","status":"EXECUTED","amount":{"value":31,"fractionDigits":2},"eventType":"DIVIDEND"},{"id":"zins","timestamp":"2026-06-01T12:00:00.000Z","title":"Zinsen","status":"EXECUTED","amount":{"value":13.28,"fractionDigits":2},"eventType":"INTEREST_PAYOUT"},{"id":"ipo","timestamp":"2026-06-05T12:00:00.000Z","title":"Anthropic","icon":"logos/US0000000000/v2","status":"EXECUTED","amount":{"value":-351,"fractionDigits":2},"eventType":"IPO_SUBSCRIPTION_CREATED"}]}"#.utf8))
         let income = TradeRepublicSync.changes(positions: [], holdings: [], activities: incomeRows.items, known: [])
         let dividendCash = income.contains { move in
@@ -329,6 +330,39 @@ enum LififySessionChecks {
             activities: [nvidia] + TradeRepublicTimeline.read(Data(#"{"items":[{"id":"bat-gift","timestamp":"2026-11-06T12:00:00.000Z","title":"Tobacco","icon":"logos/GB0002875804/v2","status":"EXECUTED","amount":{"value":0,"fractionDigits":2},"eventType":"INCOMING_GIFT"}]}"#.utf8)).items,
             known: []
         )
+        let unnamedGift = TradeRepublicTimeline.read(Data(#"{"items":[{"id":"gift-anon","timestamp":"2026-11-06T12:00:00.000Z","title":"Geschenk","status":"EXECUTED","amount":{"value":0,"fractionDigits":2},"eventType":"INCOMING_GIFT"}]}"#.utf8)).items
+        let giftedUnnamed = TradeRepublicSync.changes(
+            positions: [tobacco],
+            holdings: [],
+            activities: [nvidia] + unnamedGift,
+            known: []
+        )
+        let world = TradeRepublicPosition(isin: "IE00B4L5Y983", name: "World", quantity: 2, averageBuyInCents: 8000)
+        let worldBuys = [
+            TradeRepublicActivity(
+                id: "w1",
+                date: day,
+                title: "World",
+                eventType: "TRADING_TRADE_EXECUTED",
+                amountCents: -8000,
+                isin: "IE00B4L5Y983",
+                trade: true,
+                status: "EXECUTED",
+                quantity: 1.5
+            ),
+            TradeRepublicActivity(
+                id: "w2",
+                date: day,
+                title: "World",
+                eventType: "TRADING_TRADE_EXECUTED",
+                amountCents: -8000,
+                isin: "IE00B4L5Y983",
+                trade: true,
+                status: "EXECUTED",
+                quantity: 1.5
+            )
+        ]
+        let worldMoves = TradeRepublicSync.changes(positions: [world], holdings: [], activities: worldBuys, known: [])
         let coin = TradeRepublicPosition(isin: "XF000BTC0017", name: "Bitcoin", quantity: 0.006526, averageBuyInCents: 5_871_231)
         let coinBuy = TradeRepublicActivity(
             id: "btc-buy",
@@ -440,6 +474,18 @@ enum LififySessionChecks {
                 }
                 return false
             }
+            && giftedUnnamed.contains { move in
+                if case .grant(_, let date, _, let isin, _, _, _, _) = move {
+                    return isin == "GB0002875804" && date == unnamedGift.first?.date
+                }
+                return false
+            }
+            && !worldMoves.contains { if case .sale = $0 { return true }; return false }
+            && abs(worldMoves.compactMap { move -> Double? in
+                if case .buy(_, _, _, _, _, let quantity, _, _) = move { return quantity }
+                return nil
+            }.reduce(0, +) - 2) < 0.00001
+            && !TradeRepublicSample.clipsExtract
             && coins.contains { move in
                 if case .sale(_, _, _, let isin, _, let quantity, _) = move {
                     return isin == "XF000BTC0017" && abs(quantity - 0.003913) < 0.000001

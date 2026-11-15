@@ -351,6 +351,7 @@ struct TradeRepublicSampleView: View {
         .appGlassList()
         .navigationTitle(TradeRepublicCopy.extract)
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear { TradeRepublicSample.finish() }
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
                 Button(TradeRepublicCopy.pasteExtract) {
@@ -358,11 +359,19 @@ struct TradeRepublicSampleView: View {
                 }
             }
             ToolbarItem(placement: .topBarTrailing) {
-                Button(copied ? TradeRepublicCopy.copied : TradeRepublicCopy.sample) {
-                    UIPasteboard.general.string = TradeRepublicSample.text
-                    copied = true
+                HStack {
+                    if !TradeRepublicSample.text.isEmpty {
+                        ShareLink(item: TradeRepublicSample.fileURL) {
+                            Image(systemName: "square.and.arrow.up")
+                        }
+                    }
+                    Button(copied ? TradeRepublicCopy.copied : TradeRepublicCopy.sample) {
+                        TradeRepublicSample.finish()
+                        UIPasteboard.general.string = TradeRepublicSample.text
+                        copied = true
+                    }
+                    .disabled(TradeRepublicSample.text.isEmpty)
                 }
-                .disabled(TradeRepublicSample.text.isEmpty)
             }
         }
     }
@@ -376,6 +385,7 @@ struct TradeRepublicSampleView: View {
         }
         TradeRepublicSample.begin()
         TradeRepublicSample.add(name: "pasted", body: text)
+        TradeRepublicSample.finish()
         do {
             let count = try await TradeRepublicDepotApplier.apply(snapshot: snapshot, context: context)
             note = TradeRepublicCopy.appliedExtract(count)

@@ -545,10 +545,10 @@ enum CheckStories {
             ("Ein leeres PDF liefert den Fehlerhinweis statt einer Buchung.", "An empty PDF returns the error message instead of a booking.", "LififyCoverageChecks.swift"),
         ),
         "Sicherung behält das Konto": make(
-            "Eine Sicherung schreibt das Konto ins JSON und wieder heraus. Die Dateinamen tragen das Bereichskürzel.",
-            "A backup writes the account into JSON and back out. The file names carry the area prefix.",
-            ("Ein Konto wird kodiert und wieder dekodiert.", "An account is encoded and decoded again.", "BackupService.swift"),
-            ("Name und Art bleiben, und die Exportnamen beginnen mit Lifify.", "Name and kind stay, and the export names start with Lifify.", "LififyCoverageChecks.swift"),
+            "Eine Sicherung schreibt das Konto ins JSON und wieder heraus. Der Finanzexport enthält auch Depotstücke. Die Dateinamen tragen das Bereichskürzel.",
+            "A backup writes the account into JSON and back out. The finance export also includes lots. The file names carry the area prefix.",
+            ("Ein Konto und ein Depotstück werden kodiert und wieder dekodiert.", "An account and a lot are encoded and decoded again.", "BackupService.swift"),
+            ("Name und Art bleiben, das Stück kommt als holdingLot zurück, und die Exportnamen beginnen mit Lifify.", "Name and kind stay, the lot comes back as holdingLot, and the export names start with Lifify.", "LififyCoverageChecks.swift"),
         ),
         "Löschen und Zurücksetzen sagen, was bleibt": make(
             "Löschen und Zurücksetzen erklären in Titel und Text, welche Daten bleiben.",
@@ -689,10 +689,10 @@ enum CheckStories {
             ("Die zweite ist doppelt. Eine Einnahme und eine Buchung nach sieben Stunden sind neu.", "The second one is a duplicate. An income, and a booking after seven hours, are new.", "BankNotice.swift"),
         ),
         "Ein Depotstand setzt Menge und Einstand und erfindet nichts": make(
-            "Eine gelesene Position setzt Menge und, wenn die Sitzung ihn nennt, den Einstand. Eine leere oder unlesbare Antwort erfindet nichts. Ein späterer Login ersetzt den bisherigen Trade-Republic-Stand. Ein Geschenk bleibt ein Geschenk zum Eventdatum mit Kaufkurs 0, eine IPO-Zeichnung wird als Depotkauf gebucht, Verkäufe aus der Historie werden gebucht, und eine XF-ISIN ist ein Kurs.",
-            "A position that was read sets the quantity and, when the session names it, the cost basis. An empty or unreadable reply invents nothing. A later sign-in replaces the previous Trade Republic state. A gift stays a gift on the event date at a purchase price of 0, an IPO subscription is booked as a portfolio buy, sales from the history are booked, and an XF identifier is a price.",
+            "Eine gelesene Position setzt Menge und, wenn die Sitzung ihn nennt, den Einstand. Eine leere oder unlesbare Antwort erfindet nichts. Ein späterer Login ersetzt den bisherigen Trade-Republic-Stand. Ein Geschenk bleibt ein Geschenk zum Eventdatum mit Kaufkurs 0, auch wenn das Ereignis den Namen nicht trägt. Eine IPO-Zeichnung wird als Depotkauf gebucht. Verkäufe aus der Historie werden gebucht, ein Rest ohne Verkaufszeile nicht. Eine XF-ISIN ist ein Kurs. Der Auszug ist die komplette Timeline.",
+            "A position that was read sets the quantity and, when the session names it, the cost basis. An empty or unreadable reply invents nothing. A later sign-in replaces the previous Trade Republic state. A gift stays a gift on the event date at a purchase price of 0, even when the event does not name the stock. An IPO subscription is booked as a portfolio buy. Sales from the history are booked, and a leftover without a sale row is not. An XF identifier is a price. The extract is the complete timeline.",
             ("Eine Position mit ISIN, Menge 2,5 und Einstand 80 wird gelesen. Eine ohne Einstand trifft eine vorhandene Position.", "A position with an ISIN, quantity 2.5, and cost 80 is read. One without a cost meets an existing position.", "TradeRepublicSession.swift"),
-            ("Die Messung ist 2.5, 8000, behalten. Die leere Liste und die unlesbare Antwort bleiben bei null neuen Positionen. Ein Kauf einer anderen ISIN macht aus einem Geschenk keinen Anfangsbestand.", "The reading is 2.5, 8000, kept. The empty list and the unreadable reply stay at zero new positions. A purchase of another ISIN does not turn a gift into an opening lot.", "TradeRepublicSync.swift"),
+            ("Die Messung ist 2.5, 8000, behalten. Die leere Liste und die unlesbare Antwort bleiben bei null neuen Positionen. Ein Kauf einer anderen ISIN macht aus einem Geschenk keinen Anfangsbestand. Ein namenloses Geschenk behält das Eventdatum. Ein Überhang ohne Verkaufszeile wird nicht als Verkauf von heute gebucht.", "The reading is 2.5, 8000, kept. The empty list and the unreadable reply stay at zero new positions. A purchase of another ISIN does not turn a gift into an opening lot. An unnamed gift keeps the event date. A leftover without a sale row is not booked as a sale dated today.", "TradeRepublicSync.swift"),
         ),
         "Eine tote Sitzung startet keine neue Anmeldung": make(
             "Eine abgelaufene Sitzung wird nicht still erneuert. Die Anmeldung bleibt manuell, und ein Beispielwert kommt nicht in die Meldung.",
