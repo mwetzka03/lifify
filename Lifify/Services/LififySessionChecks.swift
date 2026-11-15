@@ -12,6 +12,7 @@ enum LififySessionChecks {
             depotSetsQuantityAndCostAndInventsNothing(),
             deadSessionDoesNotStartAnotherLogin(),
             sparkasseAndTradeRepublicLandOnTheMatchingAccount(),
+            noticeTemplateBooksTheExample(),
             signInAndRefreshStayManual()
         ]
     }
@@ -737,6 +738,75 @@ enum LififySessionChecks {
         return result("Sparkasse und Trade Republic landen auf dem passenden Konto", .bankImport, .integration, passed, reading)
     }
 
+    private static func noticeTemplateBooksTheExample() -> LififyCheckResult {
+        let sparkasse = UUID()
+        let trade = UUID()
+        let accounts = [
+            NamedAccount(id: sparkasse, name: "Sparkasse", kind: .checking, isMain: true),
+            NamedAccount(id: trade, name: "Trade Republic", kind: .checking, isMain: false)
+        ]
+        let debit = NoticeTemplate(
+            accountID: sparkasse,
+            name: "Karte",
+            example: "Abbuchung 12,34 EUR REWE",
+            action: .expense
+        )
+        let salary = NoticeTemplate(
+            accountID: sparkasse,
+            name: "Gehalt",
+            example: "Gutschrift 1.000,00 EUR Gehalt",
+            action: .income
+        )
+        let wire = NoticeTemplate(
+            accountID: trade,
+            name: "Eingang",
+            example: "Überweisung erhalten 50,00 €",
+            action: .transferIn,
+            counterpartyAccountID: sparkasse
+        )
+        let now = Date(timeIntervalSince1970: 1_700_000_000)
+        let spent = BankNotice.plan(
+            text: "Abbuchung 9,99 EUR Steam",
+            bank: .sparkasse,
+            accounts: accounts,
+            existing: [],
+            now: now,
+            templates: [debit, salary]
+        )
+        let income = BankNotice.plan(
+            text: "Gutschrift 1.250,00 EUR Gehalt",
+            bank: .sparkasse,
+            accounts: accounts,
+            existing: [],
+            now: now,
+            templates: [debit, salary]
+        )
+        let transfer = BankNotice.plan(
+            text: "Überweisung erhalten\nDu hast 80,00 € von Alex erhalten",
+            bank: .tradeRepublic,
+            accounts: accounts,
+            existing: [],
+            now: now,
+            templates: [wire]
+        )
+        let passed = debit.matches("Abbuchung 9,99 EUR Steam")
+            && !debit.matches("Gutschrift 9,99 EUR Steam")
+            && NoticeTemplate.markers(in: debit.example).contains("abbuchung")
+            && bookedAmount(spent) == -999
+            && bookedKind(spent) == .expense
+            && bookedAmount(income) == 125_000
+            && bookedKind(income) == .income
+            && isTransferPlan(transfer)
+            && bookedAmount(transfer) == 8_000
+        return result(
+            "Kurzbefehl-Vorlage bucht die Mitteilung",
+            .bankImport,
+            .unit,
+            passed,
+            "Steam \(bookedAmount(spent) ?? 0), Gehalt \(bookedAmount(income) ?? 0), Umbuchung \(bookedAmount(transfer) ?? 0)"
+        )
+    }
+
     private static func signInAndRefreshStayManual() -> LififyCheckResult {
         let signIn = OnboardingSteps.tradeRepublicSignIn
         let passed = OnboardingSteps.count == 9
@@ -781,6 +851,17 @@ enum LififySessionChecks {
     private static func isTransferPlan(_ plan: BankNoticePlan) -> Bool {
         if case .bookTransfer = plan { return true }
         return false
+    }
+
+    private static func bookedKind(_ plan: BankNoticePlan) -> LedgerKind? {
+        switch plan {
+        case .book(_, _, _, let kind):
+            return kind
+        case .bookTransfer:
+            return .transfer
+        case .duplicate, .unreadable, .missingAccount:
+            return nil
+        }
     }
 
     private static func extractLeavesPreferencesEmpty() -> Bool {

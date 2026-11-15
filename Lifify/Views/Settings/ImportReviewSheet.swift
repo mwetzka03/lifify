@@ -81,6 +81,7 @@ struct ImportReviewSheet: View {
             .appGlassList()
             .navigationTitle(L("Import prüfen", "Review import"))
             .navigationBarTitleDisplayMode(.inline)
+            .interactiveDismissDisabled()
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(L("Abbrechen", "Cancel")) { dismiss() }

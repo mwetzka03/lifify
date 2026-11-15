@@ -559,6 +559,7 @@ private struct FinanceSettingsView: View {
     @AppStorage(TradeFeePreference.storageKey) private var defaultTradeFeeCents = TradeFeePreference.defaultCents
     @State private var feeText = ""
     @StateObject private var importModel = DataImportViewModel()
+    @State private var importingBank = false
     @State private var importingTradeRepublic = false
 
     var body: some View {
@@ -571,7 +572,15 @@ private struct FinanceSettingsView: View {
                 }
             }
             .appGlassRow()
-            FinanceImportSettings()
+            FinanceImportSettings(viewModel: importModel, importingBank: $importingBank)
+            Section {
+                NavigationLink {
+                    ShortcutsSettingsView()
+                } label: {
+                    Label(L("Kurzbefehle", "Shortcuts"), systemImage: "bolt.fill")
+                }
+            }
+            .appGlassRow()
             TradeRepublicSignInControls(
                 showsSkip: false,
                 onUploadStatement: { importingTradeRepublic = true }
@@ -614,11 +623,7 @@ private struct FinanceSettingsView: View {
         }
         .sheet(item: $importModel.review) { review in
             ImportReviewSheet(review: review) { updated in
-                do {
-                    try BankImportApplier.commitReview(updated, context: context)
-                } catch {
-                    importModel.message = error.localizedDescription
-                }
+                importModel.finishReview(updated, context: context)
             }
         }
         .alert(L("Lifify", "Lifify"), isPresented: Binding(

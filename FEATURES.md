@@ -160,8 +160,9 @@ Symbolauswahl enthält ein Hanfblatt und eine Zigarette.
     liegt im Schlüsselbund und nicht in der Sicherung. Die PIN wird nicht
     gespeichert. Der PDF-Import bleibt.
 21. **Kurzbefehle:** Eine Mitteilung der Sparkasse oder von Trade Republic kann
-    eine Buchung auf dem passenden Girokonto anlegen. Dieselbe Buchung im
-    Fenster von sechs Stunden zählt einmal.
+    eine Buchung auf dem passenden Girokonto anlegen. Unter Finanzen liegen
+    Vorlagen mit Beispieltext und Buchungsart. Dieselbe Buchung im Fenster von
+    sechs Stunden zählt einmal.
 
 ## Technische Leitplanken
 

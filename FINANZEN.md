@@ -606,7 +606,10 @@ Finanzansicht, in den Buchungen und in den Listen für Einnahmen und Ausgaben.
   an denen die Datei mehr Zeilen hat als das Konto, erscheint die Prüfung. Fehlende
   Zweit-Zahlungen stehen angeschaltet. Der angegebene Kontostand wird erst nach
   Übernehmen gesetzt. Zwei Buchungen am selben Tag mit demselben Betrag
-  bleiben beide, auch mit unterschiedlicher End-to-End-Referenz. Im aktuellen Zeitraum ist Gesamtvermögen der
+  bleiben beide, auch mit unterschiedlicher End-to-End-Referenz. Unter Finanzen,
+  Kurzbefehle, liegt pro Girokonto eine Vorlage: Beispielmitteilung und ob
+  Ausgabe, Einnahme oder Umbuchung gebucht wird. Der Apple-Kurzbefehl schickt
+  den Text, Lifify bucht nach der Vorlage. Im aktuellen Zeitraum ist Gesamtvermögen der
   Live-Cash. Sind in diesem Zeitraum keine Kosten mehr offen, ist der Endsaldo
   derselbe Stand, und der nächste Zeitraum startet damit. In einem vergangenen
   oder zukünftigen Zeitraum ist Gesamtvermögen der Endsaldo dieses Zeitraums.

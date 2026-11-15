@@ -639,6 +639,7 @@ enum BackupService {
         SavingsPlanStore.reset()
         ClosedPositionStore.reset()
         BankImportCursor.reset()
+        NoticeTemplateStore.reset()
     }
 
     private static func lotsJSON(_ lots: [HoldingLot]) -> String {

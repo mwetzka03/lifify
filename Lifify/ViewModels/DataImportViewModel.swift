@@ -9,6 +9,7 @@ final class DataImportViewModel: ObservableObject {
     @Published var review: ImportReview?
     @Published var pendingBank: BankImportDocument?
     @Published var currentBalanceText = ""
+    private var finishedMessage: String?
 
     func importBankFile(
         from url: URL,
@@ -64,8 +65,7 @@ final class DataImportViewModel: ObservableObject {
             }
             pendingBank = nil
             currentBalanceText = ""
-            message = importMessage(for: result)
-            review = result.review.isEmpty ? nil : result.review
+            present(result)
         } catch {
             message = error.localizedDescription
         }
@@ -101,10 +101,35 @@ final class DataImportViewModel: ObservableObject {
                 else { continue }
                 IncomeAssignmentStore.assign(entryID: entryID, to: forecastID)
             }
-            message = importMessage(for: result)
-            review = result.review.isEmpty ? nil : result.review
+            present(result)
         } catch {
             message = error.localizedDescription
+        }
+    }
+
+    func finishReview(_ updated: ImportReview, context: ModelContext) {
+        do {
+            try BankImportApplier.commitReview(updated, context: context)
+            message = finishedMessage
+        } catch {
+            message = error.localizedDescription
+        }
+        finishedMessage = nil
+    }
+
+    private func present(_ result: BankImportResult) {
+        if result.review.isEmpty {
+            finishedMessage = nil
+            message = importMessage(for: result)
+            review = nil
+            return
+        }
+        message = nil
+        finishedMessage = importMessage(for: result)
+        let pending = result.review
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(300))
+            self.review = pending
         }
     }
 

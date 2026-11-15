@@ -533,6 +533,11 @@ enum CheckGuides {
             "Die Messung ist 401 manual. Ein abgelaufener Stand verlangt eine neue Bestätigung. Es gibt keine Anmeldung mit einer gespeicherten PIN, und ein Beispielwert steht nicht in der Meldung.",
             "The reading is 401 manual. An expired session asks for a new confirmation. There is no sign-in with a stored PIN, and an example value is not in the message."
         ),
+        "Kurzbefehl-Vorlage bucht die Mitteilung": g(
+            "NoticeTemplate.matches(_:), NoticeTemplate.markers(in:), BankNotice.plan(text:bank:accounts:existing:now:templates:)",
+            "Die Messung ist Steam minus 999, Gehalt 125000, Umbuchung 8000. Die Abbuchungs-Vorlage erkennt Steam, nicht die Gutschrift. Die Überweisungs-Vorlage wird eine Umbuchung.",
+            "The reading is Steam minus 999, salary 125000, transfer 8000. The debit template recognizes Steam, not the credit. The transfer template becomes an own-account transfer."
+        ),
         "Sparkasse und Trade Republic landen auf dem passenden Konto": g(
             "BankNotice.plan(text:bank:accounts:existing:now:), BankNotice.records(_:), BankNoticeURL.decode(_:)",
             "Die Messung nennt Sparkasse mit -420, danach doppelt, und Trade Republic mit 5000. Das Depotkonto wird nicht benutzt. Die URL lifify://notice übergibt denselben Text. Ausgegeben ist eine Ausgabe, eine erhaltene Überweisung eine Umbuchung.",

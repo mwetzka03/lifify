@@ -708,6 +708,12 @@ enum CheckStories {
             ("Status 401 und der Fehlercode NUMBER_INVALID werden gelesen.", "Status 401 and the error code NUMBER_INVALID are read.", "TradeRepublicSession.swift"),
             ("Die Messung ist 401 manual. Die Meldung enthält den Beispielwert nicht.", "The reading is 401 manual. The message does not contain the example value.", "TradeRepublicSession.swift"),
         ),
+        "Kurzbefehl-Vorlage bucht die Mitteilung": make(
+            "Eine Vorlage merkt sich, wie die Bankmitteilung aussieht und ob sie Ausgabe, Einnahme oder Umbuchung ist. Der Apple-Kurzbefehl schickt den Text, Lifify bucht nach der Vorlage.",
+            "A template remembers what the bank notice looks like and whether it is an expense, income, or a transfer. The Apple Shortcut sends the text, and Lifify books it from the template.",
+            ("Eine Abbuchungs-Vorlage, eine Gutschrift-Vorlage und eine Überweisungs-Vorlage werden gegen neue Texte gelesen.", "A debit template, a credit template, and a transfer template are read against new texts.", "NoticeTemplate.swift"),
+            ("Steam ist Ausgabe minus 999, Gehalt Einnahme 125000, die Überweisung eine Umbuchung über 8000. Eine Gutschrift passt nicht auf die Abbuchungs-Vorlage.", "Steam is an expense of minus 999, salary is income of 125000, and the transfer is an own-account move of 8000. A credit does not match the debit template.", "LififySessionChecks.swift"),
+        ),
         "Sparkasse und Trade Republic landen auf dem passenden Konto": make(
             "Eine Sparkassen-Mitteilung bucht auf dem Girokonto Sparkasse, eine Trade-Republic-Mitteilung auf dem Konto Trade Republic. Eine erhaltene Überweisung ist eine Umbuchung vom Hauptkonto, ausgegeben ist eine Ausgabe. Dieselbe Buchung im Fenster wird nicht doppelt angelegt.",
             "A Sparkasse notice books on the Sparkasse checking account, and a Trade Republic notice on the Trade Republic account. A transfer received is an own-account transfer from the main checking account, and spent is an expense. The same booking inside the window is not created twice.",

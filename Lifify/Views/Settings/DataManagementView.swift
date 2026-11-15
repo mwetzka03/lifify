@@ -236,14 +236,13 @@ struct DataManagementView: View {
 }
 
 struct FinanceImportSettings: View {
+    @ObservedObject var viewModel: DataImportViewModel
+    @Binding var importingBank: Bool
     @Environment(\.modelContext) private var context
     @Query(sort: \Account.name) private var accounts: [Account]
     @Query private var entries: [LedgerEntry]
-    @StateObject private var viewModel = DataImportViewModel()
-    @State private var importingBank = false
 
     var body: some View {
-        Group {
         Section {
             Picker(L("Zielkonto", "Destination account"), selection: $viewModel.destination) {
                 Text(L("Auswählen", "Select")).tag(Optional<BankImportDestination>.none)
@@ -293,24 +292,6 @@ struct FinanceImportSettings: View {
             } else if case let .failure(error) = result {
                 viewModel.message = error.localizedDescription
             }
-        }
-        .sheet(item: $viewModel.review) { review in
-            ImportReviewSheet(review: review) { updated in
-                do {
-                    try BankImportApplier.commitReview(updated, context: context)
-                } catch {
-                    viewModel.message = error.localizedDescription
-                }
-            }
-        }
-        .alert(L("Lifify", "Lifify"), isPresented: Binding(
-            get: { viewModel.message != nil && viewModel.review == nil },
-            set: { if !$0 { viewModel.message = nil } }
-        )) {
-            Button("OK") { viewModel.message = nil }
-        } message: {
-            Text(viewModel.message ?? "")
-        }
         }
     }
 }
