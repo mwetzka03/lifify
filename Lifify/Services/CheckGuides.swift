@@ -318,6 +318,11 @@ enum CheckGuides {
             "Die Messung listet die Symbolnamen. symbol.hemp-leaf und symbol.cigarette zeigen auf die Vorlagen hemp-leaf und cigarette. Kein Name kommt doppelt vor.",
             "The reading lists the symbol names. symbol.hemp-leaf and symbol.cigarette point at the hemp-leaf and cigarette templates. No name appears twice."
         ),
+        "Ladebildschirm deckt alles und der Start bleibt leicht": g(
+            "AppLoad.message, AppLoad.coversFullScreen, AppLaunch.lazyTabs, AppLaunch.defersBackgroundWork, AppLaunch.paintsCoverBeforeTab, AppLaunch.resumesFromBackgroundOnly, AppPopup.scrimIsGlossy",
+            "Die Messung ist Geladen, 0. Der Ladebildschirm deckt den ganzen Schirm. Home ist Tab 0. Pop-ups stehen auf Glas, die Karte selbst nicht.",
+            "The reading is Loaded, 0. The load cover fills the whole screen. Home is tab 0. Popups sit on glass, the card itself does not."
+        ),
         "Gesundheit, Einstellungen und Glasflächen zeigen dieselben Titel": g(
             "HealthScreen.sectionTitles(), SettingsDirectory.rows(), AppChrome.glassScreens, AppChrome.version",
             "Vor dem Schrägstrich stehen die Titel, die Gesundheit zeigt. Dahinter steht die Version 0.5.0. Die Einstellungen beginnen mit Nutzereinstellungen. Ohne Schlüssel bleibt der Satz, dass die Erkennung nicht verbunden ist.",
@@ -392,6 +397,11 @@ enum CheckGuides {
             "BankImportService.parseCSV(_:), BankImportService.parseCAMT(data:), BankImportService.purposeMark(notes:), BankImportService.isPendingBankRow(_:)",
             "CSV 1 ist eine Zeile über minus 1250 Cent mit dem Titel Bäcker. CAMT minus 1999 Cent ist die Zahlung Cafe. Dieselbe CSV-Zeile bekommt denselben Fingerabdruck. Zwei PayPal-Zeilen am selben Tag mit derselben Summe und unterschiedlicher Referenz bleiben zwei Buchungen. Der alte Fingerabdruck ohne Referenz ist bei beiden gleich, der neue nicht. Die zweite Referenz steht nicht in den Notizen der ersten. Eine vorgemerkte Zeile fällt raus. Zwei Buchungen am selben Tag mit demselben Betrag bleiben beide, auch nach dem Verknüpfen eigener Konten.",
             "CSV 1 is one row of minus 1250 cents titled Baker. CAMT minus 1999 cents is the Cafe payment. The same CSV row gets the same fingerprint. Two PayPal rows on the same day with the same amount and a different reference stay two bookings. The old fingerprint without a reference is the same for both, the new one is not. The second reference is not in the first row’s notes. A pending row is dropped. Two bookings on the same day with the same amount both stay, including after own-account linking."
+        ),
+        "Beispiel-CAMT behält Zweitbuchung und Überlappung": g(
+            "BankImportService.parseCAMT(data:), BankImportDuplicates.plan(rows:entries:accountID:calendar:), CamtExamples.first, CamtExamples.overlapping",
+            "Die Messung ist CAMT 6, Zwillinge 2, neu 2. Die Dateien sind erfunden und lesen keine Nutzerdaten. Die erste Datei hat sechs gebuchte Zeilen, darunter zwei Musterkaffee-Zahlungen über 7,40 am selben Tag. Die überlappende zweite Datei lässt Beispielbäckerei und Demoshop aus und übernimmt Beispielmarkt und Musterlohn.",
+            "The reading is CAMT 6, twins 2, new 2. The files are invented and do not read user data. The first file has six booked rows, including two Musterkaffee payments of 7.40 on the same day. The overlapping second file drops Beispielbaeckerei and Demoshop and takes Beispielmarkt and Musterlohn."
         ),
         "Import fragt nach fehlenden Tagesbuchungen": g(
             "BankImportDuplicates.action(day:lastExistingDay:existingCount:importCount:identical:matchedExisting:), BankImportDuplicates.plan(rows:entries:accountID:calendar:)",
@@ -534,9 +544,14 @@ enum CheckGuides {
             "The reading is 401 manual. An expired session asks for a new confirmation. There is no sign-in with a stored PIN, and an example value is not in the message."
         ),
         "Kurzbefehl-Vorlage bucht die Mitteilung": g(
-            "NoticeTemplate.matches(_:), NoticeTemplate.markers(in:), BankNotice.plan(text:bank:accounts:existing:now:templates:)",
-            "Die Messung ist Steam minus 999, Gehalt 125000, Umbuchung 8000. Die Abbuchungs-Vorlage erkennt Steam, nicht die Gutschrift. Die Überweisungs-Vorlage wird eine Umbuchung.",
-            "The reading is Steam minus 999, salary 125000, transfer 8000. The debit template recognizes Steam, not the credit. The transfer template becomes an own-account transfer."
+            "NoticeTemplate.matches(_:), NoticeTemplate.displayPattern(from:), NoticePattern.from(example:), BankNotice.plan(text:bank:accounts:existing:now:templates:)",
+            "Die Messung ist Steam minus 999, Gehalt 125000, Umbuchung 8000. Die Abbuchungs-Vorlage erkennt Steam, nicht die Gutschrift. Die Überweisungs-Vorlage wird eine Umbuchung. Die angezeigte Vorlage ersetzt Betrag und Name.",
+            "The reading is Steam minus 999, salary 125000, transfer 8000. The debit template recognizes Steam, not the credit. The transfer template becomes an own-account transfer. The displayed template replaces amount and name."
+        ),
+        "Trade-Republic-Vorlage bucht Depot und Ertrag": g(
+            "BankNotice.plan(text:bank:accounts:existing:now:templates:), NoticeTemplate.matches(_:), BookingClassification.preparedNotes(_:for:), BookingClassification.preparedTitle(_:for:)",
+            "Die Messung ist Dividende 310, Zinsen 40, Kauf 1200, Verkauf 9900, Depot 1000. Dividende trägt Typ Ertrag, Zinsen Typ Zinsen. Der Kauf geht vom Trade-Republic-Girokonto ins Depot, der Verkauf zurück. 10000 Depot minus 9900 Verkauf bleibt 1000, das Giro hat 9900.",
+            "The reading is dividend 310, interest 40, buy 1200, sale 9900, depot 1000. The dividend carries type Ertrag, interest type Zinsen. The buy leaves the Trade Republic checking account for the depot, and the sale returns. 10000 depot minus a 9900 sale leaves 1000, and checking has 9900."
         ),
         "Sparkasse und Trade Republic landen auf dem passenden Konto": g(
             "BankNotice.plan(text:bank:accounts:existing:now:), BankNotice.records(_:), BankNoticeURL.decode(_:)",

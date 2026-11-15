@@ -125,7 +125,10 @@ struct HomeView: View {
             .padding()
         }
         .appGlassCanvas()
-        .onAppear {
+        .task {
+            await Task.yield()
+            try? await Task.sleep(for: .milliseconds(48))
+            guard !Task.isCancelled else { return }
             ChallengeService.commitFreezes(for: challenges, completions: completions, events: calendarEvents, on: AppClock.now)
             AbstinenceService.settle(context: context)
         }

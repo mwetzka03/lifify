@@ -20,7 +20,6 @@ final class WorkoutStore: ObservableObject {
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
-        load()
         replacementObserver = NotificationCenter.default.addObserver(
             forName: Self.replacedNotification,
             object: nil,
@@ -29,6 +28,10 @@ final class WorkoutStore: ObservableObject {
             Task { @MainActor in
                 self?.load()
             }
+        }
+        Task { @MainActor [weak self] in
+            await Task.yield()
+            self?.load()
         }
     }
 

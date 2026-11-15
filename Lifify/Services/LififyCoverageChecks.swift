@@ -17,6 +17,7 @@ enum LififyCoverageChecks {
             importFilesKeepTheirRows(),
             fingerprintsAndImportErrors(),
             importAsksAboutMissingDayRows(),
+            overlappingCamtKeepsTwinsAndNewRows(),
             backupRoundTripKeepsTheRecord(),
             deleteAndResetSayWhatRemains(),
             shopBalanceAndRedemptionLabels(),
@@ -505,6 +506,70 @@ enum LififyCoverageChecks {
             .unit,
             passed,
             "extras \(extras.count), parsed \(parsed.count)"
+        )
+    }
+
+    private static func overlappingCamtKeepsTwinsAndNewRows() -> LififyCheckResult {
+        let first = (try? BankImportService.parseCAMT(data: Data(CamtExamples.first.utf8))) ?? []
+        let second = (try? BankImportService.parseCAMT(data: Data(CamtExamples.overlapping.utf8))) ?? []
+        let twins = first.filter { $0.amountCents == -740 }
+        let tens = first.filter { $0.amountCents == -2_100 }
+        let bakery = first.first { $0.amountCents == -480 }
+        let shop = first.first { $0.amountCents == -220 }
+        let market = second.first { $0.amountCents == -1_370 }
+        let wage = second.first { $0.amountCents == 180_000 }
+        let accountID = UUID()
+        func entry(_ row: ImportedTransaction) -> LedgerEntry {
+            LedgerEntry(
+                date: row.date,
+                title: row.title,
+                notes: row.notes,
+                amountCents: row.amountCents,
+                kind: row.amountCents >= 0 ? .income : .expense,
+                accountID: accountID,
+                importFingerprint: row.fingerprint
+            )
+        }
+        let fromFirst = first.map(entry)
+        let overlapPlan = BankImportDuplicates.plan(rows: second, entries: fromFirst, accountID: accountID)
+        let againPlan = BankImportDuplicates.plan(rows: first, entries: fromFirst, accountID: accountID)
+        let leftoverTwin: Bool = {
+            guard twins.count == 2 else { return false }
+            let plan = BankImportDuplicates.plan(rows: first, entries: [entry(twins[0])], accountID: accountID)
+            return !plan.shouldSkip(twins[1].fingerprint)
+        }()
+        let newRows = second.filter { !overlapPlan.shouldSkip($0.fingerprint) }
+        let purpose0 = twins.first.map { BankImportService.purposeMark(notes: $0.notes) } ?? ""
+        let purpose1 = twins.dropFirst().first.map { BankImportService.purposeMark(notes: $0.notes) } ?? ""
+        let passed = !CamtExamples.usesUserData
+            && !CamtExamples.first.localizedCaseInsensitiveContains("paypal")
+            && !CamtExamples.overlapping.localizedCaseInsensitiveContains("paypal")
+            && !CamtExamples.first.contains("38.80")
+            && first.count == 6
+            && second.count == 4
+            && twins.count == 2
+            && twins[0].fingerprint != twins[1].fingerprint
+            && !purpose0.isEmpty
+            && purpose0 != purpose1
+            && !twins[0].notes.contains(purpose1)
+            && tens.count == 2
+            && tens[0].fingerprint != tens[1].fingerprint
+            && first.allSatisfy { $0.amountCents != -660 }
+            && bakery.map { overlapPlan.shouldSkip($0.fingerprint) } == true
+            && shop.map { overlapPlan.shouldSkip($0.fingerprint) } == true
+            && market.map { !overlapPlan.shouldSkip($0.fingerprint) && overlapPlan.reviewChoice(for: $0.fingerprint) == nil } == true
+            && wage.map { !overlapPlan.shouldSkip($0.fingerprint) && overlapPlan.reviewChoice(for: $0.fingerprint) == nil } == true
+            && overlapPlan.skip.count == 2
+            && newRows.count == 2
+            && first.allSatisfy { againPlan.shouldSkip($0.fingerprint) }
+            && leftoverTwin
+            && twins.allSatisfy { $0.title.localizedCaseInsensitiveContains("Musterkaffee") }
+        return check(
+            "Beispiel-CAMT behält Zweitbuchung und Überlappung",
+            .bankImport,
+            .integration,
+            passed,
+            "CAMT \(first.count), Zwillinge \(twins.count), neu \(newRows.count)"
         )
     }
 

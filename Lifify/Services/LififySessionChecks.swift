@@ -13,6 +13,7 @@ enum LififySessionChecks {
             deadSessionDoesNotStartAnotherLogin(),
             sparkasseAndTradeRepublicLandOnTheMatchingAccount(),
             noticeTemplateBooksTheExample(),
+            tradeRepublicNoticeBooksDepotAndYield(),
             signInAndRefreshStayManual()
         ]
     }
@@ -789,6 +790,8 @@ enum LififySessionChecks {
             now: now,
             templates: [wire]
         )
+        let spentShape = NoticeTemplate.displayPattern(from: "Du hast 10,00 € bei Bäcker ausgegeben")
+        let debitShape = NoticeTemplate.displayPattern(from: debit.example)
         let passed = debit.matches("Abbuchung 9,99 EUR Steam")
             && !debit.matches("Gutschrift 9,99 EUR Steam")
             && NoticeTemplate.markers(in: debit.example).contains("abbuchung")
@@ -798,12 +801,148 @@ enum LififySessionChecks {
             && bookedKind(income) == .income
             && isTransferPlan(transfer)
             && bookedAmount(transfer) == 8_000
+            && debit.pattern.isUsable
+            && (spentShape == "Du hast [Betrag] bei [Name] ausgegeben"
+                || spentShape == "Du hast [Amount] bei [Name] ausgegeben")
+            && (debitShape == "Abbuchung [Betrag] [Name]" || debitShape == "Abbuchung [Amount] [Name]")
         return result(
             "Kurzbefehl-Vorlage bucht die Mitteilung",
             .bankImport,
             .unit,
             passed,
             "Steam \(bookedAmount(spent) ?? 0), Gehalt \(bookedAmount(income) ?? 0), Umbuchung \(bookedAmount(transfer) ?? 0)"
+        )
+    }
+
+    private static func tradeRepublicNoticeBooksDepotAndYield() -> LififyCheckResult {
+        let sparkasse = UUID()
+        let trade = UUID()
+        let depot = UUID()
+        let accounts = [
+            NamedAccount(id: sparkasse, name: "Sparkasse", kind: .checking, isMain: true),
+            NamedAccount(id: trade, name: "Trade Republic", kind: .checking, isMain: false),
+            NamedAccount(id: depot, name: "Depot", kind: .portfolio, isMain: false)
+        ]
+        let dividend = NoticeTemplate(
+            accountID: trade,
+            name: "Dividende",
+            example: "Dir wurden 2,50 € Dividende für NVIDIA gutgeschrieben",
+            action: .dividend
+        )
+        let interest = NoticeTemplate(
+            accountID: trade,
+            name: "Zinsen",
+            example: "Zinsen 1,20 € gutgeschrieben",
+            action: .interest
+        )
+        let buy = NoticeTemplate(
+            accountID: trade,
+            name: "Kauf",
+            example: "Dein Kauf über 50,00 € wurde ausgeführt",
+            action: .portfolioBuy,
+            counterpartyAccountID: depot
+        )
+        let sale = NoticeTemplate(
+            accountID: trade,
+            name: "Verkauf",
+            example: "Dein Verkauf über 80,00 € wurde ausgeführt",
+            action: .portfolioSale,
+            counterpartyAccountID: depot
+        )
+        let now = Date(timeIntervalSince1970: 1_700_000_000)
+        let yield = BankNotice.plan(
+            text: "Dir wurden 3,10 € Dividende für Apple gutgeschrieben",
+            bank: .tradeRepublic,
+            accounts: accounts,
+            existing: [],
+            now: now,
+            templates: [dividend, interest, buy, sale]
+        )
+        let zinsen = BankNotice.plan(
+            text: "Zinsen 0,40 € gutgeschrieben",
+            bank: .tradeRepublic,
+            accounts: accounts,
+            existing: [],
+            now: now,
+            templates: [dividend, interest, buy, sale]
+        )
+        let purchase = BankNotice.plan(
+            text: "Dein Kauf über 12,00 € wurde ausgeführt",
+            bank: .tradeRepublic,
+            accounts: accounts,
+            existing: [],
+            now: now,
+            templates: [dividend, interest, buy, sale]
+        )
+        let sold = BankNotice.plan(
+            text: "Dein Verkauf über 99,00 € wurde ausgeführt",
+            bank: .tradeRepublic,
+            accounts: accounts,
+            existing: [],
+            now: now,
+            templates: [dividend, interest, buy, sale]
+        )
+        let yieldNotes = bookedNotes(yield)
+        let interestNotes = bookedNotes(zinsen)
+        let saleEntry = LedgerEntry(
+            title: bookedTitle(sold) ?? "",
+            notes: bookedNotes(sold) ?? "",
+            amountCents: bookedAmount(sold) ?? 0,
+            kind: .transfer,
+            fromAccountID: bookedFrom(sold),
+            toAccountID: bookedTo(sold)
+        )
+        let buyEntry = LedgerEntry(
+            title: bookedTitle(purchase) ?? "",
+            notes: bookedNotes(purchase) ?? "",
+            amountCents: bookedAmount(purchase) ?? 0,
+            kind: .transfer,
+            fromAccountID: bookedFrom(purchase),
+            toAccountID: bookedTo(purchase)
+        )
+        let cashAccount = Account(id: trade, name: "Trade Republic", kind: .checking)
+        let depotAccount = Account(id: depot, name: "Depot", kind: .portfolio)
+        let holding = PortfolioHolding(
+            accountID: depot,
+            name: "Aktie",
+            symbol: "ABC",
+            quantity: 10,
+            purchasePriceCents: 100,
+            currentPriceCents: 1_000
+        )
+        let afterSaleDepot = FinanceService.balance(for: depotAccount, entries: [saleEntry], holdings: [holding])
+        let afterSaleCash = FinanceService.balance(for: cashAccount, entries: [saleEntry], holdings: [])
+        let afterBuyDepot = FinanceService.balance(for: depotAccount, entries: [buyEntry], holdings: [holding])
+        let passed = bookedAmount(yield) == 310
+            && bookedKind(yield) == .income
+            && bookedAccount(yield) == trade
+            && (yieldNotes?.contains("Typ: Ertrag") == true)
+            && bookedAmount(zinsen) == 40
+            && bookedKind(zinsen) == .income
+            && (interestNotes?.contains("Typ: Zinsen") == true)
+            && isTransferPlan(purchase)
+            && bookedAmount(purchase) == 1_200
+            && bookedFrom(purchase) == trade
+            && bookedTo(purchase) == depot
+            && bookedTitle(purchase)?.hasPrefix("Kauf:") == true
+            && isTransferPlan(sold)
+            && bookedAmount(sold) == 9_900
+            && bookedFrom(sold) == depot
+            && bookedTo(sold) == trade
+            && bookedTitle(sold)?.hasPrefix("Verkauf:") == true
+            && (bookedNotes(sold)?.contains("Typ: Depotmitteilung") == true)
+            && (bookedNotes(purchase)?.contains("Typ: Depotmitteilung") == true)
+            && afterSaleDepot == 1_000
+            && afterSaleCash == 9_900
+            && afterBuyDepot == 11_200
+            && dividend.matches("Dir wurden 3,10 € Dividende für Apple gutgeschrieben")
+            && !dividend.matches("Zinsen 0,40 € gutgeschrieben")
+        return result(
+            "Trade-Republic-Vorlage bucht Depot und Ertrag",
+            .bankImport,
+            .integration,
+            passed,
+            "Dividende \(bookedAmount(yield) ?? 0), Zinsen \(bookedAmount(zinsen) ?? 0), Kauf \(bookedAmount(purchase) ?? 0), Verkauf \(bookedAmount(sold) ?? 0), Depot \(afterSaleDepot)"
         )
     }
 
@@ -830,7 +969,7 @@ enum LififySessionChecks {
 
     private static func bookedAmount(_ plan: BankNoticePlan) -> Int? {
         switch plan {
-        case .book(_, _, let amount, _), .bookTransfer(_, _, _, let amount):
+        case .book(_, _, let amount, _, _), .bookTransfer(_, _, _, let amount, _):
             return amount
         case .duplicate, .unreadable, .missingAccount:
             return nil
@@ -839,10 +978,38 @@ enum LififySessionChecks {
 
     private static func bookedAccount(_ plan: BankNoticePlan) -> UUID? {
         switch plan {
-        case .book(let accountID, _, _, _):
+        case .book(let accountID, _, _, _, _):
             return accountID
-        case .bookTransfer(_, let toAccountID, _, _):
+        case .bookTransfer(_, let toAccountID, _, _, _):
             return toAccountID
+        case .duplicate, .unreadable, .missingAccount:
+            return nil
+        }
+    }
+
+    private static func bookedFrom(_ plan: BankNoticePlan) -> UUID? {
+        if case .bookTransfer(let fromAccountID, _, _, _, _) = plan { return fromAccountID }
+        return nil
+    }
+
+    private static func bookedTo(_ plan: BankNoticePlan) -> UUID? {
+        if case .bookTransfer(_, let toAccountID, _, _, _) = plan { return toAccountID }
+        return nil
+    }
+
+    private static func bookedTitle(_ plan: BankNoticePlan) -> String? {
+        switch plan {
+        case .book(_, let title, _, _, _), .bookTransfer(_, _, let title, _, _):
+            return title
+        case .duplicate, .unreadable, .missingAccount:
+            return nil
+        }
+    }
+
+    private static func bookedNotes(_ plan: BankNoticePlan) -> String? {
+        switch plan {
+        case .book(_, _, _, _, let notes), .bookTransfer(_, _, _, _, let notes):
+            return notes
         case .duplicate, .unreadable, .missingAccount:
             return nil
         }
@@ -855,7 +1022,7 @@ enum LififySessionChecks {
 
     private static func bookedKind(_ plan: BankNoticePlan) -> LedgerKind? {
         switch plan {
-        case .book(_, _, _, let kind):
+        case .book(_, _, _, let kind, _):
             return kind
         case .bookTransfer:
             return .transfer

@@ -10,6 +10,7 @@ enum LififyFeatureChecks {
             manualPickerMatchesTheAmountField(),
             symbolChoicesIncludeLeafAndCigarette(),
             glassScreensMatchTheVisiblePages(),
+            loadingCoverFillsTheScreenAndLaunchStaysLight(),
             lightAndDarkPaintsDiffer(),
             fourPalettesKeepLightAndDark(),
             testCategoriesStartCollapsed(),
@@ -119,6 +120,27 @@ enum LififyFeatureChecks {
             detail: passed ? nil : "\(health.joined(separator: ", ")) / \(AppChrome.version)",
             reading: "\(health.joined(separator: ", ")) / \(AppChrome.version)",
             kind: .integration,
+            topic: .screen
+        )
+    }
+
+    private static func loadingCoverFillsTheScreenAndLaunchStaysLight() -> LififyCheckResult {
+        let message = AppLoad.message
+        let passed = AppLoad.coversFullScreen
+            && (message == "Geladen" || message == "Loaded")
+            && AppLaunch.lazyTabs
+            && AppLaunch.defersBackgroundWork
+            && AppLaunch.paintsCoverBeforeTab
+            && AppLaunch.resumesFromBackgroundOnly
+            && AppLaunch.homeTag == 0
+            && AppPopup.scrimIsGlossy
+            && !AppPopup.cardIsGlossy
+        return LififyCheckResult(
+            name: "Ladebildschirm deckt alles und der Start bleibt leicht",
+            passed: passed,
+            detail: passed ? nil : "\(message), \(AppLaunch.homeTag)",
+            reading: "\(message), \(AppLaunch.homeTag)",
+            kind: .unit,
             topic: .screen
         )
     }

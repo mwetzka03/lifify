@@ -10,11 +10,14 @@ struct AppEntryView: View {
     @AppStorage("appLanguage") private var language = "de"
     @State private var didCheckExistingInstallation = false
 
+    private var showsRoot: Bool {
+        if hasCompletedOnboarding { return true }
+        return !onboardingInProgress && accounts.contains(where: \.isMain)
+    }
+
     var body: some View {
         Group {
-            if !didCheckExistingInstallation {
-                ProgressView()
-            } else if hasCompletedOnboarding {
+            if showsRoot {
                 RootView()
             } else {
                 OnboardingView()
@@ -33,9 +36,11 @@ struct AppEntryView: View {
                     hasCompletedOnboarding = true
                 }
             }
+            didCheckExistingInstallation = true
+            await Task.yield()
+            try? await Task.sleep(for: .milliseconds(400))
             PortfolioConsolidation.consolidate(context: modelContext)
             TradeRepublicSample.purgeLegacyPreferences()
-            didCheckExistingInstallation = true
         }
         .environment(\.locale, AppDate.locale)
         .id(language)

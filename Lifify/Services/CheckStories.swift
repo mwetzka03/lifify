@@ -448,6 +448,12 @@ enum CheckStories {
             ("Der Katalog wird gelesen und auf doppelte Namen geprüft.", "The catalog is read and checked for duplicate names.", "SymbolPicker.swift"),
             ("symbol.hemp-leaf und symbol.cigarette zeigen auf die Vorlagen hemp-leaf und cigarette.", "symbol.hemp-leaf and symbol.cigarette point at the hemp-leaf and cigarette templates.", "SymbolPicker.swift"),
         ),
+        "Ladebildschirm deckt alles und der Start bleibt leicht": make(
+            "Der Ladezustand legt eine glänzende Fläche über den ganzen Bildschirm und schreibt Geladen. Ein Pop-up sitzt auf dieser Fläche und bleibt selbst undurchsichtig. Beim Start wird zuerst nur Home gebaut, die übrige Arbeit folgt danach. Ein Tab zeigt erst die Fläche, dann den Inhalt. EventKit läuft nicht schon beim kurzen Inaktiv.",
+            "The load state lays a glossy wash over the whole screen and writes Loaded. A popup sits on that wash and stays opaque. At launch only Home is built first, and the rest of the work follows after. A tab shows the wash first, then the content. EventKit does not run on a short inactive moment.",
+            ("AppLoad, AppLaunch und AppPopup werden gelesen.", "AppLoad, AppLaunch, and AppPopup are read.", "AppChrome.swift"),
+            ("Die Messung ist Geladen, 0. Der Ladebildschirm deckt alles, die Tabs sind träge, die Hintergrundarbeit wartet, das Pop-up-Glas liegt nur auf dem Hintergrund.", "The reading is Loaded, 0. The load cover fills the screen, the tabs are lazy, background work waits, and popup glass sits only on the backdrop.", "AppSurface.swift"),
+        ),
         "Gesundheit, Einstellungen und Glasflächen zeigen dieselben Titel": make(
             "Gesundheit, Einstellungen und die bemalten Flächen zeigen die Titel, die auf dem Bildschirm stehen.",
             "Health, Settings, and the painted screens show the titles that appear on screen.",
@@ -537,6 +543,12 @@ enum CheckStories {
             "CSV and CAMT become bookings with an amount and text. Two payments to the same payee on the same day with a different reference stay two bookings, even when the old fingerprint is the same. Pending rows are not imported. Two bookings on the same day with the same amount both stay, including after own-account linking.",
             ("Eine CSV-Zeile und eine CAMT-Zahlung werden gelesen.", "One CSV row and one CAMT payment are read.", "BankImportService.swift"),
             ("Anzahl und Betrag entsprechen der Datei. Zwei PayPal-Zeilen bleiben zwei, Dietz und Snack Mall am selben Tag mit 10 Euro bleiben zwei, ihre alten Fingerabdrücke sind gleich, die neuen nicht, und eine vorgemerkte fällt raus.", "The count and the amount match the file. Two PayPal rows stay two, Dietz and Snack Mall on the same day at 10 euros stay two, their old fingerprints match, the new ones do not, and a pending row is dropped.", "LififyCoverageChecks.swift"),
+        ),
+        "Beispiel-CAMT behält Zweitbuchung und Überlappung": make(
+            "Zwei erfundene Beispiel-CAMT-Auszüge werden gelesen, nicht die Konten der App. Zwei Zahlungen mit demselben Betrag am selben Tag und unterschiedlicher End-to-End-Referenz bleiben zwei Buchungen. Ein späterer überlappender Auszug übernimmt nur die neuen Zeilen, nicht noch einmal den ganzen ersten Auszug. Eine vorgemerkte Zeile fällt raus.",
+            "Two invented sample CAMT statements are read, not the app’s accounts. Two payments with the same amount on the same day and a different End-to-End reference stay two bookings. A later overlapping statement takes only the new rows, not the whole first statement again. A pending row is dropped.",
+            ("Die erste erfundene CAMT.053-Datei und die überlappende zweite Datei werden gelesen. Nutzerdaten werden nicht gelesen.", "The first invented CAMT.053 file and the overlapping second file are read. User data is not read.", "CamtExamples.swift"),
+            ("CAMT 6, Zwillinge 2, neu 2. Die beiden Musterkaffee-Zeilen bleiben zwei. Beispielbäckerei und Demoshop aus dem ersten Auszug fallen beim zweiten raus. Beispielmarkt und Musterlohn kommen neu.", "CAMT 6, twins 2, new 2. The two Musterkaffee rows stay two. Beispielbaeckerei and Demoshop from the first statement drop out of the second. Beispielmarkt and Musterlohn come in new.", "LififyCoverageChecks.swift"),
         ),
         "Import fragt nach fehlenden Tagesbuchungen": make(
             "Ein späterer Import überspringt ältere Tage, deren Anzahl schon stimmt. Fehlt an einem Tag eine zweite Zahlung, oder ist es der letzte Buchungstag, erscheint die Prüfung. Der Kontostand wird erst nach Übernehmen gesetzt.",
@@ -709,10 +721,16 @@ enum CheckStories {
             ("Die Messung ist 401 manual. Die Meldung enthält den Beispielwert nicht.", "The reading is 401 manual. The message does not contain the example value.", "TradeRepublicSession.swift"),
         ),
         "Kurzbefehl-Vorlage bucht die Mitteilung": make(
-            "Eine Vorlage merkt sich, wie die Bankmitteilung aussieht und ob sie Ausgabe, Einnahme oder Umbuchung ist. Der Apple-Kurzbefehl schickt den Text, Lifify bucht nach der Vorlage.",
-            "A template remembers what the bank notice looks like and whether it is an expense, income, or a transfer. The Apple Shortcut sends the text, and Lifify books it from the template.",
-            ("Eine Abbuchungs-Vorlage, eine Gutschrift-Vorlage und eine Überweisungs-Vorlage werden gegen neue Texte gelesen.", "A debit template, a credit template, and a transfer template are read against new texts.", "NoticeTemplate.swift"),
-            ("Steam ist Ausgabe minus 999, Gehalt Einnahme 125000, die Überweisung eine Umbuchung über 8000. Eine Gutschrift passt nicht auf die Abbuchungs-Vorlage.", "Steam is an expense of minus 999, salary is income of 125000, and the transfer is an own-account move of 8000. A credit does not match the debit template.", "LififySessionChecks.swift"),
+            "Eine 1:1-Beispielmitteilung wird zur Vorlage: Betrag und Name werden Platzhalter. Die Vorlage erkennt spätere Mitteilungen, und die gewählte Buchung wird ausgeführt.",
+            "A 1:1 example notice becomes the template: amount and name become placeholders. The template recognizes later notices, and the chosen booking is run.",
+            ("Eine Abbuchungs-Vorlage, eine Gutschrift-Vorlage und eine Überweisungs-Vorlage werden gegen neue Texte gelesen. Aus der Beispielmitteilung entsteht die Vorlage mit Betrag und Name.", "A debit template, a credit template, and a transfer template are read against new texts. The example notice becomes the template with amount and name.", "NoticeTemplate.swift"),
+            ("Steam ist Ausgabe minus 999, Gehalt Einnahme 125000, die Überweisung eine Umbuchung über 8000. Eine Gutschrift passt nicht auf die Abbuchungs-Vorlage. Die Vorlage zeigt Betrag und Name.", "Steam is an expense of minus 999, salary is income of 125000, and the transfer is an own-account move of 8000. A credit does not match the debit template. The template shows amount and name.", "LififySessionChecks.swift"),
+        ),
+        "Trade-Republic-Vorlage bucht Depot und Ertrag": make(
+            "Eine Trade-Republic-Vorlage kann Depotkauf, Depotverkauf, Dividende und Zinsen buchen. Der Kauf geht vom Girokonto ins Depot, der Verkauf kommt aufs Giro und fällt im Depotwert. Dividende und Zinsen sind Ertrag und Zinsen. Die Stückzahl kommt aus der Anmeldung oder von Hand, nicht aus der Mitteilung.",
+            "A Trade Republic template can book a portfolio buy, a portfolio sale, a dividend, and interest. The buy leaves the checking account for the depot, the sale returns to checking and leaves the depot value. Dividend and interest are Ertrag and Zinsen. The share count comes from sign-in or by hand, not from the notice.",
+            ("Vorlagen für Dividende, Zinsen, Kauf und Verkauf werden gegen neue Trade-Republic-Texte gelesen.", "Templates for dividend, interest, buy, and sale are read against new Trade Republic texts.", "NoticeTemplate.swift"),
+            ("Dividende 310 mit Typ Ertrag, Zinsen 40 mit Typ Zinsen, Kauf 1200 vom Giro ins Depot, Verkauf 9900 vom Depot aufs Giro. Der Depotwert fällt um den Verkauf, das Giro steigt um denselben Betrag.", "Dividend 310 with type Ertrag, interest 40 with type Zinsen, buy 1200 from checking to the depot, sale 9900 from the depot onto checking. Depot value falls by the sale, checking rises by the same amount.", "BankNotice.swift"),
         ),
         "Sparkasse und Trade Republic landen auf dem passenden Konto": make(
             "Eine Sparkassen-Mitteilung bucht auf dem Girokonto Sparkasse, eine Trade-Republic-Mitteilung auf dem Konto Trade Republic. Eine erhaltene Überweisung ist eine Umbuchung vom Hauptkonto, ausgegeben ist eine Ausgabe. Dieselbe Buchung im Fenster wird nicht doppelt angelegt.",

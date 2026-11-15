@@ -26,6 +26,27 @@ enum AppChrome {
     }
 }
 
+/// Full-screen load cover. The word is "Geladen", not a small "Laden" card.
+enum AppLoad {
+    static var message: String { L("Geladen", "Loaded") }
+    static let coversFullScreen = true
+}
+
+/// Tabs other than Home are built when first opened. Heavy work waits until after the first frame.
+enum AppLaunch {
+    static let homeTag = 0
+    static let lazyTabs = true
+    static let defersBackgroundWork = true
+    static let paintsCoverBeforeTab = true
+    static let resumesFromBackgroundOnly = true
+}
+
+/// Custom popups sit on a glossy scrim. The card itself is opaque.
+enum AppPopup {
+    static let scrimIsGlossy = true
+    static let cardIsGlossy = false
+}
+
 struct AppTab: Equatable {
     var title: String
     var symbol: String

@@ -146,10 +146,15 @@ struct DashboardView: View {
                     .appAccentTint()
                     .listSectionSpacing(FinanceMoreDirectory.sectionSpacing)
                     } else {
-                        pageLoading
+                        Color.clear
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .overlay {
+                    if !pageReady {
+                        AppLoadCover(fillsSafeArea: false)
+                    }
+                }
                 .task(id: filters.showsDepot) {
                     guard filters.showsDepot else {
                         depotReady = false
@@ -310,7 +315,7 @@ struct DashboardView: View {
                 Text(L("Gesamtvermögen", "Net worth"))
                     .font(.headline)
                     .foregroundStyle(.secondary)
-                Text(Money.string(cents: HoldingMaintenance.marketValue(of: holdings, through: period.end)))
+                Text(Money.string(cents: depotMarketValue(through: period.end)))
                     .font(.largeTitle.bold())
                     .lineLimit(1)
                 let change = portfolioChange
@@ -580,26 +585,17 @@ struct DashboardView: View {
         return summary != nil && summarySelection == selectionToken
     }
 
-    private var summaryLoading: some View {
-        VStack(spacing: 10) {
-            ProgressView()
-                .controlSize(.large)
-            Text(L("Wird geladen", "Loading"))
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 36)
-        .financeCard()
+    private var portfolioIDs: Set<UUID> {
+        Set(accounts.filter { $0.kind == .portfolio }.map(\.id))
     }
 
-    private var pageLoading: some View {
-        VStack {
-            Spacer(minLength: 48)
-            summaryLoading
-            Spacer(minLength: 48)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    private func depotMarketValue(through day: Date) -> Int {
+        FinanceService.depotValue(
+            holdings: holdings,
+            entries: entries,
+            portfolioIDs: portfolioIDs,
+            through: day
+        )
     }
 
     private var bookingSearchRow: some View {
@@ -965,7 +961,7 @@ struct DashboardView: View {
         if Task.isCancelled { return cash }
         let start = Calendar.current.startOfDay(for: period.start)
         let dayBefore = Calendar.current.date(byAdding: .day, value: -1, to: start) ?? start
-        return cash + HoldingMaintenance.marketValue(of: holdings, through: dayBefore)
+        return cash + depotMarketValue(through: dayBefore)
     }
 
     private func liquidForecast(for period: ForecastPeriod) -> PeriodForecast {
@@ -993,7 +989,7 @@ struct DashboardView: View {
     private func presented(_ snapshot: PeriodForecast, period: ForecastPeriod) -> PeriodForecast {
         guard filters.showsDepot else { return snapshot }
         var copy = snapshot
-        copy.netWorth = HoldingMaintenance.marketValue(of: holdings, through: period.end)
+        copy.netWorth = depotMarketValue(through: period.end)
         return copy
     }
 

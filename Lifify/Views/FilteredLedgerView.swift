@@ -121,16 +121,9 @@ struct FilteredLedgerView: View {
                 .padding(.horizontal, 12)
                 .padding(.top, 8)
             if rowsToken != ledgerToken {
-                VStack {
-                    Spacer(minLength: 48)
-                    ProgressView()
-                        .controlSize(.large)
-                    Text(L("Wird geladen", "Loading"))
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                    Spacer(minLength: 48)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                Color.clear
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .overlay { AppLoadCover(fillsSafeArea: false) }
             } else {
             List {
                 if kind == .income {
