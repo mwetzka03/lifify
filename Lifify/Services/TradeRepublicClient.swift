@@ -174,6 +174,21 @@ struct TradeRepublicClient: Sendable {
                 break
             }
         }
+        let pending = all.enumerated().filter { $0.element.trade && $0.element.quantity == nil }
+            .sorted { $0.element.date > $1.element.date }
+            .prefix(25)
+        for item in pending {
+            let payload = ["type": "timelineDetailV2", "id": item.element.id]
+            do {
+                try await socket.send(.string(subscribe(page, payload)))
+                let text = try await text(from: socket)
+                if text.contains(" E ") { break }
+                all[item.offset] = TradeRepublicTimeline.enrich(item.element, detail: text)
+                page += 1
+            } catch {
+                break
+            }
+        }
         return all
     }
 

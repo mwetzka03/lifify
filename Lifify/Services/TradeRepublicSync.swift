@@ -9,6 +9,9 @@ struct TradeRepublicActivity: Equatable, Sendable {
     var isin: String
     var trade: Bool
     var status: String
+    /// Share count from the timeline row or its detail. Missing means the row must not invent one.
+    var quantity: Double? = nil
+    var savingsPlan: Bool = false
 }
 
 struct TradeRepublicSnapshot: Equatable, Sendable {
@@ -26,7 +29,7 @@ struct HeldPosition: Equatable {
 
 enum TradeRepublicMove: Equatable {
     case cash(id: String, date: Date, title: String, amountCents: Int)
-    case buy(id: String, date: Date, title: String, isin: String, name: String, quantity: Double, amountCents: Int)
+    case buy(id: String, date: Date, title: String, isin: String, name: String, quantity: Double, amountCents: Int, savingsPlan: Bool)
     case sale(id: String, date: Date, title: String, isin: String, name: String, quantity: Double, amountCents: Int)
     case drop(isin: String)
 }
@@ -64,8 +67,31 @@ enum TradeRepublicTimeline {
             amountCents: amount,
             isin: isin,
             trade: isTrade(eventType, isin: isin),
-            status: status
+            status: status,
+            quantity: shareCount(row),
+            savingsPlan: isSavingsPlan(eventType)
         )
+    }
+
+    static func enrich(_ item: TradeRepublicActivity, detail text: String) -> TradeRepublicActivity {
+        guard let start = text.firstIndex(where: { $0 == "{" || $0 == "[" }),
+              let object = try? JSONSerialization.jsonObject(with: Data(text[start...].utf8))
+        else { return item }
+        var copy = item
+        if let shares = labeledNumber(in: object, titles: ["share", "stück", "stueck", "anteil", "quantity", "anteile"]) {
+            copy.quantity = shares
+        }
+        if let symbol = labeledText(in: object, titles: ["isin"]), !symbol.isEmpty {
+            copy.isin = symbol
+            copy.trade = true
+        }
+        if treeMentionsSavings(object) { copy.savingsPlan = true }
+        return copy
+    }
+
+    private static func isSavingsPlan(_ eventType: String) -> Bool {
+        let folded = eventType.uppercased().replacingOccurrences(of: "_", with: "")
+        return folded.contains("SAVINGSPLAN") || folded.contains("SAVINGPLAN")
     }
 
     private static func isTrade(_ eventType: String, isin: String) -> Bool {
@@ -118,6 +144,65 @@ enum TradeRepublicTimeline {
         default: return nil
         }
     }
+
+    private static func shareCount(_ row: [String: Any]) -> Double? {
+        if let number = doubleValue(row["shares"] ?? row["quantity"] ?? row["netSize"] ?? row["size"]), number > 0 {
+            return number
+        }
+        let subtitle = (row["subtitle"] as? String) ?? ""
+        return number(in: subtitle, unit: true)
+    }
+
+    private static func labeledNumber(in object: Any, titles: [String]) -> Double? {
+        guard let text = labeledText(in: object, titles: titles) else { return nil }
+        return number(in: text, unit: false)
+    }
+
+    private static func labeledText(in object: Any, titles: [String]) -> String? {
+        if let row = object as? [String: Any] {
+            let title = ((row["title"] as? String) ?? "").folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "de_DE"))
+            if titles.contains(where: { title.contains($0) }) {
+                if let text = row["detail"] as? [String: Any], let value = text["text"] as? String, !value.isEmpty {
+                    return value
+                }
+                if let value = row["detail"] as? String, !value.isEmpty { return value }
+            }
+            for value in row.values {
+                if let found = labeledText(in: value, titles: titles) { return found }
+            }
+        } else if let list = object as? [Any] {
+            for value in list {
+                if let found = labeledText(in: value, titles: titles) { return found }
+            }
+        }
+        return nil
+    }
+
+    private static func treeMentionsSavings(_ object: Any) -> Bool {
+        if let text = object as? String {
+            let folded = text.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "de_DE"))
+            return folded.contains("sparplan") || folded.contains("savings plan") || folded.contains("savingsplan")
+        }
+        if let row = object as? [String: Any] {
+            return row.values.contains { treeMentionsSavings($0) }
+        }
+        if let list = object as? [Any] {
+            return list.contains { treeMentionsSavings($0) }
+        }
+        return false
+    }
+
+    private static func number(in text: String, unit: Bool) -> Double? {
+        let folded = text.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "de_DE"))
+        if unit && !folded.contains("stk") && !folded.contains("stuck") && !folded.contains("share") && !folded.contains("anteil") {
+            return nil
+        }
+        guard let expression = try? NSRegularExpression(pattern: #"([0-9]+(?:[.,][0-9]+)?)"#),
+              let match = expression.firstMatch(in: folded, range: NSRange(folded.startIndex..., in: folded)),
+              let range = Range(match.range(at: 1), in: folded)
+        else { return nil }
+        return Double(folded[range].replacingOccurrences(of: ",", with: "."))
+    }
 }
 
 enum TradeRepublicSync {
@@ -152,13 +237,13 @@ enum TradeRepublicSync {
             }
             let delta = position.quantity - holding.quantity
             if delta > 0.0000005 {
-                appendBuys(delta: delta, position: position, holding: holding, activities: fresh, now: now, into: &moves)
+                appendBuys(position: position, holding: holding, activities: fresh, now: now, into: &moves)
             } else if delta < -0.0000005 {
                 appendSales(quantity: -delta, position: position, holding: holding, activities: fresh, now: now, into: &moves)
             }
         }
         for (symbol, position) in live where !seen.contains(symbol) {
-            appendBuys(delta: position.quantity, position: position, holding: nil, activities: fresh, now: now, into: &moves)
+            appendBuys(position: position, holding: nil, activities: fresh, now: now, into: &moves)
         }
         return moves
     }
@@ -223,7 +308,6 @@ enum TradeRepublicSync {
     }
 
     private static func appendBuys(
-        delta: Double,
         position: TradeRepublicPosition,
         holding: HeldPosition?,
         activities: [TradeRepublicActivity],
@@ -232,23 +316,37 @@ enum TradeRepublicSync {
     ) {
         let symbol = position.isin.uppercased()
         let name = position.name.isEmpty ? (holding?.name ?? symbol) : position.name
-        if holding == nil {
-            let newest = trades(isin: symbol, activities: activities, buying: true, after: nil).last
-            let cost = position.averageBuyInCents ?? holding?.purchasePriceCents ?? 0
-            let amount = cost > 0 ? -Int((position.quantity * Double(cost)).rounded()) : (newest?.amountCents ?? 0)
-            moves.append(.buy(
-                id: newest?.id ?? "open-\(symbol)",
-                date: newest?.date ?? now,
-                title: newest?.title ?? name,
-                isin: symbol,
-                name: name,
-                quantity: position.quantity,
-                amountCents: amount
-            ))
+        let chosen = trades(isin: symbol, activities: activities, buying: true, after: holding?.latestLotDate)
+        let sized = chosen.filter { ($0.quantity ?? 0) > 0.0000005 }
+        if !sized.isEmpty {
+            for event in sized {
+                moves.append(.buy(
+                    id: event.id,
+                    date: event.date,
+                    title: event.title.isEmpty ? name : event.title,
+                    isin: symbol,
+                    name: name,
+                    quantity: event.quantity ?? 0,
+                    amountCents: event.amountCents,
+                    savingsPlan: event.savingsPlan
+                ))
+            }
             return
         }
-        let chosen = trades(isin: symbol, activities: activities, buying: true, after: holding?.latestLotDate)
-        appendLots(delta: delta, events: chosen, buying: true, isin: symbol, name: name, cost: position.averageBuyInCents ?? holding?.purchasePriceCents ?? 0, now: now, into: &moves)
+        guard holding == nil else { return }
+        let newest = chosen.last
+        let cost = position.averageBuyInCents ?? 0
+        let amount = cost > 0 ? -Int((position.quantity * Double(cost)).rounded()) : (newest?.amountCents ?? 0)
+        moves.append(.buy(
+            id: newest?.id ?? "open-\(symbol)",
+            date: newest?.date ?? now,
+            title: newest?.title ?? name,
+            isin: symbol,
+            name: name,
+            quantity: position.quantity,
+            amountCents: amount,
+            savingsPlan: newest?.savingsPlan ?? false
+        ))
     }
 
     private static func appendSales(
@@ -276,6 +374,21 @@ enum TradeRepublicSync {
         into moves: inout [TradeRepublicMove]
     ) {
         let chosen = events.isEmpty ? [] : events
+        if !chosen.isEmpty, chosen.allSatisfy({ ($0.quantity ?? 0) > 0.0000005 }) {
+            for event in chosen {
+                moves.append(lot(
+                    id: event.id,
+                    date: event.date,
+                    title: event.title.isEmpty ? name : event.title,
+                    isin: isin,
+                    name: name,
+                    quantity: event.quantity ?? 0,
+                    amountCents: event.amountCents,
+                    buying: buying
+                ))
+            }
+            return
+        }
         if chosen.isEmpty {
             let amount = Int((delta * Double(cost)).rounded())
             let signed = buying ? -amount : amount
@@ -314,13 +427,13 @@ enum TradeRepublicSync {
         buying: Bool
     ) -> TradeRepublicMove {
         if buying {
-            return .buy(id: id, date: date, title: title, isin: isin, name: name, quantity: quantity, amountCents: amountCents)
+            return .buy(id: id, date: date, title: title, isin: isin, name: name, quantity: quantity, amountCents: amountCents, savingsPlan: false)
         }
         return .sale(id: id, date: date, title: title, isin: isin, name: name, quantity: quantity, amountCents: amountCents)
     }
 
     /// Buys or sales for one ISIN, oldest first. With a latest lot date, only later events count.
-    /// Without one, only the newest event counts, so older history is not booked again.
+    /// Without one, every event counts. A buy keeps its own share count instead of the position delta.
     private static func trades(
         isin: String,
         activities: [TradeRepublicActivity],
@@ -333,6 +446,6 @@ enum TradeRepublicSync {
         if let latest {
             return rows.filter { $0.date > latest }
         }
-        return Array(rows.suffix(1))
+        return rows
     }
 }

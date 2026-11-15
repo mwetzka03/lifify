@@ -546,9 +546,7 @@ private struct DeveloperTestsView: View {
 }
 
 private struct FinanceSettingsView: View {
-    @Query(sort: \Account.name) private var accounts: [Account]
     @AppStorage(TradeFeePreference.storageKey) private var defaultTradeFeeCents = TradeFeePreference.defaultCents
-    @AppStorage(TradeAccountPreference.storageKey) private var defaultCheckingAccountID = ""
     @State private var feeText = ""
 
     var body: some View {
@@ -562,12 +560,6 @@ private struct FinanceSettingsView: View {
             }
             .appGlassRow()
             Section {
-                Picker(L("Standard-Girokonto", "Default checking account"), selection: $defaultCheckingAccountID) {
-                    Text(L("Erstes Girokonto", "First checking account")).tag("")
-                    ForEach(accounts.filter { $0.kind == .checking }) { account in
-                        Text(account.name).tag(account.id.uuidString)
-                    }
-                }
                 HStack {
                     Text(L("Gebühr pro Buchung", "Fee per booking"))
                     Spacer()
@@ -582,11 +574,12 @@ private struct FinanceSettingsView: View {
                 Text(L("Depot", "Portfolio"))
             } footer: {
                 Text(L(
-                    "Das Girokonto wird beim Kauf und Verkauf vorausgewählt. Die Gebühr ist abschaltbar und gilt einmal pro Buchung, nicht pro Stück.",
-                    "The checking account is preselected for buys and sales. The fee can be turned off and applies once per booking, not per share."
+                    "Jedes Depot ist mit genau einem Girokonto verknüpft. Käufe und Verkäufe laufen über dieses Konto. In der Depotansicht stehen alle Depots zusammen. Die Gebühr ist abschaltbar und gilt einmal pro Buchung, nicht pro Stück.",
+                    "Each portfolio is linked to exactly one checking account. Buys and sales use that account. The portfolio view lists every portfolio together. The fee can be turned off and applies once per booking, not per share."
                 ))
             }
             .appGlassRow()
+            FinanceImportSettings()
             TradeRepublicSignInControls(showsSkip: false) {}
         }
         .appGlassList()

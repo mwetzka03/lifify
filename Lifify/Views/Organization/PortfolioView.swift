@@ -1507,7 +1507,9 @@ private struct HoldingTradeSheet: View {
                     }
                 }
                 AppDateField(title: L("Datum", "Date"), selection: $date)
-                if !isTransfer || portfolioAccount == nil || portfolioNeedsLink {
+                if let linked = preferredCheckingAccount, portfolioAccount != nil, !portfolioNeedsLink {
+                    LabeledContent(L("Girokonto", "Checking account"), value: linked.name)
+                } else if !isTransfer || portfolioAccount == nil || portfolioNeedsLink {
                     if checkingAccounts.isEmpty {
                         Text(L("Lege zuerst ein Girokonto an.", "Create a checking account first."))
                             .foregroundStyle(.secondary)
@@ -1515,6 +1517,12 @@ private struct HoldingTradeSheet: View {
                         Picker(L("Girokonto", "Checking account"), selection: $checkingAccountID) {
                             ForEach(checkingAccounts) { Text($0.name).tag(Optional($0.id)) }
                         }
+                        Text(L(
+                            "Dieses Girokonto bleibt an dem Depot. Ein zweites Depot bekommt ein eigenes.",
+                            "This checking account stays with this portfolio. A second portfolio gets its own."
+                        ))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                     }
                 }
                 if portfolioAccount == nil {
@@ -1636,7 +1644,9 @@ private struct HoldingTradeSheet: View {
             portfolio = account
             createdPortfolio = account
         }
-        if PortfolioLinkStore.checkingID(for: portfolio.id) == nil {
+        if let linked = PortfolioLinkStore.checkingID(for: portfolio.id) {
+            checkingAccountID = linked
+        } else if PortfolioLinkStore.checkingID(for: portfolio.id) == nil {
             guard let checkingAccountID else {
                 if let createdPortfolio { context.delete(createdPortfolio) }
                 validationMessage = L(

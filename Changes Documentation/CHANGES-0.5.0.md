@@ -15,8 +15,7 @@ Setup has one more optional step, after the PDF statement. You enter the phone
 number and the PIN that opens the Trade Republic app, then confirm in that app.
 The steps are popups in the same colors as the rest of the app. Phone number and PIN are one step, and a loading popup holds the screen while the depot updates. The sign-in keeps one connection, so the confirmation in the app is the same session that gets saved.
 A leading 0 is sent as +49. A position the session no longer returns is booked as a sale, with the date and proceeds from that sale, and then removed. When the session has no sale row, the remaining shares are sold at their cost basis so the position does not vanish without a booking.
-A later purchase of a stock already held is added, with its date, on the stock
-and as a booking on the Trade Republic checking account. Card payments and other
+A later purchase of a stock already held stays its own purchase, with its own share count, date, and price, on the stock and as its own booking. A savings-plan execution is labeled as a savings plan, and the plan keeps the rhythm of its last execution. Bank import and the Trade Republic statement live under Finance. Each portfolio is linked to one checking account. Card payments and other
 cash movements are booked there too. The existing price update then runs, so the
 prices are not left at zero. The PDF import stays. You can skip the step.
 
@@ -79,8 +78,7 @@ in der App zu derselben Sitzung gehört, die gespeichert wird. Eine 0 am Anfang 
 mit Datum und Erlös, und verschwindet danach. Fehlt die Verkaufszeile, werden die
 restlichen Stücke zum Einstand verkauft, damit die Position nicht ohne Buchung
 weg ist. Ein
-späterer Kauf einer Aktie, die schon im Depot liegt, kommt mit Datum dazu, an
-der Aktie und als Buchung auf dem Trade-Republic-Girokonto. Kartenzahlungen und
+späterer Kauf einer Aktie, die schon im Depot liegt, bleibt ein eigener Kauf, mit eigener Stückzahl, eigenem Datum und eigenem Kurs, an der Aktie und als eigene Buchung. Eine Sparplan-Ausführung heißt Sparplan, und der Plan übernimmt den Rhythmus der letzten Ausführung. Bankimport und der Trade-Republic-Auszug liegen unter Finanzen. Jedes Depot hängt an genau einem Girokonto. Kartenzahlungen und
 andere Geldbewegungen werden dort ebenfalls gebucht. Danach läuft die bisherige
 Kursaktualisierung, damit die Kurse nicht auf null stehen bleiben. Der
 PDF-Import bleibt. Den Schritt kannst du überspringen.

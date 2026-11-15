@@ -113,11 +113,61 @@ enum LififySessionChecks {
             amountCents: -4000,
             isin: "IE00B4L5Y983",
             trade: true,
-            status: "EXECUTED"
+            status: "EXECUTED",
+            quantity: 2
+        )
+        let secondBuy = TradeRepublicActivity(
+            id: "buy2",
+            date: day.addingTimeInterval(3_600),
+            title: "World",
+            eventType: "ORDER_EXECUTED",
+            amountCents: -4200,
+            isin: "IE00B4L5Y983",
+            trade: true,
+            status: "EXECUTED",
+            quantity: 2
+        )
+        let savingsBuy = TradeRepublicActivity(
+            id: "save1",
+            date: day,
+            title: "World",
+            eventType: "TRADING_SAVINGSPLAN_EXECUTED",
+            amountCents: -2500,
+            isin: "IE00B4L5Y983",
+            trade: true,
+            status: "EXECUTED",
+            quantity: 1,
+            savingsPlan: true
         )
         let held = HeldPosition(symbol: "IE00B4L5Y983", name: "World", quantity: 4, purchasePriceCents: 1000, latestLotDate: day.addingTimeInterval(-86400))
         let positionNow = TradeRepublicPosition(isin: "IE00B4L5Y983", name: "World", quantity: 8, averageBuyInCents: 1000)
-        let grown = TradeRepublicSync.changes(positions: [positionNow], holdings: [held], activities: [buy], known: [])
+        let grown = TradeRepublicSync.changes(positions: [positionNow], holdings: [held], activities: [buy, secondBuy, savingsBuy], known: [])
+        let unsized = TradeRepublicSync.changes(positions: [positionNow], holdings: [held], activities: [
+            TradeRepublicActivity(
+                id: "plain",
+                date: day,
+                title: "World",
+                eventType: "ORDER_EXECUTED",
+                amountCents: -4000,
+                isin: "IE00B4L5Y983",
+                trade: true,
+                status: "EXECUTED"
+            )
+        ], known: [])
+        let detail = #"{"sections":[{"title":"Transaktion","data":[{"title":"Anteile","detail":{"text":"2 Stk."}},{"title":"Art","detail":{"text":"Sparplan"}}]}]}"#
+        let enriched = TradeRepublicTimeline.enrich(
+            TradeRepublicActivity(
+                id: "plain",
+                date: day,
+                title: "World",
+                eventType: "ORDER_EXECUTED",
+                amountCents: -4000,
+                isin: "IE00B4L5Y983",
+                trade: true,
+                status: "EXECUTED"
+            ),
+            detail: detail
+        )
         let again = TradeRepublicSync.changes(positions: [positionNow], holdings: [held], activities: [buy], known: [TradeRepublicTimeline.fingerprint("buy1")])
         let soldDay = day.addingTimeInterval(86_400)
         let soldActivity = TradeRepublicActivity(
@@ -143,19 +193,24 @@ enum LififySessionChecks {
             known: [],
             now: day
         )
-        let buyQuantity: Double
-        if case .buy(_, _, _, _, _, let quantity, let amount) = grown.first(where: { if case .buy = $0 { return true }; return false }) {
-            buyQuantity = quantity
-            _ = amount
-        } else {
-            buyQuantity = 0
+        let buyQuantities: [Double] = grown.compactMap { move in
+            if case .buy(_, _, _, _, _, let quantity, _, let savings) = move, !savings { return quantity }
+            return nil
+        }
+        let savingsMarked = grown.contains { move in
+            if case .buy(_, _, _, _, _, let quantity, _, let savings) = move { return savings && quantity == 1 }
+            return false
         }
         let reading = "\(position?.quantity ?? 0), \(position?.averageBuyInCents ?? 0), \(kept.first?.purchasePriceCents == 1000 ? "behalten" : "neu")"
         let synced = parsed.items.first?.amountCents == -595
             && parsed.items.first?.title == "Aldi"
             && parsed.after == "next"
-            && buyQuantity == 4
-            && !again.contains { if case .buy(let id, _, _, _, _, _, _) = $0 { return id == "buy1" }; return false }
+            && buyQuantities == [2, 2]
+            && savingsMarked
+            && !unsized.contains { if case .buy = $0 { return true }; return false }
+            && enriched.quantity == 2
+            && enriched.savingsPlan
+            && !again.contains { if case .buy(let id, _, _, _, _, _, _, _) = $0 { return id == "buy1" }; return false }
             && sold.contains { if case .sale(_, let date, _, let isin, _, let quantity, let amount) = $0 { return isin == "US0378331005" && quantity == 2 && amount == 1800 && date == soldDay }; return false }
             && sold.contains { if case .drop(let isin) = $0 { return isin == "US0378331005" }; return false }
             && soldWithoutEvent.contains { if case .sale(_, _, _, let isin, _, let quantity, let amount) = $0 { return isin == "US0378331005" && quantity == 2 && amount == 1000 }; return false }

@@ -26,7 +26,7 @@ enum TradeRepublicDepotApplier {
         guard let checking = tradeRepublic else { throw TradeRepublicFailure.unreadable }
         let stored = try context.fetch(FetchDescriptor<PortfolioHolding>()).filter { $0.accountID == portfolio.id }
         let entries = (try? context.fetch(FetchDescriptor<LedgerEntry>())) ?? []
-        let known = Set(entries.compactMap(\.importFingerprint))
+        var known = Set(entries.compactMap(\.importFingerprint))
         let held = stored.map { holding in
             let lots = HoldingLotStore.lots(for: holding.id)
             return HeldPosition(
@@ -43,6 +43,7 @@ enum TradeRepublicDepotApplier {
             activities: snapshot.activities,
             known: known
         )
+        repairMergedBuys(holdings: stored, activities: snapshot.activities, known: &known, context: context)
         var count = 0
         var dropping = Set(moves.compactMap { move -> String? in
             if case .drop(let isin) = move { return isin }
@@ -53,10 +54,10 @@ enum TradeRepublicDepotApplier {
             case .cash(let id, let date, let title, let amountCents):
                 guard insertCash(id: id, date: date, title: title, amountCents: amountCents, checking: checking, known: known, context: context) else { continue }
                 count += 1
-            case .buy(let id, let date, let title, let isin, let name, let quantity, let amountCents):
+            case .buy(let id, let date, let title, let isin, let name, let quantity, let amountCents, let savingsPlan):
                 let holding = try ensureHolding(isin: isin, name: name, portfolio: portfolio, stored: stored, context: context)
                 openExistingSharesIfNeeded(holding)
-                guard insertTrade(id: id, date: date, title: title, quantity: quantity, amountCents: amountCents, sale: false, holding: holding, checking: checking, portfolio: portfolio, known: known, context: context) else { continue }
+                guard insertTrade(id: id, date: date, title: title, quantity: quantity, amountCents: amountCents, sale: false, savingsPlan: savingsPlan, holding: holding, checking: checking, portfolio: portfolio, known: &known, context: context) else { continue }
                 if !dropping.contains(isin) { _ = HoldingMaintenance.sync(holding, context: context) }
                 count += 1
             case .sale(let id, let date, let title, let isin, let name, let quantity, let amountCents):
@@ -64,7 +65,7 @@ enum TradeRepublicDepotApplier {
                     ?? holding(isin: isin, portfolio: portfolio, context: context) else { continue }
                 if holding.name.isEmpty { holding.name = name }
                 openExistingSharesIfNeeded(holding)
-                guard insertTrade(id: id, date: date, title: title, quantity: quantity, amountCents: amountCents, sale: true, holding: holding, checking: checking, portfolio: portfolio, known: known, context: context) else { continue }
+                guard insertTrade(id: id, date: date, title: title, quantity: quantity, amountCents: amountCents, sale: true, savingsPlan: false, holding: holding, checking: checking, portfolio: portfolio, known: &known, context: context) else { continue }
                 if !dropping.contains(isin) { _ = HoldingMaintenance.sync(holding, context: context) }
                 count += 1
             case .drop(let isin):
@@ -77,6 +78,7 @@ enum TradeRepublicDepotApplier {
         }
         try context.save()
         let fresh = try context.fetch(FetchDescriptor<PortfolioHolding>()).filter { $0.accountID == portfolio.id }
+        adoptSavingsPlans(from: snapshot.activities, checking: checking, portfolio: portfolio, holdings: fresh)
         await MarketDataService.refresh(holdings: fresh, context: context)
         return count
     }
@@ -183,21 +185,23 @@ enum TradeRepublicDepotApplier {
         quantity: Double,
         amountCents: Int,
         sale: Bool,
+        savingsPlan: Bool,
         holding: PortfolioHolding,
         checking: Account,
         portfolio: Account,
-        known: Set<String>,
+        known: inout Set<String>,
         context: ModelContext
     ) -> Bool {
         let fingerprint = TradeRepublicTimeline.fingerprint(id)
         guard !known.contains(fingerprint), quantity > 0.0000005 else { return false }
         let cash = abs(amountCents)
         let label = holding.name.isEmpty ? title : holding.name
+        let action = sale ? L("Verkauf", "Sale") : (savingsPlan ? L("Sparplan", "Savings plan") : L("Kauf", "Purchase"))
         var entryID: UUID?
         if cash > 0 {
             let entry = LedgerEntry(
                 date: date,
-                title: "\(sale ? L("Verkauf", "Sale") : L("Kauf", "Purchase")): \(label)",
+                title: "\(action): \(label)",
                 notes: holding.symbol,
                 amountCents: cash,
                 kind: .transfer,
@@ -216,15 +220,110 @@ enum TradeRepublicDepotApplier {
                 unitPriceCents: unit,
                 amountCents: sale ? cash : -cash,
                 isSale: sale,
-                isSavingsPlan: false,
+                isSavingsPlan: savingsPlan && !sale,
                 ledgerEntryID: entryID
             ),
             holdingID: holding.id
         )
+        known.insert(fingerprint)
         if !sale, HoldingPurchaseDateStore.date(for: holding.id) == nil {
             HoldingPurchaseDateStore.set(date, for: holding.id)
         }
         return true
+    }
+
+    /// A lot that received every new share at one event's cash is split back into those purchases.
+    private static func repairMergedBuys(
+        holdings: [PortfolioHolding],
+        activities: [TradeRepublicActivity],
+        known: inout Set<String>,
+        context: ModelContext
+    ) {
+        let calendar = Calendar.current
+        let entries = (try? context.fetch(FetchDescriptor<LedgerEntry>())) ?? []
+        for holding in holdings {
+            let symbol = holding.symbol.uppercased()
+            let events = activities.filter {
+                $0.trade && $0.amountCents < 0 && ($0.quantity ?? 0) > 0.0000005
+                    && $0.isin.caseInsensitiveCompare(symbol) == .orderedSame
+            }.sorted { $0.date < $1.date }
+            guard !events.isEmpty else { continue }
+            var lots = HoldingLotStore.lots(for: holding.id)
+            var used = Set<UUID>()
+            for event in events {
+                let cash = abs(event.amountCents)
+                guard let index = lots.firstIndex(where: { lot in
+                    !used.contains(lot.id) && !lot.isSale
+                        && calendar.isDate(lot.date, inSameDayAs: event.date)
+                        && abs(abs(lot.amountCents) - cash) <= 150
+                }) else { continue }
+                used.insert(lots[index].id)
+                let quantity = event.quantity ?? lots[index].quantity
+                lots[index].quantity = quantity
+                lots[index].unitPriceCents = quantity > 0 ? Int((Double(cash) / quantity).rounded()) : lots[index].unitPriceCents
+                lots[index].amountCents = -cash
+                lots[index].isSavingsPlan = event.savingsPlan
+                lots[index].date = event.date
+                if let entryID = lots[index].ledgerEntryID, let entry = entries.first(where: { $0.id == entryID }) {
+                    let label = holding.name.isEmpty ? event.title : holding.name
+                    entry.title = "\(event.savingsPlan ? L("Sparplan", "Savings plan") : L("Kauf", "Purchase")): \(label)"
+                    entry.date = event.date
+                }
+                known.insert(TradeRepublicTimeline.fingerprint(event.id))
+            }
+            HoldingLotStore.replace(lots, holdingID: holding.id)
+        }
+    }
+
+    private static func adoptSavingsPlans(
+        from activities: [TradeRepublicActivity],
+        checking: Account,
+        portfolio: Account,
+        holdings: [PortfolioHolding]
+    ) {
+        let rows = activities.compactMap { item -> ImportedTransaction? in
+            guard item.savingsPlan, let quantity = item.quantity, quantity > 0.0000005, item.amountCents < 0 else { return nil }
+            return ImportedTransaction(
+                date: item.date,
+                title: "\(L("Sparplan", "Savings plan")): \(item.title)",
+                notes: item.isin,
+                amountCents: item.amountCents,
+                iban: "",
+                senderIBAN: "",
+                recipientIBAN: "",
+                fingerprint: TradeRepublicTimeline.fingerprint(item.id),
+                trade: ImportedSecurityTrade(
+                    isin: item.isin,
+                    name: item.title.isEmpty ? item.isin : item.title,
+                    quantity: quantity,
+                    isSale: false,
+                    isSavingsPlan: true
+                )
+            )
+        }
+        let built = SavingsPlanBuilder.build(
+            rows: rows,
+            checkingID: checking.id,
+            portfolioID: portfolio.id,
+            holdings: holdings
+        )
+        for plan in built {
+            if var existing = SavingsPlanStore.all().first(where: {
+                $0.portfolioAccountID == portfolio.id && $0.isin.caseInsensitiveCompare(plan.isin) == .orderedSame
+            }) {
+                existing.amountCents = plan.amountCents
+                existing.cadenceRaw = plan.cadenceRaw
+                existing.lastExecution = plan.lastExecution
+                existing.historyThrough = plan.historyThrough
+                existing.active = plan.active
+                existing.name = plan.name
+                existing.holdingID = plan.holdingID
+                existing.checkingAccountID = checking.id
+                SavingsPlanStore.upsert(existing)
+            } else {
+                SavingsPlanStore.upsert(plan)
+            }
+        }
     }
 
     private static func shareCount(_ lots: [HoldingLot]) -> Double {
