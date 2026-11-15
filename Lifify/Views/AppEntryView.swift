@@ -6,6 +6,7 @@ struct AppEntryView: View {
     @Query private var accounts: [Account]
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
     @AppStorage("onboardingInProgress") private var onboardingInProgress = false
+    @AppStorage("onboardingStep") private var onboardingStep = 0
     @AppStorage("appLanguage") private var language = "de"
     @State private var didCheckExistingInstallation = false
 
@@ -24,10 +25,13 @@ struct AppEntryView: View {
             let hasMainAccount = accounts.contains(where: \.isMain)
             if hasCompletedOnboarding, !hasMainAccount {
                 hasCompletedOnboarding = false
-            } else if !hasCompletedOnboarding,
-                      !onboardingInProgress,
-                      hasMainAccount {
-                hasCompletedOnboarding = true
+                onboardingInProgress = false
+                onboardingStep = OnboardingResume.clampedStep(onboardingStep, hasMainAccount: false)
+            } else if !hasCompletedOnboarding {
+                onboardingStep = OnboardingResume.clampedStep(onboardingStep, hasMainAccount: hasMainAccount)
+                if !onboardingInProgress, hasMainAccount {
+                    hasCompletedOnboarding = true
+                }
             }
             PortfolioConsolidation.consolidate(context: modelContext)
             TradeRepublicSample.purgeLegacyPreferences()

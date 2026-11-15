@@ -43,7 +43,17 @@ enum OnboardingSteps {
         L("Trade Republic anmelden (optional)", "Sign in to Trade Republic (optional)")
     }
     static let count = 9
+    static var lastIndex: Int { count - 1 }
     static var secondaryIncome: String { L("Nebeneinnahmen (optional)", "Secondary income (optional)") }
+}
+
+enum OnboardingResume {
+    /// Bank import and later steps need a main account. Without one, start over.
+    static func clampedStep(_ step: Int, hasMainAccount: Bool) -> Int {
+        let bounded = min(max(step, 0), OnboardingSteps.lastIndex)
+        if bounded >= 5 && !hasMainAccount { return 0 }
+        return bounded
+    }
 }
 
 private struct SecondaryIncomeDraft: Identifiable {
@@ -166,6 +176,7 @@ struct OnboardingView: View {
             }
             .onAppear {
                 onboardingInProgress = true
+                step = OnboardingResume.clampedStep(step, hasMainAccount: accounts.contains(where: \.isMain))
                 if userName.isEmpty { userName = storedName }
                 if let stored = UserProfile.birthDate() {
                     birthDate = stored
@@ -196,6 +207,7 @@ struct OnboardingView: View {
     @ViewBuilder
     private var startStep: some View {
         Section {
+            backButton()
             Button {
                 step = 2
             } label: {
@@ -258,6 +270,7 @@ struct OnboardingView: View {
         }
         .appGlassRow()
         Section {
+            backButton()
             nextButton {
                 storedName = userName.trimmingCharacters(in: .whitespacesAndNewlines)
                 UserProfile.setBirthDate(birthDate)
@@ -282,6 +295,7 @@ struct OnboardingView: View {
         }
         .appGlassRow()
         Section {
+            backButton()
             nextButton {
                 storedPeriod = periodMode.rawValue
                 step = 4
@@ -304,6 +318,7 @@ struct OnboardingView: View {
         }
         .appGlassRow()
         Section {
+            backButton()
             nextButton {
                 if saveMainAccount() { step = 5 }
             }
@@ -352,6 +367,7 @@ struct OnboardingView: View {
         }
         .appGlassRow()
         Section {
+            backButton()
             if !importedRows.isEmpty {
                 nextButton { step = 6 }
             }
@@ -425,6 +441,7 @@ struct OnboardingView: View {
             ) {}
         }
         Section {
+            backButton()
             nextButton { step = 8 }
                 .disabled(pendingDocument != nil && !tradeRepublicImported)
         } footer: {
@@ -471,6 +488,7 @@ struct OnboardingView: View {
         }
         .appGlassRow()
         Section {
+            backButton()
             Button(L("Ohne Depot fortfahren", "Continue without a portfolio")) {
                 step = 8
             }
@@ -544,6 +562,7 @@ struct OnboardingView: View {
             .appGlassRow()
         }
         Section {
+            backButton()
             Button {
                 finishSetup()
             } label: {
@@ -612,6 +631,18 @@ struct OnboardingView: View {
                 Text(L("Weiter", "Continue"))
                 Spacer()
                 Image(systemName: "chevron.right")
+            }
+        }
+    }
+
+    private func backButton() -> some View {
+        Button {
+            step = max(step - 1, 0)
+        } label: {
+            HStack {
+                Image(systemName: "chevron.left")
+                Text(L("Zurück", "Back"))
+                Spacer()
             }
         }
     }
@@ -886,6 +917,7 @@ struct OnboardingView: View {
             IncomeAssignmentStore.assign(entryID: entryID, to: pair.forecast.id)
         }
         isFinishing = false
+        step = 0
         onboardingInProgress = false
         hasCompletedOnboarding = true
         BirthdayBonusService.settle(context: context)

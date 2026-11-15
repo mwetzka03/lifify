@@ -13,7 +13,8 @@ unchanged and stay in [FINANZEN.md](../FINANZEN.md). What changed in 0.4.0 is in
 
 Setup can restore the entire app from one JSON file, or only one area:
 Finance, Challenges, or Training. You can pick several of those part files at
-once.
+once. If setup opens without a main account, it starts from the first step
+instead of the last. Every step after the first has Back.
 
 ### Trade Republic, by hand
 
@@ -77,7 +78,8 @@ bucht. Die Finanzrechnung ist unverändert und bleibt in
 
 Die Einrichtung lädt die ganze App aus einer JSON-Datei, oder nur einen
 Bereich: Finanzen, Challenges oder Training. Mehrere Teildateien gehen auf
-einmal.
+einmal. Fehlt das Hauptkonto, beginnt die Einrichtung wieder vorn, nicht bei
+der Haupteinnahme. Ab dem zweiten Schritt gibt es Zurück.
 
 ### Trade Republic, von Hand
 

@@ -585,6 +585,7 @@ enum CheckStories {
             "Setup, tabs, and More show the on-screen texts. Setup restores the entire app or only one area. The links are a middle size.",
             ("Die Einrichtungstitel, die fünf Tabs und die drei Links unter Weitere Bereiche werden gelesen.", "The setup titles, the five tabs, and the three More links are read.", "OnboardingView.swift"),
             ("Die Zeilen nutzen die Schrift body, die Überschrift headline, 14 Punkt Abstand und höchstens 8 Punkt zur nächsten Sektion. Finanzen liegt auf derselben Fläche. Die Sicherung lädt die ganze App oder nur Finanzen, Challenges oder Training.", "The rows use the body font, the heading uses headline, 14 points of padding, and at most 8 points before the next section. Finance sits on the same wash. The backup restores the entire app or only Finance, Challenges, or Training.", "FinanceRoute.swift"),
+            ("Ohne Hauptkonto startet die Einrichtung bei Schritt 0, nicht bei der Haupteinnahme.", "Without a main account, setup starts at step 0, not at primary income.", "OnboardingView.swift"),
         ),
         "Entwicklertag und Schalter": make(
             "Der Entwicklertag behält die Uhrzeit, und der Schalter heißt Entwicklermodus.",
