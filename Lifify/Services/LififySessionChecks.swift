@@ -460,6 +460,7 @@ enum LififySessionChecks {
             && !fromIndex.contains(where: { $0.id == "skip" })
             && sample?.activities.contains(where: { $0.id == "keep" }) == true
             && BankImportApplier.ownAccountWindowDays == 3
+            && BankNotice.transferWindowDays == BankImportApplier.ownAccountWindowDays
             && abs(Calendar.current.dateComponents([.day], from: Calendar.current.startOfDay(for: fourteenth), to: Calendar.current.startOfDay(for: sixteenth)).day ?? 99) == 2
             && sessionImportReplacesPreviousTradeRepublic()
         return result("Ein Depotstand setzt Menge und Einstand und erfindet nichts", .portfolio, .unit, passed && synced && categories && receipts, reading)

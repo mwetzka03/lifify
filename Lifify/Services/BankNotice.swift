@@ -57,9 +57,8 @@ enum BankNotice {
     /// Wallet and bank notices for one payment usually arrive within a few hours.
     static let duplicateWindow: TimeInterval = 6 * 60 * 60
     /// Own-account transfers are matched across the same window as the bank import.
-    static var transferWindow: TimeInterval {
-        TimeInterval(BankImportApplier.ownAccountWindowDays) * 24 * 60 * 60
-    }
+    static let transferWindowDays = 3
+    static let transferWindow: TimeInterval = TimeInterval(transferWindowDays) * 24 * 60 * 60
 
     static func parse(_ text: String, fallbackTitle: String) -> ParsedNotice? {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
