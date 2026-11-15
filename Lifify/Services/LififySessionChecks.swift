@@ -241,7 +241,51 @@ enum LififySessionChecks {
             && sold.contains { if case .sale(_, let date, _, let isin, _, let quantity, let amount) = $0 { return isin == "US0378331005" && quantity == 2 && amount == 1800 && date == soldDay }; return false }
             && sold.contains { if case .drop(let isin) = $0 { return isin == "US0378331005" }; return false }
             && soldWithoutEvent.contains { if case .sale(_, _, _, let isin, _, let quantity, let amount) = $0 { return isin == "US0378331005" && quantity == 2 && amount == 1000 }; return false }
-        return result("Ein Depotstand setzt Menge und Einstand und erfindet nichts", .portfolio, .unit, passed && synced, reading)
+        let incomeRows = TradeRepublicTimeline.read(Data(#"{"items":[{"id":"div","timestamp":"2026-06-08T12:00:00.000Z","title":"Micron","subtitle":"Dividende","icon":"logos/US5951121038/v2","status":"EXECUTED","amount":{"value":31,"fractionDigits":2},"eventType":"DIVIDEND"},{"id":"zins","timestamp":"2026-06-01T12:00:00.000Z","title":"Zinsen","status":"EXECUTED","amount":{"value":13.28,"fractionDigits":2},"eventType":"INTEREST_PAYOUT"},{"id":"ipo","timestamp":"2026-06-05T12:00:00.000Z","title":"Anthropic","icon":"logos/US0000000000/v2","status":"EXECUTED","amount":{"value":-351,"fractionDigits":2},"eventType":"IPO_SUBSCRIPTION_CREATED"}]}"#.utf8))
+        let income = TradeRepublicSync.changes(positions: [], holdings: [], activities: incomeRows.items, known: [])
+        let dividendCash = income.contains { move in
+            if case .cash(let id, _, _, let amount, let type) = move { return id == "div" && amount == 3100 && type == "Ertrag" }
+            return false
+        }
+        let interestCash = income.contains { move in
+            if case .cash(let id, _, _, let amount, let type) = move { return id == "zins" && amount == 1328 && type == "Zinsen" }
+            return false
+        }
+        let ipoCash = income.contains { move in
+            if case .cash(let id, _, _, let amount, let type) = move { return id == "ipo" && amount == -35100 && type.isEmpty }
+            return false
+        }
+        let fakeBuy = TradeRepublicActivity(
+            id: "fake",
+            date: day,
+            title: "Micron",
+            eventType: "DIVIDEND",
+            amountCents: -3100,
+            isin: "US5951121038",
+            trade: true,
+            status: "EXECUTED",
+            quantity: 100
+        )
+        let realBuy = TradeRepublicActivity(
+            id: "real",
+            date: day,
+            title: "Micron",
+            eventType: "TRADING_TRADE_EXECUTED",
+            amountCents: -40013,
+            isin: "US5951121038",
+            trade: true,
+            status: "EXECUTED",
+            quantity: 0.648464
+        )
+        let categories = parsed.items.first?.statementType == "Kartentransaktion"
+            && incomeRows.items.first?.trade == false
+            && dividendCash
+            && interestCash
+            && ipoCash
+            && !income.contains { if case .buy = $0 { return true }; return false }
+            && !TradeRepublicSync.purchase(fakeBuy, averageCents: 79522)
+            && TradeRepublicSync.purchase(realBuy, averageCents: 79522)
+        return result("Ein Depotstand setzt Menge und Einstand und erfindet nichts", .portfolio, .unit, passed && synced && categories, reading)
     }
 
     private static func deadSessionDoesNotStartAnotherLogin() -> LififyCheckResult {

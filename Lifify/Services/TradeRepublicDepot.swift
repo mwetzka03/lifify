@@ -27,6 +27,7 @@ enum TradeRepublicDepotApplier {
         let stored = try context.fetch(FetchDescriptor<PortfolioHolding>()).filter { $0.accountID == portfolio.id }
         let entries = (try? context.fetch(FetchDescriptor<LedgerEntry>())) ?? []
         var known = Set(entries.compactMap(\.importFingerprint))
+        purgeFalseBuys(holdings: stored, positions: snapshot.positions, activities: snapshot.activities, checking: checking, portfolio: portfolio, known: &known, context: context)
         let held = stored.map { holding in
             let lots = HoldingLotStore.lots(for: holding.id)
             return HeldPosition(
@@ -52,8 +53,8 @@ enum TradeRepublicDepotApplier {
         })
         for move in moves {
             switch move {
-            case .cash(let id, let date, let title, let amountCents):
-                guard insertCash(id: id, date: date, title: title, amountCents: amountCents, checking: checking, known: known, context: context) else { continue }
+            case .cash(let id, let date, let title, let amountCents, let statementType):
+                guard insertCash(id: id, date: date, title: title, amountCents: amountCents, statementType: statementType, checking: checking, known: known, context: context) else { continue }
                 count += 1
             case .buy(let id, let date, let title, let isin, let name, let quantity, let amountCents, let savingsPlan):
                 let holding = try ensureHolding(isin: isin, name: name, portfolio: portfolio, stored: stored, context: context)
@@ -162,17 +163,22 @@ enum TradeRepublicDepotApplier {
         date: Date,
         title: String,
         amountCents: Int,
+        statementType: String,
         checking: Account,
         known: Set<String>,
         context: ModelContext
     ) -> Bool {
         let fingerprint = TradeRepublicTimeline.fingerprint(id)
         guard !known.contains(fingerprint), amountCents != 0 else { return false }
+        let notes = statementType.isEmpty ? "" : "\(L("Typ", "Type")): \(statementType)"
+        let income = statementType == "Ertrag" || statementType == "Zinsen"
+        let booked = income ? abs(amountCents) : amountCents
         context.insert(LedgerEntry(
             date: date,
             title: title,
-            amountCents: amountCents,
-            kind: amountCents < 0 ? .expense : .income,
+            notes: notes,
+            amountCents: booked,
+            kind: booked < 0 ? .expense : .income,
             accountID: checking.id,
             importFingerprint: fingerprint
         ))
@@ -198,12 +204,13 @@ enum TradeRepublicDepotApplier {
         let cash = abs(amountCents)
         let label = holding.name.isEmpty ? title : holding.name
         let action = sale ? L("Verkauf", "Sale") : (savingsPlan ? L("Sparplan", "Savings plan") : L("Kauf", "Purchase"))
+        let unit = quantity > 0 ? Int((Double(cash) / quantity).rounded()) : 0
         var entryID: UUID?
         if cash > 0 {
             let entry = LedgerEntry(
                 date: date,
                 title: "\(action): \(label)",
-                notes: holding.symbol,
+                notes: tradeNotes(symbol: holding.symbol, quantity: quantity, unitCents: unit),
                 amountCents: cash,
                 kind: .transfer,
                 fromAccountID: sale ? portfolio.id : checking.id,
@@ -213,7 +220,6 @@ enum TradeRepublicDepotApplier {
             context.insert(entry)
             entryID = entry.id
         }
-        let unit = quantity > 0 ? Int((Double(cash) / quantity).rounded()) : 0
         HoldingLotStore.add(
             HoldingLot(
                 date: date,
@@ -233,6 +239,111 @@ enum TradeRepublicDepotApplier {
         return true
     }
 
+    /// PDF notes: Typ, ISIN, Stück, Kurs. The category still comes from the transfer.
+    private static func tradeNotes(symbol: String, quantity: Double, unitCents: Int) -> String {
+        [
+            "\(L("Typ", "Type")): Handel",
+            "ISIN: \(symbol)",
+            "\(L("Stück", "Quantity")): \(quantityText(quantity))",
+            "\(L("Kurs", "Price")): \(Money.string(cents: unitCents))"
+        ].joined(separator: "\n")
+    }
+
+    private static func quantityText(_ quantity: Double) -> String {
+        var text = String(format: "%.6f", quantity)
+        while text.contains("."), text.last == "0" { text.removeLast() }
+        if text.last == "." { text.removeLast() }
+        return text
+    }
+
+    /// Share lots that were dividends or interest are removed before the quantity is compared.
+    /// A collapsed lot stays only when the timeline has no real purchase. Older buys outside the timeline stay.
+    private static func purgeFalseBuys(
+        holdings: [PortfolioHolding],
+        positions: [TradeRepublicPosition],
+        activities: [TradeRepublicActivity],
+        checking: Account,
+        portfolio: Account,
+        known: inout Set<String>,
+        context: ModelContext
+    ) {
+        let entries = (try? context.fetch(FetchDescriptor<LedgerEntry>())) ?? []
+        let byID = Dictionary(activities.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        for holding in holdings {
+            let symbol = holding.symbol.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+            guard !symbol.isEmpty else { continue }
+            guard let position = positions.first(where: { $0.isin.caseInsensitiveCompare(symbol) == .orderedSame }) else { continue }
+            let average = position.averageBuyInCents ?? 0
+            let accepted = activities.filter {
+                $0.isin.caseInsensitiveCompare(symbol) == .orderedSame && TradeRepublicSync.purchase($0, averageCents: average)
+            }
+            let acceptedIDs = Set(accepted.map(\.id))
+            var removedCollapsed = false
+            for lot in HoldingLotStore.lots(for: holding.id) where !lot.isSale {
+                guard let entryID = lot.ledgerEntryID,
+                      let entry = entries.first(where: { $0.id == entryID }),
+                      let fingerprint = entry.importFingerprint,
+                      fingerprint.hasPrefix("tr-") else { continue }
+                let eventID = String(fingerprint.dropFirst(3))
+                if eventID.hasPrefix("open-") {
+                    if acceptedIDs.isEmpty { continue }
+                    removedCollapsed = true
+                } else if let item = byID[eventID] {
+                    if TradeRepublicSync.purchase(item, averageCents: average) { continue }
+                } else {
+                    continue
+                }
+                known.remove(fingerprint)
+                context.delete(entry)
+                HoldingLotStore.remove(lotID: lot.id, holdingID: holding.id)
+            }
+            guard removedCollapsed else {
+                _ = HoldingMaintenance.sync(holding, context: context)
+                continue
+            }
+            for event in accepted.sorted(by: { $0.date < $1.date }) {
+                _ = insertTrade(
+                    id: event.id,
+                    date: event.date,
+                    title: event.title,
+                    quantity: event.quantity ?? 0,
+                    amountCents: event.amountCents,
+                    sale: false,
+                    savingsPlan: event.savingsPlan,
+                    holding: holding,
+                    checking: checking,
+                    portfolio: portfolio,
+                    known: &known,
+                    context: context
+                )
+            }
+            let covered = shareCount(HoldingLotStore.lots(for: holding.id))
+            let rest = position.quantity - covered
+            if rest > 0.001, average > 0 {
+                let oldest = accepted.map(\.date).min()
+                    ?? HoldingLotStore.lots(for: holding.id).map(\.date).min()
+                    ?? Date()
+                let date = Calendar.current.date(byAdding: .day, value: -1, to: oldest) ?? oldest
+                known.remove(TradeRepublicTimeline.fingerprint("open-\(symbol)"))
+                _ = insertTrade(
+                    id: "open-\(symbol)",
+                    date: date,
+                    title: holding.name,
+                    quantity: rest,
+                    amountCents: -Int((rest * Double(average)).rounded()),
+                    sale: false,
+                    savingsPlan: false,
+                    holding: holding,
+                    checking: checking,
+                    portfolio: portfolio,
+                    known: &known,
+                    context: context
+                )
+            }
+            _ = HoldingMaintenance.sync(holding, context: context)
+        }
+    }
+
     /// One lot for the whole position, dated whenever the import ran, is replaced by the real purchases.
     private static func replaceLumpBuys(
         holdings: [PortfolioHolding],
@@ -246,14 +357,14 @@ enum TradeRepublicDepotApplier {
         let entries = (try? context.fetch(FetchDescriptor<LedgerEntry>())) ?? []
         for holding in holdings {
             let symbol = holding.symbol.uppercased()
+            let position = positions.first { $0.isin.caseInsensitiveCompare(symbol) == .orderedSame }
             let events = activities.filter {
-                $0.trade && $0.amountCents < 0 && ($0.quantity ?? 0) > 0.0000005
+                TradeRepublicSync.purchase($0, averageCents: position?.averageBuyInCents ?? 0)
                     && $0.isin.caseInsensitiveCompare(symbol) == .orderedSame
             }.sorted { $0.date < $1.date }
             guard !events.isEmpty else { continue }
             let lots = HoldingLotStore.lots(for: holding.id).filter { !$0.isSale }
             guard lots.count == 1, let lump = lots.first else { continue }
-            let position = positions.first { $0.isin.caseInsensitiveCompare(symbol) == .orderedSame }
             let live = position?.quantity ?? lump.quantity
             let smaller = events.contains { ($0.quantity ?? 0) + 0.0000005 < lump.quantity }
             guard smaller, abs(lump.quantity - live) < max(0.05, live * 0.02) else { continue }
@@ -315,7 +426,7 @@ enum TradeRepublicDepotApplier {
         for holding in holdings {
             let symbol = holding.symbol.uppercased()
             let events = activities.filter {
-                $0.trade && $0.amountCents < 0 && ($0.quantity ?? 0) > 0.0000005
+                TradeRepublicSync.purchase($0, averageCents: 0)
                     && $0.isin.caseInsensitiveCompare(symbol) == .orderedSame
             }.sorted { $0.date < $1.date }
             guard !events.isEmpty else { continue }
