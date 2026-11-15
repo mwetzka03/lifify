@@ -15,6 +15,8 @@ struct RootView: View {
     @StateObject private var financeFilters = FinanceFilterStore()
     @State private var selectedTab = 0
     @State private var financePath = NavigationPath()
+    @State private var resumeLocked = false
+    @State private var leftForeground = false
 
     @ViewBuilder
     private func tabRoot(_ tab: AppTab) -> some View {
@@ -73,19 +75,58 @@ struct RootView: View {
                 await DailyBriefingService.scheduleFollowUps(context: context)
             }
         }
-        .task(id: scenePhase) {
-            guard scenePhase == .active else { return }
-            await EventKitSyncService().sync(
-                context: context,
-                existingEvents: calendarEvents,
-                existingChallenges: challenges,
-                promptForAccess: false
-            )
-            AbstinenceService.settle(context: context)
-            BirthdayBonusService.settle(context: context)
-            await DailyBriefingService.refresh(context: context)
-            await DailyBriefingService.scheduleAbstinence(context: context)
-            await DailyBriefingService.scheduleFollowUps(context: context)
+        .overlay {
+            if resumeLocked {
+                ZStack {
+                    Rectangle()
+                        .fill(.ultraThinMaterial)
+                        .ignoresSafeArea()
+                    VStack(spacing: 12) {
+                        ProgressView()
+                            .controlSize(.large)
+                        Text(L("Wird geladen", "Loading"))
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .contentShape(Rectangle())
+                .allowsHitTesting(true)
+            }
         }
+        .task(id: scenePhase) {
+            switch scenePhase {
+            case .background, .inactive:
+                leftForeground = true
+                resumeLocked = true
+            case .active:
+                if leftForeground {
+                    resumeLocked = true
+                    await Task.yield()
+                    await resumeForegroundWork()
+                    await Task.yield()
+                    try? await Task.sleep(for: .milliseconds(250))
+                    leftForeground = false
+                    resumeLocked = false
+                } else {
+                    await resumeForegroundWork()
+                }
+            @unknown default:
+                break
+            }
+        }
+    }
+
+    private func resumeForegroundWork() async {
+        await EventKitSyncService().sync(
+            context: context,
+            existingEvents: calendarEvents,
+            existingChallenges: challenges,
+            promptForAccess: false
+        )
+        AbstinenceService.settle(context: context)
+        BirthdayBonusService.settle(context: context)
+        await DailyBriefingService.refresh(context: context)
+        await DailyBriefingService.scheduleAbstinence(context: context)
+        await DailyBriefingService.scheduleFollowUps(context: context)
     }
 }

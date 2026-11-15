@@ -7,12 +7,13 @@ struct ShoppingListView: View {
     @Query(sort: \ShoppingItem.createdAt, order: .reverse) private var items: [ShoppingItem]
     @Query(sort: \LedgerEntry.date, order: .reverse) private var entries: [LedgerEntry]
     @Query private var forecasts: [IncomeForecast]
+    @Query private var accounts: [Account]
     @State private var showingNew = false
     @State private var edited: ShoppingItem?
     @State private var selected: ShoppingItem?
 
     private var period: ForecastPeriod? {
-        filters.period(in: FinancePeriods.all(entries: entries, forecasts: forecasts))
+        filters.period(in: FinancePeriods.all(entries: entries, forecasts: forecasts, accounts: accounts))
     }
 
     private var bias: (applied: Int, planned: Int) {

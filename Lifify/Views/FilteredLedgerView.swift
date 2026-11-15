@@ -31,7 +31,7 @@ struct FilteredLedgerView: View {
     }
 
     private var periods: [ForecastPeriod] {
-        FinancePeriods.all(entries: entries, forecasts: forecasts)
+        FinancePeriods.all(entries: entries, forecasts: forecasts, accounts: accounts)
     }
 
     private var selectedPeriod: ForecastPeriod? {

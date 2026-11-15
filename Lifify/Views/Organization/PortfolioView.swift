@@ -7,6 +7,7 @@ struct PortfolioView: View {
     @Query(sort: \PortfolioHolding.name) private var holdings: [PortfolioHolding]
     @Query private var entries: [LedgerEntry]
     @Query private var forecasts: [IncomeForecast]
+    @Query private var accounts: [Account]
     @AppStorage("portfolioPerformanceBasis") private var basis = PortfolioBasis.today.rawValue
     @AppStorage("portfolioPerformanceUnit") private var unit = PortfolioUnit.percent.rawValue
     @AppStorage("portfolioSort") private var sort = PortfolioSort.value.rawValue
@@ -153,7 +154,7 @@ struct PortfolioView: View {
     }
 
     private var projectionDay: Date {
-        let periods = FinancePeriods.all(entries: entries, forecasts: forecasts)
+        let periods = FinancePeriods.all(entries: entries, forecasts: forecasts, accounts: accounts)
         return filters.period(in: periods)?.end ?? .now
     }
 
@@ -215,6 +216,7 @@ struct PortfolioElementsView: View {
     @Query(sort: \PortfolioHolding.name) private var holdings: [PortfolioHolding]
     @Query private var entries: [LedgerEntry]
     @Query private var forecasts: [IncomeForecast]
+    @Query private var accounts: [Account]
     @AppStorage("portfolioPerformanceBasis") private var basis = PortfolioBasis.today.rawValue
     @AppStorage("portfolioPerformanceUnit") private var unit = PortfolioUnit.percent.rawValue
     @AppStorage("portfolioSort") private var sort = PortfolioSort.value.rawValue
@@ -225,7 +227,7 @@ struct PortfolioElementsView: View {
     @State private var savingsPlans: [SavingsPlanRecord] = []
 
     private var projectionDay: Date {
-        let periods = FinancePeriods.all(entries: entries, forecasts: forecasts)
+        let periods = FinancePeriods.all(entries: entries, forecasts: forecasts, accounts: accounts)
         return filters.period(in: periods)?.end ?? .now
     }
 
@@ -718,7 +720,7 @@ struct SavingsPlansView: View {
     }
 
     private var bookedExecutions: [LedgerEntry] {
-        let periods = FinancePeriods.all(entries: entries, forecasts: forecasts)
+        let periods = FinancePeriods.all(entries: entries, forecasts: forecasts, accounts: accounts)
         guard let period = filters.period(in: periods) else { return [] }
         return entries
             .filter { BookingClassification.isSavingsPlan($0) && period.contains($0.date) }

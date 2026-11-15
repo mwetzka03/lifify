@@ -35,9 +35,16 @@ view, in transactions, and in the income and expense lists.
 - Periods follow the primary income when the salary period is active.
   Otherwise they are calendar months.
 - The first period begins with the bookings of the main account, including the
-  opening-balance adjustment. Its start is the cutoff date. A salary window that
-  would start before that date is clipped to it, so the opening amount entered
-  for that day is the Startsaldo of the first period.
+  opening-balance adjustment. Its start is the cutoff date. Bookings on other
+  accounts before that date stay in the ledger and sit outside the first period.
+  They do not move the period start. A salary window that would start before that
+  date is clipped to it, so the opening amount of the main account is the
+  Startsaldo of the first period.
+- A bank import asks for the current account balance. The opening balance is
+  that figure minus the imported amounts, dated on the first booking day. If the
+  computed balance then still differs, a correction booking is added. Setup
+  imports every row. An import from Settings skips an identical row and offers
+  a similar row for review.
 - Trade Republic bookings before the cutoff date are not created. Bookings on
   the cutoff date and after are created, even when the first period has
   already ended.
@@ -577,9 +584,16 @@ Finanzansicht, in den Buchungen und in den Listen für Einnahmen und Ausgaben.
 - Zeiträume folgen der Haupteinnahme, wenn der Gehaltszeitraum aktiv ist.
   Sonst sind es Kalendermonate.
 - Der erste Zeitraum beginnt mit den Buchungen des Hauptkontos, inklusive der
-  Saldo-Korrektur für den Eröffnungssaldo. Sein Start ist der Stichtag. Ein
-  Gehaltsfenster, das davor beginnen würde, wird auf dieses Datum geschnitten,
-  damit der eingegebene Eröffnungssaldo der Startsaldo des ersten Zeitraums ist.
+  Saldo-Korrektur für den Eröffnungssaldo. Sein Start ist der Stichtag. Buchungen
+  auf anderen Konten davor bleiben in der Liste und liegen außerhalb des ersten
+  Zeitraums. Sie verschieben den Start nicht. Ein Gehaltsfenster, das davor
+  beginnen würde, wird auf dieses Datum geschnitten, damit der Eröffnungssaldo
+  des Hauptkontos der Startsaldo des ersten Zeitraums ist.
+- Ein Bankimport fragt nach dem aktuellen Kontostand. Der Startsaldo ist dieser
+  Stand minus die importierten Beträge, datiert auf den ersten Buchungstag. Passt
+  der gerechnete Stand danach immer noch nicht, kommt eine Korrekturbuchung.
+  Die Einrichtung übernimmt jede Zeile. Ein Import aus den Einstellungen
+  überspringt eine identische Zeile und bietet eine ähnliche zur Prüfung an.
 - Trade-Republic-Buchungen vor dem Stichtag werden nicht angelegt. Buchungen am
   Stichtag und danach werden angelegt, auch wenn der erste Zeitraum schon vorbei
   ist.

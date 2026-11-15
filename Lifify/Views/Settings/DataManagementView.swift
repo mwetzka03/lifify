@@ -257,9 +257,25 @@ struct FinanceImportSettings: View {
             } label: {
                 Label(L("CSV oder CAMT importieren", "Import CSV or CAMT"), systemImage: "square.and.arrow.down")
             }
+            if viewModel.pendingBank != nil {
+                Text(L(
+                    "Wie hoch ist der aktuelle Kontostand auf diesem Konto?",
+                    "What is the current balance on this account?"
+                ))
+                .font(.headline)
+                TextField(L("Aktueller Kontostand", "Current balance"), text: $viewModel.currentBalanceText)
+                    .keyboardType(.decimalPad)
+                Button(L("Import abschließen", "Finish import")) {
+                    viewModel.commitPendingBank(context: context, existingEntries: entries)
+                }
+                .disabled(Money.cents(from: viewModel.currentBalanceText) == nil)
+                Button(L("Abbrechen", "Cancel"), role: .cancel) {
+                    viewModel.cancelPendingBank()
+                }
+            }
             Text(L(
-                "Das Zielkonto gilt nur für CSV und CAMT. Ein PDF wird hier nicht gelesen.",
-                "The destination account is only for CSV and CAMT. A PDF is not read here."
+                "Das Zielkonto gilt nur für CSV und CAMT. Ein PDF wird hier nicht gelesen. Beim Import über die Einstellungen werden identische Buchungen übersprungen, ähnliche zur Prüfung angeboten. Du gibst den aktuellen Kontostand an; wenn der Stand nicht zu den Buchungen passt, entsteht eine Korrektur.",
+                "The destination account is only for CSV and CAMT. A PDF is not read here. An import from Settings skips identical bookings and offers similar ones for review. You enter the current balance; if it does not match the bookings, a correction is added."
             ))
             .font(.caption)
             .foregroundStyle(.secondary)

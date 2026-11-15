@@ -351,8 +351,8 @@ enum TradeRepublicCopy {
     }
     static var statementCaption: String {
         L(
-            "Nur die Umsatzübersicht. Das Girokonto wird über die IBAN wiederverwendet oder neu angelegt, das Depot hängt daran. Buchungen vor dem Start des ersten Zeitraums vom Hauptkonto werden nicht angelegt, spätere schon. Die Depotstände aus dem ganzen Auszug werden übernommen. Der Startsaldo ist der Saldo am Starttag, sonst vom letzten Tag davor.",
-            "Only the transaction overview. The checking account is reused by IBAN or created, and the portfolio is linked to it. Transactions before the start of the main account’s first period are not booked; later ones are. Portfolio positions from the whole statement are imported. The opening balance is the balance on the start day, or the previous day."
+            "Nur die Umsatzübersicht. Das Girokonto wird über die IBAN wiederverwendet oder neu angelegt, das Depot hängt daran. Der Zeitraum folgt dem Hauptkonto. Frühere Buchungen bleiben erhalten und liegen außerhalb des ersten Zeitraums. Die Depotstände aus dem ganzen Auszug werden übernommen.",
+            "Only the transaction overview. The checking account is reused by IBAN or created, and the portfolio is linked to it. The period follows the main account. Earlier bookings stay and sit outside the first period. Portfolio positions from the whole statement are imported."
         )
     }
     static var footnote: String {

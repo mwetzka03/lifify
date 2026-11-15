@@ -188,6 +188,28 @@ enum LififyCoverageChecks {
         )
         let periodStart = periods.first.map { berlinParts($0.start) }
         let periodEnd = periods.first.map { berlinParts($0.end) }
+        let main = Account(name: "Giro", kind: .checking, isMain: true)
+        let other = Account(name: "Broker", kind: .checking)
+        let opening = LedgerEntry(
+            date: berlin(2026, 5, 17),
+            title: "Eröffnungssaldo",
+            amountCents: 92_091,
+            kind: .adjustment,
+            accountID: main.id
+        )
+        let early = LedgerEntry(
+            date: berlin(2026, 5, 5),
+            title: "Karte",
+            amountCents: -400,
+            kind: .expense,
+            accountID: other.id
+        )
+        let fromMain = FinancePeriods.all(
+            entries: [opening, early],
+            forecasts: [],
+            accounts: [main, other]
+        )
+        let mainStart = fromMain.first.map { berlinParts($0.start) }
         let passed = snapshot.remaining == -1_500
             && Money.signed(cents: snapshot.remaining).contains("15")
             && VariableBudgetAccounts.share(total: 100, accountID: first, targets: [first, second, third]) == 34
@@ -204,12 +226,15 @@ enum LififyCoverageChecks {
             && shows(FinanceTileCopy.planned, "Geplant", "Planned")
             && periodStart?.day == 17 && periodStart?.month == 5
             && periodEnd?.day == 28 && periodEnd?.month == 5
+            && mainStart?.day == 17 && mainStart?.month == 5
+            && ImportBalance.openingCents(current: 10_000, rowAmounts: [-3_000, 1_000]) == 12_000
+            && ImportBalance.correctionCents(current: 10_000, computed: 10_800) == -800
         return check(
             "Restbudget, Anteil und Zeitraum",
             .budget,
             .unit,
             passed,
-            "Rest \(Money.signed(cents: snapshot.remaining)), erster Zeitraum \(periodStart?.day ?? 0).\(periodStart?.month ?? 0).–\(periodEnd?.day ?? 0).\(periodEnd?.month ?? 0)."
+            "Rest \(Money.signed(cents: snapshot.remaining)), erster Zeitraum \(periodStart?.day ?? 0).\(periodStart?.month ?? 0).–\(periodEnd?.day ?? 0).\(periodEnd?.month ?? 0), Hauptkonto \(mainStart?.day ?? 0).\(mainStart?.month ?? 0)."
         )
     }
 

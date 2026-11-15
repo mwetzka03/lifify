@@ -322,16 +322,13 @@ struct OnboardingView: View {
                     Label(L("CSV oder CAMT auswählen", "Select CSV or CAMT"), systemImage: "tablecells")
                 }
             }
-            if let balanceDate = openingBalanceDate, !pendingImportRows.isEmpty {
-                Text(String(
-                    format: L(
-                        "Wie hoch war der Kontostand am %@?",
-                        "What was the account balance on %@?"
-                    ),
-                    AppDate.weekdayAndNumeric(balanceDate)
+            if !pendingImportRows.isEmpty {
+                Text(L(
+                    "Wie hoch ist der aktuelle Kontostand?",
+                    "What is the current account balance?"
                 ))
                 .font(.headline)
-                TextField(L("Kontostand", "Account balance"), text: $openingBalance)
+                TextField(L("Aktueller Kontostand", "Current balance"), text: $openingBalance)
                     .keyboardType(.decimalPad)
                 Button(L("Import abschließen", "Finish import")) {
                     commitBankImport()
@@ -349,8 +346,8 @@ struct OnboardingView: View {
             Text(OnboardingSteps.bank)
         } footer: {
             Text(L(
-                "CSV und CAMT landen auf dem Hauptkonto und legen den ersten Zeitraum fest. Danach kannst du ein Depot anlegen.",
-                "CSV and CAMT go to the main account and define the first period. You can add a portfolio after that."
+                "CSV und CAMT landen auf dem Hauptkonto und legen den ersten Zeitraum fest. Du gibst den aktuellen Kontostand an, den Startsaldo rechnet Lifify zurück. Danach kannst du ein Depot anlegen.",
+                "CSV and CAMT go to the main account and define the first period. You enter the current balance, and Lifify works the opening balance backwards. You can add a portfolio after that."
             ))
         }
         .appGlassRow()
@@ -438,8 +435,8 @@ struct OnboardingView: View {
             Text(OnboardingSteps.tradeRepublic)
         } footer: {
             Text(L(
-                "PDF-Auszug oder Anmeldung, beides auf dieser Seite. Buchungen vor dem Start des ersten Zeitraums werden nicht angelegt, danach schon. Der Startsaldo ist der Saldo aus der rechten Spalte am Starttag, sonst vom letzten Tag davor.",
-                "The PDF statement or sign-in, both on this page. Transactions before the start of the first period are not booked; later ones are. The opening balance is the right-hand balance on the start day, or from the previous day."
+                "PDF-Auszug oder Anmeldung, beides auf dieser Seite. Der Zeitraum folgt dem Hauptkonto. Frühere Trade-Republic-Buchungen bleiben erhalten und liegen außerhalb des ersten Zeitraums.",
+                "The PDF statement or sign-in, both on this page. The period follows the main account. Earlier Trade Republic bookings stay and sit outside the first period."
             ))
         }
         .appGlassRow()
@@ -589,11 +586,10 @@ struct OnboardingView: View {
         ) {
             return String(
                 format: L(
-                    "Erster Zeitraum des Hauptkontos: %@. Buchungen vor dem Starttag werden nicht angelegt, spätere schon. Depotstände aus dem ganzen Auszug werden übernommen. Der Startsaldo ist der Saldo am %@, sonst vom letzten Tag davor.",
-                    "First period of the main account: %@. Transactions before the start date are not booked; later ones are. Portfolio positions from the whole statement are imported. The opening balance is the balance on %@, or the previous day."
+                    "Erster Zeitraum des Hauptkontos: %@. Buchungen auf anderen Konten davor bleiben erhalten und liegen außerhalb dieses Zeitraums. Depotstände aus dem ganzen Auszug werden übernommen.",
+                    "First period of the main account: %@. Bookings on other accounts before that stay and sit outside this period. Portfolio positions from the whole statement are imported."
                 ),
-                AppDate.range(from: period.start, to: period.end),
-                AppDate.numeric(period.start)
+                AppDate.range(from: period.start, to: period.end)
             )
         }
         return L(
@@ -697,11 +693,6 @@ struct OnboardingView: View {
         }
     }
 
-    private var openingBalanceDate: Date? {
-        guard let firstDate = pendingImportRows.first?.date else { return nil }
-        return Calendar.current.date(byAdding: .day, value: -1, to: firstDate)
-    }
-
     private func importTradeRepublicFile(_ result: Result<[URL], Error>) {
         guard case let .success(urls) = result, let url = urls.first else {
             if case let .failure(error) = result { message = error.localizedDescription }
@@ -728,7 +719,7 @@ struct OnboardingView: View {
             let result = try BankImportApplier.apply(
                 document: document,
                 to: .separateChecking,
-                openingBalanceCents: nil,
+                detectDuplicates: false,
                 context: context
             )
             importedEntryIDs.merge(result.entryIDs) { _, new in new }
@@ -749,13 +740,13 @@ struct OnboardingView: View {
     private func commitBankImport() {
         guard let accountID = mainAccountID ?? accounts.first(where: \.isMain)?.id,
               let account = accounts.first(where: { $0.id == accountID }),
-              let balance = Money.cents(from: openingBalance),
+              let current = Money.cents(from: openingBalance),
               let firstDate = pendingImportRows.first?.date
         else {
             return
         }
         var ledger = existingEntries
-        var known = Set(existingEntries.compactMap(\.importFingerprint))
+        var known = Set<String>()
         var review = ImportReview()
         var selectableRows: [ImportedTransaction] = []
         var entryIDs: [String: UUID] = [:]
@@ -763,10 +754,14 @@ struct OnboardingView: View {
         if !existingEntries.contains(where: {
             $0.kind == .adjustment && $0.accountID == accountID
         }) {
+            let opening = ImportBalance.openingCents(
+                current: current,
+                rowAmounts: pendingImportRows.map(\.amountCents)
+            )
             let adjustment = LedgerEntry(
-                date: Calendar.current.date(byAdding: .day, value: -1, to: firstDate) ?? firstDate,
+                date: Calendar.current.startOfDay(for: firstDate),
                 title: L("Eröffnungssaldo", "Opening balance"),
-                amountCents: balance,
+                amountCents: opening,
                 kind: .adjustment,
                 accountID: accountID
             )
@@ -782,18 +777,28 @@ struct OnboardingView: View {
                 entries: &ledger,
                 known: &known,
                 review: &review,
+                detectDuplicates: false,
                 context: context
             ) else { continue }
             inserted.append(entry)
             selectableRows.append(row)
             entryIDs[row.fingerprint] = entry.id
         }
+        if let extra = ImportBalance.correction(
+            account: account,
+            entries: &ledger,
+            currentCents: current,
+            date: AppClock.now,
+            context: context
+        ) {
+            inserted.append(extra)
+        }
         do {
             try context.save()
             importedEntryIDs.merge(entryIDs) { _, new in new }
             importedRows = selectableRows
             pendingImportRows = []
-            importReview = review.isEmpty ? nil : review
+            importReview = nil
         } catch {
             inserted.forEach(context.delete)
             message = error.localizedDescription

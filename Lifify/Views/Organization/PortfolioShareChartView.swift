@@ -7,6 +7,7 @@ struct PortfolioShareChartView: View {
     @Query(sort: \PortfolioHolding.name) private var holdings: [PortfolioHolding]
     @Query private var entries: [LedgerEntry]
     @Query private var forecasts: [IncomeForecast]
+    @Query private var accounts: [Account]
     @State private var selectedID: UUID?
     @State private var cache = ShareCache()
 
@@ -132,7 +133,7 @@ struct PortfolioShareChartView: View {
     }
 
     private func makeShares() -> [PortfolioShare] {
-        let periods = FinancePeriods.all(entries: entries, forecasts: forecasts)
+        let periods = FinancePeriods.all(entries: entries, forecasts: forecasts, accounts: accounts)
         let projectionDay = filters.period(in: periods)?.end ?? .now
         let valued = holdings.compactMap { holding -> (PortfolioHolding, Int)? in
             let cents = HoldingMaintenance.marketValue(of: holding, through: projectionDay, holdings: holdings)

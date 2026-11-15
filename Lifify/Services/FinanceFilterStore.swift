@@ -57,8 +57,15 @@ final class FinanceFilterStore: ObservableObject {
 
 enum FinancePeriods {
     @MainActor
-    static func all(entries: [LedgerEntry], forecasts: [IncomeForecast]) -> [ForecastPeriod] {
-        let earliest = entries.map(\.date).min() ?? .now
+    static func all(entries: [LedgerEntry], forecasts: [IncomeForecast], accounts: [Account]) -> [ForecastPeriod] {
+        let main = accounts.first(where: \.isMain)
+        let relevant = entries.filter { entry in
+            guard let main else { return false }
+            return entry.accountID == main.id
+                || entry.fromAccountID == main.id
+                || entry.toAccountID == main.id
+        }
+        guard let earliest = relevant.map(\.date).min() else { return [] }
         let latest = Calendar.current.date(byAdding: .month, value: 18, to: .now) ?? .now
         return FinanceService.forecastPeriods(
             primary: primaryForecast(in: forecasts),

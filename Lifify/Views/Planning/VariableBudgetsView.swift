@@ -21,7 +21,7 @@ struct VariableBudgetsView: View {
     }
 
     private var periods: [ForecastPeriod] {
-        FinancePeriods.all(entries: entries, forecasts: forecasts)
+        FinancePeriods.all(entries: entries, forecasts: forecasts, accounts: accounts)
     }
 
     private var selectedPeriod: ForecastPeriod? {
@@ -160,7 +160,7 @@ private struct VariableBudgetDetailView: View {
     @Query private var forecasts: [IncomeForecast]
 
     private var selectedPeriod: ForecastPeriod? {
-        filters.period(in: FinancePeriods.all(entries: entries, forecasts: forecasts))
+        filters.period(in: FinancePeriods.all(entries: entries, forecasts: forecasts, accounts: accounts))
     }
 
     private var selectedAccount: Account? {

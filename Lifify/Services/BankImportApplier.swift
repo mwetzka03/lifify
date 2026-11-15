@@ -13,6 +13,40 @@ struct BankImportResult {
     var review: ImportReview = ImportReview()
 }
 
+enum ImportBalance {
+    static func openingCents(current: Int, rowAmounts: [Int]) -> Int {
+        current - rowAmounts.reduce(0, +)
+    }
+
+    static func correctionCents(current: Int, computed: Int) -> Int {
+        current - computed
+    }
+
+    @discardableResult
+    static func correction(
+        account: Account,
+        entries: inout [LedgerEntry],
+        currentCents: Int,
+        date: Date,
+        context: ModelContext
+    ) -> LedgerEntry? {
+        let computed = FinanceService.balance(for: account, entries: entries, holdings: [], through: date)
+        let delta = correctionCents(current: currentCents, computed: computed)
+        guard delta != 0 else { return nil }
+        let entry = LedgerEntry(
+            date: Calendar.current.startOfDay(for: date),
+            title: L("Saldo-Korrektur", "Balance adjustment"),
+            notes: "Typ: Saldo-Korrektur",
+            amountCents: delta,
+            kind: delta >= 0 ? .income : .expense,
+            accountID: account.id
+        )
+        context.insert(entry)
+        entries.append(entry)
+        return entry
+    }
+}
+
 enum PortfolioLinkStore {
     private static func key(for checkingID: UUID) -> String {
         "lifify.portfolioLink.\(checkingID.uuidString)"
@@ -92,7 +126,8 @@ enum BankImportApplier {
     static func apply(
         document: BankImportDocument,
         to destination: BankImportDestination,
-        openingBalanceCents: Int?,
+        currentBalanceCents: Int? = nil,
+        detectDuplicates: Bool = true,
         context: ModelContext
     ) throws -> BankImportResult {
         if document.tradeRepublic != nil {
@@ -119,18 +154,23 @@ enum BankImportApplier {
             ? nil
             : firstMainAccountPeriod(entries: entries, accounts: accounts, context: context)
 
-        if document.tradeRepublic == nil, let openingBalanceCents,
+        if document.tradeRepublic == nil, let currentBalanceCents,
            !entries.contains(where: { $0.kind == .adjustment && $0.accountID == checking.account.id }),
            let firstDate = document.rows.map(\.date).min() {
+            let opening = ImportBalance.openingCents(
+                current: currentBalanceCents,
+                rowAmounts: document.rows.map(\.amountCents)
+            )
             let adjustment = LedgerEntry(
-                date: Calendar.current.date(byAdding: .day, value: -1, to: firstDate) ?? firstDate,
+                date: Calendar.current.startOfDay(for: firstDate),
                 title: L("Eröffnungssaldo", "Opening balance"),
-                amountCents: openingBalanceCents,
+                amountCents: opening,
                 kind: .adjustment,
                 accountID: checking.account.id
             )
             context.insert(adjustment)
             insertedEntries.append(adjustment)
+            entries.append(adjustment)
         } else if let statement = document.tradeRepublic, let period {
             let saldo = statementBalance(
                 before: period.start,
@@ -167,27 +207,9 @@ enum BankImportApplier {
         var entryIDs: [String: UUID] = [:]
         var selectable: [ImportedTransaction] = []
         var imported = 0
-        var skippedBeforeStart = 0
         var review = ImportReview()
         let directory = accounts + checking.created
-        let periodStart = period.map { Calendar.current.startOfDay(for: $0.start) }
         for row in document.rows {
-            if let periodStart, Calendar.current.startOfDay(for: row.date) < periodStart {
-                if let trade = row.trade, let portfolio {
-                    apply(
-                        trade,
-                        cashCents: row.amountCents,
-                        date: row.date,
-                        portfolio: portfolio.account,
-                        context: context,
-                        holdings: &holdings,
-                        insertedHoldings: &insertedHoldings,
-                        ledgerEntryID: nil
-                    )
-                }
-                skippedBeforeStart += 1
-                continue
-            }
             if row.trade != nil {
                 let fingerprints = [row.fingerprint, row.legacyFingerprint].compactMap { $0 }
                 if entries.contains(where: { entry in
@@ -224,6 +246,7 @@ enum BankImportApplier {
                 entries: &entries,
                 known: &known,
                 review: &review,
+                detectDuplicates: detectDuplicates,
                 context: context
             ) {
                 insertedEntries.append(entry)
@@ -261,6 +284,17 @@ enum BankImportApplier {
         let holdingCount = holdings.filter { holding in
             holding.accountID == portfolioID && holding.quantity > 0.0000005
         }.count
+        if document.tradeRepublic == nil, let currentBalanceCents {
+            if let extra = ImportBalance.correction(
+                account: checking.account,
+                entries: &entries,
+                currentCents: currentBalanceCents,
+                date: AppClock.now,
+                context: context
+            ) {
+                insertedEntries.append(extra)
+            }
+        }
         do {
             try context.save()
         } catch {
@@ -278,7 +312,7 @@ enum BankImportApplier {
             createdSeparateChecking: checking.createdSeparate,
             entryIDs: entryIDs,
             selectableRows: selectable,
-            skippedBeforeStart: skippedBeforeStart,
+            skippedBeforeStart: 0,
             review: review
         )
     }
@@ -610,19 +644,25 @@ enum BankImportApplier {
         entries: inout [LedgerEntry],
         known: inout Set<String>,
         review: inout ImportReview,
+        detectDuplicates: Bool = true,
         context: ModelContext
     ) -> LedgerEntry? {
-        if entries.contains(where: { $0.importFingerprint == row.fingerprint }) || known.contains(row.fingerprint) {
-            known.insert(row.fingerprint)
+        if known.contains(row.fingerprint) {
             return nil
         }
-        if let legacy = row.legacyFingerprint,
-           let existing = entries.first(where: { $0.importFingerprint == legacy }) {
-            let purpose = BankImportService.purposeMark(notes: row.notes)
-            if purpose.isEmpty || existing.notes.contains(purpose) {
-                existing.importFingerprint = row.fingerprint
+        if detectDuplicates {
+            if entries.contains(where: { $0.importFingerprint == row.fingerprint }) {
                 known.insert(row.fingerprint)
                 return nil
+            }
+            if let legacy = row.legacyFingerprint,
+               let existing = entries.first(where: { $0.importFingerprint == legacy }) {
+                let purpose = BankImportService.purposeMark(notes: row.notes)
+                if purpose.isEmpty || existing.notes.contains(purpose) {
+                    existing.importFingerprint = row.fingerprint
+                    known.insert(row.fingerprint)
+                    return nil
+                }
             }
         }
 
@@ -651,7 +691,7 @@ enum BankImportApplier {
             return entry
         }
 
-        if let existing = similarMatch(row: row, entries: entries, accountID: checking.id) {
+        if detectDuplicates, let existing = similarMatch(row: row, entries: entries, accountID: checking.id) {
             let rowPurpose = BankImportService.purposeMark(notes: row.notes)
             if !rowPurpose.isEmpty, existing.notes.contains(rowPurpose) {
                 existing.importFingerprint = row.fingerprint

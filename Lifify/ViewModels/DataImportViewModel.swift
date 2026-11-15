@@ -7,6 +7,8 @@ final class DataImportViewModel: ObservableObject {
     @Published var destination: BankImportDestination?
     @Published var message: String?
     @Published var review: ImportReview?
+    @Published var pendingBank: BankImportDocument?
+    @Published var currentBalanceText = ""
 
     func importBankFile(
         from url: URL,
@@ -17,17 +19,39 @@ final class DataImportViewModel: ObservableObject {
         defer { if accessing { url.stopAccessingSecurityScopedResource() } }
         do {
             let data = try Data(contentsOf: url)
-            guard let destination else {
+            guard destination != nil else {
                 message = L("Bitte zuerst ein Zielkonto auswählen.", "Select a destination account first.")
                 return
             }
             let document = try BankImportService.parseDocument(data: data, fileExtension: url.pathExtension)
-            let target = destination
-            let known = Set(existingEntries.compactMap(\.importFingerprint))
+            guard !document.rows.isEmpty else {
+                message = L("Der Export enthält keine Buchungen.", "The export contains no transactions.")
+                return
+            }
+            pendingBank = document
+            currentBalanceText = ""
+        } catch {
+            message = error.localizedDescription
+        }
+    }
+
+    func commitPendingBank(
+        context: ModelContext,
+        existingEntries: [LedgerEntry]
+    ) {
+        guard let document = pendingBank else { return }
+        guard let destination else {
+            message = L("Bitte zuerst ein Zielkonto auswählen.", "Select a destination account first.")
+            return
+        }
+        guard let current = Money.cents(from: currentBalanceText) else { return }
+        let known = Set(existingEntries.compactMap(\.importFingerprint))
+        do {
             let result = try BankImportApplier.apply(
                 document: document,
-                to: target,
-                openingBalanceCents: nil,
+                to: destination,
+                currentBalanceCents: current,
+                detectDuplicates: true,
                 context: context
             )
             for row in document.rows where row.amountCents > 0 && row.trade == nil {
@@ -38,11 +62,18 @@ final class DataImportViewModel: ObservableObject {
                 else { continue }
                 IncomeAssignmentStore.assign(entryID: entryID, to: forecastID)
             }
+            pendingBank = nil
+            currentBalanceText = ""
             message = importMessage(for: result)
             review = result.review.isEmpty ? nil : result.review
         } catch {
             message = error.localizedDescription
         }
+    }
+
+    func cancelPendingBank() {
+        pendingBank = nil
+        currentBalanceText = ""
     }
 
     func importTradeRepublic(
@@ -59,7 +90,7 @@ final class DataImportViewModel: ObservableObject {
             let result = try BankImportApplier.apply(
                 document: document,
                 to: .separateChecking,
-                openingBalanceCents: nil,
+                detectDuplicates: true,
                 context: context
             )
             for row in document.rows where row.amountCents > 0 && row.trade == nil {
