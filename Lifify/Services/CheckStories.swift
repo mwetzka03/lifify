@@ -437,10 +437,10 @@ enum CheckStories {
             ("Die drei gesperrten Kategorien fehlen in der Liste und in den Beschriftungen.", "The three locked categories are missing from the list and from the labels.", "LififyFeatureChecks.swift"),
         ),
         "Buchungsfeld und Betrag nutzen dieselben Kategorien": make(
-            "Das Buchungsfeld bietet dieselben sieben Kategorien, und Beträge werden als Cent gelesen.",
-            "The booking field offers the same seven categories, and amounts are read as cents.",
+            "Das Buchungsfeld bietet dieselben neun Kategorien, und Beträge werden als Cent gelesen.",
+            "The booking field offers the same nine categories, and amounts are read as cents.",
             ("19,99 wird 1999 Cent und 1.250,50 wird 125050 Cent.", "19.99 becomes 1999 cents and 1,250.50 becomes 125050 cents.", "Formatters.swift"),
-            ("Die manuelle Liste hat sieben Einträge und enthält Depot und Sparplan nicht.", "The manual list has seven entries and does not contain portfolio or savings plan.", "BookingCategory.swift"),
+            ("Die manuelle Liste hat neun Einträge und enthält Depot und Sparplan nicht.", "The manual list has nine entries and does not contain portfolio or savings plan.", "BookingCategory.swift"),
         ),
         "Die Symbolauswahl enthält Hanfblatt und Zigarette": make(
             "Die Symbolauswahl enthält das Hanfblatt und die Zigarette als eigene Zeichnungen.",

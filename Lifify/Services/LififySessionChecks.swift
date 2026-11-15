@@ -285,7 +285,27 @@ enum LififySessionChecks {
             && !income.contains { if case .buy = $0 { return true }; return false }
             && !TradeRepublicSync.purchase(fakeBuy, averageCents: 79522)
             && TradeRepublicSync.purchase(realBuy, averageCents: 79522)
-        return result("Ein Depotstand setzt Menge und Einstand und erfindet nichts", .portfolio, .unit, passed && synced && categories, reading)
+        let saveback = TradeRepublicTimeline.read(Data(#"{"items":[{"id":"back","timestamp":"2026-11-02T12:00:00.000Z","title":"MSCI World","icon":"logos/IE00BJ0KDQ92/v2","status":"EXECUTED","amount":{"value":-15,"fractionDigits":2},"eventType":"SAVEBACK_AGGREGATE"}]}"#.utf8))
+        let namedSaveback = TradeRepublicTimeline.read(Data(#"{"items":[{"id":"back2","timestamp":"2026-11-02T12:00:00.000Z","title":"MSCI World","icon":"logos/IE00BJ0KDQ92/v2","status":"EXECUTED","amount":{"value":-15,"fractionDigits":2},"eventType":"benefits_saveback_execution"}]}"#.utf8))
+        let perk = TradeRepublicTimeline.read(Data(#"{"items":[{"id":"perk","timestamp":"2024-01-03T12:00:00.000Z","title":"Apple","icon":"logos/US0378331005/v2","status":"EXECUTED","amount":{"value":0,"fractionDigits":2},"eventType":"ACQUISITION_TRADE_PERK"}]}"#.utf8))
+        let gift = TradeRepublicTimeline.read(Data(#"{"items":[{"id":"gift","timestamp":"2024-01-03T12:00:00.000Z","title":"Apple","subtitle":"Geschenk","icon":"logos/US0378331005/v2","status":"EXECUTED","amount":{"value":0,"fractionDigits":2},"eventType":"INCOMING_GIFT"}]}"#.utf8))
+        let unexplained = TradeRepublicSync.changes(
+            positions: [TradeRepublicPosition(isin: "US0378331005", name: "Apple", quantity: 1, averageBuyInCents: 1010)],
+            holdings: [],
+            activities: [],
+            known: []
+        )
+        let receipts = saveback.items.first?.trade == false
+            && saveback.items.first?.statementType == "Cashback"
+            && namedSaveback.items.first?.trade == false
+            && namedSaveback.items.first?.statementType == "Cashback"
+            && perk.items.first?.trade == false
+            && perk.items.first?.statementType == "Depotgeschenk"
+            && gift.items.first?.statementType == "Depotgeschenk"
+            && gift.items.first?.trade == false
+            && !unexplained.contains { if case .buy = $0 { return true }; return false }
+            && unexplained.contains { if case .shares(_, _, let isin, _, let quantity, _) = $0 { return isin == "US0378331005" && abs(quantity - 1) < 0.000001 }; return false }
+        return result("Ein Depotstand setzt Menge und Einstand und erfindet nichts", .portfolio, .unit, passed && synced && categories && receipts, reading)
     }
 
     private static func deadSessionDoesNotStartAnotherLogin() -> LififyCheckResult {

@@ -257,6 +257,7 @@ enum BankImportApplier {
             insertedAccounts.forEach(context.delete)
             throw error
         }
+        relinkOwnAccounts(context: context)
         return BankImportResult(
             importedCount: imported,
             holdingCount: holdingCount,
@@ -608,26 +609,25 @@ enum BankImportApplier {
         guard known.isDisjoint(with: fingerprints) else { return nil }
 
         if let other = counterpartyAccount(for: row, checking: checking, accounts: accounts) {
-            if let existing = existingTransfer(
-                on: row.date,
-                amount: row.amountCents,
-                first: checking.id,
-                second: other.id,
-                entries: entries,
-                windowDays: 3
-            ) {
-                review.similar.append(similarChoice(row: row, existing: existing, accountID: checking.id))
+            if transferExists(on: row.date, amount: row.amountCents, first: checking.id, second: other.id, entries: entries)
+                || existingTransfer(
+                    on: row.date,
+                    amount: row.amountCents,
+                    first: checking.id,
+                    second: other.id,
+                    entries: entries,
+                    windowDays: 3
+                ) != nil {
                 known.formUnion(fingerprints)
                 return nil
             }
-            if let match = transferMatch(row: row, other: other, entries: entries) {
-                let entry = ledgerEntry(for: row, checkingID: checking.id, portfolioID: nil)
-                context.insert(entry)
-                entries.append(entry)
-                known.formUnion(fingerprints)
-                review.transfers.append(transferChoice(entry: entry, row: row, checking: checking, other: other, match: match))
-                return entry
-            }
+            let entry = ledgerEntry(for: row, checkingID: checking.id, portfolioID: nil)
+            context.insert(entry)
+            entries.append(entry)
+            known.formUnion(fingerprints)
+            bookTransfer(entry, row: row, checkingID: checking.id, otherID: other.id, entries: &entries)
+            removeMirror(of: row, on: other.id, checking: checking, entries: &entries, context: context, windowDays: 3)
+            return entry
         }
 
         if let existing = similarMatch(row: row, entries: entries, accountID: checking.id) {
@@ -706,6 +706,84 @@ enum BankImportApplier {
             ))
         }
         try context.save()
+    }
+
+    /// A booking between two of your own accounts is a transfer. Combined it is neutral.
+    /// On the sending account it leaves, and on the receiving account it arrives.
+    static func relinkOwnAccounts(context: ModelContext) {
+        guard var entries = try? context.fetch(FetchDescriptor<LedgerEntry>()) else { return }
+        let accounts = (try? context.fetch(FetchDescriptor<Account>())) ?? []
+        rememberTradeRepublicIBAN(entries: entries, accounts: accounts)
+        let own = accounts.filter {
+            $0.kind != .portfolio && $0.kind != .savingsGroup && !normalizedIBAN($0.iban).isEmpty
+        }
+        guard own.count > 1 else { return }
+        var changed = false
+        for entry in entries where entry.kind == .income || entry.kind == .expense {
+            guard let accountID = entry.accountID else { continue }
+            let parsed = BankImportService.ibans(from: entry.notes, amountCents: entry.amountCents)
+            let counterparty = normalizedIBAN(entry.amountCents >= 0 ? parsed.sender : parsed.recipient)
+            guard !counterparty.isEmpty,
+                  let other = own.first(where: { $0.id != accountID && normalizedIBAN($0.iban) == counterparty })
+            else { continue }
+            if transferExists(on: entry.date, amount: entry.amountCents, first: accountID, second: other.id, entries: entries) {
+                context.delete(entry)
+                entries.removeAll { $0.id == entry.id }
+                changed = true
+                continue
+            }
+            let inbound = entry.amountCents >= 0
+            let row = ImportedTransaction(
+                date: entry.date,
+                title: entry.title,
+                notes: entry.notes,
+                amountCents: entry.amountCents,
+                iban: counterparty,
+                senderIBAN: inbound ? counterparty : "",
+                recipientIBAN: inbound ? "" : counterparty,
+                fingerprint: entry.importFingerprint ?? entry.id.uuidString
+            )
+            bookTransfer(entry, row: row, checkingID: accountID, otherID: other.id, entries: &entries)
+            if let checking = accounts.first(where: { $0.id == accountID }) {
+                removeMirror(of: row, on: other.id, checking: checking, entries: &entries, context: context, windowDays: 3)
+            }
+            changed = true
+        }
+        guard changed else { return }
+        try? context.save()
+    }
+
+    /// A booking that names Trade Republic and already shows the other account's IBAN
+    /// fills the empty Trade Republic IBAN, so the payment can become a transfer.
+    private static func rememberTradeRepublicIBAN(entries: [LedgerEntry], accounts: [Account]) {
+        guard let tradeRepublic = accounts.first(where: {
+            $0.kind == .checking
+                && $0.name.caseInsensitiveCompare("Trade Republic") == .orderedSame
+                && normalizedIBAN($0.iban).isEmpty
+        }) else { return }
+        let owned = Set(accounts.compactMap { account -> String? in
+            let value = normalizedIBAN(account.iban)
+            return value.isEmpty ? nil : value
+        })
+        for entry in entries {
+            let text = "\(entry.title)\n\(entry.notes)"
+                .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "de_DE"))
+            guard text.contains("trade republic") else { continue }
+            let parsed = BankImportService.ibans(from: entry.notes, amountCents: entry.amountCents)
+            let sender = normalizedIBAN(parsed.sender)
+            let recipient = normalizedIBAN(parsed.recipient)
+            guard !sender.isEmpty, !recipient.isEmpty, sender != recipient else { continue }
+            let candidate: String
+            if owned.contains(sender), !owned.contains(recipient) {
+                candidate = recipient
+            } else if owned.contains(recipient), !owned.contains(sender) {
+                candidate = sender
+            } else {
+                continue
+            }
+            tradeRepublic.iban = candidate
+            return
+        }
     }
 
     private static func transferChoice(

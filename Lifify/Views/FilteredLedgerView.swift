@@ -367,7 +367,7 @@ struct FilteredLedgerView: View {
         case .income: return .green
         case .expense: return .red
         case .savingsPlan, .transfer: return paint.amountColor
-        case .interest, .dividend, .refund, .portfolioBuy, .portfolioSale, .adjustment:
+        case .interest, .dividend, .cashback, .portfolioGift, .refund, .portfolioBuy, .portfolioSale, .adjustment:
             return paint.amountColor
         }
     }

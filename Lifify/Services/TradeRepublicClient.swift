@@ -228,7 +228,9 @@ struct TradeRepublicClient: Sendable {
                 break
             }
         }
-        let pending = all.enumerated().filter { $0.element.trade && $0.element.quantity == nil }
+        let pending = all.enumerated().filter {
+            $0.element.quantity == nil && ($0.element.trade || $0.element.isGrant)
+        }
             .sorted { $0.element.date > $1.element.date }
             .prefix(800)
         var keptBuyDetail = false

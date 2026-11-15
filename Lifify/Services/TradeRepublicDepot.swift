@@ -38,6 +38,11 @@ enum TradeRepublicDepotApplier {
                 latestLotDate: lots.map(\.date).max()
             )
         }
+        let periodStart = BankImportApplier.firstMainAccountPeriod(
+            entries: entries,
+            accounts: accounts,
+            context: context
+        )?.start
         let moves = TradeRepublicSync.changes(
             positions: snapshot.positions,
             holdings: held,
@@ -54,12 +59,25 @@ enum TradeRepublicDepotApplier {
         for move in moves {
             switch move {
             case .cash(let id, let date, let title, let amountCents, let statementType):
+                guard !isBeforePeriod(date, start: periodStart) else { continue }
                 guard insertCash(id: id, date: date, title: title, amountCents: amountCents, statementType: statementType, checking: checking, known: known, context: context) else { continue }
+                count += 1
+            case .grant(let id, let date, let title, let isin, let name, let quantity, let amountCents, let statementType):
+                let holding = try ensureHolding(isin: isin, name: name, portfolio: portfolio, stored: stored, context: context)
+                openExistingSharesIfNeeded(holding)
+                guard insertGrant(id: id, date: date, title: title, quantity: quantity, amountCents: amountCents, statementType: statementType, holding: holding, portfolio: portfolio, known: &known, context: context) else { continue }
+                if !dropping.contains(isin) { _ = HoldingMaintenance.sync(holding, context: context) }
+                count += 1
+            case .shares(let _, let date, let isin, let name, let quantity, let unitCents):
+                let holding = try ensureHolding(isin: isin, name: name, portfolio: portfolio, stored: stored, context: context)
+                openExistingSharesIfNeeded(holding)
+                guard insertShares(date: date, quantity: quantity, unitCents: unitCents, holding: holding) else { continue }
+                if !dropping.contains(isin) { _ = HoldingMaintenance.sync(holding, context: context) }
                 count += 1
             case .buy(let id, let date, let title, let isin, let name, let quantity, let amountCents, let savingsPlan):
                 let holding = try ensureHolding(isin: isin, name: name, portfolio: portfolio, stored: stored, context: context)
                 openExistingSharesIfNeeded(holding)
-                guard insertTrade(id: id, date: date, title: title, quantity: quantity, amountCents: amountCents, sale: false, savingsPlan: savingsPlan, holding: holding, checking: checking, portfolio: portfolio, known: &known, context: context) else { continue }
+                guard insertTrade(id: id, date: date, title: title, quantity: quantity, amountCents: amountCents, sale: false, savingsPlan: savingsPlan, holding: holding, checking: checking, portfolio: portfolio, known: &known, context: context, bookCash: !isBeforePeriod(date, start: periodStart)) else { continue }
                 if !dropping.contains(isin) { _ = HoldingMaintenance.sync(holding, context: context) }
                 count += 1
             case .sale(let id, let date, let title, let isin, let name, let quantity, let amountCents):
@@ -67,7 +85,7 @@ enum TradeRepublicDepotApplier {
                     ?? holding(isin: isin, portfolio: portfolio, context: context) else { continue }
                 if holding.name.isEmpty { holding.name = name }
                 openExistingSharesIfNeeded(holding)
-                guard insertTrade(id: id, date: date, title: title, quantity: quantity, amountCents: amountCents, sale: true, savingsPlan: false, holding: holding, checking: checking, portfolio: portfolio, known: &known, context: context) else { continue }
+                guard insertTrade(id: id, date: date, title: title, quantity: quantity, amountCents: amountCents, sale: true, savingsPlan: false, holding: holding, checking: checking, portfolio: portfolio, known: &known, context: context, bookCash: !isBeforePeriod(date, start: periodStart)) else { continue }
                 if !dropping.contains(isin) { _ = HoldingMaintenance.sync(holding, context: context) }
                 count += 1
             case .drop(let isin):
@@ -82,7 +100,13 @@ enum TradeRepublicDepotApplier {
         let fresh = try context.fetch(FetchDescriptor<PortfolioHolding>()).filter { $0.accountID == portfolio.id }
         adoptSavingsPlans(from: snapshot.activities, plans: snapshot.plans, checking: checking, portfolio: portfolio, holdings: fresh, context: context)
         await MarketDataService.refresh(holdings: fresh, context: context)
+        BankImportApplier.relinkOwnAccounts(context: context)
         return count
+    }
+
+    private static func isBeforePeriod(_ date: Date, start: Date?) -> Bool {
+        guard let start else { return false }
+        return Calendar.current.startOfDay(for: date) < Calendar.current.startOfDay(for: start)
     }
 
     private static func portfolio(
@@ -197,16 +221,25 @@ enum TradeRepublicDepotApplier {
         checking: Account,
         portfolio: Account,
         known: inout Set<String>,
-        context: ModelContext
+        context: ModelContext,
+        bookCash: Bool = true
     ) -> Bool {
         let fingerprint = TradeRepublicTimeline.fingerprint(id)
-        guard !known.contains(fingerprint), quantity > 0.0000005 else { return false }
+        guard quantity > 0.0000005 else { return false }
+        if !bookCash {
+            let sameDay = HoldingLotStore.lots(for: holding.id).contains {
+                !$0.isSale && abs($0.quantity - quantity) < 0.000001 && Calendar.current.isDate($0.date, inSameDayAs: date)
+            }
+            guard !sameDay else { return false }
+        } else {
+            guard !known.contains(fingerprint) else { return false }
+        }
         let cash = abs(amountCents)
         let label = holding.name.isEmpty ? title : holding.name
         let action = sale ? L("Verkauf", "Sale") : (savingsPlan ? L("Sparplan", "Savings plan") : L("Kauf", "Purchase"))
         let unit = quantity > 0 ? Int((Double(cash) / quantity).rounded()) : 0
         var entryID: UUID?
-        if cash > 0 {
+        if bookCash, cash > 0 {
             let entry = LedgerEntry(
                 date: date,
                 title: "\(action): \(label)",
@@ -232,8 +265,88 @@ enum TradeRepublicDepotApplier {
             ),
             holdingID: holding.id
         )
-        known.insert(fingerprint)
+        if bookCash { known.insert(fingerprint) }
         if !sale, HoldingPurchaseDateStore.date(for: holding.id) == nil {
+            HoldingPurchaseDateStore.set(date, for: holding.id)
+        }
+        return true
+    }
+
+    /// Cashback and gifts add the shares and an income booking. The checking account is not charged.
+    private static func insertGrant(
+        id: String,
+        date: Date,
+        title: String,
+        quantity: Double,
+        amountCents: Int,
+        statementType: String,
+        holding: PortfolioHolding,
+        portfolio: Account,
+        known: inout Set<String>,
+        context: ModelContext
+    ) -> Bool {
+        let fingerprint = TradeRepublicTimeline.fingerprint(id)
+        guard !known.contains(fingerprint) else { return false }
+        let label = holding.name.isEmpty ? title : holding.name
+        let action = statementType == "Cashback" ? "Cashback" : L("Depotgeschenk", "Portfolio gift")
+        if amountCents > 0 {
+            context.insert(LedgerEntry(
+                date: date,
+                title: "\(action): \(label)",
+                notes: "\(L("Typ", "Type")): \(statementType)\nISIN: \(holding.symbol)",
+                amountCents: amountCents,
+                kind: .income,
+                accountID: portfolio.id,
+                importFingerprint: fingerprint
+            ))
+        }
+        if quantity > 0.0000005 {
+            let unit = amountCents > 0 ? Int((Double(amountCents) / quantity).rounded()) : 0
+            HoldingLotStore.add(
+                HoldingLot(
+                    date: date,
+                    quantity: quantity,
+                    unitPriceCents: unit,
+                    amountCents: 0,
+                    isSale: false,
+                    isSavingsPlan: false,
+                    source: statementType == "Cashback" ? "cashback" : "gift"
+                ),
+                holdingID: holding.id
+            )
+        }
+        known.insert(fingerprint)
+        if HoldingPurchaseDateStore.date(for: holding.id) == nil {
+            HoldingPurchaseDateStore.set(date, for: holding.id)
+        }
+        return amountCents > 0 || quantity > 0.0000005
+    }
+
+    /// Shares the timeline does not explain. They stay in the depot and do not leave the cash account.
+    private static func insertShares(
+        date: Date,
+        quantity: Double,
+        unitCents: Int,
+        holding: PortfolioHolding
+    ) -> Bool {
+        guard quantity > 0.0000005 else { return false }
+        let lots = HoldingLotStore.lots(for: holding.id)
+        if lots.contains(where: { !$0.isSale && $0.ledgerEntryID == nil && abs($0.quantity - quantity) < 0.000001 }) {
+            return false
+        }
+        HoldingLotStore.add(
+            HoldingLot(
+                date: date,
+                quantity: quantity,
+                unitPriceCents: unitCents,
+                amountCents: 0,
+                isSale: false,
+                isSavingsPlan: false,
+                source: "opening"
+            ),
+            holdingID: holding.id
+        )
+        if HoldingPurchaseDateStore.date(for: holding.id) == nil {
             HoldingPurchaseDateStore.set(date, for: holding.id)
         }
         return true
@@ -286,10 +399,56 @@ enum TradeRepublicDepotApplier {
                       fingerprint.hasPrefix("tr-") else { continue }
                 let eventID = String(fingerprint.dropFirst(3))
                 if eventID.hasPrefix("open-") {
-                    if acceptedIDs.isEmpty { continue }
+                    let grants = activities.filter {
+                        $0.isGrant && $0.isin.caseInsensitiveCompare(symbol) == .orderedSame
+                    }
+                    let sizedGrant = grants.contains { ($0.quantity ?? 0) > 0.0000005 }
+                    known.remove(fingerprint)
+                    context.delete(entry)
+                    if acceptedIDs.isEmpty && !sizedGrant {
+                        if let grant = grants.min(by: { $0.date < $1.date }) {
+                            let shown = abs(lot.amountCents)
+                            keepReceipt(
+                                lot: lot,
+                                holding: holding,
+                                date: grant.date,
+                                source: grant.statementType == "Cashback" ? "cashback" : "gift"
+                            )
+                            if grant.amountCents == 0, shown > 0 {
+                                _ = insertGrant(
+                                    id: grant.id,
+                                    date: grant.date,
+                                    title: grant.title.isEmpty ? holding.name : grant.title,
+                                    quantity: 0,
+                                    amountCents: shown,
+                                    statementType: grant.statementType,
+                                    holding: holding,
+                                    portfolio: portfolio,
+                                    known: &known,
+                                    context: context
+                                )
+                            }
+                        } else {
+                            keepSharesWithoutCash(lot: lot, holding: holding, activities: activities)
+                        }
+                        continue
+                    }
                     removedCollapsed = true
+                    HoldingLotStore.remove(lotID: lot.id, holdingID: holding.id)
+                    continue
                 } else if let item = byID[eventID] {
                     if TradeRepublicSync.purchase(item, averageCents: average) { continue }
+                    if item.isGrant, (item.quantity ?? 0) < 0.0000005 {
+                        known.remove(fingerprint)
+                        context.delete(entry)
+                        keepReceipt(
+                            lot: lot,
+                            holding: holding,
+                            date: item.date,
+                            source: item.statementType == "Cashback" ? "cashback" : "gift"
+                        )
+                        continue
+                    }
                 } else {
                     continue
                 }
@@ -324,24 +483,43 @@ enum TradeRepublicDepotApplier {
                     ?? HoldingLotStore.lots(for: holding.id).map(\.date).min()
                     ?? Date()
                 let date = Calendar.current.date(byAdding: .day, value: -1, to: oldest) ?? oldest
-                known.remove(TradeRepublicTimeline.fingerprint("open-\(symbol)"))
-                _ = insertTrade(
-                    id: "open-\(symbol)",
-                    date: date,
-                    title: holding.name,
-                    quantity: rest,
-                    amountCents: -Int((rest * Double(average)).rounded()),
-                    sale: false,
-                    savingsPlan: false,
-                    holding: holding,
-                    checking: checking,
-                    portfolio: portfolio,
-                    known: &known,
-                    context: context
-                )
+                _ = insertShares(date: date, quantity: rest, unitCents: average, holding: holding)
             }
             _ = HoldingMaintenance.sync(holding, context: context)
         }
+    }
+
+    /// The collapsed booking charged the cash account on the import day. The shares stay, without that charge.
+    private static func keepSharesWithoutCash(
+        lot: HoldingLot,
+        holding: PortfolioHolding,
+        activities: [TradeRepublicActivity]
+    ) {
+        var lots = HoldingLotStore.lots(for: holding.id)
+        guard let index = lots.firstIndex(where: { $0.id == lot.id }) else { return }
+        if let oldest = activities.map(\.date).min() {
+            lots[index].date = Calendar.current.date(byAdding: .day, value: -1, to: oldest) ?? oldest
+        }
+        lots[index].amountCents = 0
+        lots[index].ledgerEntryID = nil
+        lots[index].source = "opening"
+        HoldingLotStore.replace(lots, holdingID: holding.id)
+    }
+
+    /// The shares arrived as cashback or a gift. The date stays the event date, and the cash account is not charged.
+    private static func keepReceipt(
+        lot: HoldingLot,
+        holding: PortfolioHolding,
+        date: Date,
+        source: String
+    ) {
+        var lots = HoldingLotStore.lots(for: holding.id)
+        guard let index = lots.firstIndex(where: { $0.id == lot.id }) else { return }
+        lots[index].date = date
+        lots[index].amountCents = 0
+        lots[index].ledgerEntryID = nil
+        lots[index].source = source
+        HoldingLotStore.replace(lots, holdingID: holding.id)
     }
 
     /// One lot for the whole position, dated whenever the import ran, is replaced by the real purchases.
@@ -559,5 +737,36 @@ enum TradeRepublicDepotApplier {
         let account = Account(name: "Trade Republic", kind: .checking, isLiquid: true, isMain: false)
         context.insert(account)
         return account
+    }
+}
+
+enum TradeRepublicOpeningBalance {
+    /// The cash balance is missing for the start of the main account's first period.
+    static func missingDate(context: ModelContext) -> Date? {
+        let accounts = (try? context.fetch(FetchDescriptor<Account>())) ?? []
+        guard let checking = accounts.first(where: {
+            $0.kind == .checking && $0.name.caseInsensitiveCompare("Trade Republic") == .orderedSame
+        }) else { return nil }
+        let entries = (try? context.fetch(FetchDescriptor<LedgerEntry>())) ?? []
+        if entries.contains(where: { $0.kind == .adjustment && $0.accountID == checking.id }) { return nil }
+        return BankImportApplier.firstMainAccountPeriod(entries: entries, accounts: accounts, context: context)?.start
+    }
+
+    static func store(_ cents: Int, context: ModelContext) {
+        guard let date = missingDate(context: context) else { return }
+        let accounts = (try? context.fetch(FetchDescriptor<Account>())) ?? []
+        guard let checking = accounts.first(where: {
+            $0.kind == .checking && $0.name.caseInsensitiveCompare("Trade Republic") == .orderedSame
+        }) else { return }
+        context.insert(LedgerEntry(
+            date: Calendar.current.startOfDay(for: date),
+            title: L("Startsaldo", "Opening balance"),
+            notes: "Typ: Startsaldo",
+            amountCents: cents,
+            kind: .adjustment,
+            accountID: checking.id,
+            importFingerprint: "tr-startsaldo"
+        ))
+        try? context.save()
     }
 }

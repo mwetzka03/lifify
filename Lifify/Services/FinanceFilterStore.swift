@@ -84,6 +84,7 @@ enum FinancePeriods {
         if account == nil, !depotIDs.isEmpty {
             return entry.fromAccountID.map { depotIDs.contains($0) } == true
                 || entry.toAccountID.map { depotIDs.contains($0) } == true
+                || entry.accountID.map { depotIDs.contains($0) } == true
         }
         guard let account else { return true }
         return entry.accountID == account.id

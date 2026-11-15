@@ -140,6 +140,13 @@ enum TradeRepublicCopy {
         )
     }
     static var close: String { L("Schließen", "Close") }
+    static var balanceSave: String { L("Kontostand speichern", "Save the balance") }
+    static func balancePrompt(_ date: String) -> String {
+        L(
+            "Kontostand auf Trade Republic am \(date). Das ist der Start des ersten Zeitraums, damit das Konto nicht ins Minus rutscht.",
+            "Cash balance on Trade Republic on \(date). That is the start of the first period, so the account does not go negative."
+        )
+    }
     static var sample: String { L("Antwort kopieren", "Copy the response") }
     static var sampleNote: String {
         L(

@@ -17,6 +17,8 @@ struct HoldingLot: Codable, Identifiable, Hashable {
     var isSale: Bool
     var isSavingsPlan: Bool
     var ledgerEntryID: UUID?
+    /// cashback, gift, or opening. Empty means a normal purchase.
+    var source: String = ""
 
     init(
         id: UUID = UUID(),
@@ -26,7 +28,8 @@ struct HoldingLot: Codable, Identifiable, Hashable {
         amountCents: Int,
         isSale: Bool,
         isSavingsPlan: Bool,
-        ledgerEntryID: UUID? = nil
+        ledgerEntryID: UUID? = nil,
+        source: String = ""
     ) {
         self.id = id
         self.date = date
@@ -36,10 +39,11 @@ struct HoldingLot: Codable, Identifiable, Hashable {
         self.isSale = isSale
         self.isSavingsPlan = isSavingsPlan
         self.ledgerEntryID = ledgerEntryID
+        self.source = source
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, date, quantity, unitPriceCents, amountCents, isSale, isSavingsPlan, ledgerEntryID
+        case id, date, quantity, unitPriceCents, amountCents, isSale, isSavingsPlan, ledgerEntryID, source
     }
 
     init(from decoder: Decoder) throws {
@@ -52,6 +56,7 @@ struct HoldingLot: Codable, Identifiable, Hashable {
         isSale = try container.decode(Bool.self, forKey: .isSale)
         isSavingsPlan = try container.decode(Bool.self, forKey: .isSavingsPlan)
         ledgerEntryID = try container.decodeIfPresent(UUID.self, forKey: .ledgerEntryID)
+        source = try container.decodeIfPresent(String.self, forKey: .source) ?? ""
     }
 
     func encode(to encoder: Encoder) throws {
@@ -64,6 +69,7 @@ struct HoldingLot: Codable, Identifiable, Hashable {
         try container.encode(isSale, forKey: .isSale)
         try container.encode(isSavingsPlan, forKey: .isSavingsPlan)
         try container.encodeIfPresent(ledgerEntryID, forKey: .ledgerEntryID)
+        if !source.isEmpty { try container.encode(source, forKey: .source) }
     }
 }
 

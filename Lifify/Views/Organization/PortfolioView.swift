@@ -1098,6 +1098,9 @@ private struct HoldingDetailView: View {
     private func lotTitle(_ lot: HoldingLot) -> String {
         if lot.isSale { return L("Verkauf", "Sale") }
         if lot.isSavingsPlan { return L("Sparplan", "Savings plan") }
+        if lot.source == "cashback" { return "Cashback" }
+        if lot.source == "gift" { return L("Depotgeschenk", "Portfolio gift") }
+        if lot.source == "opening" { return L("Anfangsbestand", "Opening position") }
         return L("Kauf", "Purchase")
     }
 

@@ -14,6 +14,8 @@ struct TradeRepublicActivity: Equatable, Sendable {
     /// Share count from the timeline row or its detail. Missing means the row must not invent one.
     var quantity: Double? = nil
     var savingsPlan: Bool = false
+
+    var isGrant: Bool { statementType == "Cashback" || statementType == "Depotgeschenk" }
 }
 
 struct TradeRepublicPlan: Equatable, Sendable {
@@ -40,6 +42,8 @@ struct HeldPosition: Equatable {
 
 enum TradeRepublicMove: Equatable {
     case cash(id: String, date: Date, title: String, amountCents: Int, statementType: String)
+    case grant(id: String, date: Date, title: String, isin: String, name: String, quantity: Double, amountCents: Int, statementType: String)
+    case shares(id: String, date: Date, isin: String, name: String, quantity: Double, unitCents: Int)
     case buy(id: String, date: Date, title: String, isin: String, name: String, quantity: Double, amountCents: Int, savingsPlan: Bool)
     case sale(id: String, date: Date, title: String, isin: String, name: String, quantity: Double, amountCents: Int)
     case drop(isin: String)
@@ -67,12 +71,13 @@ enum TradeRepublicTimeline {
         guard status.caseInsensitiveCompare("EXECUTED") == .orderedSame else { return nil }
         guard let date = date(from: (row["timestamp"] as? String) ?? "") else { return nil }
         let amount = cents(row["amount"] as? [String: Any]) ?? 0
-        guard amount != 0 else { return nil }
         let eventType = (row["eventType"] as? String) ?? ""
         let isin = isin(from: (row["icon"] as? String) ?? "")
         let title = ((row["title"] as? String) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         let subtitle = (row["subtitle"] as? String) ?? ""
         let trade = isTrade(eventType, isin: isin)
+        let kind = statementType(eventType: eventType, title: title, subtitle: subtitle, isin: isin, amountCents: amount, trade: trade)
+        guard amount != 0 || kind == "Cashback" || kind == "Depotgeschenk" else { return nil }
         var item = TradeRepublicActivity(
             id: id,
             date: date,
@@ -85,7 +90,7 @@ enum TradeRepublicTimeline {
             quantity: shareCount(row),
             savingsPlan: isSavingsPlan(eventType)
         )
-        item.statementType = statementType(eventType: eventType, title: title, subtitle: subtitle, isin: isin, amountCents: amount, trade: trade)
+        item.statementType = kind
         return item
     }
 
@@ -94,7 +99,7 @@ enum TradeRepublicTimeline {
               let object = try? JSONSerialization.jsonObject(with: Data(text[start...].utf8))
         else { return item }
         var copy = item
-        if copy.trade, let shares = transactionShares(in: object) {
+        if (copy.trade || copy.isGrant), let shares = transactionShares(in: object) {
             copy.quantity = shares
         }
         if let symbol = labeledText(in: object, titles: ["isin"]), !symbol.isEmpty, copy.isin.isEmpty {
@@ -114,8 +119,13 @@ enum TradeRepublicTimeline {
         amountCents: Int,
         trade: Bool
     ) -> String {
+        let compact = "\(eventType) \(title) \(subtitle)"
+            .uppercased()
+            .folding(options: .diacriticInsensitive, locale: Locale(identifier: "de_DE"))
+            .replacingOccurrences(of: "_", with: "")
+        if compact.contains("SAVEBACK") || compact.contains("CASHBACK") { return "Cashback" }
+        if isGift(compact, isin: isin) { return "Depotgeschenk" }
         if trade { return "Handel" }
-        let compact = "\(eventType) \(title) \(subtitle)".uppercased().replacingOccurrences(of: "_", with: "")
         if compact.contains("DIVIDEND") || compact.contains("DIVIDENDE") { return "Ertrag" }
         if compact.contains("INTEREST") || compact.contains("ZINS") { return "Zinsen" }
         if compact.contains("TAX") || compact.contains("STEUER") { return "Steuern" }
@@ -127,6 +137,17 @@ enum TradeRepublicTimeline {
         return ""
     }
 
+    private static func isGift(_ compact: String, isin: String) -> Bool {
+        if compact.contains("GIFT") || compact.contains("GESCHENK") || compact.contains("PERK") || compact.contains("WELCOME") {
+            return true
+        }
+        guard !isin.isEmpty else { return false }
+        return compact.contains("SECURITIESTRANSFER")
+            || compact.contains("STOCKTRANSFER")
+            || compact.contains("INCOMINGTRANSFER")
+            || compact.contains("UBERTRAG")
+    }
+
     private static func isSavingsPlan(_ eventType: String) -> Bool {
         let folded = eventType.uppercased().replacingOccurrences(of: "_", with: "")
         return folded.contains("SAVINGSPLAN") || folded.contains("SAVINGPLAN")
@@ -135,10 +156,12 @@ enum TradeRepublicTimeline {
     private static func isTrade(_ eventType: String, isin: String) -> Bool {
         guard !isin.isEmpty else { return false }
         let folded = eventType.uppercased().replacingOccurrences(of: "_", with: "")
-        if folded.contains("DIVIDEND") || folded.contains("INTEREST") || folded.contains("ZINS") || folded.contains("IPO") {
+        if folded.contains("DIVIDEND") || folded.contains("INTEREST") || folded.contains("ZINS") || folded.contains("IPO")
+            || folded.contains("SAVEBACK") || folded.contains("CASHBACK")
+            || folded.contains("GIFT") || folded.contains("GESCHENK") || folded.contains("PERK") {
             return false
         }
-        return folded.contains("TRADINGTRADE") || folded.contains("TRADINGSAVING") || folded.contains("SAVEBACK") || folded.contains("ORDEREXECUTED")
+        return folded.contains("TRADINGTRADE") || folded.contains("TRADINGSAVING") || folded.contains("ORDEREXECUTED")
     }
 
     private static func isin(from icon: String) -> String {
@@ -312,6 +335,22 @@ enum TradeRepublicSync {
         }
         var moves: [TradeRepublicMove] = []
         for item in fresh where !item.trade {
+            if item.isGrant {
+                if (item.quantity ?? 0) > 0.0000005 { continue }
+                let value = abs(item.amountCents)
+                guard value > 0 else { continue }
+                moves.append(.grant(
+                    id: item.id,
+                    date: item.date,
+                    title: item.title.isEmpty ? "Trade Republic" : item.title,
+                    isin: item.isin,
+                    name: item.title,
+                    quantity: 0,
+                    amountCents: value,
+                    statementType: item.statementType
+                ))
+                continue
+            }
             if item.amountCents > 0 && leaving.contains(where: { claimsSale($0, item: item) }) { continue }
             let title = item.title.isEmpty ? "Trade Republic" : item.title
             moves.append(.cash(id: item.id, date: item.date, title: title, amountCents: item.amountCents, statementType: item.statementType))
@@ -406,52 +445,50 @@ enum TradeRepublicSync {
     ) {
         let symbol = position.isin.uppercased()
         let name = position.name.isEmpty ? (holding?.name ?? symbol) : position.name
+        let given = activities.filter {
+            $0.isGrant && $0.isin.caseInsensitiveCompare(symbol) == .orderedSame && ($0.quantity ?? 0) > 0.0000005
+        }.sorted { $0.date < $1.date }
+        for event in given {
+            let quantity = event.quantity ?? 0
+            let value = abs(event.amountCents)
+            let shown = value > 0 ? value : Int((quantity * Double(position.averageBuyInCents ?? 0)).rounded())
+            moves.append(.grant(
+                id: event.id,
+                date: event.date,
+                title: event.title.isEmpty ? name : event.title,
+                isin: symbol,
+                name: name,
+                quantity: quantity,
+                amountCents: shown,
+                statementType: event.statementType
+            ))
+        }
         let chosen = trades(isin: symbol, activities: activities, buying: true, after: nil)
         let sized = chosen.filter { purchase($0, averageCents: position.averageBuyInCents ?? 0) }
-        if !sized.isEmpty {
-            for event in sized {
-                moves.append(.buy(
-                    id: event.id,
-                    date: event.date,
-                    title: event.title.isEmpty ? name : event.title,
-                    isin: symbol,
-                    name: name,
-                    quantity: event.quantity ?? 0,
-                    amountCents: event.amountCents,
-                    savingsPlan: event.savingsPlan
-                ))
-            }
-            let covered = sized.reduce(0.0) { $0 + ($1.quantity ?? 0) }
-            let rest = position.quantity - covered
-            if holding == nil, rest > 0.001, let cost = position.averageBuyInCents, cost > 0,
-               let oldest = sized.map(\.date).min() {
-                let date = Calendar.current.date(byAdding: .day, value: -1, to: oldest) ?? oldest
-                moves.append(.buy(
-                    id: "open-\(symbol)",
-                    date: date,
-                    title: name,
-                    isin: symbol,
-                    name: name,
-                    quantity: rest,
-                    amountCents: -Int((rest * Double(cost)).rounded()),
-                    savingsPlan: false
-                ))
-            }
-            return
+        for event in sized {
+            moves.append(.buy(
+                id: event.id,
+                date: event.date,
+                title: event.title.isEmpty ? name : event.title,
+                isin: symbol,
+                name: name,
+                quantity: event.quantity ?? 0,
+                amountCents: event.amountCents,
+                savingsPlan: event.savingsPlan
+            ))
         }
-        guard holding == nil, chosen.isEmpty else { return }
-        let cost = position.averageBuyInCents ?? 0
-        let amount = cost > 0 ? -Int((position.quantity * Double(cost)).rounded()) : 0
-        guard amount != 0 else { return }
-        moves.append(.buy(
+        let covered = sized.reduce(0.0) { $0 + ($1.quantity ?? 0) } + given.reduce(0.0) { $0 + ($1.quantity ?? 0) }
+        let rest = position.quantity - (holding?.quantity ?? 0) - covered
+        guard rest > 0.001, let cost = position.averageBuyInCents, cost > 0 else { return }
+        let oldest = (sized + given).map(\.date).min() ?? activities.map(\.date).min() ?? now
+        let date = Calendar.current.date(byAdding: .day, value: -1, to: oldest) ?? oldest
+        moves.append(.shares(
             id: "open-\(symbol)",
-            date: now,
-            title: name,
+            date: date,
             isin: symbol,
             name: name,
-            quantity: position.quantity,
-            amountCents: amount,
-            savingsPlan: false
+            quantity: rest,
+            unitCents: cost
         ))
     }
 

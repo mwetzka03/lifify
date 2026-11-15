@@ -2,12 +2,12 @@ import Foundation
 
 enum ExternalIncome {
     static func countsInCombinedFinance(_ entry: LedgerEntry, accounts: [Account]) -> Bool {
-        if isDividendOrInterest(entry) { return true }
+        if isDividendOrInterest(entry) || isPortfolioReceipt(entry) { return true }
         return !isFromOwnIBAN(entry, accounts: accounts)
     }
 
     static func countsInHomeBudget(_ entry: LedgerEntry, accounts: [Account]) -> Bool {
-        if isDividendOrInterest(entry) { return false }
+        if isDividendOrInterest(entry) || isPortfolioReceipt(entry) { return false }
         return !isFromOwnIBAN(entry, accounts: accounts)
     }
 
@@ -22,6 +22,17 @@ enum ExternalIncome {
             || notes.contains("type: zinsen")
             || notes.contains("type: dividend")
             || notes.contains("type: interest")
+    }
+
+    private static func isPortfolioReceipt(_ entry: LedgerEntry) -> Bool {
+        let notes = entry.notes.folding(
+            options: [.caseInsensitive, .diacriticInsensitive],
+            locale: Locale(identifier: "de_DE")
+        )
+        return notes.contains("typ: cashback")
+            || notes.contains("type: cashback")
+            || notes.contains("typ: depotgeschenk")
+            || notes.contains("type: portfolio gift")
     }
 
     static func isFromOwnIBAN(_ entry: LedgerEntry, accounts: [Account]) -> Bool {

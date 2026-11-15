@@ -596,7 +596,12 @@ struct TransactionFormView: View {
                         accountPicker(L("Von", "From"), selection: $viewModel.fromAccountID, portfolio: viewModel.category == .portfolioSale)
                         accountPicker(L("Nach", "To"), selection: $viewModel.toAccountID, portfolio: viewModel.category == .portfolioBuy || viewModel.category == .savingsPlan)
                     } else {
-                        accountPicker(L("Konto", "Account"), selection: $viewModel.accountID, portfolio: false)
+                        accountPicker(
+                            L("Konto", "Account"),
+                            selection: $viewModel.accountID,
+                            portfolio: false,
+                            alsoPortfolio: viewModel.category == .cashback || viewModel.category == .portfolioGift
+                        )
                     }
                 }
                 .appGlassRow()
@@ -691,9 +696,15 @@ struct TransactionFormView: View {
         "\(entry.title) · \(AppDate.numeric(entry.date)) · \(Money.string(cents: abs(entry.amountCents)))"
     }
 
-    private func accountPicker(_ title: String, selection: Binding<UUID?>, portfolio: Bool) -> some View {
+    private func accountPicker(
+        _ title: String,
+        selection: Binding<UUID?>,
+        portfolio: Bool,
+        alsoPortfolio: Bool = false
+    ) -> some View {
         let choices = accounts.filter { account in
             guard account.kind != .savingsGroup else { return false }
+            if alsoPortfolio { return account.kind == .portfolio || account.kind == .checking }
             return portfolio ? account.kind == .portfolio : account.kind != .portfolio
         }
         return Picker(title, selection: selection) {

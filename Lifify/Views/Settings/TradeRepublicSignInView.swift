@@ -18,6 +18,8 @@ struct TradeRepublicSignInControls: View {
     @State private var deadline = Date()
     @State private var task: Task<Void, Never>?
     @State private var advance = false
+    @State private var openingBalance = ""
+    @State private var openingDate: Date?
     @State private var client = TradeRepublicClient()
     @AppStorage(AppClock.modeKey) private var developerMode = false
     @AppStorage(TradeRepublicSample.revisionKey) private var sampleRevision = 0
@@ -92,7 +94,7 @@ struct TradeRepublicSignInControls: View {
 
     private var popupTitle: String {
         switch phase {
-        case .credentials, .waiting, .loading, .message: TradeRepublicCopy.signIn
+        case .credentials, .waiting, .loading, .balance, .message: TradeRepublicCopy.signIn
         case .code: TradeRepublicCopy.codePrompt
         case .idle: ""
         }
@@ -147,6 +149,25 @@ struct TradeRepublicSignInControls: View {
             Text(TradeRepublicCopy.loading)
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
+        case .balance:
+            if let openingDate {
+                Text(TradeRepublicCopy.balancePrompt(AppDate.numeric(openingDate)))
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            field(L("Kontostand", "Account balance")) {
+                TextField(L("Kontostand", "Account balance"), text: $openingBalance)
+                    .keyboardType(.decimalPad)
+            }
+            popupActions(
+                confirm: TradeRepublicCopy.balanceSave,
+                enabled: Money.cents(from: openingBalance) != nil
+            ) {
+                if let cents = Money.cents(from: openingBalance) {
+                    TradeRepublicOpeningBalance.store(cents, context: context)
+                }
+                phase = .message
+            }
         case .message:
             if let note {
                 Text(note)
@@ -262,7 +283,7 @@ struct TradeRepublicSignInControls: View {
             ? TradeRepublicCopy.noPositions
             : String(format: TradeRepublicCopy.importedFormat, count)
         advance = true
-        phase = .message
+        presentResult()
     }
 
     private func refresh() {
@@ -274,7 +295,7 @@ struct TradeRepublicSignInControls: View {
             guard !Task.isCancelled else { return }
             note = text
             sessionSaved = TradeRepublicSessionStore.hasSession
-            phase = .message
+            presentResult()
         }
     }
 
@@ -283,6 +304,16 @@ struct TradeRepublicSignInControls: View {
         note = failure.message
         phase = .message
         clearSecrets()
+    }
+
+    private func presentResult() {
+        if let date = TradeRepublicOpeningBalance.missingDate(context: context) {
+            openingDate = date
+            openingBalance = ""
+            phase = .balance
+            return
+        }
+        phase = .message
     }
 
     private func close() {
@@ -308,6 +339,7 @@ struct TradeRepublicSignInControls: View {
         case waiting
         case code
         case loading
+        case balance
         case message
     }
 }
