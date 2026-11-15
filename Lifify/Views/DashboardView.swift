@@ -1029,82 +1029,15 @@ struct DashboardView: View {
         hasher.combine(SavingsPlanStore.cacheRevision)
         hasher.combine(HoldingLotStore.cacheRevision)
         hasher.combine(HistoricalPriceStore.cacheRevision)
-        for forecast in TransferForecastStore.all().sorted(by: { $0.id.uuidString < $1.id.uuidString }) {
-            hasher.combine(forecast)
-        }
-        for account in accounts {
-            hasher.combine(account.id)
-            hasher.combine(account.kindRaw)
-            hasher.combine(account.isMain)
-            hasher.combine(account.isLiquid)
-        }
-        for entry in entries {
-            hasher.combine(entry.id)
-            hasher.combine(entry.date)
-            hasher.combine(entry.amountCents)
-            hasher.combine(entry.kindRaw)
-            hasher.combine(entry.accountID)
-            hasher.combine(entry.fromAccountID)
-            hasher.combine(entry.toAccountID)
-            hasher.combine(entry.fixedCostID)
-            hasher.combine(entry.variableBudgetID)
-            hasher.combine(entry.shoppingItemID)
-            hasher.combine(entry.title)
-            hasher.combine(entry.notes)
-        }
-        for holding in holdings {
-            hasher.combine(holding.id)
-            hasher.combine(holding.accountID)
-            hasher.combine(holding.symbol)
-            hasher.combine(holding.quantity)
-            hasher.combine(holding.currentPriceCents)
-            hasher.combine(holding.purchasePriceCents)
-        }
-        for cost in fixedCosts {
-            hasher.combine(cost.id)
-            hasher.combine(cost.accountID)
-            hasher.combine(cost.amountCents)
-            hasher.combine(cost.cadenceRaw)
-            hasher.combine(cost.dueRuleRaw)
-            hasher.combine(cost.dayOfMonth)
-            hasher.combine(cost.firstChargeDate)
-            hasher.combine(cost.endChargeDate)
-            hasher.combine(cost.isActive)
-            hasher.combine(cost.name)
-        }
-        for forecast in forecasts {
-            hasher.combine(forecast.id)
-            hasher.combine(forecast.accountID)
-            hasher.combine(forecast.amountCents)
-            hasher.combine(forecast.cadenceRaw)
-            hasher.combine(forecast.dueRuleRaw)
-            hasher.combine(forecast.dayOfMonth)
-            hasher.combine(forecast.firstPaymentDate)
-            hasher.combine(forecast.endPaymentDate)
-            hasher.combine(forecast.isActive)
-            hasher.combine(forecast.name)
-        }
-        for budget in variableBudgets {
-            hasher.combine(budget.id)
-            hasher.combine(budget.accountID)
-            hasher.combine(budget.monthlyAmountCents)
-            hasher.combine(budget.name)
-        }
-        for item in shopping {
-            hasher.combine(item.id)
-            hasher.combine(item.amountCents)
-            hasher.combine(item.isPurchased)
-            hasher.combine(item.plannedDate)
-            hasher.combine(item.name)
-        }
-        for split in splits {
-            hasher.combine(split.id)
-            hasher.combine(split.transactionID)
-            hasher.combine(split.targetID)
-            hasher.combine(split.amountCents)
-            hasher.combine(split.kindRaw)
-            hasher.combine(split.periodKey)
-        }
+        hasher.combine(TransferForecastStore.all().count)
+        hasher.combine(accounts.count)
+        hasher.combine(fixedCosts.count)
+        hasher.combine(forecasts.count)
+        hasher.combine(variableBudgets.count)
+        hasher.combine(shopping.count)
+        hasher.combine(splits.count)
+        FinanceRenderToken.mix(entries: entries, into: &hasher)
+        FinanceRenderToken.mix(holdings: holdings, into: &hasher)
         return hasher.finalize()
     }
 

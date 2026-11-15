@@ -500,7 +500,7 @@ enum TradeRepublicDepotApplier {
         let label = holding.name.isEmpty ? title : holding.name
         let gift = statementType != "Cashback"
         let action = gift ? L("Depotgeschenk", "Portfolio gift") : "Cashback"
-        let shown = gift ? 0 : amountCents
+        let shown = abs(amountCents)
         if shown > 0 || gift {
             context.insert(LedgerEntry(
                 date: date,
@@ -524,7 +524,7 @@ enum TradeRepublicDepotApplier {
                     date: date,
                     quantity: quantity,
                     unitPriceCents: gift ? 0 : (shown > 0 ? Int((Double(shown) / quantity).rounded()) : 0),
-                    amountCents: 0,
+                    amountCents: gift ? 0 : shown,
                     isSale: false,
                     isSavingsPlan: false,
                     source: gift ? "gift" : "cashback"
@@ -632,8 +632,7 @@ enum TradeRepublicDepotApplier {
         if id.hasPrefix("gift-") {
             let name = activities.first { $0.isin.caseInsensitiveCompare(isin) == .orderedSame }?.title ?? ""
             return activities.first {
-                TradeRepublicSync.matchesInstrument($0, isin: isin, name: name)
-                    && ($0.isGrant || ($0.amountCents == 0 && !$0.trade))
+                TradeRepublicSync.matchesInstrument($0, isin: isin, name: name) && $0.isGrant
             }?.eventType ?? ""
         }
         if id.hasPrefix("delta-") {
@@ -692,8 +691,7 @@ enum TradeRepublicDepotApplier {
                 let eventID = String(fingerprint.dropFirst(3))
                 if eventID.hasPrefix("open-") {
                     let grants = activities.filter {
-                        ($0.isGrant || ($0.amountCents == 0 && !$0.trade))
-                            && TradeRepublicSync.matchesInstrument($0, isin: symbol, name: holding.name)
+                        $0.isGrant && TradeRepublicSync.matchesInstrument($0, isin: symbol, name: holding.name)
                     }
                     let sizedGrant = grants.contains { ($0.quantity ?? 0) > 0.0000005 }
                     known.remove(fingerprint)
@@ -823,8 +821,7 @@ enum TradeRepublicDepotApplier {
             guard !bought else { continue }
             var lots = HoldingLotStore.lots(for: holding.id)
             let grant = activities.filter {
-                ($0.isGrant || ($0.amountCents == 0 && !$0.trade))
-                    && TradeRepublicSync.matchesInstrument($0, isin: symbol, name: holding.name)
+                $0.isGrant && TradeRepublicSync.matchesInstrument($0, isin: symbol, name: holding.name)
             }.min(by: { $0.date < $1.date })
             let giftDate = grant?.date ?? dates[symbol]
             var changed = false
@@ -852,7 +849,7 @@ enum TradeRepublicDepotApplier {
                 date: giftDate ?? lots.map(\.date).min() ?? Date(),
                 title: holding.name,
                 quantity: 0,
-                amountCents: 0,
+                amountCents: Int((holding.quantity * Double(position.averageBuyInCents ?? 0)).rounded()),
                 statementType: "Depotgeschenk",
                 eventType: grant?.eventType ?? "",
                 holding: holding,

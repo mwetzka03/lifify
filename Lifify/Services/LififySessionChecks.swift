@@ -477,6 +477,14 @@ enum LififySessionChecks {
             activities: lottery.items,
             known: []
         )
+        let nvidiaHeld = TradeRepublicPosition(isin: "US67066G1040", name: "NVIDIA", quantity: 8, averageBuyInCents: 17152)
+        let nvidiaNoise = TradeRepublicTimeline.read(Data(#"{"items":[{"id":"nv-noise","timestamp":"2026-05-18T12:00:00.000Z","title":"NVIDIA","icon":"logos/US67066G1040/v2","status":"EXECUTED","amount":{"value":0,"fractionDigits":2},"eventType":"SAVINGS_PLAN_CREATED"},{"id":"nv-buy","timestamp":"2026-05-21T15:25:39.000Z","title":"NVIDIA","subtitle":"Kauforder","icon":"logos/US67066G1040/v2","status":"EXECUTED","amount":{"value":-378.80,"fractionDigits":2},"eventType":"TRADING_TRADE_EXECUTED"}]}"#.utf8))
+        let nvidiaMoves = TradeRepublicSync.changes(
+            positions: [nvidiaHeld],
+            holdings: [],
+            activities: nvidiaNoise.items,
+            known: []
+        )
         let receipts = saveback.items.first?.trade == true
             && saveback.items.first?.statementType == "Cashback"
             && namedSaveback.items.first?.trade == true
@@ -487,8 +495,8 @@ enum LififySessionChecks {
             && gift.items.first?.trade == false
             && !unexplained.contains { if case .buy = $0 { return true }; return false }
             && unexplained.contains { move in
-                if case .grant(_, _, _, let isin, _, let quantity, _, let type) = move {
-                    return isin == "US0378331005" && abs(quantity - 1) < 0.000001 && type == "Depotgeschenk"
+                if case .grant(_, _, _, let isin, _, let quantity, let amount, let type) = move {
+                    return isin == "US0378331005" && abs(quantity - 1) < 0.000001 && amount == 1010 && type == "Depotgeschenk"
                 }
                 return false
             }
@@ -503,7 +511,7 @@ enum LififySessionChecks {
                 if case .grant(_, let date, _, let isin, _, let quantity, let amount, let type) = move {
                     return isin == "GB0002875804"
                         && date == giftDay
-                        && amount == 0
+                        && amount == 2498
                         && type == "Depotgeschenk"
                         && abs(quantity - 0.436442) < 0.000001
                 }
@@ -584,6 +592,12 @@ enum LififySessionChecks {
                 }
                 return false
             }
+            && nvidiaNoise.items.contains(where: { $0.id == "nv-noise" && $0.statementType != "Depotgeschenk" && !$0.isGrant })
+            && nvidiaMoves.contains { move in
+                if case .buy(let id, _, _, let isin, _, _, _, _) = move { return id == "nv-buy" && isin == "US67066G1040" }
+                return false
+            }
+            && !nvidiaMoves.contains { if case .grant = $0 { return true }; return false }
             && TradeRepublicTimeline.isSessionFingerprint("tr-card")
             && !TradeRepublicTimeline.isSessionFingerprint("notice-1")
         return result("Ein Depotstand setzt Menge und Einstand und erfindet nichts", .portfolio, .unit, passed && synced && categories && receipts, reading)

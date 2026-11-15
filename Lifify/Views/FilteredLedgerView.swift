@@ -394,29 +394,9 @@ struct FilteredLedgerView: View {
         hasher.combine(selectedPeriod?.id)
         hasher.combine(RefundLinkStore.fingerprint())
         hasher.combine(HoldingLotStore.cacheRevision)
-        for entry in entries {
-            hasher.combine(entry.id)
-            hasher.combine(entry.date)
-            hasher.combine(entry.amountCents)
-            hasher.combine(entry.kindRaw)
-            hasher.combine(entry.accountID)
-            hasher.combine(entry.fromAccountID)
-            hasher.combine(entry.toAccountID)
-            hasher.combine(entry.title)
-            hasher.combine(entry.notes)
-        }
-        for holding in holdings {
-            hasher.combine(holding.id)
-            hasher.combine(holding.accountID)
-            hasher.combine(holding.symbol)
-            hasher.combine(holding.quantity)
-            hasher.combine(holding.currentPriceCents)
-        }
-        for account in accounts {
-            hasher.combine(account.id)
-            hasher.combine(account.kindRaw)
-            hasher.combine(account.isMain)
-        }
+        hasher.combine(accounts.count)
+        FinanceRenderToken.mix(entries: entries, into: &hasher)
+        FinanceRenderToken.mix(holdings: holdings, into: &hasher)
         return hasher.finalize()
     }
 

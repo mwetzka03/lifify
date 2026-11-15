@@ -165,13 +165,6 @@ enum TradeRepublicTimeline {
             || folded.contains("GESCHENK")
             || folded.contains("PERK")
             || folded.contains("WELCOME")
-            || folded.contains("ACQUISITION")
-            || folded.contains("SECURITIESTRANSFER")
-            || folded.contains("STOCKTRANSFER")
-            || folded.contains("SHARETRANSFER")
-            || folded.contains("INCOMINGTRANSFER")
-            || folded.contains("UBERTRAG")
-            || folded.contains("BENEFIT")
             || folded.contains("VERLOSUNG")
             || folded.contains("GIVEAWAY")
     }
@@ -223,8 +216,7 @@ enum TradeRepublicTimeline {
         if compact.contains("IPOSUBSCRIPTION") { return "IPO" }
         if compact.contains("IPOTRADE") { return "Handel" }
         if compact.contains("IPO") { return "IPO" }
-        if isGift(compact, isin: isin) { return "Depotgeschenk" }
-        if amountCents == 0, !isin.isEmpty, !isCorporateAction(compact) { return "Depotgeschenk" }
+        if isGift(compact) { return "Depotgeschenk" }
         if isDerivative(title) { return "" }
         if trade { return "Handel" }
         if compact.contains("DIVIDEND") || compact.contains("DIVIDENDE") { return "Ertrag" }
@@ -238,26 +230,14 @@ enum TradeRepublicTimeline {
         return ""
     }
 
-    private static func isGift(_ compact: String, isin: String) -> Bool {
-        if compact.contains("GIFT")
+    private static func isGift(_ compact: String) -> Bool {
+        compact.contains("GIFT")
             || compact.contains("GESCHENK")
             || compact.contains("PERK")
             || compact.contains("WELCOME")
             || compact.contains("VERLOSUNG")
             || compact.contains("GIVEAWAY")
-            || compact.contains("GIVE AWAY") {
-            return true
-        }
-        guard !isin.isEmpty else { return false }
-        return compact.contains("SECURITIESTRANSFER")
-            || compact.contains("STOCKTRANSFER")
-            || compact.contains("SHARETRANSFER")
-            || compact.contains("INCOMINGTRANSFER")
-            || compact.contains("UBERTRAG")
-    }
-
-    private static func isCorporateAction(_ compact: String) -> Bool {
-        compact.contains("SPLIT") || compact.contains("MERGER") || compact.contains("SPINOFF") || compact.contains("SPIN-OFF")
+            || compact.contains("GIVE AWAY")
     }
 
     private static func isFinished(_ status: String) -> Bool {
@@ -498,6 +478,7 @@ enum TradeRepublicSync {
                 ))
                 continue
             }
+            if item.amountCents == 0 { continue }
             if item.amountCents > 0 && leaving.contains(where: { claimsSale($0, item: item) }) { continue }
             let title = item.title.isEmpty ? "Trade Republic" : item.title
             moves.append(.cash(id: item.id, date: item.date, title: title, amountCents: item.amountCents, statementType: item.statementType))
@@ -678,23 +659,6 @@ enum TradeRepublicSync {
         let giftEvents = history.filter {
             $0.isGrant && matchesInstrument($0, isin: symbol, name: name)
         }.sorted { $0.date < $1.date }
-        let given = giftEvents.filter { ($0.quantity ?? 0) > 0.0000005 }
-        for event in given {
-            let quantity = event.quantity ?? 0
-            let gift = event.statementType != "Cashback"
-            let value = abs(event.amountCents)
-            let shown = gift ? 0 : (value > 0 ? value : Int((quantity * Double(position.averageBuyInCents ?? 0)).rounded()))
-            moves.append(.grant(
-                id: event.id,
-                date: event.date,
-                title: event.title.isEmpty ? name : event.title,
-                isin: symbol,
-                name: name,
-                quantity: quantity,
-                amountCents: shown,
-                statementType: event.statementType.isEmpty ? "Depotgeschenk" : event.statementType
-            ))
-        }
         let chosen = trades(isin: symbol, activities: activities, buying: true, after: nil)
         var sized = chosen.compactMap { event -> TradeRepublicActivity? in
             var copy = event
@@ -704,7 +668,7 @@ enum TradeRepublicSync {
             return purchase(copy, averageCents: position.averageBuyInCents ?? 0) ? copy : nil
         }
         let saleEvents = trades(isin: symbol, activities: history, buying: false, after: nil)
-        var covered = sized.reduce(0.0) { $0 + ($1.quantity ?? 0) } + given.reduce(0.0) { $0 + ($1.quantity ?? 0) }
+        var covered = sized.reduce(0.0) { $0 + ($1.quantity ?? 0) }
         if holding == nil, saleEvents.isEmpty, position.quantity > 0.0000005, covered > position.quantity + 0.001 {
             let factor = position.quantity / covered
             sized = sized.map { event in
@@ -728,14 +692,15 @@ enum TradeRepublicSync {
         }
         let rest = position.quantity - (holding?.quantity ?? 0) - covered
         guard rest > 0.001 else { return covered }
-        let oldest = (sized + given).map(\.date).min() ?? history.map(\.date).min() ?? now
+        let oldest = sized.map(\.date).min() ?? history.map(\.date).min() ?? now
         let date = Calendar.current.date(byAdding: .day, value: -1, to: oldest) ?? oldest
         let cost = position.averageBuyInCents ?? 0
         let bought = history.contains {
             $0.isin.caseInsensitiveCompare(symbol) == .orderedSame && purchase($0, averageCents: cost)
         }
         if !bought {
-            let giftDate = given.map(\.date).min() ?? giftEvents.map(\.date).min() ?? giftDates[symbol] ?? date
+            let giftDate = giftEvents.map(\.date).min() ?? giftDates[symbol] ?? date
+            let eventValue = giftEvents.map { abs($0.amountCents) }.first { $0 > 0 } ?? 0
             moves.append(.grant(
                 id: "gift-\(symbol)",
                 date: giftDate,
@@ -743,7 +708,7 @@ enum TradeRepublicSync {
                 isin: symbol,
                 name: name,
                 quantity: rest,
-                amountCents: 0,
+                amountCents: giftValueCents(quantity: rest, averageCents: cost, eventAmount: eventValue),
                 statementType: "Depotgeschenk"
             ))
             return covered + rest
@@ -758,6 +723,12 @@ enum TradeRepublicSync {
             unitCents: cost
         ))
         return covered + rest
+    }
+
+    private static func giftValueCents(quantity: Double, averageCents: Int, eventAmount: Int) -> Int {
+        if eventAmount > 0 { return eventAmount }
+        guard quantity > 0.0000005, averageCents > 0 else { return 0 }
+        return Int((quantity * Double(averageCents)).rounded())
     }
 
     static func giftDates(

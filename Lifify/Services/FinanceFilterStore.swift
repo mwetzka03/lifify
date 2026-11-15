@@ -93,6 +93,33 @@ enum FinancePeriods {
     }
 }
 
+/// Cheap change token for finance screens. Full title/notes hashing on every frame made the tab hitch.
+enum FinanceRenderToken {
+    static func mix(entries: [LedgerEntry], into hasher: inout Hasher) {
+        hasher.combine(entries.count)
+        var amounts = 0
+        for entry in entries {
+            amounts = amounts &+ entry.amountCents
+        }
+        hasher.combine(amounts)
+        hasher.combine(entries.first?.id)
+        hasher.combine(entries.last?.id)
+        hasher.combine(entries.first?.date)
+        hasher.combine(entries.last?.date)
+    }
+
+    static func mix(holdings: [PortfolioHolding], into hasher: inout Hasher) {
+        hasher.combine(holdings.count)
+        var mix = 0
+        for holding in holdings {
+            mix = mix &+ holding.quantity.hashValue &+ holding.currentPriceCents &+ holding.purchasePriceCents
+        }
+        hasher.combine(mix)
+        hasher.combine(holdings.first?.id)
+        hasher.combine(holdings.last?.id)
+    }
+}
+
 enum TradeAccountPreference {
     static let storageKey = "defaultTradeCheckingAccountID"
 
