@@ -556,10 +556,10 @@ enum LififySessionChecks {
             && fromIndex.contains(where: { $0.id == "keep" && $0.statementType == "Depotgeschenk" })
             && !fromIndex.contains(where: { $0.id == "skip" })
             && sample?.activities.contains(where: { $0.id == "keep" }) == true
-            && TradeRepublicCash.cents(from: #"[{"accountNumber":"1","currencyId":"EUR","amount":2390.12}]"#) == 239_012
+            && TradeRepublicCash.cents(from: #"[{"accountNumber":"1","currencyId":"EUR","amount":1234.56}]"#) == 123_456
             && TradeRepublicSample.snapshot(
-                from: "===== compactPortfolio =====\n\(payload)\n===== cash =====\n[{\"amount\":2390.12}]"
-            )?.cashCents == 239_012
+                from: "===== compactPortfolio =====\n\(payload)\n===== cash =====\n[{\"amount\":1234.56}]"
+            )?.cashCents == 123_456
             && BankImportApplier.ownAccountWindowDays == 3
             && BankNotice.transferWindowDays == BankImportApplier.ownAccountWindowDays
             && abs(Calendar.current.dateComponents([.day], from: Calendar.current.startOfDay(for: fourteenth), to: Calendar.current.startOfDay(for: sixteenth)).day ?? 99) == 2
