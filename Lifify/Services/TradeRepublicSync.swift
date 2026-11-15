@@ -63,23 +63,23 @@ enum TradeRepublicTimeline {
         return (rows.compactMap(activity), after)
     }
 
+    static let openingBalanceFingerprint = "tr-startsaldo"
+
     static func fingerprint(_ id: String) -> String { "tr-\(id)" }
 
     private static func activity(_ row: [String: Any]) -> TradeRepublicActivity? {
         guard let id = row["id"] as? String, !id.isEmpty else { return nil }
         let status = (row["status"] as? String) ?? ""
-        guard status.caseInsensitiveCompare("EXECUTED") == .orderedSame else { return nil }
+        guard isFinished(status) else { return nil }
         guard let date = date(from: (row["timestamp"] as? String) ?? "") else { return nil }
         let amount = cents(row["amount"] as? [String: Any]) ?? 0
         let eventType = (row["eventType"] as? String) ?? ""
-        let foldedEvent = eventType.uppercased().replacingOccurrences(of: "_", with: "")
-        if foldedEvent.contains("IPOSUBSCRIPTION") { return nil }
         let isin = isin(from: (row["icon"] as? String) ?? "")
         let title = ((row["title"] as? String) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         let subtitle = (row["subtitle"] as? String) ?? ""
         let trade = amount != 0 && isTrade(eventType, isin: isin)
         let kind = statementType(eventType: eventType, title: title, subtitle: subtitle, isin: isin, amountCents: amount, trade: trade)
-        guard amount != 0 || kind == "Cashback" || kind == "Depotgeschenk" || mightBeGrant(eventType) else { return nil }
+        guard amount != 0 || kind == "Cashback" || kind == "Depotgeschenk" || kind == "IPO" || mightBeGrant(eventType) || title.count >= 4 else { return nil }
         var item = TradeRepublicActivity(
             id: id,
             date: date,
@@ -173,7 +173,7 @@ enum TradeRepublicTimeline {
         let parts = line.split(separator: "\t", omittingEmptySubsequences: false).map(String.init)
         guard parts.count >= 7 else { return nil }
         let status = parts[2]
-        guard status.isEmpty || status.caseInsensitiveCompare("EXECUTED") == .orderedSame else { return nil }
+        guard isFinished(status) else { return nil }
         guard let date = date(from: parts[0]) else { return nil }
         let eventType = parts[1]
         let amount = Int(parts[3]) ?? 0
@@ -181,11 +181,9 @@ enum TradeRepublicTimeline {
         let title = parts[5]
         let id = parts[6]
         guard !id.isEmpty else { return nil }
-        let foldedEvent = eventType.uppercased().replacingOccurrences(of: "_", with: "")
-        if foldedEvent.contains("IPOSUBSCRIPTION") { return nil }
         let trade = amount != 0 && isTrade(eventType, isin: isin)
         let kind = statementType(eventType: eventType, title: title, subtitle: "", isin: isin, amountCents: amount, trade: trade)
-        guard amount != 0 || kind == "Cashback" || kind == "Depotgeschenk" || mightBeGrant(eventType) else { return nil }
+        guard amount != 0 || kind == "Cashback" || kind == "Depotgeschenk" || kind == "IPO" || mightBeGrant(eventType) || title.count >= 4 else { return nil }
         var item = TradeRepublicActivity(
             id: id,
             date: date,
@@ -215,6 +213,7 @@ enum TradeRepublicTimeline {
             .replacingOccurrences(of: "_", with: "")
         if compact.contains("SAVEBACK") || compact.contains("CASHBACK") { return "Cashback" }
         if compact.contains("PERK"), amountCents != 0 { return "Cashback" }
+        if compact.contains("IPO") { return "IPO" }
         if isGift(compact, isin: isin) { return "Depotgeschenk" }
         if amountCents == 0, !isin.isEmpty, !isCorporateAction(compact) { return "Depotgeschenk" }
         if trade { return "Handel" }
@@ -243,6 +242,14 @@ enum TradeRepublicTimeline {
 
     private static func isCorporateAction(_ compact: String) -> Bool {
         compact.contains("SPLIT") || compact.contains("MERGER") || compact.contains("SPINOFF") || compact.contains("SPIN-OFF")
+    }
+
+    private static func isFinished(_ status: String) -> Bool {
+        let folded = status.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        return folded.isEmpty
+            || folded == "EXECUTED"
+            || folded == "PROCESSED"
+            || folded == "COMPLETED"
     }
 
     private static func isSavingsPlan(_ eventType: String) -> Bool {
@@ -434,6 +441,7 @@ enum TradeRepublicSync {
         for item in fresh where !item.trade {
             if item.isGrant {
                 if (item.quantity ?? 0) > 0.0000005 { continue }
+                if item.statementType == "Depotgeschenk" { continue }
                 let value = abs(item.amountCents)
                 guard value > 0 else { continue }
                 moves.append(.grant(
@@ -632,13 +640,15 @@ enum TradeRepublicSync {
         let symbol = position.isin.uppercased()
         let name = position.name.isEmpty ? (holding?.name ?? symbol) : position.name
         let giftEvents = history.filter {
-            $0.isGrant && $0.isin.caseInsensitiveCompare(symbol) == .orderedSame
+            ($0.isGrant || ($0.amountCents == 0 && !$0.trade))
+                && matchesInstrument($0, isin: symbol, name: name)
         }.sorted { $0.date < $1.date }
         let given = giftEvents.filter { ($0.quantity ?? 0) > 0.0000005 }
         for event in given {
             let quantity = event.quantity ?? 0
+            let gift = event.statementType != "Cashback"
             let value = abs(event.amountCents)
-            let shown = value > 0 ? value : Int((quantity * Double(position.averageBuyInCents ?? 0)).rounded())
+            let shown = gift ? 0 : (value > 0 ? value : Int((quantity * Double(position.averageBuyInCents ?? 0)).rounded()))
             moves.append(.grant(
                 id: event.id,
                 date: event.date,
@@ -697,7 +707,7 @@ enum TradeRepublicSync {
                 isin: symbol,
                 name: name,
                 quantity: rest,
-                amountCents: Int((rest * Double(cost)).rounded()),
+                amountCents: 0,
                 statementType: "Depotgeschenk"
             ))
             return covered + rest
@@ -711,6 +721,17 @@ enum TradeRepublicSync {
             unitCents: cost
         ))
         return covered + rest
+    }
+
+    static func matchesInstrument(_ item: TradeRepublicActivity, isin: String, name: String) -> Bool {
+        let symbol = isin.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !item.isin.isEmpty, !symbol.isEmpty, item.isin.caseInsensitiveCompare(symbol) == .orderedSame {
+            return true
+        }
+        let named = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let titled = item.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard named.count >= 4, titled.count >= 4 else { return false }
+        return titled.localizedStandardContains(named) || named.localizedStandardContains(titled)
     }
 
     private static func isWhole(_ value: Double) -> Bool {

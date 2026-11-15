@@ -4,7 +4,8 @@ import SwiftData
 @MainActor
 enum TradeRepublicDepotApplier {
     /// Brings the depot and the Trade Republic checking account in line with one session.
-    /// A position the session omits is removed. A larger quantity becomes a new lot and a booking.
+    /// A later sign-in replaces the previous Trade Republic lots, holdings, and session bookings.
+    /// Own-account transfers that did not come from that session stay.
     @discardableResult
     static func apply(snapshot: TradeRepublicSnapshot, context: ModelContext) async throws -> Int {
         if snapshot.positions.isEmpty && snapshot.activities.isEmpty { return 0 }
@@ -24,6 +25,7 @@ enum TradeRepublicDepotApplier {
             PortfolioLinkStore.link(portfolio: portfolio.id, to: tradeRepublic!.id)
         }
         guard let checking = tradeRepublic else { throw TradeRepublicFailure.unreadable }
+        replacePreviousImport(checking: checking, portfolio: portfolio, context: context)
         let stored = try context.fetch(FetchDescriptor<PortfolioHolding>()).filter { $0.accountID == portfolio.id }
         let entries = (try? context.fetch(FetchDescriptor<LedgerEntry>())) ?? []
         var known = Set(entries.compactMap(\.importFingerprint))
@@ -68,6 +70,7 @@ enum TradeRepublicDepotApplier {
                     statementType: statementType,
                     eventType: eventType(id: id, activities: snapshot.activities),
                     checking: checking,
+                    portfolio: portfolio,
                     known: known,
                     context: context
                 ) else { continue }
@@ -246,6 +249,46 @@ enum TradeRepublicDepotApplier {
         )
     }
 
+    /// A later sign-in rebuilds Trade Republic from the session. Own-account transfers without a session fingerprint stay.
+    static func shouldReplace(_ entry: LedgerEntry, checkingID: UUID, portfolioID: UUID) -> Bool {
+        if entry.importFingerprint == TradeRepublicTimeline.openingBalanceFingerprint { return false }
+        if isSessionFingerprint(entry.importFingerprint) { return true }
+        if entry.kind == .transfer {
+            return entry.fromAccountID == portfolioID || entry.toAccountID == portfolioID
+        }
+        if entry.accountID == portfolioID { return true }
+        if entry.accountID == checkingID, entry.importFingerprint != nil { return true }
+        return false
+    }
+
+    static func isSessionFingerprint(_ fingerprint: String?) -> Bool {
+        guard let fingerprint, fingerprint.hasPrefix("tr-") else { return false }
+        return fingerprint != TradeRepublicTimeline.openingBalanceFingerprint
+    }
+
+    private static func replacePreviousImport(checking: Account, portfolio: Account, context: ModelContext) {
+        let entries = (try? context.fetch(FetchDescriptor<LedgerEntry>())) ?? []
+        let doomed = entries.filter { shouldReplace($0, checkingID: checking.id, portfolioID: portfolio.id) }
+        let doomedIDs = Set(doomed.map(\.id))
+        if let splits = try? context.fetch(FetchDescriptor<TransactionSplit>()) {
+            for split in splits where doomedIDs.contains(split.transactionID) {
+                context.delete(split)
+            }
+        }
+        doomed.forEach(context.delete)
+        let holdings = ((try? context.fetch(FetchDescriptor<PortfolioHolding>())) ?? [])
+            .filter { $0.accountID == portfolio.id }
+        for holding in holdings {
+            ClosedPositionStore.remove(isin: holding.symbol)
+            HoldingLotStore.removeAll(for: holding.id)
+            HoldingPurchaseDateStore.remove(for: holding.id)
+            MarketSymbolStore.remove(for: holding.id)
+            PreviousCloseStore.remove(for: holding.id)
+            context.delete(holding)
+        }
+        SavingsPlanStore.removeAll(portfolioID: portfolio.id)
+    }
+
     private static func insertCash(
         id: String,
         date: Date,
@@ -254,9 +297,23 @@ enum TradeRepublicDepotApplier {
         statementType: String,
         eventType: String = "",
         checking: Account,
+        portfolio: Account,
         known: Set<String>,
         context: ModelContext
     ) -> Bool {
+        if statementType == "IPO" {
+            return insertIPO(
+                id: id,
+                date: date,
+                title: title,
+                amountCents: amountCents,
+                eventType: eventType,
+                checking: checking,
+                portfolio: portfolio,
+                known: known,
+                context: context
+            )
+        }
         let fingerprint = TradeRepublicTimeline.fingerprint(id)
         guard !known.contains(fingerprint), amountCents != 0 else { return false }
         if cashAlreadyBooked(date: date, amountCents: amountCents, checking: checking, context: context) {
@@ -272,6 +329,37 @@ enum TradeRepublicDepotApplier {
             amountCents: booked,
             kind: booked < 0 ? .expense : .income,
             accountID: checking.id,
+            importFingerprint: fingerprint
+        ))
+        return true
+    }
+
+    /// Cash reserved for an IPO is a depot purchase. A later refund or official buy nets against it.
+    private static func insertIPO(
+        id: String,
+        date: Date,
+        title: String,
+        amountCents: Int,
+        eventType: String,
+        checking: Account,
+        portfolio: Account,
+        known: Set<String>,
+        context: ModelContext
+    ) -> Bool {
+        let fingerprint = TradeRepublicTimeline.fingerprint(id)
+        guard !known.contains(fingerprint), amountCents != 0 else { return false }
+        let cash = abs(amountCents)
+        let name = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let label = name.isEmpty ? "IPO" : name
+        let outbound = amountCents < 0
+        context.insert(LedgerEntry(
+            date: date,
+            title: "IPO: \(label)",
+            notes: extractNotes(statementType: "IPO", symbol: nil, quantity: nil, unitCents: nil, eventType: eventType),
+            amountCents: cash,
+            kind: .transfer,
+            fromAccountID: outbound ? checking.id : portfolio.id,
+            toAccountID: outbound ? portfolio.id : checking.id,
             importFingerprint: fingerprint
         ))
         return true
@@ -336,18 +424,38 @@ enum TradeRepublicDepotApplier {
         let unit = quantity > 0 ? Int((Double(cash) / quantity).rounded()) : 0
         var entryID: UUID?
         if bookCash, cash > 0 {
-            let entry = LedgerEntry(
-                date: date,
-                title: "\(action): \(label)",
-                notes: extractNotes(statementType: "Handel", symbol: holding.symbol, quantity: quantity, unitCents: unit, eventType: eventType),
-                amountCents: cash,
-                kind: .transfer,
-                fromAccountID: sale ? portfolio.id : checking.id,
-                toAccountID: sale ? checking.id : portfolio.id,
-                importFingerprint: fingerprint
-            )
-            context.insert(entry)
-            entryID = entry.id
+            if !sale, let reserved = adoptIPOReservation(
+                cash: cash,
+                holding: holding,
+                checking: checking,
+                portfolio: portfolio,
+                context: context
+            ) {
+                reserved.date = date
+                reserved.title = "\(action): \(label)"
+                reserved.notes = extractNotes(
+                    statementType: "Handel",
+                    symbol: holding.symbol,
+                    quantity: quantity,
+                    unitCents: unit,
+                    eventType: eventType
+                )
+                reserved.importFingerprint = fingerprint
+                entryID = reserved.id
+            } else {
+                let entry = LedgerEntry(
+                    date: date,
+                    title: "\(action): \(label)",
+                    notes: extractNotes(statementType: "Handel", symbol: holding.symbol, quantity: quantity, unitCents: unit, eventType: eventType),
+                    amountCents: cash,
+                    kind: .transfer,
+                    fromAccountID: sale ? portfolio.id : checking.id,
+                    toAccountID: sale ? checking.id : portfolio.id,
+                    importFingerprint: fingerprint
+                )
+                context.insert(entry)
+                entryID = entry.id
+            }
         }
         HoldingLotStore.add(
             HoldingLot(
@@ -385,8 +493,10 @@ enum TradeRepublicDepotApplier {
         let fingerprint = TradeRepublicTimeline.fingerprint(id)
         guard !known.contains(fingerprint) else { return false }
         let label = holding.name.isEmpty ? title : holding.name
-        let action = statementType == "Cashback" ? "Cashback" : L("Depotgeschenk", "Portfolio gift")
-        if amountCents > 0 {
+        let gift = statementType != "Cashback"
+        let action = gift ? L("Depotgeschenk", "Portfolio gift") : "Cashback"
+        let shown = gift ? 0 : amountCents
+        if shown > 0 || gift {
             context.insert(LedgerEntry(
                 date: date,
                 title: "\(action): \(label)",
@@ -397,23 +507,22 @@ enum TradeRepublicDepotApplier {
                     unitCents: nil,
                     eventType: eventType
                 ),
-                amountCents: amountCents,
+                amountCents: shown,
                 kind: .income,
                 accountID: portfolio.id,
                 importFingerprint: fingerprint
             ))
         }
         if quantity > 0.0000005 {
-            let unit = amountCents > 0 ? Int((Double(amountCents) / quantity).rounded()) : 0
             HoldingLotStore.add(
                 HoldingLot(
                     date: date,
                     quantity: quantity,
-                    unitPriceCents: unit,
+                    unitPriceCents: gift ? 0 : (shown > 0 ? Int((Double(shown) / quantity).rounded()) : 0),
                     amountCents: 0,
                     isSale: false,
                     isSavingsPlan: false,
-                    source: statementType == "Cashback" ? "cashback" : "gift"
+                    source: gift ? "gift" : "cashback"
                 ),
                 holdingID: holding.id
             )
@@ -422,7 +531,32 @@ enum TradeRepublicDepotApplier {
         if HoldingPurchaseDateStore.date(for: holding.id) == nil {
             HoldingPurchaseDateStore.set(date, for: holding.id)
         }
-        return amountCents > 0 || quantity > 0.0000005
+        return shown > 0 || quantity > 0.0000005 || gift
+    }
+
+    private static func adoptIPOReservation(
+        cash: Int,
+        holding: PortfolioHolding,
+        checking: Account,
+        portfolio: Account,
+        context: ModelContext
+    ) -> LedgerEntry? {
+        let entries = (try? context.fetch(FetchDescriptor<LedgerEntry>())) ?? []
+        let label = holding.name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let symbol = holding.symbol.trimmingCharacters(in: .whitespacesAndNewlines)
+        return entries.first { entry in
+            guard entry.kind == .transfer,
+                  entry.toAccountID == portfolio.id,
+                  entry.fromAccountID == checking.id,
+                  abs(abs(entry.amountCents) - cash) <= 150
+            else { return false }
+            let notes = entry.notes.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "de_DE"))
+            let titled = entry.title.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "de_DE"))
+            guard notes.contains("typ: ipo") || titled.hasPrefix("ipo:") else { return false }
+            if !symbol.isEmpty, notes.localizedCaseInsensitiveContains(symbol) { return true }
+            if !label.isEmpty, entry.title.localizedStandardContains(label) { return true }
+            return abs(entry.amountCents) == cash
+        }
     }
 
     /// Shares the timeline does not explain. They stay in the depot and do not leave the cash account.
@@ -485,8 +619,10 @@ enum TradeRepublicDepotApplier {
     private static func eventType(id: String, isin: String = "", activities: [TradeRepublicActivity]) -> String {
         if let item = activities.first(where: { $0.id == id }) { return item.eventType }
         if id.hasPrefix("gift-") {
+            let name = activities.first { $0.isin.caseInsensitiveCompare(isin) == .orderedSame }?.title ?? ""
             return activities.first {
-                $0.isGrant && $0.isin.caseInsensitiveCompare(isin) == .orderedSame
+                TradeRepublicSync.matchesInstrument($0, isin: isin, name: name)
+                    && ($0.isGrant || ($0.amountCents == 0 && !$0.trade))
             }?.eventType ?? ""
         }
         if id.hasPrefix("delta-") {
@@ -545,7 +681,8 @@ enum TradeRepublicDepotApplier {
                 let eventID = String(fingerprint.dropFirst(3))
                 if eventID.hasPrefix("open-") {
                     let grants = activities.filter {
-                        $0.isGrant && $0.isin.caseInsensitiveCompare(symbol) == .orderedSame
+                        ($0.isGrant || ($0.amountCents == 0 && !$0.trade))
+                            && TradeRepublicSync.matchesInstrument($0, isin: symbol, name: holding.name)
                     }
                     let sizedGrant = grants.contains { ($0.quantity ?? 0) > 0.0000005 }
                     known.remove(fingerprint)
@@ -673,7 +810,8 @@ enum TradeRepublicDepotApplier {
             guard !bought else { continue }
             var lots = HoldingLotStore.lots(for: holding.id)
             let grant = activities.filter {
-                $0.isGrant && $0.isin.caseInsensitiveCompare(symbol) == .orderedSame
+                ($0.isGrant || ($0.amountCents == 0 && !$0.trade))
+                    && TradeRepublicSync.matchesInstrument($0, isin: symbol, name: holding.name)
             }.min(by: { $0.date < $1.date })
             let entries = (try? context.fetch(FetchDescriptor<LedgerEntry>())) ?? []
             var changed = false
@@ -687,24 +825,21 @@ enum TradeRepublicDepotApplier {
                 }
                 lots[index].ledgerEntryID = nil
                 lots[index].amountCents = 0
+                lots[index].unitPriceCents = 0
                 lots[index].source = "gift"
                 if let grant { lots[index].date = grant.date }
-                if lots[index].unitPriceCents == 0 {
-                    lots[index].unitPriceCents = position.averageBuyInCents ?? 0
-                }
                 changed = true
             }
             if changed {
                 HoldingLotStore.replace(lots, holdingID: holding.id)
             }
             guard changed else { continue }
-            let value = Int((shareCount(lots) * Double(position.averageBuyInCents ?? 0)).rounded())
             _ = insertGrant(
                 id: "gift-\(symbol)",
                 date: grant?.date ?? lots.map(\.date).min() ?? Date(),
                 title: holding.name,
                 quantity: 0,
-                amountCents: value,
+                amountCents: 0,
                 statementType: "Depotgeschenk",
                 eventType: grant?.eventType ?? "",
                 holding: holding,
@@ -727,6 +862,7 @@ enum TradeRepublicDepotApplier {
         guard let index = lots.firstIndex(where: { $0.id == lot.id }) else { return }
         lots[index].date = date
         lots[index].amountCents = 0
+        lots[index].unitPriceCents = 0
         lots[index].ledgerEntryID = nil
         lots[index].source = source
         HoldingLotStore.replace(lots, holdingID: holding.id)

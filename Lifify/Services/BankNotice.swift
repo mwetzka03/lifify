@@ -33,6 +33,7 @@ struct BookedNotice: Equatable {
 
 enum BankNoticePlan: Equatable {
     case book(accountID: UUID, title: String, amountCents: Int, kind: LedgerKind)
+    case bookTransfer(fromAccountID: UUID, toAccountID: UUID, title: String, amountCents: Int)
     case duplicate
     case unreadable
     case missingAccount
@@ -55,6 +56,10 @@ enum BankNoticeCopy {
 enum BankNotice {
     /// Wallet and bank notices for one payment usually arrive within a few hours.
     static let duplicateWindow: TimeInterval = 6 * 60 * 60
+    /// Own-account transfers are matched across the same window as the bank import.
+    static var transferWindow: TimeInterval {
+        TimeInterval(BankImportApplier.ownAccountWindowDays) * 24 * 60 * 60
+    }
 
     static func parse(_ text: String, fallbackTitle: String) -> ParsedNotice? {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -62,7 +67,8 @@ enum BankNotice {
         guard let direction = direction(in: trimmed, sign: amount.sign) else { return nil }
         let cents = abs(amount.cents)
         guard cents > 0 else { return nil }
-        let title = shortTitle(from: trimmed, removing: amount.range, direction: direction, fallback: fallbackTitle)
+        let title = merchant(in: trimmed)
+            ?? shortTitle(from: trimmed, removing: amount.range, direction: direction, fallback: fallbackTitle)
         return ParsedNotice(
             amountCents: direction == .out ? -cents : cents,
             title: title,
@@ -79,6 +85,15 @@ enum BankNotice {
     ) -> BankNoticePlan {
         guard let notice = parse(text, fallbackTitle: bank.fallbackTitle) else { return .unreadable }
         guard let accountID = BankNoticeAccounts.resolve(bank, in: accounts) else { return .missingAccount }
+        if bank == .tradeRepublic, notice.direction == .in, isTransferReceived(text) {
+            return planTransfer(
+                notice: notice,
+                toAccountID: accountID,
+                accounts: accounts,
+                existing: existing,
+                now: now
+            )
+        }
         if isDuplicate(notice, accountID: accountID, existing: existing, now: now) { return .duplicate }
         return .book(
             accountID: accountID,
@@ -103,14 +118,31 @@ enum BankNotice {
     }
 
     static func booked(_ entry: LedgerEntry) -> BookedNotice? {
-        guard let accountID = entry.accountID else { return nil }
         guard entry.kind == .income || entry.kind == .expense else { return nil }
-        return BookedNotice(
-            accountID: accountID,
-            amountCents: entry.amountCents,
-            direction: entry.kind == .income ? .in : .out,
-            date: entry.date
-        )
+        return records(entry).first
+    }
+
+    static func records(_ entry: LedgerEntry) -> [BookedNotice] {
+        if entry.kind == .income || entry.kind == .expense, let accountID = entry.accountID {
+            return [
+                BookedNotice(
+                    accountID: accountID,
+                    amountCents: entry.amountCents,
+                    direction: entry.kind == .income ? .in : .out,
+                    date: entry.date
+                )
+            ]
+        }
+        guard entry.kind == .transfer else { return [] }
+        var rows: [BookedNotice] = []
+        let cash = abs(entry.amountCents)
+        if let from = entry.fromAccountID {
+            rows.append(BookedNotice(accountID: from, amountCents: -cash, direction: .out, date: entry.date))
+        }
+        if let to = entry.toAccountID {
+            rows.append(BookedNotice(accountID: to, amountCents: cash, direction: .in, date: entry.date))
+        }
+        return rows
     }
 
     private struct AmountHit {
@@ -159,7 +191,7 @@ enum BankNotice {
     }
 
     private static let outWords = [
-        "abbuchung", "lastschrift", "kartenzahlung", "ausgabe", "bezahlt", "paid", "payment",
+        "abbuchung", "lastschrift", "kartenzahlung", "ausgegeben", "ausgabe", "bezahlt", "paid", "payment",
         "sent", "kauf", "buy", "withdrawal", "auszahlung", "spent", "debit", "belastung"
     ]
     private static let inWords = [
@@ -171,6 +203,58 @@ enum BankNotice {
         words.contains { word in
             text.range(of: "\\b\(NSRegularExpression.escapedPattern(for: word))\\b", options: .regularExpression) != nil
         }
+    }
+
+    private static func isTransferReceived(_ text: String) -> Bool {
+        let folded = text.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "de_DE"))
+        if folded.contains("uberweisung erhalten") { return true }
+        if folded.contains("received a transfer") || folded.contains("transfer received") { return true }
+        return folded.contains("uberweisung") && folded.contains("erhalten")
+    }
+
+    private static func planTransfer(
+        notice: ParsedNotice,
+        toAccountID: UUID,
+        accounts: [NamedAccount],
+        existing: [BookedNotice],
+        now: Date
+    ) -> BankNoticePlan {
+        let main = accounts.first { $0.kind == .checking && $0.isMain }
+        guard let main, main.id != toAccountID else {
+            if isDuplicate(notice, accountID: toAccountID, existing: existing, now: now) { return .duplicate }
+            return .book(
+                accountID: toAccountID,
+                title: notice.title,
+                amountCents: notice.amountCents,
+                kind: .income
+            )
+        }
+        let cash = abs(notice.amountCents)
+        if existing.contains(where: { entry in
+            entry.accountID == toAccountID
+                && entry.direction == .in
+                && abs(entry.amountCents) == cash
+                && abs(entry.date.timeIntervalSince(now)) <= transferWindow
+        }) {
+            return .duplicate
+        }
+        return .bookTransfer(
+            fromAccountID: main.id,
+            toAccountID: toAccountID,
+            title: L("Umbuchung", "Transfer"),
+            amountCents: cash
+        )
+    }
+
+    private static func merchant(in text: String) -> String? {
+        let pattern = #"(?i)(?:bei|at)\s+(.+?)\s+(?:ausgegeben|spent)"#
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return nil }
+        let ns = text as NSString
+        guard let match = regex.firstMatch(in: text, range: NSRange(location: 0, length: ns.length)),
+              let range = Range(match.range(at: 1), in: text)
+        else { return nil }
+        let name = String(text[range]).trimmingCharacters(in: CharacterSet.punctuationCharacters.union(.whitespacesAndNewlines))
+        return name.isEmpty ? nil : name
     }
 
     private static func shortTitle(
@@ -240,7 +324,7 @@ enum BankNoticeIntake {
         let accounts = (try? context.fetch(FetchDescriptor<Account>())) ?? []
         let entries = (try? context.fetch(FetchDescriptor<LedgerEntry>())) ?? []
         let named = accounts.map { NamedAccount(id: $0.id, name: $0.name, kind: $0.kind, isMain: $0.isMain) }
-        let existing = entries.compactMap(BankNotice.booked)
+        let existing = entries.flatMap(BankNotice.records)
         switch BankNotice.plan(text: text, bank: bank, accounts: named, existing: existing, now: now) {
         case .book(let accountID, let title, let amountCents, let kind):
             let entry = LedgerEntry(
@@ -250,14 +334,21 @@ enum BankNoticeIntake {
                 kind: kind,
                 accountID: accountID
             )
-            context.insert(entry)
-            do {
-                try context.save()
-            } catch {
-                context.delete(entry)
-                return BankNoticeCopy.unavailable
+            return save(entry, context: context)
+        case .bookTransfer(let fromAccountID, let toAccountID, let title, let amountCents):
+            let entry = LedgerEntry(
+                date: now,
+                title: title,
+                amountCents: amountCents,
+                kind: .transfer,
+                fromAccountID: fromAccountID,
+                toAccountID: toAccountID
+            )
+            let message = save(entry, context: context)
+            if message == BankNoticeCopy.booked {
+                BankImportApplier.relinkOwnAccounts(context: context)
             }
-            return BankNoticeCopy.booked
+            return message
         case .duplicate:
             return BankNoticeCopy.duplicate
         case .unreadable:
@@ -271,6 +362,17 @@ enum BankNoticeIntake {
     static func open(_ url: URL, context: ModelContext) -> String? {
         guard let call = BankNoticeURL.decode(url) else { return nil }
         return commit(text: call.text, bank: call.bank, context: context)
+    }
+
+    private static func save(_ entry: LedgerEntry, context: ModelContext) -> String {
+        context.insert(entry)
+        do {
+            try context.save()
+        } catch {
+            context.delete(entry)
+            return BankNoticeCopy.unavailable
+        }
+        return BankNoticeCopy.booked
     }
 }
 

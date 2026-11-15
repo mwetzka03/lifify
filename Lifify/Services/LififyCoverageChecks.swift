@@ -233,10 +233,26 @@ enum LififyCoverageChecks {
         let buy = HoldingLot(date: berlin(2026, 2, 1), quantity: 2, unitPriceCents: 500, amountCents: 1_000, isSale: false, isSavingsPlan: false)
         let sale = HoldingLot(date: berlin(2026, 3, 1), quantity: 1, unitPriceCents: 500, amountCents: 700, isSale: true, isSavingsPlan: false)
         let average = HoldingMaintenance.averagePurchaseCents(for: [buy, sale])
+        let gift = HoldingLot(
+            date: berlin(2026, 11, 6),
+            quantity: 0.436442,
+            unitPriceCents: 5724,
+            amountCents: 0,
+            isSale: false,
+            isSavingsPlan: false,
+            source: "gift"
+        )
+        let giftCost = HoldingMaintenance.averagePurchaseCents(for: [gift])
+        let mixed = HoldingMaintenance.averagePurchaseCents(for: [
+            HoldingLot(date: berlin(2026, 2, 1), quantity: 1, unitPriceCents: 5000, amountCents: -5000, isSale: false, isSavingsPlan: false),
+            HoldingLot(date: berlin(2026, 11, 6), quantity: 1, unitPriceCents: 0, amountCents: 0, isSale: false, isSavingsPlan: false, source: "gift")
+        ])
         let sorts = PortfolioSort.allCases.map(\.label)
         let units = PortfolioUnit.allCases.map(\.label)
         let passed = average?.quantity == 1.0
             && average?.priceCents == 500
+            && giftCost?.priceCents == 0
+            && mixed?.priceCents == 2500
             && shows(sorts[0], "Wert", "Value")
             && shows(sorts[1], "Kauf", "Purchase")
             && sorts[2] == "A–Z"

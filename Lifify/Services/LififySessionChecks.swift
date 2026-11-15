@@ -22,6 +22,11 @@ enum LififySessionChecks {
         let bare = BankNotice.parse("12,34 EUR", fallbackTitle: "Sparkasse")
         let paid = BankNotice.parse("You paid €8.90 at Baker", fallbackTitle: "Sparkasse")
         let received = BankNotice.parse("Received 15.00 EUR from Alex", fallbackTitle: "Sparkasse")
+        let spent = BankNotice.parse("10,00 € bei Tabakwaren Dietz ausgegeben", fallbackTitle: "Trade Republic")
+        let wire = BankNotice.parse(
+            "Überweisung erhalten\nDu hast 2.000,00 € von Someone erhalten",
+            fallbackTitle: "Trade Republic"
+        )
         let pin = String(repeating: "0", count: 4)
         let body = TradeRepublicRequest.body(phone: "+490000", pin: pin)
         let fields = (try? JSONSerialization.jsonObject(with: body) as? [String: Any]) ?? [:]
@@ -38,6 +43,11 @@ enum LififySessionChecks {
             && received?.amountCents == 1500
             && received?.direction == .in
             && received?.title == "from Alex"
+            && spent?.amountCents == -1000
+            && spent?.direction == .out
+            && spent?.title == "Tabakwaren Dietz"
+            && wire?.amountCents == 200_000
+            && wire?.direction == .in
             && (fields["phoneNumber"] as? String) == "+490000"
             && (fields["pin"] as? String) == pin
             && fields.count == 2
@@ -251,11 +261,14 @@ enum LififySessionChecks {
             if case .cash(let id, _, _, let amount, let type) = move { return id == "zins" && amount == 1328 && type == "Zinsen" }
             return false
         }
-        let ipoSkipped = !incomeRows.items.contains(where: { $0.id == "ipo" })
-            && !income.contains { move in
-                if case .cash(let id, _, _, _, _) = move { return id == "ipo" }
-                return false
+        let ipoBooked = incomeRows.items.contains {
+            $0.id == "ipo" && $0.statementType == "IPO" && $0.amountCents == -35_100
+        } && income.contains { move in
+            if case .cash(let id, _, _, let amount, let type) = move {
+                return id == "ipo" && amount == -35_100 && type == "IPO"
             }
+            return false
+        }
         let fakeBuy = TradeRepublicActivity(
             id: "fake",
             date: day,
@@ -282,7 +295,7 @@ enum LififySessionChecks {
             && incomeRows.items.first?.trade == false
             && dividendCash
             && interestCash
-            && ipoSkipped
+            && ipoBooked
             && !income.contains { if case .buy = $0 { return true }; return false }
             && !TradeRepublicSync.purchase(fakeBuy, averageCents: 79522)
             && TradeRepublicSync.purchase(realBuy, averageCents: 79522)
@@ -418,8 +431,12 @@ enum LififySessionChecks {
             }
             && !poisoned.contains { if case .shares = $0 { return true }; return false }
             && gifted.contains { move in
-                if case .grant(_, let date, _, let isin, _, _, _, _) = move {
-                    return isin == "GB0002875804" && date == giftDay
+                if case .grant(_, let date, _, let isin, _, let quantity, let amount, let type) = move {
+                    return isin == "GB0002875804"
+                        && date == giftDay
+                        && amount == 0
+                        && type == "Depotgeschenk"
+                        && abs(quantity - 0.436442) < 0.000001
                 }
                 return false
             }
@@ -444,6 +461,7 @@ enum LififySessionChecks {
             && sample?.activities.contains(where: { $0.id == "keep" }) == true
             && BankImportApplier.ownAccountWindowDays == 3
             && abs(Calendar.current.dateComponents([.day], from: Calendar.current.startOfDay(for: fourteenth), to: Calendar.current.startOfDay(for: sixteenth)).day ?? 99) == 2
+            && sessionImportReplacesPreviousTradeRepublic()
         return result("Ein Depotstand setzt Menge und Einstand und erfindet nichts", .portfolio, .unit, passed && synced && categories && receipts, reading)
     }
 
@@ -525,6 +543,35 @@ enum LififySessionChecks {
             existing: [],
             now: now
         )
+        let spent = BankNotice.plan(
+            text: "10,00 € bei Tabakwaren Dietz ausgegeben",
+            bank: .tradeRepublic,
+            accounts: accounts,
+            existing: [],
+            now: now
+        )
+        let wire = BankNotice.plan(
+            text: "Überweisung erhalten\nDu hast 2.000,00 € von Someone erhalten",
+            bank: .tradeRepublic,
+            accounts: accounts,
+            existing: [],
+            now: now
+        )
+        let transfer = LedgerEntry(
+            date: now.addingTimeInterval(-2 * 24 * 60 * 60),
+            title: "Umbuchung",
+            amountCents: 200_000,
+            kind: .transfer,
+            fromAccountID: main,
+            toAccountID: trade
+        )
+        let wireAgain = BankNotice.plan(
+            text: "Überweisung erhalten\nDu hast 2.000,00 € von Someone erhalten",
+            bank: .tradeRepublic,
+            accounts: accounts,
+            existing: BankNotice.records(transfer),
+            now: now
+        )
         let url = URL(string: "lifify://notice?account=sparkasse&text=Abbuchung%2012%2C34%20EUR%20REWE")
         let decoded = url.flatMap(BankNoticeURL.decode)
         let sparkasseBooked = bookedAmount(first) == -420 && bookedAccount(first) == sparkasse
@@ -533,6 +580,12 @@ enum LififySessionChecks {
             && second == .duplicate
             && tradeBooked
             && bookedAccount(deposit) != portfolio
+            && bookedAmount(spent) == -1000
+            && bookedAccount(spent) == trade
+            && bookedAmount(wire) == 200_000
+            && bookedAccount(wire) == trade
+            && isTransferPlan(wire)
+            && wireAgain == .duplicate
             && mapped?.direction == .out
             && decoded?.bank == .sparkasse
             && decoded?.text == "Abbuchung 12,34 EUR REWE"
@@ -562,13 +615,67 @@ enum LififySessionChecks {
     }
 
     private static func bookedAmount(_ plan: BankNoticePlan) -> Int? {
-        if case .book(_, _, let amount, _) = plan { return amount }
-        return nil
+        switch plan {
+        case .book(_, _, let amount, _), .bookTransfer(_, _, _, let amount):
+            return amount
+        case .duplicate, .unreadable, .missingAccount:
+            return nil
+        }
     }
 
     private static func bookedAccount(_ plan: BankNoticePlan) -> UUID? {
-        if case .book(let accountID, _, _, _) = plan { return accountID }
-        return nil
+        switch plan {
+        case .book(let accountID, _, _, _):
+            return accountID
+        case .bookTransfer(_, let toAccountID, _, _):
+            return toAccountID
+        case .duplicate, .unreadable, .missingAccount:
+            return nil
+        }
+    }
+
+    private static func isTransferPlan(_ plan: BankNoticePlan) -> Bool {
+        if case .bookTransfer = plan { return true }
+        return false
+    }
+
+    private static func sessionImportReplacesPreviousTradeRepublic() -> Bool {
+        let checking = UUID()
+        let portfolio = UUID()
+        let other = UUID()
+        let session = LedgerEntry(
+            title: "Kauf",
+            amountCents: 100,
+            kind: .transfer,
+            fromAccountID: checking,
+            toAccountID: portfolio,
+            importFingerprint: "tr-buy"
+        )
+        let start = LedgerEntry(
+            title: "Startsaldo",
+            amountCents: 1,
+            kind: .adjustment,
+            accountID: checking,
+            importFingerprint: TradeRepublicTimeline.openingBalanceFingerprint
+        )
+        let own = LedgerEntry(
+            title: "Umbuchung",
+            amountCents: 200_000,
+            kind: .transfer,
+            fromAccountID: other,
+            toAccountID: checking,
+            importFingerprint: "csv-1"
+        )
+        let card = LedgerEntry(
+            title: "Tabakwaren Dietz",
+            amountCents: -1000,
+            kind: .expense,
+            accountID: checking
+        )
+        return TradeRepublicDepotApplier.shouldReplace(session, checkingID: checking, portfolioID: portfolio)
+            && !TradeRepublicDepotApplier.shouldReplace(start, checkingID: checking, portfolioID: portfolio)
+            && !TradeRepublicDepotApplier.shouldReplace(own, checkingID: checking, portfolioID: portfolio)
+            && !TradeRepublicDepotApplier.shouldReplace(card, checkingID: checking, portfolioID: portfolio)
     }
 
     private static func result(

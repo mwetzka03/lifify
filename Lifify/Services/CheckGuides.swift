@@ -380,8 +380,8 @@ enum CheckGuides {
         ),
         "Einstand und Sortierung im Depot": g(
             "HoldingMaintenance.averagePurchaseCents(for:)",
-            "Die Zahl ist der durchschnittliche Kaufpreis in Cent. Zwei Stück zu 500 Cent und ein Verkauf von einem Stück lassen ein Stück zu 500 Cent. Die Sortiernamen Wert, Kauf und A–Z und die Einheiten Prozent und Euro sind nicht leer.",
-            "The number is the average purchase price in cents. Two shares at 500 cents and a sale of one share leave one share at 500 cents. The sort names value, purchase, and A–Z, and the units percent and euro, are not empty."
+            "Die Zahl ist der durchschnittliche Kaufpreis in Cent. Zwei Stück zu 500 Cent und ein Verkauf von einem Stück lassen ein Stück zu 500 Cent. Ein Geschenk hat Kaufkurs 0. Gemischte Stücke rechnen nur das bezahlte Geld. Die Sortiernamen Wert, Kauf und A–Z und die Einheiten Prozent und Euro sind nicht leer.",
+            "The number is the average purchase price in cents. Two shares at 500 cents and a sale of one share leave one share at 500 cents. A gift has a purchase price of 0. Mixed lots use only the cash that was paid. The sort names value, purchase, and A–Z, and the units percent and euro, are not empty."
         ),
         "Kaufveränderung und Depotkauf": g(
             "holdingPerformance(_:), PortfolioCashFlow.isSecurityPurchase(_:portfolioIDs:), ExternalIncome.countsInHomeBudget(_:accounts:)",
@@ -509,7 +509,7 @@ enum CheckGuides {
             "Each style, green, blue, bordeaux, and violet, has a light wash above 0.75 and a dark wash below 0.2. The cards are opaque. Blue is bluer, bordeaux is redder, and violet is deeper than green."
         ),
         "Eine Mitteilung nennt Betrag, Richtung und Titel": g(
-            "BankNotice.parse(_:fallbackTitle:)",
+            "BankNotice.parse(_:fallbackTitle:), BankNotice.plan(text:bank:accounts:existing:now:)",
             "Die Messung ist -1234, aus, REWE, 125000, ein, Gehalt, ungelesen. Ein Betrag ohne Richtung wird nicht gebucht. Die PIN und der Sitzungstoken kommen in dieser Zeile nicht vor.",
             "The reading is -1234, aus, REWE, 125000, ein, Gehalt, ungelesen. An amount without a direction is not booked. The PIN and the session token do not appear in this line."
         ),
@@ -519,9 +519,9 @@ enum CheckGuides {
             "The reading is 6 hours and duplicate. The same amount and direction inside the window are one booking. Another direction, or a booking after the window, is a new one."
         ),
         "Ein Depotstand setzt Menge und Einstand und erfindet nichts": g(
-            "TradeRepublicPortfolio.read(_:), TradeRepublicSync.changes(positions:holdings:activities:known:), MarketDataService.cryptoTicker(from:)",
-            "Die Messung ist 2.5, 8000, behalten. Eine leere Liste und eine unlesbare Antwort legen keine Position an. Fehlt der Einstand, bleibt der bisherige Preis. Ein Kauf einer anderen ISIN macht aus einem Geschenk keinen Anfangsbestand.",
-            "The reading is 2.5, 8000, kept. An empty list and an unreadable reply create no position. When the cost basis is missing, the previous price stays. A purchase of another ISIN does not turn a gift into an opening lot."
+            "TradeRepublicPortfolio.read(_:), TradeRepublicSync.changes(positions:holdings:activities:known:), TradeRepublicDepotApplier.shouldReplace(_:checkingID:portfolioID:), MarketDataService.cryptoTicker(from:)",
+            "Die Messung ist 2.5, 8000, behalten. Eine leere Liste und eine unlesbare Antwort legen keine Position an. Fehlt der Einstand, bleibt der bisherige Preis. Ein Kauf einer anderen ISIN macht aus einem Geschenk keinen Anfangsbestand. Eine spätere Anmeldung ersetzt die bisherigen Trade-Republic-Buchungen. Eine IPO-Zeichnung wird gebucht.",
+            "The reading is 2.5, 8000, kept. An empty list and an unreadable reply create no position. When the cost basis is missing, the previous price stays. A purchase of another ISIN does not turn a gift into an opening lot. A later sign-in replaces the previous Trade Republic bookings. An IPO subscription is booked."
         ),
         "Eine tote Sitzung startet keine neue Anmeldung": g(
             "TradeRepublicRequest.failure(statusCode:errorCode:), TradeRepublicRefresh.manualOnly, TradeRepublicCookies.keepsSession(_:)",
@@ -529,9 +529,9 @@ enum CheckGuides {
             "The reading is 401 manual. An expired session asks for a new confirmation. There is no sign-in with a stored PIN, and an example value is not in the message."
         ),
         "Sparkasse und Trade Republic landen auf dem passenden Konto": g(
-            "BankNotice.plan(text:bank:accounts:existing:now:), BankNoticeURL.decode(_:)",
-            "Die Messung nennt Sparkasse mit -420, danach doppelt, und Trade Republic mit 5000. Das Depotkonto wird nicht benutzt. Die URL lifify://notice übergibt denselben Text.",
-            "The reading names Sparkasse with -420, then duplicate, and Trade Republic with 5000. The portfolio account is not used. The URL lifify://notice passes the same text."
+            "BankNotice.plan(text:bank:accounts:existing:now:), BankNotice.records(_:), BankNoticeURL.decode(_:)",
+            "Die Messung nennt Sparkasse mit -420, danach doppelt, und Trade Republic mit 5000. Das Depotkonto wird nicht benutzt. Die URL lifify://notice übergibt denselben Text. Ausgegeben ist eine Ausgabe, eine erhaltene Überweisung eine Umbuchung.",
+            "The reading names Sparkasse with -420, then duplicate, and Trade Republic with 5000. The portfolio account is not used. The URL lifify://notice passes the same text. Spent is an expense, and a transfer received is an own-account transfer."
         ),
         "Anmeldung und Aktualisieren laufen nur von Hand": g(
             "OnboardingSteps.count, TradeRepublicRefresh.manualOnly, TradeRepublicGap.probedStatus, KeychainStore.deviceOnly",

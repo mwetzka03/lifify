@@ -253,6 +253,7 @@ enum HoldingMaintenance {
                 quantity -= sold
             } else {
                 quantity += lot.quantity
+                if lot.source == "gift" || lot.source == "cashback" { continue }
                 let cash = abs(lot.amountCents)
                 cost += cash > 0 ? Double(cash) : lot.quantity * Double(lot.unitPriceCents)
             }
@@ -551,6 +552,7 @@ enum HoldingMaintenance {
                 quantity -= sold
             } else {
                 quantity += lot.quantity
+                if lot.source == "gift" || lot.source == "cashback" { continue }
                 let cash = abs(lot.amountCents)
                 cost += cash > 0 ? Double(cash) : lot.quantity * Double(lot.unitPriceCents)
             }

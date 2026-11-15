@@ -521,8 +521,8 @@ enum CheckStories {
             ("Der Übertrag stimmt vor einer Änderung der Skalierung, und die Buchung bleibt unangetastet.", "The carry is correct before a scale change, and the booking stays untouched.", "LififyCoverageChecks.swift"),
         ),
         "Einstand und Sortierung im Depot": make(
-            "Der Einstand ist der Durchschnitt der Käufe. Die Sortierung zeigt ihre Beschriftungen.",
-            "Cost basis is the average of the purchases. The sort order shows its labels.",
+            "Der Einstand ist der Durchschnitt der Käufe. Ein Geschenk zählt mit Kaufkurs 0. Die Sortierung zeigt ihre Beschriftungen.",
+            "Cost basis is the average of the purchases. A gift counts at a purchase price of 0. The sort order shows its labels.",
             ("Käufe werden zu einem Durchschnittspreis gemischt.", "Purchases are mixed into an average price.", "PortfolioActivity.swift"),
             ("Menge und Preis des Schnitts stimmen, und die Sortiernamen sind nicht leer.", "The average quantity and price match, and the sort names are not empty.", "LififyCoverageChecks.swift"),
         ),
@@ -689,8 +689,8 @@ enum CheckStories {
             ("Die zweite ist doppelt. Eine Einnahme und eine Buchung nach sieben Stunden sind neu.", "The second one is a duplicate. An income, and a booking after seven hours, are new.", "BankNotice.swift"),
         ),
         "Ein Depotstand setzt Menge und Einstand und erfindet nichts": make(
-            "Eine gelesene Position setzt Menge und, wenn die Sitzung ihn nennt, den Einstand. Eine leere oder unlesbare Antwort erfindet nichts. Ein Geschenk bleibt ein Geschenk, Verkäufe aus der Historie werden gebucht, und eine XF-ISIN ist ein Kurs.",
-            "A position that was read sets the quantity and, when the session names it, the cost basis. An empty or unreadable reply invents nothing. A gift stays a gift, sales from the history are booked, and an XF identifier is a price.",
+            "Eine gelesene Position setzt Menge und, wenn die Sitzung ihn nennt, den Einstand. Eine leere oder unlesbare Antwort erfindet nichts. Ein späterer Login ersetzt den bisherigen Trade-Republic-Stand. Ein Geschenk bleibt ein Geschenk zum Eventdatum mit Kaufkurs 0, eine IPO-Zeichnung wird als Depotkauf gebucht, Verkäufe aus der Historie werden gebucht, und eine XF-ISIN ist ein Kurs.",
+            "A position that was read sets the quantity and, when the session names it, the cost basis. An empty or unreadable reply invents nothing. A later sign-in replaces the previous Trade Republic state. A gift stays a gift on the event date at a purchase price of 0, an IPO subscription is booked as a portfolio buy, sales from the history are booked, and an XF identifier is a price.",
             ("Eine Position mit ISIN, Menge 2,5 und Einstand 80 wird gelesen. Eine ohne Einstand trifft eine vorhandene Position.", "A position with an ISIN, quantity 2.5, and cost 80 is read. One without a cost meets an existing position.", "TradeRepublicSession.swift"),
             ("Die Messung ist 2.5, 8000, behalten. Die leere Liste und die unlesbare Antwort bleiben bei null neuen Positionen. Ein Kauf einer anderen ISIN macht aus einem Geschenk keinen Anfangsbestand.", "The reading is 2.5, 8000, kept. The empty list and the unreadable reply stay at zero new positions. A purchase of another ISIN does not turn a gift into an opening lot.", "TradeRepublicSync.swift"),
         ),
@@ -701,8 +701,8 @@ enum CheckStories {
             ("Die Messung ist 401 manual. Die Meldung enthält den Beispielwert nicht.", "The reading is 401 manual. The message does not contain the example value.", "TradeRepublicSession.swift"),
         ),
         "Sparkasse und Trade Republic landen auf dem passenden Konto": make(
-            "Eine Sparkassen-Mitteilung bucht auf dem Girokonto Sparkasse, eine Trade-Republic-Mitteilung auf dem Konto Trade Republic. Dieselbe Buchung im Fenster wird nicht doppelt angelegt.",
-            "A Sparkasse notice books on the Sparkasse checking account, and a Trade Republic notice on the Trade Republic account. The same booking inside the window is not created twice.",
+            "Eine Sparkassen-Mitteilung bucht auf dem Girokonto Sparkasse, eine Trade-Republic-Mitteilung auf dem Konto Trade Republic. Eine erhaltene Überweisung ist eine Umbuchung vom Hauptkonto, ausgegeben ist eine Ausgabe. Dieselbe Buchung im Fenster wird nicht doppelt angelegt.",
+            "A Sparkasse notice books on the Sparkasse checking account, and a Trade Republic notice on the Trade Republic account. A transfer received is an own-account transfer from the main checking account, and spent is an expense. The same booking inside the window is not created twice.",
             ("Die URL lifify://notice und zwei Mitteilungen werden gegen die Konten gelesen.", "The URL lifify://notice and two notices are read against the accounts.", "BankNotice.swift"),
             ("Die Messung ist Sparkasse -420, duplicate, Trade Republic 5000.", "The reading is Sparkasse -420, duplicate, Trade Republic 5000.", "BankNotice.swift"),
         ),
