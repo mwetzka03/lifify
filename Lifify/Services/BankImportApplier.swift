@@ -25,13 +25,76 @@ enum ImportBalance {
         current - computed
     }
 
+    static func fittedOpeningCents(current: Int, laterEffect: Int) -> Int {
+        current - laterEffect
+    }
+
     static func isCurrentPin(_ entry: LedgerEntry, accountID: UUID) -> Bool {
-        guard entry.accountID == accountID else { return false }
+        guard entry.accountID == accountID, entry.kind == .adjustment else { return false }
         if entry.importFingerprint == currentFingerprint { return true }
         return entry.notes.contains("Typ: Saldo-Korrektur")
     }
 
-    /// Last adjustment on this account is the current stand, not a delta booking.
+    /// First import: the opening on day one is current minus every later booking.
+    /// Later import: skip old rows, then a Saldo-Korrektur from the last import.
+    @discardableResult
+    static func fitToCurrent(
+        account: Account,
+        entries: inout [LedgerEntry],
+        currentCents: Int,
+        context: ModelContext
+    ) -> LedgerEntry? {
+        removeAbsolutePins(accountID: account.id, entries: &entries, context: context)
+        let result: LedgerEntry?
+        if BankImportCursor.date(for: account.id) == nil {
+            result = fitFirstOpening(account: account, entries: &entries, currentCents: currentCents, context: context)
+        } else {
+            result = insertDelta(account: account, entries: &entries, currentCents: currentCents, context: context)
+        }
+        return result
+    }
+
+    /// Rewrites the first opening so opening plus later bookings equal the current cash.
+    @discardableResult
+    static func fitFirstOpening(
+        account: Account,
+        entries: inout [LedgerEntry],
+        currentCents: Int,
+        context: ModelContext
+    ) -> LedgerEntry? {
+        let opening = firstOpening(accountID: account.id, in: entries) ?? makeOpening(
+            account: account,
+            entries: &entries,
+            context: context
+        )
+        opening.amountCents = fittedOpeningCents(
+            current: currentCents,
+            laterEffect: laterEffect(after: opening, account: account, in: entries)
+        )
+        return opening
+    }
+
+    /// Turns a leftover today's pin into a fitted first-day opening.
+    static func adoptPinsIfNeeded(
+        accounts: [Account],
+        entries: inout [LedgerEntry],
+        context: ModelContext
+    ) -> [UUID] {
+        var changed: [UUID] = []
+        for account in accounts where account.kind != .portfolio && account.kind != .savingsGroup {
+            guard !isTradeRepublicChecking(account, entries: entries) else { continue }
+            guard let pin = entries.filter({ isCurrentPin($0, accountID: account.id) }).max(by: { $0.createdAt < $1.createdAt }) else {
+                continue
+            }
+            let current = pin.amountCents
+            removeAbsolutePins(accountID: account.id, entries: &entries, context: context)
+            _ = fitFirstOpening(account: account, entries: &entries, currentCents: current, context: context)
+            changed.append(account.id)
+        }
+        return changed
+    }
+
+    /// Absolute pin for callers that still need today's stand as the last adjustment.
     @discardableResult
     static func correction(
         account: Account,
@@ -68,6 +131,139 @@ enum ImportBalance {
         context.insert(entry)
         entries.append(entry)
         return entry
+    }
+
+    private static func removeAbsolutePins(
+        accountID: UUID,
+        entries: inout [LedgerEntry],
+        context: ModelContext
+    ) {
+        let stale = entries.filter { isCurrentPin($0, accountID: accountID) }
+        for entry in stale {
+            context.delete(entry)
+        }
+        entries.removeAll { isCurrentPin($0, accountID: accountID) }
+    }
+
+    private static func firstOpening(accountID: UUID, in entries: [LedgerEntry]) -> LedgerEntry? {
+        entries
+            .filter { $0.kind == .adjustment && $0.accountID == accountID && !isCurrentPin($0, accountID: accountID) }
+            .sorted { lhs, rhs in
+                lhs.date == rhs.date ? lhs.createdAt < rhs.createdAt : lhs.date < rhs.date
+            }
+            .first
+    }
+
+    private static func makeOpening(
+        account: Account,
+        entries: inout [LedgerEntry],
+        context: ModelContext
+    ) -> LedgerEntry {
+        let first = entries
+            .filter { $0.accountID == account.id || $0.fromAccountID == account.id || $0.toAccountID == account.id }
+            .map(\.date)
+            .min() ?? Date()
+        let opening = LedgerEntry(
+            date: Calendar.current.startOfDay(for: first),
+            title: L("Eröffnungssaldo", "Opening balance"),
+            amountCents: 0,
+            kind: .adjustment,
+            accountID: account.id
+        )
+        context.insert(opening)
+        entries.append(opening)
+        return opening
+    }
+
+    private static func insertDelta(
+        account: Account,
+        entries: inout [LedgerEntry],
+        currentCents: Int,
+        context: ModelContext
+    ) -> LedgerEntry? {
+        let computed = FinanceService.currentBalance(for: account, entries: entries)
+        let delta = correctionCents(current: currentCents, computed: computed)
+        guard delta != 0 else { return nil }
+        let last = BankImportCursor.date(for: account.id) ?? Date()
+        let entry = LedgerEntry(
+            date: Calendar.current.startOfDay(for: last),
+            title: L("Saldo-Korrektur", "Balance adjustment"),
+            notes: "Typ: Saldo-Korrektur",
+            amountCents: delta,
+            kind: delta >= 0 ? .income : .expense,
+            accountID: account.id
+        )
+        context.insert(entry)
+        entries.append(entry)
+        return entry
+    }
+
+    private static func laterEffect(
+        after opening: LedgerEntry,
+        account: Account,
+        in entries: [LedgerEntry]
+    ) -> Int {
+        let through = Calendar.current.date(
+            byAdding: .day,
+            value: 1,
+            to: Calendar.current.startOfDay(for: Date())
+        )?.addingTimeInterval(-1) ?? Date()
+        return entries.reduce(0) { partial, entry in
+            guard entry.date <= through, isAfter(entry, anchor: opening) else { return partial }
+            return partial + effect(entry, account: account)
+        }
+    }
+
+    private static func isAfter(_ entry: LedgerEntry, anchor: LedgerEntry) -> Bool {
+        if entry.date != anchor.date { return entry.date > anchor.date }
+        return entry.createdAt > anchor.createdAt
+    }
+
+    private static func effect(_ entry: LedgerEntry, account: Account) -> Int {
+        switch entry.kind {
+        case .income, .expense:
+            return entry.accountID == account.id ? entry.amountCents : 0
+        case .transfer:
+            var value = 0
+            if entry.fromAccountID == account.id { value -= abs(entry.amountCents) }
+            if entry.toAccountID == account.id { value += abs(entry.amountCents) }
+            return value
+        case .adjustment:
+            return 0
+        }
+    }
+
+    private static func isTradeRepublicChecking(_ account: Account, entries: [LedgerEntry]) -> Bool {
+        entries.contains {
+            $0.accountID == account.id
+                && ($0.importFingerprint == TradeRepublicTimeline.openingBalanceFingerprint
+                    || $0.importFingerprint == "tr-startsaldo")
+        }
+    }
+}
+
+enum BankImportCursor {
+    private static let prefix = "lifify.bankImport.cursor."
+
+    static func date(for accountID: UUID) -> Date? {
+        let stored = UserDefaults.standard.double(forKey: key(accountID))
+        guard stored > 0 else { return nil }
+        return Date(timeIntervalSince1970: stored)
+    }
+
+    static func mark(_ accountID: UUID, at date: Date = Date()) {
+        UserDefaults.standard.set(date.timeIntervalSince1970, forKey: key(accountID))
+    }
+
+    static func reset() {
+        let defaults = UserDefaults.standard
+        for key in defaults.dictionaryRepresentation().keys where key.hasPrefix(prefix) {
+            defaults.removeObject(forKey: key)
+        }
+    }
+
+    private static func key(_ accountID: UUID) -> String {
+        prefix + accountID.uuidString
     }
 }
 
@@ -179,7 +375,11 @@ enum BankImportApplier {
             : firstMainAccountPeriod(entries: entries, accounts: accounts, context: context)
 
         if document.tradeRepublic == nil, let currentBalanceCents,
-           !entries.contains(where: { $0.kind == .adjustment && $0.accountID == checking.account.id }),
+           !entries.contains(where: {
+               $0.kind == .adjustment
+                   && $0.accountID == checking.account.id
+                   && !ImportBalance.isCurrentPin($0, accountID: checking.account.id)
+           }),
            let firstDate = document.rows.map(\.date).min() {
             let opening = ImportBalance.openingCents(
                 current: currentBalanceCents,
@@ -308,19 +508,24 @@ enum BankImportApplier {
         let holdingCount = holdings.filter { holding in
             holding.accountID == portfolioID && holding.quantity > 0.0000005
         }.count
+        var fittedAccountID: UUID?
         if document.tradeRepublic == nil, let currentBalanceCents {
-            if let extra = ImportBalance.correction(
+            let knownIDs = Set(insertedEntries.map(\.id))
+            if let extra = ImportBalance.fitToCurrent(
                 account: checking.account,
                 entries: &entries,
                 currentCents: currentBalanceCents,
-                date: Date(),
                 context: context
-            ) {
+            ), !knownIDs.contains(extra.id) {
                 insertedEntries.append(extra)
             }
+            fittedAccountID = checking.account.id
         }
         do {
             try context.save()
+            if let fittedAccountID {
+                BankImportCursor.mark(fittedAccountID)
+            }
         } catch {
             insertedEntries.forEach(context.delete)
             insertedHoldings.forEach(context.delete)

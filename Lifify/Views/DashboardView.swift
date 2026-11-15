@@ -1076,6 +1076,7 @@ struct DashboardView: View {
         await Task.yield()
         guard !Task.isCancelled else { return }
         warmFinanceStores()
+        adoptEnteredCashIfNeeded()
         await Task.yield()
         guard !Task.isCancelled else { return }
         guard let period = selectedPeriod else {
@@ -1115,6 +1116,19 @@ struct DashboardView: View {
         if let holding = holdings.first {
             _ = HoldingLotStore.lots(for: holding.id)
             _ = HistoricalPriceStore.cents(for: holding.id, dayKey: Date.now.dayKey)
+        }
+    }
+
+    /// A leftover today's pin is the entered cash. Fit the first-day opening from it.
+    private func adoptEnteredCashIfNeeded() {
+        var ledger = Array(entries)
+        let adopted = ImportBalance.adoptPinsIfNeeded(accounts: Array(accounts), entries: &ledger, context: context)
+        guard !adopted.isEmpty else { return }
+        do {
+            try context.save()
+            adopted.forEach(BankImportCursor.mark)
+        } catch {
+            return
         }
     }
 

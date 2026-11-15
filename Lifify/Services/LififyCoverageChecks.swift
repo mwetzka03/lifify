@@ -239,6 +239,7 @@ enum LififyCoverageChecks {
             && periodEnd?.day == 28 && periodEnd?.month == 5
             && mainStart?.day == 17 && mainStart?.month == 5
             && ImportBalance.openingCents(current: 10_000, rowAmounts: [-3_000, 1_000]) == 12_000
+            && ImportBalance.fittedOpeningCents(current: 10_000, laterEffect: -2_000) == 12_000
             && ImportBalance.correctionCents(current: 10_000, computed: 10_800) == -800
         return check(
             "Restbudget, Anteil und Zeitraum",

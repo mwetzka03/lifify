@@ -737,7 +737,9 @@ struct OnboardingView: View {
         var entryIDs: [String: UUID] = [:]
         var inserted: [LedgerEntry] = []
         if !existingEntries.contains(where: {
-            $0.kind == .adjustment && $0.accountID == accountID
+            $0.kind == .adjustment
+                && $0.accountID == accountID
+                && !ImportBalance.isCurrentPin($0, accountID: accountID)
         }) {
             let opening = ImportBalance.openingCents(
                 current: current,
@@ -769,17 +771,18 @@ struct OnboardingView: View {
             selectableRows.append(row)
             entryIDs[row.fingerprint] = entry.id
         }
-        if let extra = ImportBalance.correction(
+        let knownIDs = Set(inserted.map(\.id))
+        if let extra = ImportBalance.fitToCurrent(
             account: account,
             entries: &ledger,
             currentCents: current,
-            date: Date(),
             context: context
-        ) {
+        ), !knownIDs.contains(extra.id) {
             inserted.append(extra)
         }
         do {
             try context.save()
+            BankImportCursor.mark(accountID)
             importedEntryIDs.merge(entryIDs) { _, new in new }
             importedRows = selectableRows
             pendingImportRows = []
