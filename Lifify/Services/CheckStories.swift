@@ -709,10 +709,16 @@ enum CheckStories {
             ("Die Messung ist 401 manual. Die Meldung enthält den Beispielwert nicht.", "The reading is 401 manual. The message does not contain the example value.", "TradeRepublicSession.swift"),
         ),
         "Kurzbefehl-Vorlage bucht die Mitteilung": make(
-            "Eine Vorlage merkt sich, wie die Bankmitteilung aussieht und ob sie Ausgabe, Einnahme oder Umbuchung ist. Der Apple-Kurzbefehl schickt den Text, Lifify bucht nach der Vorlage.",
-            "A template remembers what the bank notice looks like and whether it is an expense, income, or a transfer. The Apple Shortcut sends the text, and Lifify books it from the template.",
-            ("Eine Abbuchungs-Vorlage, eine Gutschrift-Vorlage und eine Überweisungs-Vorlage werden gegen neue Texte gelesen.", "A debit template, a credit template, and a transfer template are read against new texts.", "NoticeTemplate.swift"),
-            ("Steam ist Ausgabe minus 999, Gehalt Einnahme 125000, die Überweisung eine Umbuchung über 8000. Eine Gutschrift passt nicht auf die Abbuchungs-Vorlage.", "Steam is an expense of minus 999, salary is income of 125000, and the transfer is an own-account move of 8000. A credit does not match the debit template.", "LififySessionChecks.swift"),
+            "Eine 1:1-Beispielmitteilung wird zur Vorlage: Betrag und Name werden Platzhalter. Die Vorlage erkennt spätere Mitteilungen, und die gewählte Buchung wird ausgeführt.",
+            "A 1:1 example notice becomes the template: amount and name become placeholders. The template recognizes later notices, and the chosen booking is run.",
+            ("Eine Abbuchungs-Vorlage, eine Gutschrift-Vorlage und eine Überweisungs-Vorlage werden gegen neue Texte gelesen. Aus der Beispielmitteilung entsteht die Vorlage mit Betrag und Name.", "A debit template, a credit template, and a transfer template are read against new texts. The example notice becomes the template with amount and name.", "NoticeTemplate.swift"),
+            ("Steam ist Ausgabe minus 999, Gehalt Einnahme 125000, die Überweisung eine Umbuchung über 8000. Eine Gutschrift passt nicht auf die Abbuchungs-Vorlage. Die Vorlage zeigt Betrag und Name.", "Steam is an expense of minus 999, salary is income of 125000, and the transfer is an own-account move of 8000. A credit does not match the debit template. The template shows amount and name.", "LififySessionChecks.swift"),
+        ),
+        "Trade-Republic-Vorlage bucht Depot und Ertrag": make(
+            "Eine Trade-Republic-Vorlage kann Depotkauf, Depotverkauf, Dividende und Zinsen buchen. Der Kauf geht vom Girokonto ins Depot, der Verkauf zurück, Dividende und Zinsen als Ertrag und Zinsen auf das Girokonto. Die Stücke kommen nicht aus der Mitteilung.",
+            "A Trade Republic template can book a portfolio buy, a portfolio sale, a dividend, and interest. The buy leaves the checking account for the depot, the sale returns, and dividend and interest land on the checking account as Ertrag and Zinsen. Holdings do not come from the notice.",
+            ("Vorlagen für Dividende, Zinsen, Kauf und Verkauf werden gegen neue Trade-Republic-Texte gelesen.", "Templates for dividend, interest, buy, and sale are read against new Trade Republic texts.", "NoticeTemplate.swift"),
+            ("Dividende 310 mit Typ Ertrag, Zinsen 40 mit Typ Zinsen, Kauf 1200 vom Giro ins Depot, Verkauf 9900 vom Depot aufs Giro.", "Dividend 310 with type Ertrag, interest 40 with type Zinsen, buy 1200 from checking to the depot, sale 9900 from the depot onto checking.", "BankNotice.swift"),
         ),
         "Sparkasse und Trade Republic landen auf dem passenden Konto": make(
             "Eine Sparkassen-Mitteilung bucht auf dem Girokonto Sparkasse, eine Trade-Republic-Mitteilung auf dem Konto Trade Republic. Eine erhaltene Überweisung ist eine Umbuchung vom Hauptkonto, ausgegeben ist eine Ausgabe. Dieselbe Buchung im Fenster wird nicht doppelt angelegt.",

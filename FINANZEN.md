@@ -47,7 +47,9 @@ view, in transactions, and in the income and expense lists.
   and older days whose booking count already matches. On the last booking day
   and on days where the file has extra rows, Lifify asks whether to import.
   Missing second payments are on by default. The entered cash is applied after
-  you confirm the review. On the current period, net worth is
+  you confirm the review. Under Finance, Shortcuts, you paste a notice 1:1;
+  the template appears below, and the booking can be an expense, income,
+  transfer, portfolio buy, portfolio sale, dividend, or interest. On the current period, net worth is
   the live cash. On a past or future period it is that period's Endsaldo.
   Depot stays the market value.
 - Trade Republic bookings before the cutoff date stay in the ledger and sit
@@ -607,9 +609,10 @@ Finanzansicht, in den Buchungen und in den Listen für Einnahmen und Ausgaben.
   Zweit-Zahlungen stehen angeschaltet. Der angegebene Kontostand wird erst nach
   Übernehmen gesetzt. Zwei Buchungen am selben Tag mit demselben Betrag
   bleiben beide, auch mit unterschiedlicher End-to-End-Referenz. Unter Finanzen,
-  Kurzbefehle, liegt pro Girokonto eine Vorlage: Beispielmitteilung und ob
-  Ausgabe, Einnahme oder Umbuchung gebucht wird. Der Apple-Kurzbefehl schickt
-  den Text, Lifify bucht nach der Vorlage. Im aktuellen Zeitraum ist Gesamtvermögen der
+  Kurzbefehle, fügst du die Mitteilung 1:1 ein. Darunter entsteht die Vorlage,
+  und die Buchung kann Ausgabe, Einnahme, Umbuchung, Depotkauf, Depotverkauf,
+  Dividende oder Zinsen sein. Der Apple-Kurzbefehl schickt den Text, Lifify
+  bucht nach der Vorlage. Im aktuellen Zeitraum ist Gesamtvermögen der
   Live-Cash. Sind in diesem Zeitraum keine Kosten mehr offen, ist der Endsaldo
   derselbe Stand, und der nächste Zeitraum startet damit. In einem vergangenen
   oder zukünftigen Zeitraum ist Gesamtvermögen der Endsaldo dieses Zeitraums.

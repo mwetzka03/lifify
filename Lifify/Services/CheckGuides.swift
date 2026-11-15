@@ -534,9 +534,14 @@ enum CheckGuides {
             "The reading is 401 manual. An expired session asks for a new confirmation. There is no sign-in with a stored PIN, and an example value is not in the message."
         ),
         "Kurzbefehl-Vorlage bucht die Mitteilung": g(
-            "NoticeTemplate.matches(_:), NoticeTemplate.markers(in:), BankNotice.plan(text:bank:accounts:existing:now:templates:)",
-            "Die Messung ist Steam minus 999, Gehalt 125000, Umbuchung 8000. Die Abbuchungs-Vorlage erkennt Steam, nicht die Gutschrift. Die Überweisungs-Vorlage wird eine Umbuchung.",
-            "The reading is Steam minus 999, salary 125000, transfer 8000. The debit template recognizes Steam, not the credit. The transfer template becomes an own-account transfer."
+            "NoticeTemplate.matches(_:), NoticeTemplate.displayPattern(from:), NoticePattern.from(example:), BankNotice.plan(text:bank:accounts:existing:now:templates:)",
+            "Die Messung ist Steam minus 999, Gehalt 125000, Umbuchung 8000. Die Abbuchungs-Vorlage erkennt Steam, nicht die Gutschrift. Die Überweisungs-Vorlage wird eine Umbuchung. Die angezeigte Vorlage ersetzt Betrag und Name.",
+            "The reading is Steam minus 999, salary 125000, transfer 8000. The debit template recognizes Steam, not the credit. The transfer template becomes an own-account transfer. The displayed template replaces amount and name."
+        ),
+        "Trade-Republic-Vorlage bucht Depot und Ertrag": g(
+            "BankNotice.plan(text:bank:accounts:existing:now:templates:), NoticeTemplate.matches(_:), BookingClassification.preparedNotes(_:for:), BookingClassification.preparedTitle(_:for:)",
+            "Die Messung ist Dividende 310, Zinsen 40, Kauf 1200, Verkauf 9900. Dividende trägt Typ Ertrag, Zinsen Typ Zinsen. Der Kauf geht vom Trade-Republic-Girokonto ins Depot, der Verkauf zurück.",
+            "The reading is dividend 310, interest 40, buy 1200, sale 9900. The dividend carries type Ertrag, interest type Zinsen. The buy leaves the Trade Republic checking account for the depot, and the sale returns."
         ),
         "Sparkasse und Trade Republic landen auf dem passenden Konto": g(
             "BankNotice.plan(text:bank:accounts:existing:now:), BankNotice.records(_:), BankNoticeURL.decode(_:)",

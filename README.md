@@ -144,8 +144,9 @@ you to tap Run.
 2. **Trade Republic.** Do the same for a notification from Trade Republic, and
    set **Konto** to Trade Republic.
 
-Under Settings, Finance, Shortcuts you store an example notice per checking
-account and what to book. The Shortcut still sends the text; Lifify uses that
+Under Settings, Finance, Shortcuts you paste a notice 1:1. The template
+appears below, and you choose the booking, including a portfolio buy, sale,
+dividend, or interest. The Shortcut still sends the text; Lifify uses that
 template.
 
 The same call is the URL `lifify://notice?account=sparkasse&text=` with the
@@ -310,9 +311,10 @@ trotzdem nach Tippen auf Ausführen fragen.
 2. **Trade Republic.** Dasselbe für eine Mitteilung von Trade Republic, und
    setze **Konto** auf Trade Republic.
 
-Unter Einstellungen, Finanzen, Kurzbefehle hinterlegst du pro Girokonto eine
-Beispielmitteilung und was gebucht werden soll. Der Kurzbefehl schickt weiter
-den Text; Lifify nutzt diese Vorlage.
+Unter Einstellungen, Finanzen, Kurzbefehle fügst du die Mitteilung 1:1 ein.
+Darunter erscheint die Vorlage, und du wählst die Buchung, auch Depotkauf,
+Verkauf, Dividende oder Zinsen. Der Kurzbefehl schickt weiter den Text;
+Lifify nutzt diese Vorlage.
 
 Derselbe Aufruf ist die URL `lifify://notice?account=sparkasse&text=` mit dem
 Mitteilungstext in `text`. Bei Trade Republic ist das Konto `traderepublic`.

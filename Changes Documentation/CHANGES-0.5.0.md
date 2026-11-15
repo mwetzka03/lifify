@@ -45,7 +45,7 @@ Create two shortcuts on the iPhone. iOS may still ask you to tap Run.
 1. **Sparkasse.** When a notification from Sparkasse arrives, run **Bankmitteilung buchen**. Set **Konto** to Sparkasse and **Mitteilung** to the notification text.
 2. **Trade Republic.** Do the same for a Trade Republic notification, with **Konto** set to Trade Republic.
 
-Under Finance, Shortcuts, you add a template per checking account: an example notice and whether it is an expense, income, or a transfer. The Apple Shortcut still sends the text; Lifify books it from that template.
+Under Finance, Shortcuts, you paste a bank notice 1:1, with amount and names. The template appears below, with placeholders for the amount and the name, and you choose the booking: expense, income, transfer, portfolio buy, portfolio sale, dividend, interest, and the other kinds already used in Finance. The Apple Shortcut still sends the text; Lifify books it from that template. A Trade Republic buy leaves the checking account for the linked depot, a sale returns, and dividend and interest are Ertrag and Zinsen. Holdings still come from sign-in, not from the notice.
 
 The same call is `lifify://notice?account=sparkasse&text=` with the notification
 text in `text`. For Trade Republic the account is `traderepublic`. Lifify reads
@@ -67,6 +67,7 @@ not executed. Swift braces were balanced locally.
 - Should a shortcut create the Trade Republic checking account when it is missing?
 - Should the six-hour window be longer when the bank notice arrives the next morning?
 - Should a market price from the session be stored, or should the existing price update stay the only source?
+- Should a notice also change the share count in the depot?
 
 ## Deutsch
 
@@ -122,7 +123,7 @@ Ausführen fragen.
 1. **Sparkasse.** Kommt eine Mitteilung der Sparkasse, führe **Bankmitteilung buchen** aus. Setze **Konto** auf Sparkasse und **Mitteilung** auf den Text der Mitteilung.
 2. **Trade Republic.** Dasselbe für eine Mitteilung von Trade Republic, mit **Konto** auf Trade Republic.
 
-Unter Finanzen, Kurzbefehle, legst du pro Girokonto eine Vorlage an: eine Beispielmitteilung und ob es Ausgabe, Einnahme oder Umbuchung ist. Der Apple-Kurzbefehl schickt weiter den Text; Lifify bucht nach dieser Vorlage.
+Unter Finanzen, Kurzbefehle, fügst du eine Bankmitteilung 1:1 ein, mit Betrag und Namen. Darunter erscheint die Vorlage, mit Platzhaltern für Betrag und Name, und du wählst die Buchung: Ausgabe, Einnahme, Umbuchung, Depotkauf, Depotverkauf, Dividende, Zinsen und die übrigen Arten aus den Finanzen. Der Apple-Kurzbefehl schickt weiter den Text; Lifify bucht nach dieser Vorlage. Ein Trade-Republic-Kauf geht vom Girokonto ins verknüpfte Depot, ein Verkauf zurück, Dividende und Zinsen sind Ertrag und Zinsen. Die Stücke kommen weiter aus der Anmeldung, nicht aus der Mitteilung.
 
 Derselbe Aufruf ist `lifify://notice?account=sparkasse&text=` mit dem
 Mitteilungstext in `text`. Bei Trade Republic ist das Konto `traderepublic`.
@@ -144,3 +145,4 @@ Prüfungen wurden nicht ausgeführt. Die Swift-Klammern wurden lokal geprüft.
 - Soll ein Kurzbefehl das Trade-Republic-Girokonto anlegen, wenn es fehlt?
 - Soll das Fenster von sechs Stunden länger sein, wenn die Bankmitteilung erst am nächsten Morgen kommt?
 - Soll ein Kurs aus der Sitzung gespeichert werden, oder bleibt die bisherige Kursaktualisierung die einzige Quelle?
+- Soll eine Mitteilung auch die Stückzahl im Depot ändern?
