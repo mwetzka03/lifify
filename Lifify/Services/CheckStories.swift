@@ -533,10 +533,10 @@ enum CheckStories {
             ("Die Tagesänderung fehlt dann, und ein Kauf zählt als Depotkauf.", "The day change is then missing, and a purchase counts as a portfolio buy.", "LififyCoverageChecks.swift"),
         ),
         "CSV und CAMT zeigen die Buchung": make(
-            "CSV und CAMT werden zu Buchungen mit Betrag und Text. Zwei Zahlungen an denselben Empfänger am selben Tag mit unterschiedlicher Referenz bleiben zwei Buchungen, auch wenn der alte Fingerabdruck gleich ist. Vorgemerkte Umsätze werden nicht importiert.",
-            "CSV and CAMT become bookings with an amount and text. Two payments to the same payee on the same day with a different reference stay two bookings, even when the old fingerprint is the same. Pending rows are not imported.",
+            "CSV und CAMT werden zu Buchungen mit Betrag und Text. Zwei Zahlungen an denselben Empfänger am selben Tag mit unterschiedlicher Referenz bleiben zwei Buchungen, auch wenn der alte Fingerabdruck gleich ist. Vorgemerkte Umsätze werden nicht importiert. Zwei Buchungen am selben Tag mit demselben Betrag bleiben beide, auch nach dem Verknüpfen eigener Konten.",
+            "CSV and CAMT become bookings with an amount and text. Two payments to the same payee on the same day with a different reference stay two bookings, even when the old fingerprint is the same. Pending rows are not imported. Two bookings on the same day with the same amount both stay, including after own-account linking.",
             ("Eine CSV-Zeile und eine CAMT-Zahlung werden gelesen.", "One CSV row and one CAMT payment are read.", "BankImportService.swift"),
-            ("Anzahl und Betrag entsprechen der Datei. Zwei PayPal-Zeilen bleiben zwei, ihre alten Fingerabdrücke sind gleich, die neuen nicht, und eine vorgemerkte fällt raus.", "The count and the amount match the file. Two PayPal rows stay two, their old fingerprints match, the new ones do not, and a pending row is dropped.", "LififyCoverageChecks.swift"),
+            ("Anzahl und Betrag entsprechen der Datei. Zwei PayPal-Zeilen bleiben zwei, Dietz und Snack Mall am selben Tag mit 10 Euro bleiben zwei, ihre alten Fingerabdrücke sind gleich, die neuen nicht, und eine vorgemerkte fällt raus.", "The count and the amount match the file. Two PayPal rows stay two, Dietz and Snack Mall on the same day at 10 euros stay two, their old fingerprints match, the new ones do not, and a pending row is dropped.", "LififyCoverageChecks.swift"),
         ),
         "Fingerabdruck und Import-Hinweise": make(
             "Jede importierte Buchung bekommt einen Fingerabdruck. Unlesbare PDFs nennen den Hinweis.",

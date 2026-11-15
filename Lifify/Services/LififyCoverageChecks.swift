@@ -352,6 +352,8 @@ enum LififyCoverageChecks {
         Buchungstag;Betrag;Verwendungszweck;Beguenstigter/Zahlungspflichtiger;Kontonummer/IBAN;Kundenreferenz (End-to-End);Info
         03.11.26;-38,80;1054118451739;PayPal Europe;DE89370400440532013000;1054118451739;Umsatz gebucht
         03.11.26;-38,80;1054124404910;PayPal Europe;DE89370400440532013000;1054124404910;Umsatz gebucht
+        29.06.26;-10,00;EDEKA;Dietz GmbH;DE89370400440532013000;dietz-1;Umsatz gebucht
+        29.06.26;-10,00;REWE;Snack Mall;DE89370400440532013000;snack-1;Umsatz gebucht
         16.11.26;-9,05;Steam;Steam;DE89370400440532013000;steam-1;Umsatz vorgemerkt
         """
         let rows = (try? BankImportService.parseCSV(csv)) ?? []
@@ -368,14 +370,18 @@ enum LififyCoverageChecks {
             && camt[0].title == "Cafe"
             && camt[0].amountCents == -1_999
             && again.first?.fingerprint == rows.first?.fingerprint
-            && twins.count == 2
+            && twins.count == 4
             && twins[0].fingerprint != twins[1].fingerprint
             && twins[0].legacyFingerprint != nil
             && twins[0].legacyFingerprint == twins[1].legacyFingerprint
-            && twins.allSatisfy { $0.amountCents == -3_880 }
+            && twins.filter { $0.amountCents == -3_880 }.count == 2
+            && twins.filter { $0.amountCents == -1_000 }.count == 2
+            && Set(twins.map(\.fingerprint)).count == 4
             && BankImportService.purposeMark(notes: twins[0].notes).contains("1054118451739")
             && BankImportService.purposeMark(notes: twins[1].notes).contains("1054124404910")
             && !twins[0].notes.contains(BankImportService.purposeMark(notes: twins[1].notes))
+            && BankImportService.isPendingBankRow("Umsatz vorgemerkt")
+            && twins.allSatisfy { $0.amountCents != -905 }
         return check("CSV und CAMT zeigen die Buchung", .bankImport, .unit, passed, "CSV \(rows.count), CAMT \(camt.first?.amountCents ?? 0), twins \(twins.count)")
     }
 

@@ -599,7 +599,8 @@ Finanzansicht, in den Buchungen und in den Listen für Einnahmen und Ausgaben.
   setzt nur eine Saldo-Korrektur seit dem letzten Import, nicht den
   Eröffnungssaldo neu. Die Einrichtung übernimmt jede Zeile.
   Ein Import aus den Einstellungen überspringt eine identische Zeile und bietet
-  eine ähnliche zur Prüfung an. Im aktuellen Zeitraum ist Gesamtvermögen der
+  eine ähnliche zur Prüfung an. Zwei Buchungen am selben Tag mit demselben Betrag
+  bleiben beide, auch mit unterschiedlicher End-to-End-Referenz. Im aktuellen Zeitraum ist Gesamtvermögen der
   Live-Cash. Sind in diesem Zeitraum keine Kosten mehr offen, ist der Endsaldo
   derselbe Stand, und der nächste Zeitraum startet damit. In einem vergangenen
   oder zukünftigen Zeitraum ist Gesamtvermögen der Endsaldo dieses Zeitraums.

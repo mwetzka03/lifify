@@ -1055,6 +1055,7 @@ enum BankImportApplier {
 
     /// A booking between two of your own accounts is a transfer. Combined it is neutral.
     /// On the sending account it leaves, and on the receiving account it arrives.
+    /// Two cash bookings on the same day with the same amount both stay.
     static func relinkOwnAccounts(context: ModelContext) {
         guard var entries = try? context.fetch(FetchDescriptor<LedgerEntry>()) else { return }
         let accounts = (try? context.fetch(FetchDescriptor<Account>())) ?? []
@@ -1110,9 +1111,6 @@ enum BankImportApplier {
             changed = true
         }
         if mergeNamedTradeRepublicMoves(entries: &entries, accounts: checking, context: context) {
-            changed = true
-        }
-        if collapseDuplicateCash(entries: &entries, checkingIDs: checkingIDs, context: context) {
             changed = true
         }
         guard changed else { return }
@@ -1214,38 +1212,6 @@ enum BankImportApplier {
         "\(entry.title)\n\(entry.notes)"
             .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "de_DE"))
             .contains("trade republic")
-    }
-
-    /// Two cash bookings on the same account, day, and amount are one payment.
-    private static func collapseDuplicateCash(
-        entries: inout [LedgerEntry],
-        checkingIDs: Set<UUID>,
-        context: ModelContext
-    ) -> Bool {
-        var kept: [String: UUID] = [:]
-        var changed = false
-        let ordered = entries
-            .filter { entry in
-                (entry.kind == .income || entry.kind == .expense)
-                    && entry.accountID.map(checkingIDs.contains) == true
-            }
-            .sorted { lhs, rhs in
-                if lhs.createdAt != rhs.createdAt { return lhs.createdAt < rhs.createdAt }
-                return (lhs.notes.count, lhs.title.count) > (rhs.notes.count, rhs.title.count)
-            }
-        for entry in ordered {
-            guard let accountID = entry.accountID else { continue }
-            let day = Calendar.current.startOfDay(for: entry.date).timeIntervalSince1970
-            let key = "\(accountID.uuidString)-\(Int(day))-\(entry.amountCents)"
-            if let existing = kept[key], existing != entry.id {
-                context.delete(entry)
-                entries.removeAll { $0.id == entry.id }
-                changed = true
-                continue
-            }
-            kept[key] = entry.id
-        }
-        return changed
     }
 
     /// A booking that names Trade Republic and already shows the other account's IBAN
