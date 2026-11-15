@@ -111,7 +111,7 @@ private struct AccountForm: View {
                 if kind == .portfolio {
                     if linkableCheckingAccounts.isEmpty {
                         Text(L(
-                            "Lege zuerst ein Girokonto an. Ein Depot muss damit verknüpft sein.",
+                            "Lege zuerst ein Girokonto an. Ein Depot muss daran hängen.",
                             "Create a checking account first. A portfolio has to be linked to one."
                         ))
                         .font(.caption)

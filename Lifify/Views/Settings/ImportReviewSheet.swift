@@ -35,8 +35,8 @@ struct ImportReviewSheet: View {
                         Text(L("Mögliche Umbuchung", "Possible transfer"))
                     } footer: {
                         Text(L(
-                            "Gleicher Betrag, bekannte IBAN und ähnliches Datum. Nur angeschaltete Zeilen werden eine Umbuchung.",
-                            "Same amount, known IBAN and a similar date. Only enabled rows become a transfer."
+                            "Gleicher Betrag und bekannte IBAN. Nur angeschaltete Zeilen werden eine Umbuchung.",
+                            "Same amount and a known IBAN. Only enabled rows become a transfer."
                         ))
                     }
                     .appGlassRow()
@@ -62,8 +62,8 @@ struct ImportReviewSheet: View {
                         }
                     } footer: {
                         Text(L(
-                            "Nur derselbe Empfänger, derselbe Betrag und ein nahes Datum. Ein anderer Text ist keine Doppelung. Klappe die Liste auf, um eine trotzdem zu übernehmen.",
-                            "Only the same payee, the same amount, and a nearby date. A different text is not a duplicate. Expand the list to import one anyway."
+                            "Gleicher Empfänger, gleicher Betrag, nahes Datum. Klappe die Liste auf, um eine trotzdem zu übernehmen.",
+                            "Same payee, same amount, nearby date. Expand the list to import one anyway."
                         ))
                     }
                     .appGlassRow()

@@ -147,6 +147,15 @@ enum FinanceService {
             .reduce(0) { $0 + balance(for: $1, entries: entries, holdings: [], through: date) }
     }
 
+    /// Cash on this account at the end of today. The last adjustment is the stand.
+    static func currentBalance(
+        for account: Account,
+        entries: [LedgerEntry],
+        holdings: [PortfolioHolding] = []
+    ) -> Int {
+        balance(for: account, entries: entries, holdings: holdings, through: endOfDay(Date()))
+    }
+
     /// Cash at the end of the previous period. Adjustments dated on the period
     /// start stay in, so a Startsaldo on that day is the opening figure. Other
     /// bookings on the first day do not.

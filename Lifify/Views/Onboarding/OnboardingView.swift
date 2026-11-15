@@ -346,8 +346,8 @@ struct OnboardingView: View {
             Text(OnboardingSteps.bank)
         } footer: {
             Text(L(
-                "CSV und CAMT landen auf dem Hauptkonto und legen den ersten Zeitraum fest. Du gibst den aktuellen Kontostand an, den Startsaldo rechnet Lifify zurück. Danach kannst du ein Depot anlegen.",
-                "CSV and CAMT go to the main account and define the first period. You enter the current balance, and Lifify works the opening balance backwards. You can add a portfolio after that."
+                "CSV oder CAMT aufs Hauptkonto. Du gibst den aktuellen Kontostand an, den Startsaldo rechnet Lifify zurück.",
+                "CSV or CAMT onto the main account. You enter the current balance, and Lifify works the opening backwards."
             ))
         }
         .appGlassRow()
@@ -366,15 +366,8 @@ struct OnboardingView: View {
 
     @ViewBuilder
     private var tradeRepublicStep: some View {
-        Section {
-            if !tradeRepublicImported && pendingDocument == nil {
-                Button {
-                    importingTradeRepublic = true
-                } label: {
-                    Label(L("Trade-Republic-Kontoauszug hochladen", "Upload a Trade Republic statement"), systemImage: "doc.badge.plus")
-                }
-            }
-            if let statement = pendingDocument?.tradeRepublic {
+        if let statement = pendingDocument?.tradeRepublic {
+            Section {
                 Text(String(
                     format: L(
                         "%d Buchungen erkannt. Endsaldo %@.",
@@ -384,20 +377,19 @@ struct OnboardingView: View {
                     Money.string(cents: statement.closingBalanceCents)
                 ))
                 .font(.headline)
-                Text(L(
-                    "Der Auszug landet auf dem Trade-Republic-Girokonto aus dem vorherigen Schritt. Die IBAN wird übernommen, wenn das Konto noch keine hat. Das Depot bleibt daran verknüpft.",
-                    "The statement is booked on the Trade Republic checking account from the previous step. The IBAN is stored when that account does not have one yet. The portfolio stays linked to it."
-                ))
-                .font(.caption)
-                .foregroundStyle(.secondary)
                 Button(L("Import abschließen", "Finish import")) {
                     commitTradeRepublicImport()
                 }
                 Button(L("Andere Datei wählen", "Choose another file")) {
                     pendingDocument = nil
                 }
+            } header: {
+                Text(OnboardingSteps.tradeRepublic)
             }
-            if tradeRepublicImported {
+            .appGlassRow()
+        }
+        if tradeRepublicImported {
+            Section {
                 Label(
                     "\(tradeRepublicBooked) \(L("Buchungen importiert", "transactions imported"))",
                     systemImage: "checkmark.circle.fill"
@@ -419,31 +411,24 @@ struct OnboardingView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 }
-                if skippedBeforeStart > 0 {
-                    Text(L(
-                        "Buchungen vor dem Start des ersten Zeitraums wurden nicht angelegt. Spätere Buchungen sind dabei. Die Depotstände sind vollständig.",
-                        "Transactions before the start of the first period were not booked. Later transactions are included. The portfolio positions are complete."
-                    ))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                }
             }
-            Text(firstPeriodNote)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        } header: {
-            Text(OnboardingSteps.tradeRepublic)
-        } footer: {
-            Text(L(
-                "PDF-Auszug oder Anmeldung, beides auf dieser Seite. Der Zeitraum folgt dem Hauptkonto. Frühere Trade-Republic-Buchungen bleiben erhalten und liegen außerhalb des ersten Zeitraums.",
-                "The PDF statement or sign-in, both on this page. The period follows the main account. Earlier Trade Republic bookings stay and sit outside the first period."
-            ))
+            .appGlassRow()
         }
-        .appGlassRow()
-        TradeRepublicSignInControls(showsSkip: false) {}
+        if pendingDocument == nil && !tradeRepublicImported {
+            TradeRepublicSignInControls(
+                showsSkip: false,
+                onUploadStatement: { importingTradeRepublic = true },
+                onSignedIn: {
+                    tradeRepublicImported = true
+                    step = 8
+                }
+            ) {}
+        }
         Section {
             nextButton { step = 8 }
                 .disabled(pendingDocument != nil && !tradeRepublicImported)
+        } footer: {
+            Text(firstPeriodNote)
         }
         .appGlassRow()
     }
@@ -480,8 +465,8 @@ struct OnboardingView: View {
             Text(OnboardingSteps.broker)
         } footer: {
             Text(L(
-                "Trade Republic legt ein Girokonto als Nebenkonto an und verknüpft das Depot damit. Die anderen Broker sind noch nicht angebunden.",
-                "Trade Republic creates a checking account as a secondary account and links the portfolio to it. The other brokers are not connected yet."
+                "Trade Republic legt ein Girokonto an und verknüpft das Depot damit. Andere Broker folgen später.",
+                "Trade Republic creates a checking account and links the portfolio to it. Other brokers come later."
             ))
         }
         .appGlassRow()
@@ -586,8 +571,8 @@ struct OnboardingView: View {
         ) {
             return String(
                 format: L(
-                    "Erster Zeitraum des Hauptkontos: %@. Buchungen auf anderen Konten davor bleiben erhalten und liegen außerhalb dieses Zeitraums. Depotstände aus dem ganzen Auszug werden übernommen.",
-                    "First period of the main account: %@. Bookings on other accounts before that stay and sit outside this period. Portfolio positions from the whole statement are imported."
+                    "Erster Zeitraum des Hauptkontos: %@. Frühere Buchungen auf anderen Konten bleiben außerhalb davon.",
+                    "First period of the main account: %@. Earlier bookings on other accounts stay outside it."
                 ),
                 AppDate.range(from: period.start, to: period.end)
             )
@@ -788,7 +773,7 @@ struct OnboardingView: View {
             account: account,
             entries: &ledger,
             currentCents: current,
-            date: AppClock.now,
+            date: Date(),
             context: context
         ) {
             inserted.append(extra)

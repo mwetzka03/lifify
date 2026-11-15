@@ -15,6 +15,8 @@ struct BankImportResult {
 
 @MainActor
 enum ImportBalance {
+    static let currentFingerprint = "saldo-korrektur"
+
     static func openingCents(current: Int, rowAmounts: [Int]) -> Int {
         current - rowAmounts.reduce(0, +)
     }
@@ -23,6 +25,13 @@ enum ImportBalance {
         current - computed
     }
 
+    static func isCurrentPin(_ entry: LedgerEntry, accountID: UUID) -> Bool {
+        guard entry.accountID == accountID else { return false }
+        if entry.importFingerprint == currentFingerprint { return true }
+        return entry.notes.contains("Typ: Saldo-Korrektur")
+    }
+
+    /// Last adjustment on this account is the current stand, not a delta booking.
     @discardableResult
     static func correction(
         account: Account,
@@ -31,16 +40,21 @@ enum ImportBalance {
         date: Date,
         context: ModelContext
     ) -> LedgerEntry? {
-        let computed = FinanceService.balance(for: account, entries: entries, holdings: [], through: date)
-        let delta = correctionCents(current: currentCents, computed: computed)
-        guard delta != 0 else { return nil }
+        let stale = entries.filter { isCurrentPin($0, accountID: account.id) }
+        for entry in stale {
+            context.delete(entry)
+        }
+        entries.removeAll { isCurrentPin($0, accountID: account.id) }
+        let computed = FinanceService.currentBalance(for: account, entries: entries)
+        guard computed != currentCents else { return nil }
         let entry = LedgerEntry(
             date: Calendar.current.startOfDay(for: date),
             title: L("Saldo-Korrektur", "Balance adjustment"),
             notes: "Typ: Saldo-Korrektur",
-            amountCents: delta,
-            kind: delta >= 0 ? .income : .expense,
-            accountID: account.id
+            amountCents: currentCents,
+            kind: .adjustment,
+            accountID: account.id,
+            importFingerprint: currentFingerprint
         )
         context.insert(entry)
         entries.append(entry)
@@ -290,7 +304,7 @@ enum BankImportApplier {
                 account: checking.account,
                 entries: &entries,
                 currentCents: currentBalanceCents,
-                date: AppClock.now,
+                date: Date(),
                 context: context
             ) {
                 insertedEntries.append(extra)

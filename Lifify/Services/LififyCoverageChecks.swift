@@ -64,9 +64,20 @@ enum LififyCoverageChecks {
         let checkingBalance = FinanceService.balance(for: checking, entries: entries, holdings: [])
         let depotBalance = FinanceService.balance(for: depot, entries: [], holdings: [holding])
         let total = FinanceService.totalBalance(accounts: [checking, group, pot, depot], entries: entries, holdings: [holding])
+        let pin = LedgerEntry(
+            date: day3,
+            title: "Saldo-Korrektur",
+            notes: "Typ: Saldo-Korrektur",
+            amountCents: 50_000,
+            kind: .adjustment,
+            accountID: checking.id,
+            createdAt: day3.addingTimeInterval(10)
+        )
+        let pinned = FinanceService.balance(for: checking, entries: entries + [pin], holdings: [])
         let passed = checkingBalance == 9_800
             && depotBalance == 300
             && total == 15_100
+            && pinned == 50_000
             && shows(checking.kind.label, "Girokonto", "Checking")
             && shows(depot.kind.label, "Depot", "Portfolio")
         return check(

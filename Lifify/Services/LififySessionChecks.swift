@@ -557,9 +557,11 @@ enum LififySessionChecks {
             && !fromIndex.contains(where: { $0.id == "skip" })
             && sample?.activities.contains(where: { $0.id == "keep" }) == true
             && TradeRepublicCash.cents(from: #"[{"accountNumber":"1","currencyId":"EUR","amount":1234.56}]"#) == 123_456
+            && TradeRepublicCash.cents(from: #"{"available":{"value":10.0},"total":{"value":30.0}}"#) == 3_000
             && TradeRepublicSample.snapshot(
                 from: "===== compactPortfolio =====\n\(payload)\n===== cash =====\n[{\"amount\":1234.56}]"
             )?.cashCents == 123_456
+            && TradeRepublicSample.extractRequiresDeveloperMode
             && BankImportApplier.ownAccountWindowDays == 3
             && BankNotice.transferWindowDays == BankImportApplier.ownAccountWindowDays
             && abs(Calendar.current.dateComponents([.day], from: Calendar.current.startOfDay(for: fourteenth), to: Calendar.current.startOfDay(for: sixteenth)).day ?? 99) == 2

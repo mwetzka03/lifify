@@ -82,6 +82,7 @@ enum TradeRepublicSample {
     static let alwaysStores = true
     static let storesExtractInUserDefaults = false
     static let showsFullExtractText = false
+    static let extractRequiresDeveloperMode = true
     static let exportFilenamePrefix = "TradeRepublic-Auszug"
     static let previewCharacterLimit = 1600
     static let legacyKey = "lifify.tradeRepublic.sample"
@@ -345,20 +346,28 @@ enum TradeRepublicCopy {
     static var copied: String { L("Kopiert", "Copied") }
     static var twoUpdatePaths: String {
         L(
-            "Zwei Wege, denselben Stand zu holen: den Kontoauszug hochladen oder dich bei Trade Republic anmelden.",
-            "Two ways to fetch the same data: upload the statement, or sign in to Trade Republic."
+            "Zwei Wege zum selben Stand: Auszug oder Anmeldung.",
+            "Two ways to the same data: statement or sign-in."
         )
+    }
+    static var variantA: String { L("Variante A", "Option A") }
+    static var variantB: String { L("Variante B", "Option B") }
+    static var variantAHint: String {
+        L("PDF-Umsatzübersicht einlesen.", "Read the PDF statement.")
+    }
+    static var variantBHint: String {
+        L("Live-Depot und aktuellen Cash-Stand holen.", "Fetch the live depot and current cash.")
     }
     static var statementCaption: String {
         L(
-            "Nur die Umsatzübersicht. Das Girokonto wird über die IBAN wiederverwendet oder neu angelegt, das Depot hängt daran. Der Zeitraum folgt dem Hauptkonto. Frühere Buchungen bleiben erhalten und liegen außerhalb des ersten Zeitraums. Die Depotstände aus dem ganzen Auszug werden übernommen.",
-            "Only the transaction overview. The checking account is reused by IBAN or created, and the portfolio is linked to it. The period follows the main account. Earlier bookings stay and sit outside the first period. Portfolio positions from the whole statement are imported."
+            "PDF-Umsatzübersicht einlesen.",
+            "Read the PDF statement."
         )
     }
     static var footnote: String {
         L(
-            "Die PIN ist dieselbe wie beim Öffnen der Trade-Republic-App, kein Code per SMS. Eine 0 am Anfang wird zu +49. Nur wenn du hier tippst. PIN und Sitzung werden nicht gespeichert. Jedes Mal neu anmelden.",
-            "The PIN is the same one that opens the Trade Republic app, not a code sent by text. A leading 0 becomes +49. Only when you tap here. The PIN and the session are not saved. Sign in each time."
+            "PIN wie in der Trade-Republic-App. Sie wird nicht gespeichert.",
+            "PIN as in the Trade Republic app. It is not stored."
         )
     }
 }

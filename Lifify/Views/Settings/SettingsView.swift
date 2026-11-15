@@ -167,8 +167,8 @@ private struct GeneralSettingsView: View {
                 Text(L("Darstellung", "Appearance"))
             } footer: {
                 Text(L(
-                    "Alle Daten bleiben lokal auf diesem Gerät. Lifify verwendet kein Backend und benötigt kein Konto.",
-                    "All data stays locally on this device. Lifify has no backend and needs no account."
+                    "Alles bleibt auf diesem Gerät. Es gibt kein Konto in der Cloud.",
+                    "Everything stays on this device. There is no cloud account."
                 ))
             }
             .appGlassRow()
@@ -183,8 +183,8 @@ private struct GeneralSettingsView: View {
                 }
             } footer: {
                 Text(L(
-                    "Tippe einen Tag an, um das Briefing an diesem Wochentag ein- oder auszuschalten. Die Uhrzeit steht darunter. Die Mitteilung nennt Termine, fällige Challenges und ihre Coins, nahende Belohnungen, das nächste Gehalt und die Ausgaben dieses Tags. Abstinenz-Boni kommen zusätzlich und bleiben in der Mitteilungszentrale.",
-                    "Tap a day to turn the briefing on or off for that weekday. The time sits underneath. The notification names events, due challenges and their coins, upcoming rewards, the next salary, and that day's expenses. Abstinence bonuses arrive as well and stay in Notification Center."
+                    "Tippe einen Tag an, um das Briefing an- oder auszuschalten. Die Uhrzeit steht darunter.",
+                    "Tap a day to turn the briefing on or off. The time sits underneath."
                 ))
             }
             .appGlassRow()
@@ -206,8 +206,8 @@ private struct GeneralSettingsView: View {
                 }
             } footer: {
                 Text(L(
-                    "Der Tag gilt für Home, Challenges und den Kalender. Finanzen bleiben beim echten Datum. Beim Start der App und beim Ein- oder Ausschalten springt der Tag auf heute zurück.",
-                    "The day applies to Home, challenges, and the calendar. Finance stays on the real date. Launching the app or switching the mode puts the day back on today."
+                    "Der Tag gilt für Home, Challenges und den Kalender. Finanzen bleiben beim echten Datum.",
+                    "The day applies to Home, challenges, and the calendar. Finance stays on the real date."
                 ))
             }
             .appGlassRow()
@@ -295,12 +295,12 @@ private struct UserSettingsView: View {
             } footer: {
                 Text(birthRaw.isEmpty
                     ? L(
-                        "Wähle dein Geburtsdatum. Das angezeigte Datum gilt erst, wenn du es änderst. Am Geburtstag gibt es einmal im Jahr 500 Coins. Größe, Gewicht und Ziel setzen das Kalorienziel. Den Schlüssel für die Erkennung trägst du unter Gesundheit ein.",
-                        "Choose your date of birth. The date shown is saved once you change it. Your birthday pays 500 coins once each year. Height, weight, and the goal set the calorie target. The recognition key is entered under Health."
+                        "Das Datum gilt, sobald du es änderst. Am Geburtstag gibt es 500 Coins. Größe, Gewicht und Ziel setzen das Kalorienziel.",
+                        "The date is saved once you change it. Your birthday pays 500 coins. Height, weight, and the goal set the calorie target."
                     )
                     : L(
-                        "Am Geburtstag gibt es einmal im Jahr 500 Coins. Größe, Gewicht und Ziel setzen das Kalorienziel. Ein Training an dem Tag hebt es. Den Schlüssel für die Erkennung trägst du unter Gesundheit ein.",
-                        "Your birthday pays 500 coins once each year. Height, weight, and the goal set the calorie target. A workout that day raises it. The recognition key is entered under Health."
+                        "Am Geburtstag gibt es 500 Coins. Größe, Gewicht und Ziel setzen das Kalorienziel.",
+                        "Your birthday pays 500 coins. Height, weight, and the goal set the calorie target."
                     ))
             }
             .appGlassRow()
@@ -500,8 +500,8 @@ private struct DeveloperTestsView: View {
                 LabeledContent(L("Bestanden", "Passed"), value: "\(passed)/\(results.count)")
             } footer: {
                 Text(L(
-                    "Dieselben Prüfungen laufen in Xcode als LififyChecksTests. Sie schreiben keine Daten.",
-                    "The same checks run in Xcode as LififyChecksTests. They do not write any data."
+                    "Dieselben Prüfungen wie in Xcode. Sie schreiben keine Daten.",
+                    "The same checks as in Xcode. They do not write any data."
                 ))
             }
             .appGlassRow()
@@ -591,8 +591,8 @@ private struct FinanceSettingsView: View {
                 Text(L("Depot", "Portfolio"))
             } footer: {
                 Text(L(
-                    "Jedes Depot ist mit genau einem Girokonto verknüpft. Käufe und Verkäufe laufen über dieses Konto. In der Depotansicht stehen alle Depots zusammen. Die Gebühr ist abschaltbar und gilt einmal pro Buchung, nicht pro Stück.",
-                    "Each portfolio is linked to exactly one checking account. Buys and sales use that account. The portfolio view lists every portfolio together. The fee can be turned off and applies once per booking, not per share."
+                    "Jedes Depot hängt an einem Girokonto. Die Gebühr gilt einmal pro Buchung, nicht pro Stück.",
+                    "Each portfolio is linked to one checking account. The fee applies once per booking, not per share."
                 ))
             }
             .appGlassRow()
@@ -684,8 +684,8 @@ private struct ChallengeSettingsView: View {
                 Text(L("Kategorien", "Categories"))
             } footer: {
                 Text(L(
-                    "Sport, Abstinenz und Sonstiges gibt es immer. Eine eigene Kategorie kann separat eine Überschrift in der aktiven Liste bekommen. Sonst liegt sie bei den übrigen.",
-                    "Sport, abstinence, and other always exist. A custom category can have its own heading in the active list. Otherwise it stays with the rest."
+                    "Sport, Abstinenz und Sonstiges gibt es immer. Eine eigene Kategorie kann eine eigene Überschrift bekommen.",
+                    "Sport, abstinence, and other always exist. A custom category can have its own heading."
                 ))
             }
             .appGlassRow()
@@ -704,8 +704,8 @@ private struct ChallengeSettingsView: View {
                 Text(L("Streak-Freeze", "Streak freeze"))
             } footer: {
                 Text(L(
-                    "Ein zusätzlicher Freeze kostet diesen ganzzahligen Faktor mal die Basis-Belohnung. Standard ist 10.",
-                    "An extra freeze costs this whole-number factor times the base reward. The default is 10."
+                    "Ein Extra-Freeze kostet diesen Faktor mal die Basis-Belohnung. Standard ist 10.",
+                    "An extra freeze costs this factor times the base reward. The default is 10."
                 ))
             }
             .appGlassRow()
@@ -726,8 +726,8 @@ private struct ChallengeSettingsView: View {
                 Text(L("Streak-Multiplikator", "Streak multiplier"))
             } footer: {
                 Text(L(
-                    "Ohne eigene Änderung gelten diese Standardwerte. Der Faktor gilt auf die Basis-Belohnung. Erreicht die Serie mehrere Stufen, zählt nur die höchste, nicht das Produkt.",
-                    "These defaults apply until you change them. The factor applies to the base reward. When a streak reaches several steps, only the highest one counts, not the product."
+                    "Der Faktor gilt auf die Basis-Belohnung. Bei mehreren Stufen zählt nur die höchste.",
+                    "The factor applies to the base reward. When several steps are reached, only the highest one counts."
                 ))
             }
             .appGlassRow()
@@ -751,8 +751,8 @@ private struct ChallengeSettingsView: View {
                 Text(L("Abstinenz-Bonus", "Abstinence bonus"))
             } footer: {
                 Text(L(
-                    "Der Bonus ist dieser Faktor mal die Coins pro Tag. Leicht, mittel und schwer haben eigene Faktoren. Ohne Änderung gilt die Standardtabelle. Jede erreichte Stufe zahlt ihren Bonus.",
-                    "The bonus is this factor times the coins per day. Easy, medium, and hard each have their own factors. The default table applies until you change it. Every reached step pays its bonus."
+                    "Der Bonus ist dieser Faktor mal die Coins pro Tag. Jede erreichte Stufe zahlt.",
+                    "The bonus is this factor times the coins per day. Every reached step pays."
                 ))
             }
             .appGlassRow()
@@ -886,8 +886,8 @@ private struct HealthSettingsView: View {
                 Text(L("Ernährung", "Nutrition"))
             } footer: {
                 Text(L(
-                    "Eine Aufnahme bleibt in der App. Sie kommt nur in die Galerie, wenn der Schalter an ist. Er ist aus. Ein Bild, das du aus der Galerie wählst, wird nicht noch einmal gespeichert. Der Schlüssel bleibt auf diesem Gerät. Ein Essensfoto wird nur mit diesem Schlüssel an Gemini geschickt.",
-                    "A new photo stays in the app. It reaches the library only when the switch is on. It is off. A picture you pick from the library is not saved again. The key stays on this device. A meal photo is sent to Gemini only with this key."
+                    "Fotos bleiben in der App. In die Galerie nur, wenn der Schalter an ist. Der Schlüssel bleibt auf dem Gerät.",
+                    "Photos stay in the app. They reach the library only when the switch is on. The key stays on this device."
                 ))
             }
             .appGlassRow()
@@ -901,8 +901,8 @@ private struct HealthSettingsView: View {
                 Text(L("Training", "Training"))
             } footer: {
                 Text(L(
-                    "Der Klingelton beendet die Satzpause. Übungen kommen aus der lokalen Datenbank.",
-                    "The chime ends a rest period. Exercises come from the local database."
+                    "Der Ton beendet die Satzpause.",
+                    "The chime ends a rest period."
                 ))
             }
             .appGlassRow()

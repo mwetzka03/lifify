@@ -38,29 +38,76 @@ enum TradeRepublicCash {
     static func cents(from text: String) -> Int? {
         guard let start = text.firstIndex(where: { $0 == "\u{7B}" || $0 == "[" }) else { return nil }
         guard let object = try? JSONSerialization.jsonObject(with: Data(text[start...].utf8)) else { return nil }
-        let rows: [[String: Any]]
-        if let list = object as? [[String: Any]] {
-            rows = list
-        } else if let one = object as? [String: Any] {
-            rows = [one]
-        } else {
-            return nil
-        }
-        for row in rows {
-            if let amount = moneyCents(row["amount"]) { return amount }
-        }
-        return nil
+        let found = candidates(in: object, path: [])
+        return found.max(by: { $0.rank < $1.rank })?.cents
     }
 
-    private static func moneyCents(_ value: Any?) -> Int? {
+    private struct Candidate {
+        var cents: Int
+        var rank: Int
+    }
+
+    private static func candidates(in object: Any, path: [String]) -> [Candidate] {
+        if let row = object as? [String: Any] {
+            var found: [Candidate] = []
+            if let cents = moneyObject(row) {
+                found.append(Candidate(cents: cents, rank: rank(path)))
+            }
+            for (key, value) in row {
+                found.append(contentsOf: candidates(in: value, path: path + [key]))
+            }
+            return found
+        }
+        if let list = object as? [Any] {
+            return list.flatMap { candidates(in: $0, path: path) }
+        }
+        if let cents = scalarCents(object), let last = path.last, isMoneyKey(last) {
+            return [Candidate(cents: cents, rank: rank(path))]
+        }
+        return []
+    }
+
+    private static func moneyObject(_ row: [String: Any]) -> Int? {
+        scalarCents(row["value"]) ?? scalarCents(row["amount"])
+    }
+
+    private static func isMoneyKey(_ key: String) -> Bool {
+        let folded = key.lowercased()
+        return folded == "amount"
+            || folded == "value"
+            || folded == "cash"
+            || folded.contains("balance")
+            || folded.contains("cash")
+            || folded.contains("total")
+            || folded.contains("available")
+    }
+
+    /// Total cash beats available cash. Pending or reserved amounts do not.
+    private static func rank(_ path: [String]) -> Int {
+        let joined = path.joined(separator: ".").lowercased()
+        if joined.contains("pending") || joined.contains("reserved") || joined.contains("blocked") || joined.contains("invest") {
+            return 0
+        }
+        if joined.contains("available") { return 2 }
+        if joined.contains("total")
+            || joined.contains("cashbalance")
+            || joined.contains("clearing")
+            || (joined.contains("cash") && !joined.contains("available")) {
+            return 5
+        }
+        if path.last?.lowercased() == "cash" { return 5 }
+        if path.last?.lowercased() == "amount" || path.last?.lowercased() == "balance" {
+            return 4
+        }
+        return 1
+    }
+
+    private static func scalarCents(_ value: Any?) -> Int? {
         switch value {
         case let number as Double: return Int((number * 100).rounded())
         case let number as Int: return number * 100
         case let number as NSNumber: return Int((number.doubleValue * 100).rounded())
         case let text as String: return Money.cents(from: text)
-        case let row as [String: Any]:
-            guard let number = moneyCents(row["value"]) else { return nil }
-            return number
         default: return nil
         }
     }

@@ -1130,40 +1130,43 @@ enum TradeRepublicDepotApplier {
     /// The session cash amount is the current Trade Republic checking balance.
     private static func reconcileChecking(_ checking: Account, liveCents: Int?, context: ModelContext) {
         guard let liveCents else { return }
-        let entries = (try? context.fetch(FetchDescriptor<LedgerEntry>())) ?? []
-        let current = FinanceService.balance(for: checking, entries: entries, holdings: [])
-        let delta = liveCents - current
-        if delta == 0 { return }
-        let adjustments = entries
-            .filter { $0.kind == .adjustment && $0.accountID == checking.id }
-            .sorted { lhs, rhs in
-                lhs.date == rhs.date ? lhs.createdAt < rhs.createdAt : lhs.date < rhs.date
+        var entries = (try? context.fetch(FetchDescriptor<LedgerEntry>())) ?? []
+        let hasOpening = entries.contains {
+            $0.kind == .adjustment
+                && $0.accountID == checking.id
+                && !ImportBalance.isCurrentPin($0, accountID: checking.id)
+        }
+        if !hasOpening {
+            let accounts = (try? context.fetch(FetchDescriptor<Account>())) ?? []
+            let start = BankImportApplier.firstMainAccountPeriod(
+                entries: entries,
+                accounts: accounts,
+                context: context
+            )?.start ?? Calendar.current.startOfDay(for: Date())
+            let startDay = Calendar.current.startOfDay(for: start)
+            let later = entries.reduce(0) { partial, entry in
+                guard Calendar.current.startOfDay(for: entry.date) > startDay else { return partial }
+                return partial + checkingEffect(entry, account: checking)
             }
-        if let anchor = adjustments.last {
-            anchor.amountCents += delta
-            try? context.save()
-            return
+            let opening = LedgerEntry(
+                date: startDay,
+                title: L("Startsaldo", "Opening balance"),
+                notes: "Typ: Startsaldo",
+                amountCents: liveCents - later,
+                kind: .adjustment,
+                accountID: checking.id,
+                importFingerprint: TradeRepublicTimeline.openingBalanceFingerprint
+            )
+            context.insert(opening)
+            entries.append(opening)
         }
-        let accounts = (try? context.fetch(FetchDescriptor<Account>())) ?? []
-        let start = BankImportApplier.firstMainAccountPeriod(
-            entries: entries,
-            accounts: accounts,
+        _ = ImportBalance.correction(
+            account: checking,
+            entries: &entries,
+            currentCents: liveCents,
+            date: Date(),
             context: context
-        )?.start ?? Calendar.current.startOfDay(for: Date())
-        let startDay = Calendar.current.startOfDay(for: start)
-        let later = entries.reduce(0) { partial, entry in
-            guard Calendar.current.startOfDay(for: entry.date) > startDay else { return partial }
-            return partial + checkingEffect(entry, account: checking)
-        }
-        context.insert(LedgerEntry(
-            date: startDay,
-            title: L("Startsaldo", "Opening balance"),
-            notes: "Typ: Startsaldo",
-            amountCents: liveCents - later,
-            kind: .adjustment,
-            accountID: checking.id,
-            importFingerprint: TradeRepublicTimeline.openingBalanceFingerprint
-        ))
+        )
         try? context.save()
     }
 

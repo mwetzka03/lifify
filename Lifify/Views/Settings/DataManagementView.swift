@@ -71,8 +71,8 @@ struct DataManagementView: View {
                     Label(L("Sicherung wiederherstellen", "Restore backup"), systemImage: "arrow.clockwise.icloud")
                 }
                 Text(L(
-                    "Eine Teilsicherung ersetzt nur diesen Bereich. Beim Wiederherstellen kannst du eine volle Sicherung oder mehrere Teilsicherungen wählen. Der Finanzexport enthält Konten, Buchungen, Depotstücke, Sparpläne, geschlossene Positionen und die Depotverknüpfung, nicht nur die Kontostände. Verknüpfungen zwischen Challenges und Trainings liegen in beiden Sicherungen. Eine volle Sicherung ersetzt alles.",
-                    "A partial backup replaces only that area. When restoring you can choose a full backup or several part files. The finance export includes accounts, bookings, lots, savings plans, closed positions, and the depot link, not only the account balances. Links between challenges and workouts are stored in both backups. A full backup replaces everything."
+                    "Eine Teilsicherung ersetzt nur diesen Bereich. Eine volle Sicherung ersetzt alles.",
+                    "A partial backup replaces only that area. A full backup replaces everything."
                 ))
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -274,8 +274,8 @@ struct FinanceImportSettings: View {
                 }
             }
             Text(L(
-                "Das Zielkonto gilt nur für CSV und CAMT. Ein PDF wird hier nicht gelesen. Beim Import über die Einstellungen werden identische Buchungen übersprungen, ähnliche zur Prüfung angeboten. Du gibst den aktuellen Kontostand an; wenn der Stand nicht zu den Buchungen passt, entsteht eine Korrektur.",
-                "The destination account is only for CSV and CAMT. A PDF is not read here. An import from Settings skips identical bookings and offers similar ones for review. You enter the current balance; if it does not match the bookings, a correction is added."
+                "CSV oder CAMT aufs gewählte Konto. Identische Buchungen werden übersprungen, ähnliche zur Prüfung angeboten. Du gibst den aktuellen Kontostand an.",
+                "CSV or CAMT onto the chosen account. Identical bookings are skipped, similar ones offered for review. You enter the current balance."
             ))
             .font(.caption)
             .foregroundStyle(.secondary)

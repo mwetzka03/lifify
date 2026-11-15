@@ -23,6 +23,7 @@ struct TradeRepublicSignInControls: View {
     @Environment(\.modelContext) private var context
     var showsSkip: Bool
     var onUploadStatement: (() -> Void)? = nil
+    var onSignedIn: (() -> Void)? = nil
     var onContinue: () -> Void
 
     @State private var phone = ""
@@ -39,6 +40,7 @@ struct TradeRepublicSignInControls: View {
     @State private var openingDate: Date?
     @State private var client = TradeRepublicClient()
     @AppStorage(TradeRepublicSample.revisionKey) private var sampleRevision = 0
+    @AppStorage(AppClock.modeKey) private var developerMode = false
     @State private var exportingExtract = false
     @State private var extractDocument = TradeRepublicExtractDocument()
     @Environment(\.colorScheme) private var colorScheme
@@ -46,39 +48,51 @@ struct TradeRepublicSignInControls: View {
     var body: some View {
         Section {
             if let onUploadStatement {
-                Button {
-                    onUploadStatement()
-                } label: {
-                    Label(L("Kontoauszug hochladen", "Upload statement"), systemImage: "doc.badge.plus")
+                Button(action: onUploadStatement) {
+                    TradeRepublicPathRow(
+                        variant: TradeRepublicCopy.variantA,
+                        title: L("Kontoauszug hochladen", "Upload statement"),
+                        systemImage: "doc.badge.plus",
+                        hint: TradeRepublicCopy.variantAHint
+                    )
                 }
-                Text(TradeRepublicCopy.statementCaption)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            Button(TradeRepublicCopy.signIn) {
-                hideKeyboard()
-                clearSecrets()
-                task?.cancel()
-                task = Task { @MainActor in
-                    try? await Task.sleep(for: .milliseconds(400))
-                    guard !Task.isCancelled, phase == .idle else { return }
-                    phase = .credentials
+                .buttonStyle(.plain)
+                Button(action: beginSignIn) {
+                    TradeRepublicPathRow(
+                        variant: TradeRepublicCopy.variantB,
+                        title: TradeRepublicCopy.signIn,
+                        systemImage: "person.badge.key.fill",
+                        hint: TradeRepublicCopy.variantBHint
+                    )
                 }
+                .buttonStyle(.plain)
+            } else {
+                Button(action: beginSignIn) {
+                    TradeRepublicPathRow(
+                        variant: nil,
+                        title: TradeRepublicCopy.signIn,
+                        systemImage: "person.badge.key.fill",
+                        hint: nil
+                    )
+                }
+                .buttonStyle(.plain)
             }
             let _ = sampleRevision
-            Button {
-                guard phase == .idle, !exportingExtract else { return }
-                hideKeyboard()
-                extractDocument = TradeRepublicExtractDocument(data: TradeRepublicSample.exportData())
-                exportingExtract = true
-            } label: {
-                Label(TradeRepublicCopy.saveExtract, systemImage: "square.and.arrow.down")
-            }
-            .disabled(!TradeRepublicSample.hasContent || phase != .idle)
-            NavigationLink {
-                TradeRepublicSampleView()
-            } label: {
-                Label(TradeRepublicCopy.extract, systemImage: "doc.on.doc")
+            if developerMode {
+                Button {
+                    guard phase == .idle, !exportingExtract else { return }
+                    hideKeyboard()
+                    extractDocument = TradeRepublicExtractDocument(data: TradeRepublicSample.exportData())
+                    exportingExtract = true
+                } label: {
+                    Label(TradeRepublicCopy.saveExtract, systemImage: "square.and.arrow.down")
+                }
+                .disabled(!TradeRepublicSample.hasContent || phase != .idle)
+                NavigationLink {
+                    TradeRepublicSampleView()
+                } label: {
+                    Label(TradeRepublicCopy.extract, systemImage: "doc.on.doc")
+                }
             }
             if let note, phase == .idle {
                 Text(note)
@@ -96,7 +110,7 @@ struct TradeRepublicSignInControls: View {
             }
         } footer: {
             if onUploadStatement != nil {
-                Text("\(TradeRepublicCopy.twoUpdatePaths)\n\n\(TradeRepublicCopy.footnote)")
+                Text("\(TradeRepublicCopy.twoUpdatePaths) \(TradeRepublicCopy.footnote)")
             } else {
                 Text(TradeRepublicCopy.footnote)
             }
@@ -209,7 +223,7 @@ struct TradeRepublicSignInControls: View {
                 if let cents = Money.cents(from: openingBalance) {
                     TradeRepublicOpeningBalance.store(cents, context: context)
                 }
-                phase = .message
+                succeed()
             }
         case .message:
             if let note {
@@ -245,6 +259,17 @@ struct TradeRepublicSignInControls: View {
             Button(confirm, action: action)
                 .buttonStyle(.borderedProminent)
                 .disabled(!enabled)
+        }
+    }
+
+    private func beginSignIn() {
+        hideKeyboard()
+        clearSecrets()
+        task?.cancel()
+        task = Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(400))
+            guard !Task.isCancelled, phase == .idle else { return }
+            phase = .credentials
         }
     }
 
@@ -330,7 +355,6 @@ struct TradeRepublicSignInControls: View {
         note = snapshot.positions.isEmpty && count == 0
             ? TradeRepublicCopy.noPositions
             : String(format: TradeRepublicCopy.importedFormat, count)
-        advance = true
         presentResult()
     }
 
@@ -348,7 +372,18 @@ struct TradeRepublicSignInControls: View {
             phase = .balance
             return
         }
-        phase = .message
+        succeed()
+    }
+
+    private func succeed() {
+        advance = true
+        if let onSignedIn {
+            phase = .idle
+            clearSecrets()
+            onSignedIn()
+        } else {
+            phase = .message
+        }
     }
 
     private func close() {
@@ -376,6 +411,42 @@ struct TradeRepublicSignInControls: View {
         case loading
         case balance
         case message
+    }
+}
+
+private struct TradeRepublicPathRow: View {
+    @Environment(\.colorScheme) private var scheme
+    @AppStorage(AppPalette.storageKey) private var paletteRaw = AppPalette.green.rawValue
+    var variant: String?
+    var title: String
+    var systemImage: String
+    var hint: String?
+
+    var body: some View {
+        let accent = AppLook.accent(AppAppearance(scheme), palette: AppPalette.resolved(paletteRaw)).color()
+        HStack(alignment: .center, spacing: 12) {
+            Image(systemName: systemImage)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(accent)
+                .frame(width: 34, height: 34)
+                .background(accent.opacity(0.16), in: Circle())
+            VStack(alignment: .leading, spacing: 2) {
+                if let variant {
+                    Text(variant)
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                }
+                Text(title)
+                    .foregroundStyle(.primary)
+                if let hint {
+                    Text(hint)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.vertical, 4)
     }
 }
 

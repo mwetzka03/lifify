@@ -908,6 +908,9 @@ struct DashboardView: View {
         if combined {
             snapshot.startBalance = await combinedOpening(for: period)
         }
+        if let account = selectedFilterAccount, !filters.showsDepot, account.kind != .portfolio {
+            snapshot.netWorth = FinanceService.currentBalance(for: account, entries: scopedEntries)
+        }
         return snapshot
     }
 
@@ -1103,6 +1106,9 @@ struct DashboardView: View {
     }
 
     private func netWorthCaption(_ period: ForecastPeriod) -> String {
+        if selectedFilterAccount != nil, !filters.showsDepot {
+            return L("Heute", "Today")
+        }
         let today = Calendar.current.startOfDay(for: .now)
         if period.contains(today) { return L("Heute", "Today") }
         if period.end < today { return L("Zum Periodenende", "At period end") }
