@@ -35,9 +35,11 @@ enum AppDefaults {
         ClosedPositionStore.clearCache()
         HoldingMarketStore.clearCache()
         PortfolioLinkStore.clearCache()
-        FinanceLinkTable.clearCache()
+        LinkTable.clearCache()
         TransferForecastStore.clearCache()
         NoticeTemplateStore.clearCache()
+        WorkoutLinkStore.clearCache()
+        MealLog.clearCache()
     }
 }
 

@@ -4,10 +4,6 @@ import Foundation
 /// Stored beside the data model so an existing store stays readable.
 @MainActor
 enum ChallengeTimeStore {
-    private static let durationKey = "lifify.challengeDuration"
-    private static let actualKey = "lifify.challengeActualMinutes"
-    private static let memberKey = "lifify.challengeTimeMembers"
-    private static let plannedKey = "lifify.challengeTimePlanned"
     private static var cachedDurations: [String: Int]?
     private static var cachedActuals: [String: Int]?
     private static var cachedMembers: [String: [String]]?
@@ -140,10 +136,7 @@ enum ChallengeTimeStore {
         cachedActuals = [:]
         cachedMembers = [:]
         cachedPlanned = [:]
-        AppDefaults.store.removeObject(forKey: durationKey)
-        AppDefaults.store.removeObject(forKey: actualKey)
-        AppDefaults.store.removeObject(forKey: memberKey)
-        AppDefaults.store.removeObject(forKey: plannedKey)
+        [.challengeDuration, .challengeActual, .challengeMembers, .challengePlanned].forEach(LinkTable.clear)
     }
 
     static func exportRecords() -> [BackupRecord] {
@@ -188,59 +181,50 @@ enum ChallengeTimeStore {
 
     private static func durations() -> [String: Int] {
         if let cachedDurations { return cachedDurations }
-        let decoded: [String: Int] = dictionary(durationKey) ?? [:]
+        let decoded = LinkTable.decoded(.challengeDuration, as: Int.self)
         cachedDurations = decoded
         return decoded
     }
 
     private static func actuals() -> [String: Int] {
         if let cachedActuals { return cachedActuals }
-        let decoded: [String: Int] = dictionary(actualKey) ?? [:]
+        let decoded = LinkTable.decoded(.challengeActual, as: Int.self)
         cachedActuals = decoded
         return decoded
     }
 
     private static func memberMap() -> [String: [String]] {
         if let cachedMembers { return cachedMembers }
-        let decoded: [String: [String]] = dictionary(memberKey) ?? [:]
+        let decoded = LinkTable.decoded(.challengeMembers, as: [String].self)
         cachedMembers = decoded
         return decoded
     }
 
     private static func plannedMap() -> [String: Int] {
         if let cachedPlanned { return cachedPlanned }
-        let decoded: [String: Int] = dictionary(plannedKey) ?? [:]
+        let decoded = LinkTable.decoded(.challengePlanned, as: Int.self)
         cachedPlanned = decoded
         return decoded
     }
 
-    private static func dictionary<T: Decodable>(_ key: String) -> T? {
-        guard let data = AppDefaults.store.data(forKey: key) else { return nil }
-        return try? JSONDecoder().decode(T.self, from: data)
-    }
-
     private static func saveDurations(_ map: [String: Int]) {
-        save(map, key: durationKey)
+        LinkTable.replaceEncoded(.challengeDuration, with: map)
         cachedDurations = map
     }
 
     private static func saveActuals(_ map: [String: Int]) {
-        save(map, key: actualKey)
+        LinkTable.replaceEncoded(.challengeActual, with: map)
         cachedActuals = map
     }
 
     private static func saveMembers(_ map: [String: [String]]) {
-        save(map, key: memberKey)
+        LinkTable.replaceEncoded(.challengeMembers, with: map)
         cachedMembers = map
     }
 
     private static func savePlanned(_ map: [String: Int]) {
-        save(map, key: plannedKey)
+        LinkTable.replaceEncoded(.challengePlanned, with: map)
         cachedPlanned = map
     }
 
-    private static func save<T: Encodable>(_ value: T, key: String) {
-        guard let data = try? JSONEncoder().encode(value) else { return }
-        AppDefaults.store.set(data, forKey: key)
-    }
 }

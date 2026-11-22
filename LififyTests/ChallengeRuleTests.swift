@@ -8,13 +8,13 @@ extension LififyRuleTests {
     @MainActor
     struct IsolationTests {
         @Test func writesStayOutOfStandardDefaults() async throws {
-            let before = UserDefaults.standard.data(forKey: "lifify.streakStates")
+            let before = UserDefaults.standard.object(forKey: StreakSettings.freezeFactorKey) as? Int
             try await withTestStore { store in
-                StreakSettings.setEnabled(true, for: UUID())
-                #expect(store.defaults.data(forKey: "lifify.streakStates") != nil)
+                StreakSettings.setFreezeFactor(7)
+                #expect(store.defaults.integer(forKey: StreakSettings.freezeFactorKey) == 7)
                 #expect(AppDefaults.store === store.defaults)
             }
-            #expect(UserDefaults.standard.data(forKey: "lifify.streakStates") == before)
+            #expect(UserDefaults.standard.object(forKey: StreakSettings.freezeFactorKey) as? Int == before)
             #expect(AppDefaults.store === UserDefaults.standard)
         }
 

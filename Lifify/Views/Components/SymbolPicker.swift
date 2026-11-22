@@ -61,25 +61,22 @@ enum SymbolCatalog {
     }
 }
 
+@MainActor
 enum IconPreferenceStore {
-    private static func key(for id: UUID) -> String {
-        "icon.\(id.uuidString)"
-    }
-
     static func icon(for id: UUID, fallback: String) -> String {
-        AppDefaults.store.string(forKey: key(for: id)) ?? fallback
+        storedIcon(for: id) ?? fallback
     }
 
     static func storedIcon(for id: UUID) -> String? {
-        AppDefaults.store.string(forKey: key(for: id))
+        LinkTable.map(.icon)[id.uuidString]
     }
 
     static func set(_ icon: String, for id: UUID) {
-        AppDefaults.store.set(icon, forKey: key(for: id))
+        LinkTable.set(.icon, key: id.uuidString, value: icon)
     }
 
     static func remove(for id: UUID) {
-        AppDefaults.store.removeObject(forKey: key(for: id))
+        LinkTable.set(.icon, key: id.uuidString, value: nil)
     }
 }
 

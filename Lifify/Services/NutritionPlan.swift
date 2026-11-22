@@ -1,4 +1,5 @@
 import Foundation
+import SwiftData
 
 /// Sex used by the calorie estimate. Unspecified uses the midpoint of the two formulas.
 enum BodySex: String, CaseIterable, Identifiable {
@@ -614,52 +615,67 @@ enum NutritionPlan {
 
 @MainActor
 enum MealLog {
-    private static let key = "lifify.meals"
+    private static var cached: [MealRecord]?
 
-    static func all(defaults: UserDefaults = AppDefaults.store) -> [MealRecord] {
-        guard let data = defaults.data(forKey: key),
-              let meals = try? JSONDecoder().decode([MealRecord].self, from: data)
-        else { return [] }
-        return meals.sorted { $0.createdAt < $1.createdAt }
+    static func clearCache() {
+        cached = nil
     }
 
-    static func upsert(_ meal: MealRecord, defaults: UserDefaults = AppDefaults.store) {
-        var meals = all(defaults: defaults)
+    static func all() -> [MealRecord] {
+        if let cached { return cached }
+        let meals = LififyDatabase.rows(FetchDescriptor<StoredMeal>()).map(\.meal).sorted { $0.createdAt < $1.createdAt }
+        cached = meals
+        return meals
+    }
+
+    static func upsert(_ meal: MealRecord) {
+        var meals = all()
         if let index = meals.firstIndex(where: { $0.id == meal.id }) {
             meals[index] = meal
         } else {
             meals.append(meal)
         }
-        save(meals, defaults: defaults)
+        cached = meals.sorted { $0.createdAt < $1.createdAt }
+        guard let context = LififyDatabase.sideContext else { return }
+        let id = meal.id
+        if let row = (try? context.fetch(FetchDescriptor<StoredMeal>(predicate: #Predicate { $0.mealID == id })))?.first {
+            row.update(from: meal)
+        } else {
+            context.insert(StoredMeal(meal))
+        }
+        LififyDatabase.saveSide()
     }
 
-    static func remove(id: UUID, defaults: UserDefaults = AppDefaults.store) {
-        save(all(defaults: defaults).filter { $0.id != id }, defaults: defaults)
+    static func remove(id: UUID) {
+        cached = all().filter { $0.id != id }
+        guard let context = LififyDatabase.sideContext else { return }
+        ((try? context.fetch(FetchDescriptor<StoredMeal>(predicate: #Predicate { $0.mealID == id }))) ?? []).forEach(context.delete)
+        LififyDatabase.saveSide()
     }
 
-    static func reset(defaults: UserDefaults = AppDefaults.store) {
-        defaults.removeObject(forKey: key)
+    static func reset() {
+        LififyDatabase.deleteAll(StoredMeal.self)
+        cached = []
     }
 
-    static func exportJSON(defaults: UserDefaults = AppDefaults.store) -> String {
-        let meals = all(defaults: defaults)
+    static func exportJSON() -> String {
+        let meals = all()
         guard !meals.isEmpty, let data = try? JSONEncoder().encode(meals) else { return "" }
         return String(decoding: data, as: UTF8.self)
     }
 
-    static func restore(json: String, defaults: UserDefaults = AppDefaults.store) {
+    static func restore(json: String) {
+        reset()
         guard let data = json.data(using: .utf8),
               let meals = try? JSONDecoder().decode([MealRecord].self, from: data)
-        else {
-            reset(defaults: defaults)
-            return
+        else { return }
+        if let context = LififyDatabase.sideContext {
+            var unique: [UUID: MealRecord] = [:]
+            meals.forEach { unique[$0.id] = $0 }
+            unique.values.forEach { context.insert(StoredMeal($0)) }
+            LififyDatabase.saveSide()
         }
-        save(meals, defaults: defaults)
-    }
-
-    private static func save(_ meals: [MealRecord], defaults: UserDefaults) {
-        guard let data = try? JSONEncoder().encode(meals) else { return }
-        defaults.set(data, forKey: key)
+        cached = nil
     }
 }
 

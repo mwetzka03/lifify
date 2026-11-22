@@ -105,7 +105,7 @@ enum BackupService {
         "group", "line", "holding", "holdingLot", "savingsPlan", "closedPosition", "portfolioLink",
         "marketSymbol", "previousClose", "purchaseDate",
         "primaryIncome", "secondaryIncome", "incomeAssignment", "expenseGroupAssignment",
-        FinanceLinkTable.backupType, TransferForecastStore.backupType, NoticeTemplateStore.backupType
+        LinkTable.backupType, TransferForecastStore.backupType, NoticeTemplateStore.backupType
     ]
     private static let challengeTypes: Set<String> = [
         "challengeEvent", "challenge", "reminderRecurrence", "eventRecurrence", "completion",
@@ -114,7 +114,7 @@ enum BackupService {
         "abstinenceDifficulty", "abstinenceAwarded", "abstinenceMultiplier",
         "abstinenceRelapse", "abstinenceNotice", "abstinenceException", "abstinenceRewardLink",
         "challengeDuration", "challengeActual", "challengeTimeMembers", "challengeTimePlanned",
-        "customCategory"
+        "customCategory", LinkTable.challengeBackupType
     ]
     private static let sideTypes: Set<String> = [
         "iconPreference", "reminderRecurrence", "eventRecurrence", "holdingLot", "savingsPlan", "closedPosition", "portfolioLink",
@@ -126,7 +126,8 @@ enum BackupService {
         "customCategory", "briefingWeekday",
         "primaryIncome", "secondaryIncome", "incomeAssignment", "expenseGroupAssignment",
         "workoutChallengeLink", "workoutEventLink", "appPreferences", "backupScope", "workoutSnapshot",
-        FinanceLinkTable.backupType, TransferForecastStore.backupType, NoticeTemplateStore.backupType
+        LinkTable.challengeBackupType,
+        LinkTable.backupType, TransferForecastStore.backupType, NoticeTemplateStore.backupType
     ]
 
     static func exportData(
@@ -322,7 +323,7 @@ enum BackupService {
             }
         }
         let defaults = AppDefaults.store
-        records += FinanceLinkTable.exportRecords()
+        records += LinkTable.exportRecords()
         records += TransferForecastStore.exportRecords()
         records += NoticeTemplateStore.exportRecords()
         if let forecastID = IncomeAssignmentStore.primaryForecastID {
@@ -371,7 +372,7 @@ enum BackupService {
                 UserBody.weightText(defaults: defaults),
                 UserBody.current(defaults: defaults).sex.rawValue,
                 UserBody.current(defaults: defaults).goal.rawValue,
-                MealLog.exportJSON(defaults: defaults)
+                MealLog.exportJSON()
             ]
         ))
         records = scopedRecords(
@@ -385,7 +386,7 @@ enum BackupService {
             records.append(snapshot)
         }
         if scope == .training {
-            records.append(BackupRecord(type: mealLogType, id: UUID(), strings: [MealLog.exportJSON(defaults: defaults)]))
+            records.append(BackupRecord(type: mealLogType, id: UUID(), strings: [MealLog.exportJSON()]))
         }
         if scope == .all || scope == .training, let workoutSnapshot, !workoutSnapshot.isEmpty {
             records.append(BackupRecord(
@@ -538,6 +539,7 @@ enum BackupService {
         ChallengeCategoryStore.reset()
         LififyNotifications.resetWeekdayClocks()
         clearBudgetAccountsIfCarried(by: backup)
+        clearChallengeLinksIfCarried(by: backup)
         for record in backup.records where sideTypes.contains(record.type) {
             insert(record, into: context)
         }
@@ -594,6 +596,7 @@ enum BackupService {
             insert(record, into: context)
         }
         try context.save()
+        clearChallengeLinksIfCarried(by: backup)
         for record in backup.records where challengeTypes.contains(record.type) && sideTypes.contains(record.type) {
             insert(record, into: context)
         }
@@ -659,6 +662,11 @@ enum BackupService {
     private static func clearBudgetAccountsIfCarried(by backup: LififyBackup) {
         guard backup.records.contains(where: { $0.type == BackupDefaults.recordType }) else { return }
         VariableBudgetAccounts.reset()
+    }
+
+    private static func clearChallengeLinksIfCarried(by backup: LififyBackup) {
+        guard backup.records.contains(where: { $0.type == BackupDefaults.recordType }) else { return }
+        LinkKind.challengeRecords.forEach(LinkTable.clear)
     }
 
     private static func resetFinanceSideStores() {
@@ -954,8 +962,8 @@ enum BackupService {
             }
         case "workoutChallengeLink", "workoutEventLink":
             insertLink(r)
-        case FinanceLinkTable.backupType:
-            FinanceLinkTable.restore(r)
+        case LinkTable.backupType, LinkTable.challengeBackupType:
+            LinkTable.restore(r)
         case TransferForecastStore.backupType:
             TransferForecastStore.restore(r)
         case NoticeTemplateStore.backupType:

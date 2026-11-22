@@ -174,6 +174,73 @@ extension LififyRuleTests {
             }
         }
 
+        @Test func challengeDataMovesCompletely() async throws {
+            try await withTestStore { store in
+                let d = store.defaults
+                let challenge = UUID(), event = UUID(), plan = UUID(), reward = UUID(), group = UUID()
+                let state = StreakSettings.State(enabled: true, enabledAt: day, purchased: 2, usedPeriodKeys: ["d:2026-03-03"])
+                let relapse = AbstinenceRelapse(id: UUID(), date: day, lasted: 90)
+                let exception = AbstinenceException(id: UUID(), date: day, rewardID: reward, rewardTitle: "Kino")
+                let notice = AbstinenceNotice(id: "n", challengeID: challenge, title: "T", milestone: "1h", coins: 3, date: day)
+                let category = CustomChallengeCategory(id: UUID(), name: "Lernen", separate: true)
+                let recurrence = ReminderRecurrenceMetadata(recurrence: .weekly, interval: 2, weekdays: [2, 4], endDate: day)
+                let meal = MealRecord(dayKey: "2026-03-02", title: "Reis", note: "n", createdAt: day, source: .photo, status: .confirmed, photoName: "a.jpg", nutrients: ["calories": 512.5], kind: .fastFood, chargeID: UUID())
+                d.set(try JSONEncoder().encode([challenge.uuidString: state]), forKey: "lifify.streakStates")
+                d.set(try JSONEncoder().encode([challenge.uuidString: 45]), forKey: "lifify.challengeDuration")
+                d.set(try JSONEncoder().encode([challenge.uuidString: 30]), forKey: "lifify.challengeActualMinutes")
+                d.set(try JSONEncoder().encode([event.uuidString: [challenge.uuidString]]), forKey: "lifify.challengeTimeMembers")
+                d.set(try JSONEncoder().encode([event.uuidString: 60]), forKey: "lifify.challengeTimePlanned")
+                d.set(try JSONEncoder().encode([challenge.uuidString: "hard"]), forKey: "lifify.abstinenceDifficulty")
+                d.set(try JSONEncoder().encode([challenge.uuidString: ["1h"]]), forKey: "lifify.abstinenceAwarded")
+                d.set(try JSONEncoder().encode([challenge.uuidString: [relapse]]), forKey: "lifify.abstinenceRelapses")
+                d.set(try JSONEncoder().encode([notice]), forKey: "lifify.abstinenceNotices")
+                d.set(try JSONEncoder().encode([challenge.uuidString: [exception]]), forKey: "lifify.abstinenceExceptions")
+                d.set(try JSONEncoder().encode([reward.uuidString: challenge.uuidString]), forKey: "lifify.abstinenceRewardLinks")
+                d.set(try JSONEncoder().encode([category]), forKey: "lifify.customCategories")
+                d.set([challenge.uuidString], forKey: "lifify.pinnedChallenges")
+                d.set([group.uuidString], forKey: "lifify.pinnedChallengeGroups")
+                d.set(try JSONEncoder().encode([WorkoutChallengeLink(planID: plan, challengeID: challenge)]), forKey: "lifify.workoutChallengeLinks")
+                d.set(try JSONEncoder().encode([WorkoutEventLink(planID: plan, eventID: event, managed: true)]), forKey: "lifify.workoutEventLinks")
+                d.set(try JSONEncoder().encode([meal]), forKey: "lifify.meals")
+                d.set(reward.uuidString, forKey: "lifify.fastFoodReward")
+                d.set(false, forKey: "reward.multiple.\(reward.uuidString)")
+                d.set(false, forKey: "challenge.syncReminders.\(challenge.uuidString)")
+                d.set(false, forKey: "lifify.eventOffer.\(challenge.uuidString)")
+                d.set(try JSONEncoder().encode(recurrence), forKey: "reminder.recurrence.ext")
+                d.set(try JSONEncoder().encode(recurrence), forKey: "event.recurrence.cal")
+                d.set("star", forKey: "icon.\(challenge.uuidString)")
+
+                LegacyDataMigration.run()
+
+                #expect(StreakSettings.state(for: challenge) == state)
+                #expect(ChallengeTimeStore.minutes(for: challenge) == 45)
+                #expect(ChallengeTimeStore.actualMinutes(for: challenge) == 30)
+                #expect(ChallengeTimeStore.memberIDs(for: event) == [challenge])
+                #expect(ChallengeTimeStore.plannedMinutes(for: event) == 60)
+                #expect(AbstinenceSettings.difficulty(for: challenge) == .hard)
+                #expect(AbstinenceSettings.awarded(for: challenge) == ["1h"])
+                #expect(AbstinenceSettings.relapses(for: challenge) == [relapse])
+                #expect(AbstinenceSettings.notices() == [notice])
+                #expect(AbstinenceSettings.exceptions(for: challenge) == [exception])
+                #expect(AbstinenceSettings.rewardLink(for: reward) == challenge)
+                #expect(ChallengeCategoryStore.all() == [category])
+                #expect(ChallengePinStore.ids() == [challenge])
+                #expect(ChallengeGroupPinStore.ids() == [group])
+                #expect(WorkoutLinkStore.planIDs(forChallenge: challenge) == [plan])
+                #expect(WorkoutLinkStore.isManaged(eventID: event))
+                #expect(MealLog.all() == [meal])
+                #expect(!RewardPolicyStore.allowsMultiplePurchases(for: reward))
+                #expect(!ReminderSyncPreference.isEnabled(for: challenge))
+                #expect(!EventOffer.isEnabled(for: challenge))
+                #expect(ReminderLinkStore.metadata(for: "ext")?.interval == 2)
+                #expect(EventRecurrenceStore.metadata(for: "cal")?.weekdays == [2, 4])
+                #expect(IconPreferenceStore.storedIcon(for: challenge) == "star")
+                for key in ["lifify.streakStates", "lifify.meals", "lifify.pinnedChallenges", "reminder.recurrence.ext", "icon.\(challenge.uuidString)"] {
+                    #expect(d.object(forKey: key) == nil)
+                }
+            }
+        }
+
         @Test func valuesSurviveAFreshRead() async throws {
             try await withTestStore { _ in
                 let holding = UUID()

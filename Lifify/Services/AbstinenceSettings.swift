@@ -28,13 +28,7 @@ struct AbstinenceNotice: Codable, Equatable, Identifiable {
 enum AbstinenceSettings {
     static let revisionKey = "lifify.abstinenceRevision"
 
-    private static let difficultyKey = "lifify.abstinenceDifficulty"
-    private static let awardedKey = "lifify.abstinenceAwarded"
     private static let multiplierKey = "lifify.abstinenceMultipliers"
-    private static let relapseKey = "lifify.abstinenceRelapses"
-    private static let noticeKey = "lifify.abstinenceNotices"
-    private static let exceptionKey = "lifify.abstinenceExceptions"
-    private static let rewardLinkKey = "lifify.abstinenceRewardLinks"
     private static var cachedDifficulty: [String: String]?
     private static var cachedAwarded: [String: [String]]?
     private static var cachedMultipliers: [String: [String: Double]]?
@@ -196,13 +190,9 @@ enum AbstinenceSettings {
         cachedNotices = []
         cachedExceptions = [:]
         cachedRewardLinks = [:]
-        AppDefaults.store.removeObject(forKey: difficultyKey)
-        AppDefaults.store.removeObject(forKey: awardedKey)
         AppDefaults.store.removeObject(forKey: multiplierKey)
-        AppDefaults.store.removeObject(forKey: relapseKey)
-        AppDefaults.store.removeObject(forKey: noticeKey)
-        AppDefaults.store.removeObject(forKey: exceptionKey)
-        AppDefaults.store.removeObject(forKey: rewardLinkKey)
+        [.abstinenceDifficulty, .abstinenceAwarded, .abstinenceRelapses, .abstinenceNotices, .abstinenceExceptions, .abstinenceRewardLink]
+            .forEach(LinkTable.clear)
         bump()
     }
 
@@ -352,14 +342,14 @@ enum AbstinenceSettings {
 
     private static func difficulties() -> [String: String] {
         if let cachedDifficulty { return cachedDifficulty }
-        let decoded = dictionary(difficultyKey, as: [String: String].self) ?? [:]
+        let decoded = LinkTable.map(.abstinenceDifficulty)
         cachedDifficulty = decoded
         return decoded
     }
 
     private static func awardedMap() -> [String: [String]] {
         if let cachedAwarded { return cachedAwarded }
-        let decoded = dictionary(awardedKey, as: [String: [String]].self) ?? [:]
+        let decoded = LinkTable.decoded(.abstinenceAwarded, as: [String].self)
         cachedAwarded = decoded
         return decoded
     }
@@ -377,12 +367,14 @@ enum AbstinenceSettings {
     }
 
     private static func saveDifficulties(_ map: [String: String]) {
-        save(map, key: difficultyKey)
+        LinkTable.replace(.abstinenceDifficulty, with: map)
+        bump()
         cachedDifficulty = map
     }
 
     private static func saveAwarded(_ map: [String: [String]]) {
-        save(map, key: awardedKey)
+        LinkTable.replaceEncoded(.abstinenceAwarded, with: map)
+        bump()
         cachedAwarded = map
     }
 
@@ -393,49 +385,53 @@ enum AbstinenceSettings {
 
     private static func relapseMap() -> [String: [AbstinenceRelapse]] {
         if let cachedRelapses { return cachedRelapses }
-        let decoded = dictionary(relapseKey, as: [String: [AbstinenceRelapse]].self) ?? [:]
+        let decoded = LinkTable.decoded(.abstinenceRelapses, as: [AbstinenceRelapse].self)
         cachedRelapses = decoded
         return decoded
     }
 
     private static func storedNotices() -> [AbstinenceNotice] {
         if let cachedNotices { return cachedNotices }
-        let decoded = dictionary(noticeKey, as: [AbstinenceNotice].self) ?? []
+        let decoded = LinkTable.decoded(.abstinenceNotices, as: [AbstinenceNotice].self)["all"] ?? []
         cachedNotices = decoded
         return decoded
     }
 
     private static func saveRelapses(_ map: [String: [AbstinenceRelapse]]) {
-        save(map, key: relapseKey)
+        LinkTable.replaceEncoded(.abstinenceRelapses, with: map)
+        bump()
         cachedRelapses = map
     }
 
     private static func saveNotices(_ list: [AbstinenceNotice]) {
-        save(list, key: noticeKey)
+        LinkTable.replaceEncoded(.abstinenceNotices, with: list.isEmpty ? [:] : ["all": list])
+        bump()
         cachedNotices = list
     }
 
     private static func exceptionMap() -> [String: [AbstinenceException]] {
         if let cachedExceptions { return cachedExceptions }
-        let decoded = dictionary(exceptionKey, as: [String: [AbstinenceException]].self) ?? [:]
+        let decoded = LinkTable.decoded(.abstinenceExceptions, as: [AbstinenceException].self)
         cachedExceptions = decoded
         return decoded
     }
 
     private static func rewardLinks() -> [String: String] {
         if let cachedRewardLinks { return cachedRewardLinks }
-        let decoded = dictionary(rewardLinkKey, as: [String: String].self) ?? [:]
+        let decoded = LinkTable.map(.abstinenceRewardLink)
         cachedRewardLinks = decoded
         return decoded
     }
 
     private static func saveExceptions(_ map: [String: [AbstinenceException]]) {
-        save(map, key: exceptionKey)
+        LinkTable.replaceEncoded(.abstinenceExceptions, with: map)
+        bump()
         cachedExceptions = map
     }
 
     private static func saveRewardLinks(_ map: [String: String]) {
-        save(map, key: rewardLinkKey)
+        LinkTable.replace(.abstinenceRewardLink, with: map)
+        bump()
         cachedRewardLinks = map
     }
 

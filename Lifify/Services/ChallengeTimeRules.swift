@@ -322,20 +322,15 @@ enum EventGroupName {
 }
 
 /// The challenge switch that offers it when an event is looking for work. Missing means on.
+@MainActor
 enum EventOffer {
-    static func enabled(stored: Bool?) -> Bool { stored ?? true }
+    nonisolated static func enabled(stored: Bool?) -> Bool { stored ?? true }
 
-    static func isEnabled(for id: UUID, defaults: UserDefaults = AppDefaults.store) -> Bool {
-        let key = storageKey(id)
-        guard defaults.object(forKey: key) != nil else { return enabled(stored: nil) }
-        return enabled(stored: defaults.bool(forKey: key))
+    static func isEnabled(for id: UUID) -> Bool {
+        enabled(stored: LinkTable.map(.eventOffer)[id.uuidString].map { $0 == "true" })
     }
 
-    static func set(_ value: Bool, for id: UUID, defaults: UserDefaults = AppDefaults.store) {
-        defaults.set(value, forKey: storageKey(id))
-    }
-
-    private static func storageKey(_ id: UUID) -> String {
-        "lifify.eventOffer.\(id.uuidString)"
+    static func set(_ value: Bool, for id: UUID) {
+        LinkTable.set(.eventOffer, key: id.uuidString, value: value ? "true" : "false")
     }
 }

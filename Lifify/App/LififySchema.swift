@@ -60,9 +60,12 @@ enum LififySchemaV3: VersionedSchema {
             StoredClosedPosition.self,
             StoredHoldingMarket.self,
             StoredPortfolioLink.self,
-            StoredFinanceLink.self,
+            StoredLink.self,
             StoredTransferForecast.self,
-            StoredNoticeTemplate.self
+            StoredNoticeTemplate.self,
+            StoredStreakState.self,
+            StoredWorkoutLink.self,
+            StoredMeal.self
         ]
     }
 }

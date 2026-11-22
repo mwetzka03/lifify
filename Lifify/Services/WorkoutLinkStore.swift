@@ -1,4 +1,5 @@
 import Foundation
+import SwiftData
 
 struct WorkoutChallengeLink: Codable, Hashable {
     var planID: UUID
@@ -13,10 +14,16 @@ struct WorkoutEventLink: Codable, Hashable {
 
 /// Many-to-many links between workout plans, sport challenges, and calendar events.
 /// Stored beside the data model so an existing store stays readable.
+@MainActor
 enum WorkoutLinkStore {
-    private static let challengeKey = "lifify.workoutChallengeLinks"
-    private static let eventKey = "lifify.workoutEventLinks"
+    private static var cachedChallenges: [WorkoutChallengeLink]?
+    private static var cachedEvents: [WorkoutEventLink]?
     static let revisionKey = "lifify.workoutLinkRevision"
+
+    static func clearCache() {
+        cachedChallenges = nil
+        cachedEvents = nil
+    }
 
     static func challengeIDs(for planID: UUID) -> [UUID] {
         challengeLinks().filter { $0.planID == planID }.map(\.challengeID)
@@ -101,8 +108,7 @@ enum WorkoutLinkStore {
         eventRows.append(contentsOf: events.map {
             WorkoutEventLink(planID: planID, eventID: $0, managed: managedIDs.contains($0))
         })
-        encode(challengeRows, key: challengeKey, bumpRevision: false)
-        encode(eventRows, key: eventKey, bumpRevision: false)
+        write(challenges: challengeRows, events: eventRows)
         bump()
     }
 
@@ -125,38 +131,52 @@ enum WorkoutLinkStore {
     }
 
     static func reset() {
-        AppDefaults.store.removeObject(forKey: challengeKey)
-        AppDefaults.store.removeObject(forKey: eventKey)
+        LififyDatabase.deleteAll(StoredWorkoutLink.self)
+        cachedChallenges = []
+        cachedEvents = []
         bump()
     }
 
     private static func challengeLinks() -> [WorkoutChallengeLink] {
-        decode(challengeKey)
+        loadIfNeeded()
+        return cachedChallenges ?? []
     }
 
     private static func eventLinks() -> [WorkoutEventLink] {
-        decode(eventKey)
+        loadIfNeeded()
+        return cachedEvents ?? []
+    }
+
+    private static func loadIfNeeded() {
+        guard cachedChallenges == nil || cachedEvents == nil else { return }
+        let rows = LififyDatabase.rows(FetchDescriptor<StoredWorkoutLink>(sortBy: [SortDescriptor(\.position)]))
+        cachedChallenges = rows.filter { !$0.isEvent }.map { WorkoutChallengeLink(planID: $0.planID, challengeID: $0.targetID) }
+        cachedEvents = rows.filter(\.isEvent).map { WorkoutEventLink(planID: $0.planID, eventID: $0.targetID, managed: $0.managed) }
     }
 
     private static func saveChallenges(_ rows: [WorkoutChallengeLink]) {
-        encode(rows, key: challengeKey)
+        write(challenges: rows, events: eventLinks())
+        bump()
     }
 
     private static func saveEvents(_ rows: [WorkoutEventLink]) {
-        encode(rows, key: eventKey)
+        write(challenges: challengeLinks(), events: rows)
+        bump()
     }
 
-    private static func decode<T: Decodable>(_ key: String) -> [T] {
-        guard let data = AppDefaults.store.data(forKey: key),
-              let rows = try? JSONDecoder().decode([T].self, from: data)
-        else { return [] }
-        return rows
-    }
-
-    private static func encode<T: Encodable>(_ rows: [T], key: String, bumpRevision: Bool = true) {
-        guard let data = try? JSONEncoder().encode(rows) else { return }
-        AppDefaults.store.set(data, forKey: key)
-        if bumpRevision { bump() }
+    private static func write(challenges: [WorkoutChallengeLink], events: [WorkoutEventLink]) {
+        if let context = LififyDatabase.sideContext {
+            ((try? context.fetch(FetchDescriptor<StoredWorkoutLink>())) ?? []).forEach(context.delete)
+            for (position, link) in challenges.enumerated() {
+                context.insert(StoredWorkoutLink(planID: link.planID, targetID: link.challengeID, isEvent: false, managed: false, position: position))
+            }
+            for (offset, link) in events.enumerated() {
+                context.insert(StoredWorkoutLink(planID: link.planID, targetID: link.eventID, isEvent: true, managed: link.managed, position: challenges.count + offset))
+            }
+            LififyDatabase.saveSide()
+        }
+        cachedChallenges = challenges
+        cachedEvents = events
     }
 
     private static func bump() {

@@ -7,14 +7,13 @@ extension LififyRuleTests {
     @Suite("Backup completeness")
     @MainActor
     struct BackupCompletenessTests {
-        private let offerKey = "lifify.eventOffer.\(UUID().uuidString)"
 
         private var financeValues: [String] {
             Array(BackupDefaults.financeKeys)
         }
 
         private var challengeValues: [String] {
-            Array(BackupDefaults.challengeKeys) + [offerKey]
+            Array(BackupDefaults.challengeKeys)
         }
 
         private func export(_ store: TestStore, scope: BackupScope) throws -> Data {
@@ -88,30 +87,37 @@ extension LififyRuleTests {
 
         @Test func financeBackupCarriesOnlyFinanceValues() async throws {
             try await withTestStore { store in
-                seed(financeValues + challengeValues, store.defaults)
+                seed(financeValues, store.defaults)
                 let finance = values(financeValues, store.defaults)
                 let data = try export(store, scope: .finance)
 
                 financeValues.forEach { store.defaults.removeObject(forKey: $0) }
-                store.defaults.set(Data("newer".utf8), forKey: "lifify.pinnedChallenges")
+                let pin = UUID()
+                ChallengePinStore.pin(pin)
                 try BackupService.restore(data: data, into: store.context)
 
                 #expect(values(financeValues, store.defaults) == finance)
-                #expect(store.defaults.data(forKey: "lifify.pinnedChallenges") == Data("newer".utf8))
+                #expect(ChallengePinStore.ids() == [pin])
             }
         }
 
         @Test func challengeBackupCarriesOnlyChallengeValues() async throws {
             try await withTestStore { store in
-                seed(financeValues + challengeValues, store.defaults)
-                let challenges = values(challengeValues, store.defaults)
+                let pin = UUID(), group = UUID(), challenge = UUID()
+                ChallengePinStore.pin(pin)
+                ChallengeGroupPinStore.pin(group)
+                EventOffer.set(false, for: challenge)
                 let data = try export(store, scope: .challenges)
 
-                challengeValues.forEach { store.defaults.removeObject(forKey: $0) }
+                ChallengePinStore.unpin(pin)
+                ChallengeGroupPinStore.unpin(group)
+                EventOffer.set(true, for: challenge)
                 store.defaults.set(Data("newer".utf8), forKey: TradeFeePreference.storageKey)
                 try BackupService.restore(data: data, into: store.context)
 
-                #expect(values(challengeValues, store.defaults) == challenges)
+                #expect(ChallengePinStore.ids() == [pin])
+                #expect(ChallengeGroupPinStore.ids() == [group])
+                #expect(!EventOffer.isEnabled(for: challenge))
                 #expect(store.defaults.data(forKey: TradeFeePreference.storageKey) == Data("newer".utf8))
             }
         }

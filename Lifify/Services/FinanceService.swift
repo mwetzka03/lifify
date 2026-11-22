@@ -1600,17 +1600,17 @@ enum VariableBudgetAccounts {
     }
 
     static func reset() {
-        FinanceLinkTable.clear(.budgetAccounts)
+        LinkTable.clear(.budgetAccounts)
     }
 
     private static func all() -> [String: [UUID]] {
-        FinanceLinkTable.map(.budgetAccounts).mapValues { raw in
+        LinkTable.map(.budgetAccounts).mapValues { raw in
             raw.split(separator: ",").compactMap { UUID(uuidString: String($0)) }
         }
     }
 
     private static func save(_ map: [String: [UUID]]) {
-        FinanceLinkTable.replace(.budgetAccounts, with: map.mapValues { ids in
+        LinkTable.replace(.budgetAccounts, with: map.mapValues { ids in
             ids.map(\.uuidString).joined(separator: ",")
         })
     }

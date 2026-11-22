@@ -1,14 +1,13 @@
 import Foundation
 
 /// Up to four challenges sit at the top of the challenges page.
+@MainActor
 enum ChallengePinStore {
     static let limit = 4
     static let revisionKey = "lifify.challengePinRevision"
-    private static let key = "lifify.pinnedChallenges"
 
     static func ids() -> [UUID] {
-        let raw = AppDefaults.store.stringArray(forKey: key) ?? []
-        return raw.compactMap(UUID.init(uuidString:))
+        (LinkTable.map(.pinnedChallenges)["all"] ?? "").split(separator: ",").compactMap { UUID(uuidString: String($0)) }
     }
 
     static func contains(_ id: UUID) -> Bool {
@@ -46,7 +45,7 @@ enum ChallengePinStore {
     }
 
     private static func save(_ ids: [UUID]) {
-        AppDefaults.store.set(ids.map(\.uuidString), forKey: key)
+        LinkTable.replace(.pinnedChallenges, with: ids.isEmpty ? [:] : ["all": ids.map(\.uuidString).joined(separator: ",")])
         AppDefaults.store.set(AppDefaults.store.integer(forKey: revisionKey) + 1, forKey: revisionKey)
     }
 }
@@ -60,13 +59,12 @@ enum ChallengePinLayout {
 }
 
 /// Groups stay in their own section until someone pins them.
+@MainActor
 enum ChallengeGroupPinStore {
     static let revisionKey = "lifify.challengeGroupPinRevision"
-    private static let key = "lifify.pinnedChallengeGroups"
 
     static func ids() -> [UUID] {
-        let raw = AppDefaults.store.stringArray(forKey: key) ?? []
-        return raw.compactMap(UUID.init(uuidString:))
+        (LinkTable.map(.pinnedGroups)["all"] ?? "").split(separator: ",").compactMap { UUID(uuidString: String($0)) }
     }
 
     static func contains(_ id: UUID) -> Bool {
@@ -95,7 +93,7 @@ enum ChallengeGroupPinStore {
     }
 
     private static func save(_ ids: [UUID]) {
-        AppDefaults.store.set(ids.map(\.uuidString), forKey: key)
+        LinkTable.replace(.pinnedGroups, with: ids.isEmpty ? [:] : ["all": ids.map(\.uuidString).joined(separator: ",")])
         AppDefaults.store.set(AppDefaults.store.integer(forKey: revisionKey) + 1, forKey: revisionKey)
     }
 }

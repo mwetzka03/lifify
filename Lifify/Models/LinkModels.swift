@@ -1,15 +1,15 @@
 import Foundation
 import SwiftData
 
-/// One entry of a small relation between finance records, such as refund → original booking.
+/// One entry of a small relation between records, such as refund → original booking.
 @Model
-final class StoredFinanceLink {
+final class StoredLink {
     @Attribute(.unique) var rowID: String
     var kindRaw: String
     var key: String
     var value: String
 
-    init(kind: FinanceLinkKind, key: String, value: String) {
+    init(kind: LinkKind, key: String, value: String) {
         rowID = "\(kind.rawValue)|\(key)"
         kindRaw = kind.rawValue
         self.key = key
@@ -77,7 +77,7 @@ final class StoredNoticeTemplate {
     }
 }
 
-enum FinanceLinkKind: String, CaseIterable, Codable {
+enum LinkKind: String, CaseIterable, Codable {
     case refund
     case transferAssignment
     case forecastSkip
@@ -90,42 +90,61 @@ enum FinanceLinkKind: String, CaseIterable, Codable {
     case budgetAccounts
     case bankCursor
     case bankCurrent
+    case challengeDuration
+    case challengeActual
+    case challengeMembers
+    case challengePlanned
+    case abstinenceDifficulty
+    case abstinenceAwarded
+    case abstinenceRelapses
+    case abstinenceNotices
+    case abstinenceExceptions
+    case abstinenceRewardLink
+    case rewardPolicy
+    case reminderSync
+    case reminderRecurrence
+    case eventRecurrence
+    case icon
+    case customCategories
+    case pinnedChallenges
+    case pinnedGroups
+    case eventOffer
+    case fastFoodReward
 
-    /// These already have their own backup record types.
-    var hasOwnBackupRecord: Bool {
-        switch self {
-        case .expenseGroup, .incomePrimary, .incomeSecondary, .incomeEntry: true
-        default: false
-        }
-    }
+    static let financeRecords: [LinkKind] = [
+        .refund, .transferAssignment, .forecastSkip, .forecastPeriod, .matchRejection,
+        .budgetAccounts, .bankCursor, .bankCurrent
+    ]
+    static let challengeRecords: [LinkKind] = [.pinnedChallenges, .pinnedGroups, .eventOffer, .fastFoodReward]
 }
 
 /// Reads and writes the finance relations. Reads come from memory after the first load.
 @MainActor
-enum FinanceLinkTable {
+enum LinkTable {
     static let backupType = "financeLink"
-    private static var cached: [FinanceLinkKind: [String: String]] = [:]
+    static let challengeBackupType = "challengeLink"
+    private static var cached: [LinkKind: [String: String]] = [:]
 
     static func clearCache() {
         cached = [:]
     }
 
-    static func map(_ kind: FinanceLinkKind) -> [String: String] {
+    static func map(_ kind: LinkKind) -> [String: String] {
         if let values = cached[kind] { return values }
         let raw = kind.rawValue
-        let rows = LififyDatabase.rows(FetchDescriptor<StoredFinanceLink>(predicate: #Predicate { $0.kindRaw == raw }))
+        let rows = LififyDatabase.rows(FetchDescriptor<StoredLink>(predicate: #Predicate { $0.kindRaw == raw }))
         let values = Dictionary(rows.map { ($0.key, $0.value) }, uniquingKeysWith: { first, _ in first })
         cached[kind] = values
         return values
     }
 
-    static func replace(_ kind: FinanceLinkKind, with values: [String: String]) {
+    static func replace(_ kind: LinkKind, with values: [String: String]) {
         let current = map(kind)
         guard current != values else { return }
         cached[kind] = values
         guard let context = LififyDatabase.sideContext else { return }
         let raw = kind.rawValue
-        let rows = (try? context.fetch(FetchDescriptor<StoredFinanceLink>(predicate: #Predicate { $0.kindRaw == raw }))) ?? []
+        let rows = (try? context.fetch(FetchDescriptor<StoredLink>(predicate: #Predicate { $0.kindRaw == raw }))) ?? []
         var seen = Set<String>()
         for row in rows {
             if let value = values[row.key] {
@@ -136,31 +155,49 @@ enum FinanceLinkTable {
             }
         }
         for (key, value) in values where !seen.contains(key) {
-            context.insert(StoredFinanceLink(kind: kind, key: key, value: value))
+            context.insert(StoredLink(kind: kind, key: key, value: value))
         }
         LififyDatabase.saveSide()
     }
 
-    static func set(_ kind: FinanceLinkKind, key: String, value: String?) {
+    static func set(_ kind: LinkKind, key: String, value: String?) {
         var values = map(kind)
         values[key] = value
         replace(kind, with: values)
     }
 
-    static func clear(_ kind: FinanceLinkKind) {
+    static func clear(_ kind: LinkKind) {
         replace(kind, with: [:])
     }
 
     static func exportRecords() -> [BackupRecord] {
-        FinanceLinkKind.allCases.filter { !$0.hasOwnBackupRecord }.flatMap { kind in
+        records(LinkKind.financeRecords, type: backupType) + records(LinkKind.challengeRecords, type: challengeBackupType)
+    }
+
+    private static func records(_ kinds: [LinkKind], type: String) -> [BackupRecord] {
+        kinds.flatMap { kind in
             map(kind).map { key, value in
-                BackupRecord(type: backupType, id: UUID(), strings: [kind.rawValue, key, value])
+                BackupRecord(type: type, id: UUID(), strings: [kind.rawValue, key, value])
             }
         }
     }
 
+    static func decoded<T: Decodable>(_ kind: LinkKind, as type: T.Type) -> [String: T] {
+        map(kind).compactMapValues { try? JSONDecoder().decode(T.self, from: Data($0.utf8)) }
+    }
+
+    static func encoded<T: Encodable>(_ values: [String: T]) -> [String: String] {
+        values.compactMapValues { value in
+            (try? JSONEncoder().encode(value)).map { String(decoding: $0, as: UTF8.self) }
+        }
+    }
+
+    static func replaceEncoded<T: Encodable>(_ kind: LinkKind, with values: [String: T]) {
+        replace(kind, with: encoded(values))
+    }
+
     static func restore(_ record: BackupRecord) {
-        guard record.strings.count == 3, let kind = FinanceLinkKind(rawValue: record.strings[0]) else { return }
+        guard record.strings.count == 3, let kind = LinkKind(rawValue: record.strings[0]) else { return }
         set(kind, key: record.strings[1], value: record.strings[2])
     }
 }

@@ -75,7 +75,6 @@ enum ChallengeSections {
 @MainActor
 enum ChallengeCategoryStore {
     static let revisionKey = "lifify.customCategoryRevision"
-    private static let storageKey = "lifify.customCategories"
     private static var cache: [CustomChallengeCategory]?
 
     static func clearCache() {
@@ -110,12 +109,7 @@ enum ChallengeCategoryStore {
 
     static func all() -> [CustomChallengeCategory] {
         if let cache { return cache }
-        guard let data = AppDefaults.store.data(forKey: storageKey),
-              let decoded = try? JSONDecoder().decode([CustomChallengeCategory].self, from: data)
-        else {
-            cache = []
-            return []
-        }
+        let decoded = LinkTable.decoded(.customCategories, as: [CustomChallengeCategory].self)["all"] ?? []
         cache = decoded
         return decoded
     }
@@ -149,7 +143,7 @@ enum ChallengeCategoryStore {
 
     static func reset() {
         cache = []
-        AppDefaults.store.removeObject(forKey: storageKey)
+        LinkTable.clear(.customCategories)
         bump()
     }
 
@@ -175,9 +169,7 @@ enum ChallengeCategoryStore {
 
     private static func save(_ items: [CustomChallengeCategory]) {
         cache = items
-        if let data = try? JSONEncoder().encode(items) {
-            AppDefaults.store.set(data, forKey: storageKey)
-        }
+        LinkTable.replaceEncoded(.customCategories, with: items.isEmpty ? [:] : ["all": items])
         bump()
     }
 

@@ -7,72 +7,53 @@ struct ReminderRecurrenceMetadata: Codable, Sendable {
     let endDate: Date?
 }
 
+@MainActor
 enum ReminderLinkStore {
-    private static func key(for externalIdentifier: String) -> String {
-        "reminder.recurrence.\(externalIdentifier)"
-    }
-
     static func metadata(for externalIdentifier: String?) -> ReminderRecurrenceMetadata? {
-        guard let externalIdentifier,
-              let data = AppDefaults.store.data(forKey: key(for: externalIdentifier))
-        else {
-            return nil
-        }
-        return try? JSONDecoder().decode(ReminderRecurrenceMetadata.self, from: data)
+        guard let externalIdentifier, let raw = LinkTable.map(.reminderRecurrence)[externalIdentifier] else { return nil }
+        return try? JSONDecoder().decode(ReminderRecurrenceMetadata.self, from: Data(raw.utf8))
     }
 
     static func set(_ metadata: ReminderRecurrenceMetadata, for externalIdentifier: String) {
         guard let data = try? JSONEncoder().encode(metadata) else { return }
-        AppDefaults.store.set(data, forKey: key(for: externalIdentifier))
+        LinkTable.set(.reminderRecurrence, key: externalIdentifier, value: String(decoding: data, as: UTF8.self))
     }
 
     static func remove(for externalIdentifier: String?) {
         guard let externalIdentifier else { return }
-        AppDefaults.store.removeObject(forKey: key(for: externalIdentifier))
+        LinkTable.set(.reminderRecurrence, key: externalIdentifier, value: nil)
     }
 }
 
+@MainActor
 enum EventRecurrenceStore {
     static func metadata(for eventIdentifier: String?) -> ReminderRecurrenceMetadata? {
-        guard let eventIdentifier,
-              let data = AppDefaults.store.data(forKey: key(for: eventIdentifier))
-        else {
-            return nil
-        }
-        return try? JSONDecoder().decode(ReminderRecurrenceMetadata.self, from: data)
+        guard let eventIdentifier, let raw = LinkTable.map(.eventRecurrence)[eventIdentifier] else { return nil }
+        return try? JSONDecoder().decode(ReminderRecurrenceMetadata.self, from: Data(raw.utf8))
     }
 
     static func set(_ metadata: ReminderRecurrenceMetadata, for eventIdentifier: String) {
         guard let data = try? JSONEncoder().encode(metadata) else { return }
-        AppDefaults.store.set(data, forKey: key(for: eventIdentifier))
+        LinkTable.set(.eventRecurrence, key: eventIdentifier, value: String(decoding: data, as: UTF8.self))
     }
 
     static func remove(for eventIdentifier: String?) {
         guard let eventIdentifier else { return }
-        AppDefaults.store.removeObject(forKey: key(for: eventIdentifier))
-    }
-
-    private static func key(for eventIdentifier: String) -> String {
-        "event.recurrence.\(eventIdentifier)"
+        LinkTable.set(.eventRecurrence, key: eventIdentifier, value: nil)
     }
 }
 
+@MainActor
 enum ReminderSyncPreference {
     static func isEnabled(for challengeID: UUID) -> Bool {
-        let key = key(for: challengeID)
-        guard AppDefaults.store.object(forKey: key) != nil else { return true }
-        return AppDefaults.store.bool(forKey: key)
+        LinkTable.map(.reminderSync)[challengeID.uuidString].map { $0 == "true" } ?? true
     }
 
     static func set(_ enabled: Bool, for challengeID: UUID) {
-        AppDefaults.store.set(enabled, forKey: key(for: challengeID))
+        LinkTable.set(.reminderSync, key: challengeID.uuidString, value: enabled ? "true" : "false")
     }
 
     static func remove(for challengeID: UUID) {
-        AppDefaults.store.removeObject(forKey: key(for: challengeID))
-    }
-
-    private static func key(for challengeID: UUID) -> String {
-        "challenge.syncReminders.\(challengeID.uuidString)"
+        LinkTable.set(.reminderSync, key: challengeID.uuidString, value: nil)
     }
 }

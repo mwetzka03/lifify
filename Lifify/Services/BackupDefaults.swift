@@ -19,12 +19,8 @@ enum BackupDefaults {
     ]
     static let financePrefixes: [String] = []
 
-    static let challengeKeys: Set<String> = [
-        "lifify.pinnedChallenges",
-        "lifify.pinnedChallengeGroups",
-        "lifify.fastFoodReward"
-    ]
-    static let challengePrefixes = ["lifify.eventOffer."]
+    static let challengeKeys: Set<String> = []
+    static let challengePrefixes: [String] = []
 
     /// Device-wide choices. Only a backup of the entire app carries them.
     static let appKeys: Set<String> = [

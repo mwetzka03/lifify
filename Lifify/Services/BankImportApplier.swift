@@ -269,24 +269,24 @@ enum ImportBalance {
 @MainActor
 enum BankImportCursor {
     static func date(for accountID: UUID) -> Date? {
-        guard let stored = FinanceLinkTable.map(.bankCursor)[accountID.uuidString].flatMap(Double.init), stored > 0 else { return nil }
+        guard let stored = LinkTable.map(.bankCursor)[accountID.uuidString].flatMap(Double.init), stored > 0 else { return nil }
         return Date(timeIntervalSince1970: stored)
     }
 
     static func currentCents(for accountID: UUID) -> Int? {
-        FinanceLinkTable.map(.bankCurrent)[accountID.uuidString].flatMap(Int.init)
+        LinkTable.map(.bankCurrent)[accountID.uuidString].flatMap(Int.init)
     }
 
     static func mark(_ accountID: UUID, at date: Date = Date(), currentCents: Int? = nil) {
-        FinanceLinkTable.set(.bankCursor, key: accountID.uuidString, value: String(date.timeIntervalSince1970))
+        LinkTable.set(.bankCursor, key: accountID.uuidString, value: String(date.timeIntervalSince1970))
         if let currentCents {
-            FinanceLinkTable.set(.bankCurrent, key: accountID.uuidString, value: String(currentCents))
+            LinkTable.set(.bankCurrent, key: accountID.uuidString, value: String(currentCents))
         }
     }
 
     static func reset() {
-        FinanceLinkTable.clear(.bankCursor)
-        FinanceLinkTable.clear(.bankCurrent)
+        LinkTable.clear(.bankCursor)
+        LinkTable.clear(.bankCurrent)
     }
 }
 

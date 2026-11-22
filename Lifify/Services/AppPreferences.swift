@@ -21,14 +21,14 @@ enum IncomeAssignmentStore {
     private static let forecastKey = "forecastID"
 
     static var primaryForecastID: UUID? {
-        FinanceLinkTable.map(.incomePrimary)[forecastKey].flatMap(UUID.init(uuidString:))
+        LinkTable.map(.incomePrimary)[forecastKey].flatMap(UUID.init(uuidString:))
     }
 
     static func setPrimary(iban: String, forecastID: UUID) {
         let normalized = normalize(iban)
         var values = [forecastKey: forecastID.uuidString]
         if !normalized.isEmpty { values[ibanKey] = normalized }
-        FinanceLinkTable.replace(.incomePrimary, with: values)
+        LinkTable.replace(.incomePrimary, with: values)
     }
 
     static func setSecondary(_ values: [(iban: String, forecastID: UUID)]) {
@@ -36,24 +36,24 @@ enum IncomeAssignmentStore {
             let iban = normalize(value.iban)
             return iban.isEmpty ? nil : (iban, value.forecastID.uuidString)
         }
-        FinanceLinkTable.replace(.incomeSecondary, with: Dictionary(pairs, uniquingKeysWith: { _, newest in newest }))
+        LinkTable.replace(.incomeSecondary, with: Dictionary(pairs, uniquingKeysWith: { _, newest in newest }))
     }
 
     static func secondaryMappings() -> [String: String] {
-        FinanceLinkTable.map(.incomeSecondary)
+        LinkTable.map(.incomeSecondary)
     }
 
     static func addSecondary(iban: String, forecastID: UUID) {
         guard !iban.isEmpty else { return }
-        FinanceLinkTable.set(.incomeSecondary, key: iban, value: forecastID.uuidString)
+        LinkTable.set(.incomeSecondary, key: iban, value: forecastID.uuidString)
     }
 
     static func entryAssignments() -> [String: String] {
-        FinanceLinkTable.map(.incomeEntry)
+        LinkTable.map(.incomeEntry)
     }
 
     static var primaryIBAN: String? {
-        FinanceLinkTable.map(.incomePrimary)[ibanKey]
+        LinkTable.map(.incomePrimary)[ibanKey]
     }
 
     static func forecastID(for iban: String) -> UUID? {
@@ -66,11 +66,11 @@ enum IncomeAssignmentStore {
     }
 
     static func assign(entryID: UUID, to forecastID: UUID) {
-        FinanceLinkTable.set(.incomeEntry, key: entryID.uuidString, value: forecastID.uuidString)
+        LinkTable.set(.incomeEntry, key: entryID.uuidString, value: forecastID.uuidString)
     }
 
     static func clear(entryID: UUID) {
-        FinanceLinkTable.set(.incomeEntry, key: entryID.uuidString, value: nil)
+        LinkTable.set(.incomeEntry, key: entryID.uuidString, value: nil)
     }
 
     static func ibans(for forecastID: UUID) -> [String] {
@@ -91,7 +91,7 @@ enum IncomeAssignmentStore {
     }
 
     static func reset() {
-        [.incomePrimary, .incomeSecondary, .incomeEntry].forEach(FinanceLinkTable.clear)
+        [.incomePrimary, .incomeSecondary, .incomeEntry].forEach(LinkTable.clear)
     }
 
     static func fingerprint() -> Int {
@@ -173,7 +173,7 @@ enum RefundLinkStore {
     }
 
     static func reset() {
-        FinanceLinkTable.clear(.refund)
+        LinkTable.clear(.refund)
     }
 
     static func fingerprint() -> Int {
@@ -194,11 +194,11 @@ enum RefundLinkStore {
     }
 
     private static func mapping() -> [String: String] {
-        FinanceLinkTable.map(.refund)
+        LinkTable.map(.refund)
     }
 
     private static func save(_ map: [String: String]) {
-        FinanceLinkTable.replace(.refund, with: map)
+        LinkTable.replace(.refund, with: map)
     }
 }
 
@@ -343,7 +343,7 @@ enum TransferForecastAssignmentStore {
     }
 
     static func reset() {
-        FinanceLinkTable.clear(.transferAssignment)
+        LinkTable.clear(.transferAssignment)
     }
 
     static func fingerprint() -> Int {
@@ -356,11 +356,11 @@ enum TransferForecastAssignmentStore {
     }
 
     private static func mapping() -> [String: String] {
-        FinanceLinkTable.map(.transferAssignment)
+        LinkTable.map(.transferAssignment)
     }
 
     private static func save(_ map: [String: String]) {
-        FinanceLinkTable.replace(.transferAssignment, with: map)
+        LinkTable.replace(.transferAssignment, with: map)
     }
 }
 
@@ -388,7 +388,7 @@ enum ForecastSkipStore {
     }
 
     static func reset() {
-        FinanceLinkTable.clear(.forecastSkip)
+        LinkTable.clear(.forecastSkip)
         AppDefaults.store.set(revision() + 1, forKey: revisionKey)
     }
 
@@ -406,11 +406,11 @@ enum ForecastSkipStore {
     }
 
     private static func all() -> Set<String> {
-        Set(FinanceLinkTable.map(.forecastSkip).keys)
+        Set(LinkTable.map(.forecastSkip).keys)
     }
 
     private static func save(_ values: Set<String>) {
-        FinanceLinkTable.replace(.forecastSkip, with: Dictionary(uniqueKeysWithValues: values.map { ($0, "") }))
+        LinkTable.replace(.forecastSkip, with: Dictionary(uniqueKeysWithValues: values.map { ($0, "") }))
         AppDefaults.store.set(revision() + 1, forKey: revisionKey)
     }
 
@@ -451,7 +451,7 @@ enum ForecastPeriodLinkStore {
     }
 
     static func reset() {
-        FinanceLinkTable.clear(.forecastPeriod)
+        LinkTable.clear(.forecastPeriod)
         AppDefaults.store.set(revision() + 1, forKey: revisionKey)
     }
 
@@ -466,11 +466,11 @@ enum ForecastPeriodLinkStore {
     }
 
     private static func mapping() -> [String: String] {
-        FinanceLinkTable.map(.forecastPeriod)
+        LinkTable.map(.forecastPeriod)
     }
 
     private static func save(_ map: [String: String]) {
-        FinanceLinkTable.replace(.forecastPeriod, with: map)
+        LinkTable.replace(.forecastPeriod, with: map)
         AppDefaults.store.set(revision() + 1, forKey: revisionKey)
     }
 
@@ -495,7 +495,7 @@ enum ForecastMatchRejectionStore {
     }
 
     static func reset() {
-        FinanceLinkTable.clear(.matchRejection)
+        LinkTable.clear(.matchRejection)
         AppDefaults.store.set(revision() + 1, forKey: revisionKey)
     }
 
@@ -513,11 +513,11 @@ enum ForecastMatchRejectionStore {
     }
 
     private static func all() -> Set<String> {
-        Set(FinanceLinkTable.map(.matchRejection).keys)
+        Set(LinkTable.map(.matchRejection).keys)
     }
 
     private static func save(_ values: Set<String>) {
-        FinanceLinkTable.replace(.matchRejection, with: Dictionary(uniqueKeysWithValues: values.map { ($0, "") }))
+        LinkTable.replace(.matchRejection, with: Dictionary(uniqueKeysWithValues: values.map { ($0, "") }))
         AppDefaults.store.set(revision() + 1, forKey: revisionKey)
     }
 
@@ -526,23 +526,18 @@ enum ForecastMatchRejectionStore {
     }
 }
 
+@MainActor
 enum RewardPolicyStore {
     static func allowsMultiplePurchases(for rewardID: UUID) -> Bool {
-        let key = key(for: rewardID)
-        guard AppDefaults.store.object(forKey: key) != nil else { return true }
-        return AppDefaults.store.bool(forKey: key)
+        LinkTable.map(.rewardPolicy)[rewardID.uuidString].map { $0 == "true" } ?? true
     }
 
     static func setAllowsMultiplePurchases(_ allowed: Bool, for rewardID: UUID) {
-        AppDefaults.store.set(allowed, forKey: key(for: rewardID))
+        LinkTable.set(.rewardPolicy, key: rewardID.uuidString, value: allowed ? "true" : "false")
     }
 
     static func remove(for rewardID: UUID) {
-        AppDefaults.store.removeObject(forKey: key(for: rewardID))
-    }
-
-    private static func key(for rewardID: UUID) -> String {
-        "reward.multiple.\(rewardID.uuidString)"
+        LinkTable.set(.rewardPolicy, key: rewardID.uuidString, value: nil)
     }
 }
 
@@ -594,16 +589,16 @@ enum ExpenseGroupAssignmentStore {
     }
 
     static func reset() {
-        FinanceLinkTable.clear(.expenseGroup)
+        LinkTable.clear(.expenseGroup)
         AppDefaults.store.set(revision() + 1, forKey: revisionKey)
     }
 
     private static func mapping() -> [String: String] {
-        FinanceLinkTable.map(.expenseGroup)
+        LinkTable.map(.expenseGroup)
     }
 
     private static func save(_ map: [String: String]) {
-        FinanceLinkTable.replace(.expenseGroup, with: map)
+        LinkTable.replace(.expenseGroup, with: map)
         AppDefaults.store.set(revision() + 1, forKey: revisionKey)
     }
 

@@ -1,4 +1,5 @@
 import Foundation
+import SwiftData
 
 /// Streak switches, per-challenge freezes, and the global coin multiplier.
 /// Stored beside the data model so an existing store stays readable.
@@ -28,7 +29,6 @@ enum StreakSettings {
         var usedPeriodKeys: [String]
     }
 
-    private static let stateKey = "lifify.streakStates"
     private static let multiplierKey = "lifify.streakMultipliers"
     private static var cachedStates: [String: State]?
     private static var cachedMultipliers: [Int: Double]?
@@ -182,7 +182,7 @@ enum StreakSettings {
     static func reset() {
         cachedStates = [:]
         cachedMultipliers = [:]
-        AppDefaults.store.removeObject(forKey: stateKey)
+        LififyDatabase.deleteAll(StoredStreakState.self)
         AppDefaults.store.removeObject(forKey: multiplierKey)
         AppDefaults.store.removeObject(forKey: freezeFactorKey)
         bump()
@@ -239,12 +239,9 @@ enum StreakSettings {
 
     private static func states() -> [String: State] {
         if let cachedStates { return cachedStates }
-        let decoded: [String: State]
-        if let data = AppDefaults.store.data(forKey: stateKey),
-           let value = try? JSONDecoder().decode([String: State].self, from: data) {
-            decoded = value
-        } else {
-            decoded = [:]
+        var decoded: [String: State] = [:]
+        for row in LififyDatabase.rows(FetchDescriptor<StoredStreakState>()) {
+            decoded[row.challengeID.uuidString] = row.state
         }
         cachedStates = decoded
         return decoded
@@ -266,8 +263,25 @@ enum StreakSettings {
     }
 
     private static func saveStates(_ map: [String: State]) {
-        guard let data = try? JSONEncoder().encode(map) else { return }
-        AppDefaults.store.set(data, forKey: stateKey)
+        if let context = LififyDatabase.sideContext {
+            let rows = (try? context.fetch(FetchDescriptor<StoredStreakState>())) ?? []
+            var existing = Dictionary(rows.map { ($0.challengeID, $0) }, uniquingKeysWith: { first, _ in first })
+            for (key, state) in map {
+                guard let id = UUID(uuidString: key) else { continue }
+                if let row = existing.removeValue(forKey: id) {
+                    if row.state != state {
+                        row.enabled = state.enabled
+                        row.enabledAt = state.enabledAt
+                        row.purchased = state.purchased
+                        row.usedPeriodKeysData = (try? JSONEncoder().encode(state.usedPeriodKeys)) ?? Data("[]".utf8)
+                    }
+                } else {
+                    context.insert(StoredStreakState(challengeID: id, state: state))
+                }
+            }
+            existing.values.forEach(context.delete)
+            LififyDatabase.saveSide()
+        }
         cachedStates = map
         bump()
     }
