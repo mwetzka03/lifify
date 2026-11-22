@@ -152,11 +152,10 @@ Symbolauswahl enthält ein Hanfblatt und eine Zigarette.
     und Shopinhalte, behält aber Konten und Einstellungen. „App zurücksetzen“
     entfernt zusätzlich Konten und Einstellungen und startet anschließend die
     Ersteinrichtung.
-19. **Entwicklungsstore:** Stores aus frühen Entwicklungsversionen enthalten
-    entfernte Modelle und können SwiftData beim Start blockieren oder abstürzen
-    lassen. Lifify verschiebt einen solchen Store einmalig in ein lokales
-    Archiv und startet die Einrichtung mit einem neuen Store. Eine vorhandene
-    JSON-Sicherung kann anschließend wiederhergestellt werden.
+19. **Defekter Datenspeicher:** Während der Ersteinrichtung verschiebt Lifify
+    einen nicht lesbaren Store in ein lokales Archiv und beginnt von vorn. Eine
+    fertig eingerichtete App verschiebt nichts von selbst. Sie zeigt den Fehler
+    und bietet an, eine Sicherung der gesamten App wiederherzustellen.
 20. **Trade Republic von Hand:** In der Einrichtung gibt es einen optionalen
     Anmeldeschritt. Unter Finanzen lässt sich die Sitzung erneut anmelden oder
     das Depot daraus aktualisieren. Das passiert nicht von allein. Die Sitzung
