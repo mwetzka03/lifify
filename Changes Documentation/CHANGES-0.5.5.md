@@ -21,6 +21,14 @@ unchanged and stay in [FINANZEN.md](../FINANZEN.md). What changed in 0.4.0 is in
 
 **Not covered yet.** Paths that write to the iOS calendar or schedule notifications are not run by the tests: the actual calendar rewrite after a resize, `WorkoutCalendarSync.apply`, abstinence bonuses through `settle`, and relapse. Their pure rules are tested. The full-app and Training backup restores are also not run, because they touch workout files.
 
+### 0.5.5: Shop lock on a negative balance
+
+**What changed.** While the wallet is below 0, rewards and streak freezes cannot be bought, including free ones. The shop shows a red lock notice with the balance and the coins still missing, and its buy buttons read Locked. At 0 or above the shop opens again.
+
+**Why.** The wallet may go negative, but that debt should be paid off before the next purchase.
+
+**Effect.** The automatic fast-food purchase still books while the shop is locked, so a fast-food meal always costs its coins. Changing that meal's kind or deleting it still refunds the charge. Earning coins, unchecking challenges, and editing rewards stay available.
+
 ### 0.5.5: In-app check page removed
 
 **What changed.** The test page under developer mode and its check code are gone from the app. Of the 108 checks, 99 worked examples moved into `LififyTests`. Nine checks, and the conditions inside other checks that only compared UI text, symbols, or constants with themselves, were dropped. The constants that existed only for those checks were removed: `TradeRepublicRefresh`, `TradeRepublicGap`, five `TradeRepublicSample` flags, and three layout constants.
@@ -103,6 +111,14 @@ bucht. Die Finanzrechnung ist unverändert und bleibt in
 **Fehlgeschlagene Prüfungen.** Vor diesem Schritt schlugen zwei In-App-Prüfgruppen fehl, wegen vier veralteter Bedingungen. Keine davon war ein App-Fehler, die Bedingungen entsprechen jetzt dem Code: Zwillingszeilen haben verschiedene alte Fingerabdrücke, weil der alte Titel der Verwendungszweck war. `XF000BTC0017` besteht die ISIN-Prüfsumme. Ein Kauf ohne Stückzahl wird über den Durchschnittspreis bemessen. Ein vollständiger Verkauf schließt die Position über ihre Lots, ohne eigenes Entfernen.
 
 **Noch nicht abgedeckt.** Wege, die in den iOS-Kalender schreiben oder Mitteilungen planen, laufen in den Tests nicht: das echte Umschreiben des Termins nach einer Größenänderung, `WorkoutCalendarSync.apply`, Abstinenz-Boni über `settle` und der Rückfall. Ihre reinen Regeln sind getestet. Auch die Wiederherstellung des Gesamt- und des Trainings-Backups läuft nicht, weil sie Trainingsdateien berührt.
+
+### 0.5.5: Shop-Sperre bei negativem Guthaben
+
+**Was sich geändert hat.** Solange das Wallet unter 0 liegt, lassen sich Belohnungen und Streak-Freezes nicht kaufen, auch kostenlose nicht. Der Shop zeigt einen roten Sperrhinweis mit Guthaben und fehlenden Coins, seine Kaufknöpfe heißen Gesperrt. Ab 0 ist der Shop wieder offen.
+
+**Warum.** Das Wallet darf ins Minus gehen, das Minus soll aber vor dem nächsten Kauf ausgeglichen sein.
+
+**Auswirkung.** Der automatische Fast-Food-Kauf bucht auch bei gesperrtem Shop, eine Fast-Food-Mahlzeit kostet also immer ihre Coins. Wird ihre Art geändert oder die Mahlzeit gelöscht, wird der Betrag weiter erstattet. Coins verdienen, Haken entfernen und Belohnungen bearbeiten bleiben möglich.
 
 ### 0.5.5: In-App-Prüfseite entfernt
 

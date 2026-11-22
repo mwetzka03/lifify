@@ -33,7 +33,8 @@ still move one day. A future day cannot be selected.
 
 Each meal has a kind: whole food, balanced, hearty, sweet, fast food, or
 alcohol. The model picks one. The person can change it. Fast food buys the
-Fast Food reward in the shop for 25 coins, even if the balance goes negative.
+Fast Food reward in the shop for 25 coins, even if the balance goes negative
+or the shop is locked.
 Changing the kind, or deleting the meal, refunds that purchase.
 
 The nutrition challenge follows the goal. Lose fat is named Calorie deficit
@@ -154,7 +155,7 @@ Die Pfeile wechseln weiter einen Tag. Ein späterer Tag geht nicht.
 Jede Mahlzeit hat eine Art: unverarbeitet, ausgewogen, deftig, süß, Fast Food
 oder Alkohol. Das Modell wählt eine. Die Person kann sie ändern. Fast Food
 kauft die Belohnung Fast Food im Shop für 25 Coins, auch wenn das Guthaben
-dabei negativ wird. Ändert man die Art oder löscht die Mahlzeit, wird der
+dabei negativ wird oder der Shop gesperrt ist. Ändert man die Art oder löscht die Mahlzeit, wird der
 Kauf erstattet.
 
 Die Ernährungs-Challenge folgt dem Ziel. Fett verlieren heißt

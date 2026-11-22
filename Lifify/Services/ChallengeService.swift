@@ -236,7 +236,7 @@ enum ChallengeService {
     ) -> Bool {
         guard StreakSettings.isEnabled(for: challenge.id) else { return false }
         let price = StreakSettings.price(for: challenge)
-        guard walletBalance(transactions: transactions) >= price else { return false }
+        guard ShopAccess.check(balance: walletBalance(transactions: transactions), price: price) == .open else { return false }
         context.insert(CoinTransaction(
             title: "\(L("Streak-Freeze", "Streak freeze")): \(challenge.title)",
             amount: -price,
@@ -501,7 +501,7 @@ enum ChallengeService {
         transactions: [CoinTransaction],
         context: ModelContext
     ) -> Bool {
-        guard walletBalance(transactions: transactions) >= reward.price else { return false }
+        guard ShopAccess.check(balance: walletBalance(transactions: transactions), price: reward.price) == .open else { return false }
         let purchase = RewardPurchase(rewardID: reward.id, title: reward.title, price: reward.price)
         context.insert(purchase)
         context.insert(CoinTransaction(title: reward.title, amount: -reward.price, referenceID: purchase.id))

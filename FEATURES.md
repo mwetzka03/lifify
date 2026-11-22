@@ -57,7 +57,8 @@ Symbolauswahl enthält ein Hanfblatt und eine Zigarette.
   erst nach ausdrücklicher Übernahme und Konfiguration zu Challenges; ihr
   Erledigt-Status wird anschließend zurück zu Apple Erinnerungen geschrieben
 - Belohnungsshop und Wallet mit Coin-Transaktionen, Kaufhistorie und
-  einmaligen oder mehrfach einlösbaren Belohnungen
+  einmaligen oder mehrfach einlösbaren Belohnungen. Bei negativem Guthaben ist
+  der Shop sichtbar gesperrt, automatische Fast-Food-Käufe buchen weiter
 - Frei wählbare SF-Symbole für Buchungen, Fixkosten, Challenges und Belohnungen
 - Getrenntes Löschen der Inhaltsdaten sowie vollständiges Zurücksetzen der App
   einschließlich Konten und Ersteinrichtung

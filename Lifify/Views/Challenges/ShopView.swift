@@ -37,8 +37,45 @@ struct ShopView: View {
             .sorted { $0.title.localizedStandardCompare($1.title) == .orderedAscending }
     }
 
+    private var balance: Int {
+        ChallengeService.walletBalance(transactions: transactions)
+    }
+
+    private var isLocked: Bool {
+        ShopAccess.isLocked(balance: balance)
+    }
+
+    private var lockBanner: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: "lock.fill")
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(.red)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(ShopCopy.lockedTitle)
+                    .font(.headline)
+                Text(ShopCopy.lockedMessage(balance: balance))
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(14)
+        .appGlassCard(radius: 16)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(.red.opacity(0.55), lineWidth: 1)
+        )
+        .accessibilityElement(children: .combine)
+        .padding(.horizontal, 16)
+        .padding(.top, 16)
+    }
+
     var body: some View {
         ScrollView {
+            if isLocked {
+                lockBanner
+            }
             if activeRewards.isEmpty && streakChallenges.isEmpty {
                 ContentUnavailableView(L("Der Shop ist leer", "The shop is empty"), systemImage: "gift")
                     .padding(.top, 48)
@@ -137,13 +174,19 @@ struct ShopView: View {
                     : ShopCopy.notEnough
             } label: {
                 HStack(spacing: 4) {
-                    Text(L("Kaufen", "Buy"))
+                    if isLocked {
+                        Image(systemName: "lock.fill")
+                        Text(ShopCopy.locked)
+                    } else {
+                        Text(L("Kaufen", "Buy"))
+                    }
                     CoinAmountView(amount: price)
                 }
                 .font(.caption.weight(.semibold))
             }
             .buttonStyle(.bordered)
             .controlSize(.small)
+            .disabled(isLocked)
         }
         .padding(12)
         .appGlassCard(radius: 16)
@@ -206,14 +249,19 @@ struct ShopView: View {
                     ? L("Belohnung gekauft.", "Reward purchased.")
                     : ShopCopy.notEnough
             } label: {
-                Text(L("Einlösen", "Redeem"))
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 8)
-                    .background(accent, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                Label {
+                    Text(isLocked ? ShopCopy.locked : L("Einlösen", "Redeem"))
+                } icon: {
+                    if isLocked { Image(systemName: "lock.fill") }
+                }
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 8)
+                .background(isLocked ? Color.gray : accent, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
             }
             .buttonStyle(.plain)
+            .disabled(isLocked)
             .padding(.horizontal, 12)
             .padding(.top, 10)
             .padding(.bottom, 12)
@@ -442,4 +490,14 @@ enum ShopCopy {
     static var redemption: String { L("Einlösbarkeit", "Redemption") }
     static var oneTime: String { L("Einmalig", "One-time") }
     static var repeatable: String { L("Mehrmals", "Repeatable") }
+    static var locked: String { L("Gesperrt", "Locked") }
+    static var lockedTitle: String { L("Shop gesperrt", "Shop locked") }
+
+    static func lockedMessage(balance: Int) -> String {
+        let missing = ShopAccess.coinsToUnlock(balance: balance)
+        return L(
+            "Dein Guthaben liegt bei \(balance) Coins. Mit \(missing) Coins mehr kannst du wieder einkaufen.",
+            "Your balance is \(balance) coins. Earn \(missing) more coins to shop again."
+        )
+    }
 }
