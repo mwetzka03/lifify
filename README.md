@@ -117,7 +117,7 @@ The same app runs in the Simulator when the destination is an iPhone with iOS
 
 ### Data and import
 
-Everything lives in the device’s SwiftData store. JSON backups, CSV files, and
+Everything lives on the device. A JSON backup does not include meal or profile photos, exercise images, price caches, or anything in the Keychain. JSON backups, CSV files, and
 single CAMT files are chosen through the system file dialog. A Trade Republic
 PDF is its own import, not an ordinary bank import. ZIP and MT940 are not
 read.
@@ -282,7 +282,7 @@ neuer gewählt ist.
 
 ### Daten und Import
 
-Alles liegt im SwiftData-Store auf dem Gerät. JSON-Sicherungen sowie CSV- und
+Alles liegt auf dem Gerät. Eine JSON-Sicherung enthält keine Mahlzeiten- oder Profilfotos, Übungsbilder, Kurs-Caches und nichts aus dem Schlüsselbund. JSON-Sicherungen sowie CSV- und
 einzelne CAMT-Dateien werden über den Dateidialog gewählt. Ein
 Trade-Republic-PDF ist ein eigener Import und kein normaler Bankimport. ZIP
 und MT940 werden nicht gelesen.

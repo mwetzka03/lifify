@@ -71,8 +71,9 @@ Symbolauswahl enthält ein Hanfblatt und eine Zigarette.
 
 ## Annahmen
 
-1. **Sicherung:** Lifify sichert sämtliche Nutzerdaten einschließlich Splits,
-   damit eine Wiederherstellung vollständig ist.
+1. **Sicherung:** Lifify sichert die Nutzerdaten einschließlich Splits, damit
+   eine Wiederherstellung vollständig ist. Nicht enthalten sind Fotos
+   (Mahlzeiten, Profil), Übungsbilder, Kurs-Caches und alles im Schlüsselbund.
 2. **Geldbeträge:** Beträge werden intern als ganzzahlige Cent gespeichert.
    Ausgaben sind negativ; Umbuchungen und Saldo-Korrekturen speichern einen
    positiven Betrag.

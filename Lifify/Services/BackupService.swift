@@ -374,6 +374,9 @@ enum BackupService {
             challengeIconIDs: Set(challenges.map(\.id))
         )
         records.append(BackupRecord(type: "backupScope", id: UUID(), strings: [scope.rawValue]))
+        if let snapshot = BackupDefaults.record(scope: scope) {
+            records.append(snapshot)
+        }
         if scope == .all || scope == .training, let workoutSnapshot, !workoutSnapshot.isEmpty {
             records.append(BackupRecord(
                 type: "workoutSnapshot",
@@ -523,6 +526,7 @@ enum BackupService {
         for record in backup.records where sideTypes.contains(record.type) {
             insert(record, into: context)
         }
+        BackupDefaults.restore(from: backup.records, scope: .all)
         try restoreWorkoutSnapshot(from: backup, required: false)
     }
 
@@ -556,6 +560,7 @@ enum BackupService {
         for record in backup.records where record.type == "iconPreference" && !challengeIcons.contains(record.id) {
             insert(record, into: context)
         }
+        BackupDefaults.restore(from: backup.records, scope: .finance)
     }
 
     @MainActor
@@ -582,6 +587,7 @@ enum BackupService {
         for record in backup.records where record.type == "iconPreference" && !keptIcons.contains(record.id) {
             insert(record, into: context)
         }
+        BackupDefaults.restore(from: backup.records, scope: .challenges)
     }
 
     private static func restoreTraining(_ backup: LififyBackup) throws {
@@ -922,7 +928,7 @@ enum BackupService {
             }
         case "workoutChallengeLink", "workoutEventLink":
             insertLink(r)
-        case "backupScope", "workoutSnapshot":
+        case "backupScope", "workoutSnapshot", BackupDefaults.recordType:
             break
         case "appPreferences":
             UserBody.reset()

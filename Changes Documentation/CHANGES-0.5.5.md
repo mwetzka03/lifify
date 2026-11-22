@@ -21,6 +21,16 @@ unchanged and stay in [FINANZEN.md](../FINANZEN.md). What changed in 0.4.0 is in
 
 **Not covered yet.** Paths that write to the iOS calendar or schedule notifications are not run by the tests: the actual calendar rewrite after a resize, `WorkoutCalendarSync.apply`, abstinence bonuses through `settle`, and relapse. Their pure rules are tested. The full-app and Training backup restores are also not run, because they touch workout files.
 
+### 0.5.5: Complete backup
+
+**What changed.** The backup now also carries transfer forecasts, refund links, forecast skips, period links and rejected matches, Shortcuts templates, variable budget accounts, bank import cursors, default trade settings, pinned challenges and groups, event offers, the Fast Food reward link, and display and briefing choices. A Finance or Challenges file carries only its own area. Device-wide choices are in the entire-app backup.
+
+**Why.** These values were reset on restore but never exported, so they were lost.
+
+**Effect.** Older backup files still restore and leave these values as they are. A new backup replaces them, including clearing values it does not contain. Restoring no longer creates a second Fast Food reward.
+
+**Not included.** Meal and profile photos, exercise images, price caches, UI refresh counters, developer and setup state, the Trade Republic extract, and everything in the Keychain.
+
 ### 0.5.5: Shop lock on a negative balance
 
 **What changed.** While the wallet is below 0, rewards and streak freezes cannot be bought, including free ones. The shop shows a red lock notice with the balance and the coins still missing, and its buy buttons read Locked. At 0 or above the shop opens again.
@@ -111,6 +121,16 @@ bucht. Die Finanzrechnung ist unverändert und bleibt in
 **Fehlgeschlagene Prüfungen.** Vor diesem Schritt schlugen zwei In-App-Prüfgruppen fehl, wegen vier veralteter Bedingungen. Keine davon war ein App-Fehler, die Bedingungen entsprechen jetzt dem Code: Zwillingszeilen haben verschiedene alte Fingerabdrücke, weil der alte Titel der Verwendungszweck war. `XF000BTC0017` besteht die ISIN-Prüfsumme. Ein Kauf ohne Stückzahl wird über den Durchschnittspreis bemessen. Ein vollständiger Verkauf schließt die Position über ihre Lots, ohne eigenes Entfernen.
 
 **Noch nicht abgedeckt.** Wege, die in den iOS-Kalender schreiben oder Mitteilungen planen, laufen in den Tests nicht: das echte Umschreiben des Termins nach einer Größenänderung, `WorkoutCalendarSync.apply`, Abstinenz-Boni über `settle` und der Rückfall. Ihre reinen Regeln sind getestet. Auch die Wiederherstellung des Gesamt- und des Trainings-Backups läuft nicht, weil sie Trainingsdateien berührt.
+
+### 0.5.5: Vollständiges Backup
+
+**Was sich geändert hat.** Das Backup enthält jetzt auch Umbuchungsprognosen, Erstattungs-Verknüpfungen, übersprungene Prognosen, Zeitraum-Verknüpfungen und abgelehnte Treffer, Kurzbefehl-Vorlagen, Konten variabler Budgets, Bankimport-Stände, Handelsvorgaben, angepinnte Challenges und Gruppen, Termin-Angebote, die Verknüpfung der Fast-Food-Belohnung sowie Anzeige- und Briefing-Einstellungen. Eine Finanz- oder Challenge-Datei enthält nur ihren Bereich. Geräteweite Einstellungen stehen im Gesamt-Backup.
+
+**Warum.** Diese Werte wurden beim Wiederherstellen zurückgesetzt, aber nie exportiert, und gingen dadurch verloren.
+
+**Auswirkung.** Ältere Backup-Dateien lassen sich weiter einspielen und lassen diese Werte unverändert. Ein neues Backup ersetzt sie und entfernt auch Werte, die es nicht enthält. Eine Wiederherstellung legt keine zweite Fast-Food-Belohnung mehr an.
+
+**Nicht enthalten.** Mahlzeiten- und Profilfotos, Übungsbilder, Kurs-Caches, UI-Aktualisierungszähler, Entwickler- und Einrichtungszustand, der Trade-Republic-Auszug und alles im Schlüsselbund.
 
 ### 0.5.5: Shop-Sperre bei negativem Guthaben
 
