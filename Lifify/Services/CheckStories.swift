@@ -452,7 +452,7 @@ enum CheckStories {
             "Gesundheit, Einstellungen und die bemalten Flächen zeigen die Titel, die auf dem Bildschirm stehen.",
             "Health, Settings, and the painted screens show the titles that appear on screen.",
             ("Training, Ernährung und die sechs Einstellungszeilen werden gelesen. Nutzereinstellungen steht über Allgemein.", "Training, Nutrition, and the six settings rows are read. User settings sits above General.", "AppChrome.swift"),
-            ("Die bemalten Flächen umfassen Home, Challenges, Gesundheit, Einstellungen, Einrichtung und Finanzen. Die Version ist 0.5.0. Ohne Schlüssel bleibt der Text, dass die Erkennung nicht verbunden ist.", "The painted screens include Home, Challenges, Health, Settings, setup, and Finance. The version is 0.5.0. Without a key the text still says recognition is not connected.", "HealthView.swift"),
+            ("Die bemalten Flächen umfassen Home, Challenges, Gesundheit, Einstellungen, Einrichtung und Finanzen. Die Version ist 0.5.5. Ohne Schlüssel bleibt der Text, dass die Erkennung nicht verbunden ist.", "The painted screens include Home, Challenges, Health, Settings, setup, and Finance. The version is 0.5.5. Without a key the text still says recognition is not connected.", "HealthView.swift"),
         ),
         "Hell und Dunkel haben eigene Flächen": make(
             "Heller und dunkler Modus haben verschiedene Hintergrund- und Kartenfarben.",

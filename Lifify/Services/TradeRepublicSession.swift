@@ -99,7 +99,7 @@ enum TradeRepublicSample {
     }
 
     static var leftoversInPreferences: Bool {
-        UserDefaults.standard.object(forKey: legacyKey) != nil
+        AppDefaults.store.object(forKey: legacyKey) != nil
     }
 
     static var byteCount: Int {
@@ -149,16 +149,16 @@ enum TradeRepublicSample {
 
     static func clear() {
         try? FileManager.default.removeItem(at: fileURL)
-        UserDefaults.standard.removeObject(forKey: legacyKey)
-        UserDefaults.standard.set(0, forKey: revisionKey)
+        AppDefaults.store.removeObject(forKey: legacyKey)
+        AppDefaults.store.set(0, forKey: revisionKey)
     }
 
     static func purgeLegacyPreferences() {
-        guard let leftover = UserDefaults.standard.string(forKey: legacyKey) else { return }
+        guard let leftover = AppDefaults.store.string(forKey: legacyKey) else { return }
         if fileByteCount() == 0, !leftover.isEmpty {
             try? leftover.write(to: fileURL, atomically: true, encoding: .utf8)
         }
-        UserDefaults.standard.removeObject(forKey: legacyKey)
+        AppDefaults.store.removeObject(forKey: legacyKey)
     }
 
     private static func fileByteCount() -> Int {
@@ -170,7 +170,7 @@ enum TradeRepublicSample {
 
     private static func replace(_ value: String) {
         try? value.write(to: fileURL, atomically: true, encoding: .utf8)
-        UserDefaults.standard.removeObject(forKey: legacyKey)
+        AppDefaults.store.removeObject(forKey: legacyKey)
     }
 
     private static func append(_ value: String) {
@@ -180,15 +180,15 @@ enum TradeRepublicSample {
             defer { try? handle.close() }
             handle.seekToEndOfFile()
             handle.write(data)
-            UserDefaults.standard.removeObject(forKey: legacyKey)
+            AppDefaults.store.removeObject(forKey: legacyKey)
             return
         }
         replace(((try? String(contentsOf: fileURL, encoding: .utf8)) ?? "") + value)
     }
 
     private static func bumpRevision() {
-        let revision = UserDefaults.standard.integer(forKey: revisionKey) + 1
-        UserDefaults.standard.set(revision, forKey: revisionKey)
+        let revision = AppDefaults.store.integer(forKey: revisionKey) + 1
+        AppDefaults.store.set(revision, forKey: revisionKey)
     }
 
     /// Rebuilds a snapshot from a copied sample or a pasted timeline JSON.

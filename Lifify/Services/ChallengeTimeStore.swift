@@ -13,6 +13,13 @@ enum ChallengeTimeStore {
     private static var cachedMembers: [String: [String]]?
     private static var cachedPlanned: [String: Int]?
 
+    static func clearCache() {
+        cachedDurations = nil
+        cachedActuals = nil
+        cachedMembers = nil
+        cachedPlanned = nil
+    }
+
     static func minutes(for challengeID: UUID) -> Int? {
         let value = durations()[challengeID.uuidString] ?? 0
         return value > 0 ? value : nil
@@ -133,10 +140,10 @@ enum ChallengeTimeStore {
         cachedActuals = [:]
         cachedMembers = [:]
         cachedPlanned = [:]
-        UserDefaults.standard.removeObject(forKey: durationKey)
-        UserDefaults.standard.removeObject(forKey: actualKey)
-        UserDefaults.standard.removeObject(forKey: memberKey)
-        UserDefaults.standard.removeObject(forKey: plannedKey)
+        AppDefaults.store.removeObject(forKey: durationKey)
+        AppDefaults.store.removeObject(forKey: actualKey)
+        AppDefaults.store.removeObject(forKey: memberKey)
+        AppDefaults.store.removeObject(forKey: plannedKey)
     }
 
     static func exportRecords() -> [BackupRecord] {
@@ -208,7 +215,7 @@ enum ChallengeTimeStore {
     }
 
     private static func dictionary<T: Decodable>(_ key: String) -> T? {
-        guard let data = UserDefaults.standard.data(forKey: key) else { return nil }
+        guard let data = AppDefaults.store.data(forKey: key) else { return nil }
         return try? JSONDecoder().decode(T.self, from: data)
     }
 
@@ -234,6 +241,6 @@ enum ChallengeTimeStore {
 
     private static func save<T: Encodable>(_ value: T, key: String) {
         guard let data = try? JSONEncoder().encode(value) else { return }
-        UserDefaults.standard.set(data, forKey: key)
+        AppDefaults.store.set(data, forKey: key)
     }
 }

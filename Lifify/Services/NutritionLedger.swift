@@ -68,7 +68,7 @@ enum NutritionLedger {
 
     private static func ensureReward(context: ModelContext) -> RewardItem {
         let stored = (try? context.fetch(FetchDescriptor<RewardItem>())) ?? []
-        if let id = UserDefaults.standard.string(forKey: rewardKey).flatMap(UUID.init(uuidString:)),
+        if let id = AppDefaults.store.string(forKey: rewardKey).flatMap(UUID.init(uuidString:)),
            let existing = stored.first(where: { $0.id == id }) {
             existing.isActive = true
             RewardPolicyStore.setAllowsMultiplePurchases(true, for: existing.id)
@@ -87,7 +87,7 @@ enum NutritionLedger {
         context.insert(reward)
         try? context.save()
         RewardPolicyStore.setAllowsMultiplePurchases(true, for: reward.id)
-        UserDefaults.standard.set(reward.id.uuidString, forKey: rewardKey)
+        AppDefaults.store.set(reward.id.uuidString, forKey: rewardKey)
         return reward
     }
 

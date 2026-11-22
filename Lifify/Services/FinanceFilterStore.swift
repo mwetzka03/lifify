@@ -75,7 +75,7 @@ enum FinancePeriods {
     }
 
     static func primaryForecast(in forecasts: [IncomeForecast]) -> IncomeForecast? {
-        guard let id = UserDefaults.standard.string(forKey: "primaryIncomeForecastID").flatMap(UUID.init(uuidString:)) else {
+        guard let id = AppDefaults.store.string(forKey: "primaryIncomeForecastID").flatMap(UUID.init(uuidString:)) else {
             return nil
         }
         return forecasts.first { $0.id == id }
@@ -131,7 +131,7 @@ enum TradeAccountPreference {
     static let storageKey = "defaultTradeCheckingAccountID"
 
     static func accountID() -> UUID? {
-        UserDefaults.standard.string(forKey: storageKey).flatMap(UUID.init(uuidString:))
+        AppDefaults.store.string(forKey: storageKey).flatMap(UUID.init(uuidString:))
     }
 }
 
@@ -141,7 +141,7 @@ enum TradeFeePreference {
 
     static func editString(cents: Int) -> String {
         let value = String(format: "%.2f", Double(max(cents, 0)) / 100)
-        if UserDefaults.standard.string(forKey: "appLanguage") == "en" {
+        if AppDefaults.store.string(forKey: "appLanguage") == "en" {
             return value
         }
         return value.replacingOccurrences(of: ".", with: ",")

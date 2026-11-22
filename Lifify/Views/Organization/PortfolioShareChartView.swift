@@ -249,7 +249,7 @@ private enum SharePercent {
     }()
 
     static func string(_ fraction: Double) -> String {
-        formatter.locale = Locale(identifier: UserDefaults.standard.string(forKey: "appLanguage") == "en" ? "en_US" : "de_DE")
+        formatter.locale = Locale(identifier: AppDefaults.store.string(forKey: "appLanguage") == "en" ? "en_US" : "de_DE")
         return formatter.string(from: NSNumber(value: fraction)) ?? "0 %"
     }
 }

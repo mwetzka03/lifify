@@ -18,11 +18,11 @@ enum IncomeAssignmentStore {
     static func setPrimary(iban: String, forecastID: UUID) {
         let normalized = normalize(iban)
         if normalized.isEmpty {
-            UserDefaults.standard.removeObject(forKey: "primaryIncomeIBAN")
+            AppDefaults.store.removeObject(forKey: "primaryIncomeIBAN")
         } else {
-            UserDefaults.standard.set(normalized, forKey: "primaryIncomeIBAN")
+            AppDefaults.store.set(normalized, forKey: "primaryIncomeIBAN")
         }
-        UserDefaults.standard.set(forecastID.uuidString, forKey: "primaryIncomeForecastID")
+        AppDefaults.store.set(forecastID.uuidString, forKey: "primaryIncomeForecastID")
     }
 
     static func setSecondary(_ values: [(iban: String, forecastID: UUID)]) {
@@ -31,40 +31,40 @@ enum IncomeAssignmentStore {
             return iban.isEmpty ? nil : (iban, value.forecastID.uuidString)
         }
         let mapping = Dictionary(pairs, uniquingKeysWith: { _, newest in newest })
-        UserDefaults.standard.set(mapping, forKey: "secondaryIncomeMappings")
+        AppDefaults.store.set(mapping, forKey: "secondaryIncomeMappings")
     }
 
     static func forecastID(for iban: String) -> UUID? {
         let normalized = normalize(iban)
         guard !normalized.isEmpty else { return nil }
-        if UserDefaults.standard.string(forKey: "primaryIncomeIBAN") == normalized,
-           let value = UserDefaults.standard.string(forKey: "primaryIncomeForecastID") {
+        if AppDefaults.store.string(forKey: "primaryIncomeIBAN") == normalized,
+           let value = AppDefaults.store.string(forKey: "primaryIncomeForecastID") {
             return UUID(uuidString: value)
         }
-        let mapping = UserDefaults.standard.dictionary(forKey: "secondaryIncomeMappings") as? [String: String]
+        let mapping = AppDefaults.store.dictionary(forKey: "secondaryIncomeMappings") as? [String: String]
         return mapping?[normalized].flatMap(UUID.init(uuidString:))
     }
 
     static func assign(entryID: UUID, to forecastID: UUID) {
-        var mapping = UserDefaults.standard.dictionary(forKey: "incomeEntryAssignments") as? [String: String] ?? [:]
+        var mapping = AppDefaults.store.dictionary(forKey: "incomeEntryAssignments") as? [String: String] ?? [:]
         mapping[entryID.uuidString] = forecastID.uuidString
-        UserDefaults.standard.set(mapping, forKey: "incomeEntryAssignments")
+        AppDefaults.store.set(mapping, forKey: "incomeEntryAssignments")
     }
 
     static func clear(entryID: UUID) {
-        var mapping = UserDefaults.standard.dictionary(forKey: "incomeEntryAssignments") as? [String: String] ?? [:]
+        var mapping = AppDefaults.store.dictionary(forKey: "incomeEntryAssignments") as? [String: String] ?? [:]
         guard mapping.removeValue(forKey: entryID.uuidString) != nil else { return }
-        UserDefaults.standard.set(mapping, forKey: "incomeEntryAssignments")
+        AppDefaults.store.set(mapping, forKey: "incomeEntryAssignments")
     }
 
     static func ibans(for forecastID: UUID) -> [String] {
         var values: [String] = []
-        if UserDefaults.standard.string(forKey: "primaryIncomeForecastID") == forecastID.uuidString,
-           let iban = UserDefaults.standard.string(forKey: "primaryIncomeIBAN") {
+        if AppDefaults.store.string(forKey: "primaryIncomeForecastID") == forecastID.uuidString,
+           let iban = AppDefaults.store.string(forKey: "primaryIncomeIBAN") {
             let normalized = normalize(iban)
             if !normalized.isEmpty { values.append(normalized) }
         }
-        let mapping = UserDefaults.standard.dictionary(forKey: "secondaryIncomeMappings") as? [String: String] ?? [:]
+        let mapping = AppDefaults.store.dictionary(forKey: "secondaryIncomeMappings") as? [String: String] ?? [:]
         for (iban, identifier) in mapping where identifier == forecastID.uuidString {
             let normalized = normalize(iban)
             if !normalized.isEmpty, !values.contains(normalized) { values.append(normalized) }
@@ -73,26 +73,26 @@ enum IncomeAssignmentStore {
     }
 
     static func forecastID(forEntryID entryID: UUID) -> UUID? {
-        let mapping = UserDefaults.standard.dictionary(forKey: "incomeEntryAssignments") as? [String: String]
+        let mapping = AppDefaults.store.dictionary(forKey: "incomeEntryAssignments") as? [String: String]
         return mapping?[entryID.uuidString].flatMap(UUID.init(uuidString:))
     }
 
     static func reset() {
         ["primaryIncomeIBAN", "primaryIncomeForecastID", "secondaryIncomeMappings", "incomeEntryAssignments"].forEach {
-            UserDefaults.standard.removeObject(forKey: $0)
+            AppDefaults.store.removeObject(forKey: $0)
         }
     }
 
     static func fingerprint() -> Int {
         var hasher = Hasher()
-        hasher.combine(UserDefaults.standard.string(forKey: "primaryIncomeIBAN"))
-        hasher.combine(UserDefaults.standard.string(forKey: "primaryIncomeForecastID"))
-        let secondary = UserDefaults.standard.dictionary(forKey: "secondaryIncomeMappings") as? [String: String] ?? [:]
+        hasher.combine(AppDefaults.store.string(forKey: "primaryIncomeIBAN"))
+        hasher.combine(AppDefaults.store.string(forKey: "primaryIncomeForecastID"))
+        let secondary = AppDefaults.store.dictionary(forKey: "secondaryIncomeMappings") as? [String: String] ?? [:]
         for pair in secondary.sorted(by: { $0.key < $1.key }) {
             hasher.combine(pair.key)
             hasher.combine(pair.value)
         }
-        let assigned = UserDefaults.standard.dictionary(forKey: "incomeEntryAssignments") as? [String: String] ?? [:]
+        let assigned = AppDefaults.store.dictionary(forKey: "incomeEntryAssignments") as? [String: String] ?? [:]
         for pair in assigned.sorted(by: { $0.key < $1.key }) {
             hasher.combine(pair.key)
             hasher.combine(pair.value)
@@ -164,7 +164,7 @@ enum RefundLinkStore {
     }
 
     static func reset() {
-        UserDefaults.standard.removeObject(forKey: key)
+        AppDefaults.store.removeObject(forKey: key)
     }
 
     static func fingerprint() -> Int {
@@ -185,11 +185,11 @@ enum RefundLinkStore {
     }
 
     private static func mapping() -> [String: String] {
-        UserDefaults.standard.dictionary(forKey: key) as? [String: String] ?? [:]
+        AppDefaults.store.dictionary(forKey: key) as? [String: String] ?? [:]
     }
 
     private static func save(_ map: [String: String]) {
-        UserDefaults.standard.set(map, forKey: key)
+        AppDefaults.store.set(map, forKey: key)
     }
 }
 
@@ -247,7 +247,7 @@ enum TransferForecastStore {
     private static let key = "lifify.transferForecasts"
 
     static func all() -> [TransferForecastRecord] {
-        guard let data = UserDefaults.standard.data(forKey: key),
+        guard let data = AppDefaults.store.data(forKey: key),
               let decoded = try? JSONDecoder().decode([TransferForecastRecord].self, from: data) else { return [] }
         return decoded
     }
@@ -268,13 +268,13 @@ enum TransferForecastStore {
     }
 
     static func reset() {
-        UserDefaults.standard.removeObject(forKey: key)
+        AppDefaults.store.removeObject(forKey: key)
         TransferForecastAssignmentStore.reset()
     }
 
     private static func save(_ records: [TransferForecastRecord]) {
         guard let data = try? JSONEncoder().encode(records) else { return }
-        UserDefaults.standard.set(data, forKey: key)
+        AppDefaults.store.set(data, forKey: key)
     }
 }
 
@@ -304,7 +304,7 @@ enum TransferForecastAssignmentStore {
     }
 
     static func reset() {
-        UserDefaults.standard.removeObject(forKey: key)
+        AppDefaults.store.removeObject(forKey: key)
     }
 
     static func fingerprint() -> Int {
@@ -317,11 +317,11 @@ enum TransferForecastAssignmentStore {
     }
 
     private static func mapping() -> [String: String] {
-        UserDefaults.standard.dictionary(forKey: key) as? [String: String] ?? [:]
+        AppDefaults.store.dictionary(forKey: key) as? [String: String] ?? [:]
     }
 
     private static func save(_ map: [String: String]) {
-        UserDefaults.standard.set(map, forKey: key)
+        AppDefaults.store.set(map, forKey: key)
     }
 }
 
@@ -349,8 +349,8 @@ enum ForecastSkipStore {
     }
 
     static func reset() {
-        UserDefaults.standard.removeObject(forKey: key)
-        UserDefaults.standard.set(revision() + 1, forKey: revisionKey)
+        AppDefaults.store.removeObject(forKey: key)
+        AppDefaults.store.set(revision() + 1, forKey: revisionKey)
     }
 
     static func fingerprint() -> Int {
@@ -367,16 +367,16 @@ enum ForecastSkipStore {
     }
 
     private static func all() -> Set<String> {
-        Set(UserDefaults.standard.stringArray(forKey: key) ?? [])
+        Set(AppDefaults.store.stringArray(forKey: key) ?? [])
     }
 
     private static func save(_ values: Set<String>) {
-        UserDefaults.standard.set(Array(values), forKey: key)
-        UserDefaults.standard.set(revision() + 1, forKey: revisionKey)
+        AppDefaults.store.set(Array(values), forKey: key)
+        AppDefaults.store.set(revision() + 1, forKey: revisionKey)
     }
 
     private static func revision() -> Int {
-        UserDefaults.standard.integer(forKey: revisionKey)
+        AppDefaults.store.integer(forKey: revisionKey)
     }
 }
 
@@ -412,8 +412,8 @@ enum ForecastPeriodLinkStore {
     }
 
     static func reset() {
-        UserDefaults.standard.removeObject(forKey: key)
-        UserDefaults.standard.set(revision() + 1, forKey: revisionKey)
+        AppDefaults.store.removeObject(forKey: key)
+        AppDefaults.store.set(revision() + 1, forKey: revisionKey)
     }
 
     static func fingerprint() -> Int {
@@ -427,16 +427,16 @@ enum ForecastPeriodLinkStore {
     }
 
     private static func mapping() -> [String: String] {
-        UserDefaults.standard.dictionary(forKey: key) as? [String: String] ?? [:]
+        AppDefaults.store.dictionary(forKey: key) as? [String: String] ?? [:]
     }
 
     private static func save(_ map: [String: String]) {
-        UserDefaults.standard.set(map, forKey: key)
-        UserDefaults.standard.set(revision() + 1, forKey: revisionKey)
+        AppDefaults.store.set(map, forKey: key)
+        AppDefaults.store.set(revision() + 1, forKey: revisionKey)
     }
 
     private static func revision() -> Int {
-        UserDefaults.standard.integer(forKey: revisionKey)
+        AppDefaults.store.integer(forKey: revisionKey)
     }
 }
 
@@ -456,8 +456,8 @@ enum ForecastMatchRejectionStore {
     }
 
     static func reset() {
-        UserDefaults.standard.removeObject(forKey: key)
-        UserDefaults.standard.set(revision() + 1, forKey: revisionKey)
+        AppDefaults.store.removeObject(forKey: key)
+        AppDefaults.store.set(revision() + 1, forKey: revisionKey)
     }
 
     static func fingerprint() -> Int {
@@ -474,32 +474,32 @@ enum ForecastMatchRejectionStore {
     }
 
     private static func all() -> Set<String> {
-        Set(UserDefaults.standard.stringArray(forKey: key) ?? [])
+        Set(AppDefaults.store.stringArray(forKey: key) ?? [])
     }
 
     private static func save(_ values: Set<String>) {
-        UserDefaults.standard.set(Array(values), forKey: key)
-        UserDefaults.standard.set(revision() + 1, forKey: revisionKey)
+        AppDefaults.store.set(Array(values), forKey: key)
+        AppDefaults.store.set(revision() + 1, forKey: revisionKey)
     }
 
     private static func revision() -> Int {
-        UserDefaults.standard.integer(forKey: revisionKey)
+        AppDefaults.store.integer(forKey: revisionKey)
     }
 }
 
 enum RewardPolicyStore {
     static func allowsMultiplePurchases(for rewardID: UUID) -> Bool {
         let key = key(for: rewardID)
-        guard UserDefaults.standard.object(forKey: key) != nil else { return true }
-        return UserDefaults.standard.bool(forKey: key)
+        guard AppDefaults.store.object(forKey: key) != nil else { return true }
+        return AppDefaults.store.bool(forKey: key)
     }
 
     static func setAllowsMultiplePurchases(_ allowed: Bool, for rewardID: UUID) {
-        UserDefaults.standard.set(allowed, forKey: key(for: rewardID))
+        AppDefaults.store.set(allowed, forKey: key(for: rewardID))
     }
 
     static func remove(for rewardID: UUID) {
-        UserDefaults.standard.removeObject(forKey: key(for: rewardID))
+        AppDefaults.store.removeObject(forKey: key(for: rewardID))
     }
 
     private static func key(for rewardID: UUID) -> String {
@@ -555,20 +555,20 @@ enum ExpenseGroupAssignmentStore {
     }
 
     static func reset() {
-        UserDefaults.standard.removeObject(forKey: key)
-        UserDefaults.standard.set(revision() + 1, forKey: revisionKey)
+        AppDefaults.store.removeObject(forKey: key)
+        AppDefaults.store.set(revision() + 1, forKey: revisionKey)
     }
 
     private static func mapping() -> [String: String] {
-        UserDefaults.standard.dictionary(forKey: key) as? [String: String] ?? [:]
+        AppDefaults.store.dictionary(forKey: key) as? [String: String] ?? [:]
     }
 
     private static func save(_ map: [String: String]) {
-        UserDefaults.standard.set(map, forKey: key)
-        UserDefaults.standard.set(revision() + 1, forKey: revisionKey)
+        AppDefaults.store.set(map, forKey: key)
+        AppDefaults.store.set(revision() + 1, forKey: revisionKey)
     }
 
     private static func revision() -> Int {
-        UserDefaults.standard.integer(forKey: revisionKey)
+        AppDefaults.store.integer(forKey: revisionKey)
     }
 }

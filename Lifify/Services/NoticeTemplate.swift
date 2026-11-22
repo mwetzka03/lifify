@@ -79,7 +79,7 @@ enum NoticeTemplateStore {
     private static let key = "lifify.noticeTemplates"
 
     static func all() -> [NoticeTemplate] {
-        guard let data = UserDefaults.standard.data(forKey: key),
+        guard let data = AppDefaults.store.data(forKey: key),
               let rows = try? JSONDecoder().decode([NoticeTemplate].self, from: data)
         else { return [] }
         return rows
@@ -87,7 +87,7 @@ enum NoticeTemplateStore {
 
     static func save(_ templates: [NoticeTemplate]) {
         guard let data = try? JSONEncoder().encode(templates) else { return }
-        UserDefaults.standard.set(data, forKey: key)
+        AppDefaults.store.set(data, forKey: key)
     }
 
     static func matching(text: String, accountID: UUID, in templates: [NoticeTemplate]) -> NoticeTemplate? {
@@ -97,6 +97,6 @@ enum NoticeTemplateStore {
     }
 
     static func reset() {
-        UserDefaults.standard.removeObject(forKey: key)
+        AppDefaults.store.removeObject(forKey: key)
     }
 }

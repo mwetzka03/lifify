@@ -42,7 +42,7 @@ enum RestChime {
     ]
 
     static var selectedID: Int {
-        let stored = UserDefaults.standard.object(forKey: storageKey) as? Int ?? 1005
+        let stored = AppDefaults.store.object(forKey: storageKey) as? Int ?? 1005
         return tones.contains { $0.id == stored } ? stored : 1005
     }
 

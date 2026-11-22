@@ -325,13 +325,13 @@ enum EventGroupName {
 enum EventOffer {
     static func enabled(stored: Bool?) -> Bool { stored ?? true }
 
-    static func isEnabled(for id: UUID, defaults: UserDefaults = .standard) -> Bool {
+    static func isEnabled(for id: UUID, defaults: UserDefaults = AppDefaults.store) -> Bool {
         let key = storageKey(id)
         guard defaults.object(forKey: key) != nil else { return enabled(stored: nil) }
         return enabled(stored: defaults.bool(forKey: key))
     }
 
-    static func set(_ value: Bool, for id: UUID, defaults: UserDefaults = .standard) {
+    static func set(_ value: Bool, for id: UUID, defaults: UserDefaults = AppDefaults.store) {
         defaults.set(value, forKey: storageKey(id))
     }
 

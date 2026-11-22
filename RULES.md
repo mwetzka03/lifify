@@ -9,7 +9,7 @@ These rules apply to every change in Lifify.
 ### Language
 
 Document a change in English and in German. English comes first. Each version
-has its own changelog, as [CHANGES-0.5.0.md](Changes%20Documentation/CHANGES-0.5.0.md) does for 0.5.0.
+has its own changelog, as [CHANGES-0.5.5.md](Changes%20Documentation/CHANGES-0.5.5.md) does for 0.5.5.
 Those version files live in Changes Documentation. The README and the other
 documents stay at the top and stay bilingual in the same way.
 
@@ -20,6 +20,12 @@ the other checks, they are grouped by topic, and they do not write the user's
 data. A check page names the source files that matter, the methods the check
 calls, and what the measured line means in plain language. The measured line
 is shown once. Each step says what should happen and which file it reads.
+
+### Tests
+
+Rule tests live in `LififyTests` and use Swift Testing. They run through
+`withTestStore`, which provides an in-memory database and a private UserDefaults
+suite. Services read UserDefaults through `AppDefaults.store`, never directly.
 
 ### Design
 
@@ -37,7 +43,7 @@ own colors.
 
 Eine Änderung wird auf Englisch und auf Deutsch dokumentiert. Englisch steht
 zuerst. Jede Version hat ihr eigenes Änderungsprotokoll, so wie
-[CHANGES-0.5.0.md](Changes%20Documentation/CHANGES-0.5.0.md) für 0.5.0. Diese
+[CHANGES-0.5.5.md](Changes%20Documentation/CHANGES-0.5.5.md) für 0.5.5. Diese
 Versionsdateien liegen in Changes Documentation. Die README und die übrigen
 Dokumente bleiben oben und auf dieselbe Weise zweisprachig.
 
@@ -49,6 +55,13 @@ sie schreiben keine Nutzerdaten. Eine Prüfseite nennt die Quelldateien, die
 dazugehören, die Methoden, die die Prüfung aufruft, und in einfacher Sprache,
 was die gemessene Zeile bedeutet. Die gemessene Zeile steht einmal da. Jeder
 Schritt sagt, was passieren soll, und nennt die Datei, die er liest.
+
+### Tests
+
+Regeltests liegen in `LififyTests` und nutzen Swift Testing. Sie laufen über
+`withTestStore`, das eine In-Memory-Datenbank und eine eigene
+UserDefaults-Suite bereitstellt. Services lesen UserDefaults über
+`AppDefaults.store`, nie direkt.
 
 ### Design
 

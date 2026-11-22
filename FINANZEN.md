@@ -5,7 +5,7 @@
 ## English
 
 This file describes how Lifify calculates accounts, periods, income, expenses,
-the portfolio, and the home budget. The calculations are unchanged in 0.5.0.
+the portfolio, and the home budget. The calculations are unchanged in 0.5.5.
 This is the 0.3.0 rule set, and it still applies.
 
 Period and account are one shared filter. A change applies in the finance
@@ -560,7 +560,7 @@ not mention them.
 ## Deutsch
 
 Diese Datei beschreibt, wie Lifify Konten, Zeiträume, Einnahmen, Ausgaben,
-Depot und das Home-Budget rechnet. Die Rechnung ist in 0.5.0 unverändert.
+Depot und das Home-Budget rechnet. Die Rechnung ist in 0.5.5 unverändert.
 Das ist der Regelstand von 0.3.0, und er gilt weiter.
 
 Zeitraum und Konto sind ein gemeinsamer Filter. Eine Änderung gilt in der

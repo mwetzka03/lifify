@@ -2,7 +2,7 @@
 
 ## English
 
-Lifify is version **0.5.0**. Finance, portfolio, and budget calculations are in
+Lifify is version **0.5.5**. Finance, portfolio, and budget calculations are in
 [FINANZEN.md](FINANZEN.md) and are unchanged. The German list below is the
 feature set. In 0.5.0, setup can sign in to Trade Republic by hand and import
 the depot from that session, and a Shortcut can book a Sparkasse or Trade
@@ -17,7 +17,7 @@ challenge follows the body goal.
 
 # Lifify – Funktionsumfang und Annahmen
 
-Die App ist Version **0.5.0**. Wie Finanzen, Depot und Budget rechnen, steht
+Die App ist Version **0.5.5**. Wie Finanzen, Depot und Budget rechnen, steht
 in [FINANZEN.md](FINANZEN.md) und ist unverändert. Der Gesundheit-Tab ist kein
 Platzhalter mehr: Training und Ernährung sind umgesetzt.
 Home, Challenges, Gesundheit, Einstellungen und die Einrichtung liegen im

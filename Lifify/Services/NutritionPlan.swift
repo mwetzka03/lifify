@@ -85,7 +85,7 @@ enum UserBody {
     static let sexKey = "lifify.userSex"
     static let goalKey = "lifify.userGoal"
 
-    static func current(defaults: UserDefaults = .standard) -> BodyMeasures {
+    static func current(defaults: UserDefaults = AppDefaults.store) -> BodyMeasures {
         BodyMeasures(
             heightCm: defaults.double(forKey: heightKey),
             weightKg: defaults.double(forKey: weightKey),
@@ -94,11 +94,11 @@ enum UserBody {
         )
     }
 
-    static func heightText(defaults: UserDefaults = .standard) -> String {
+    static func heightText(defaults: UserDefaults = AppDefaults.store) -> String {
         text(current(defaults: defaults).heightCm)
     }
 
-    static func weightText(defaults: UserDefaults = .standard) -> String {
+    static func weightText(defaults: UserDefaults = AppDefaults.store) -> String {
         text(current(defaults: defaults).weightKg)
     }
 
@@ -107,7 +107,7 @@ enum UserBody {
         weightText: String,
         sex: BodySex,
         goal: BodyGoal,
-        defaults: UserDefaults = .standard
+        defaults: UserDefaults = AppDefaults.store
     ) {
         store(NutritionPlan.amount(from: heightText), key: heightKey, defaults: defaults)
         store(NutritionPlan.amount(from: weightText), key: weightKey, defaults: defaults)
@@ -115,7 +115,7 @@ enum UserBody {
         defaults.set(goal.rawValue, forKey: goalKey)
     }
 
-    static func restore(height: String, weight: String, sex: String, goal: String, defaults: UserDefaults = .standard) {
+    static func restore(height: String, weight: String, sex: String, goal: String, defaults: UserDefaults = AppDefaults.store) {
         save(
             heightText: height,
             weightText: weight,
@@ -125,7 +125,7 @@ enum UserBody {
         )
     }
 
-    static func reset(defaults: UserDefaults = .standard) {
+    static func reset(defaults: UserDefaults = AppDefaults.store) {
         defaults.removeObject(forKey: heightKey)
         defaults.removeObject(forKey: weightKey)
         defaults.removeObject(forKey: sexKey)
@@ -143,7 +143,7 @@ enum UserBody {
     private static func text(_ value: Double) -> String {
         guard value > 0 else { return "" }
         let shown = value.rounded() == value ? String(Int(value)) : String(format: "%.1f", value)
-        if UserDefaults.standard.string(forKey: "appLanguage") == "en" { return shown }
+        if AppDefaults.store.string(forKey: "appLanguage") == "en" { return shown }
         return shown.replacingOccurrences(of: ".", with: ",")
     }
 }
@@ -616,14 +616,14 @@ enum NutritionPlan {
 enum MealLog {
     private static let key = "lifify.meals"
 
-    static func all(defaults: UserDefaults = .standard) -> [MealRecord] {
+    static func all(defaults: UserDefaults = AppDefaults.store) -> [MealRecord] {
         guard let data = defaults.data(forKey: key),
               let meals = try? JSONDecoder().decode([MealRecord].self, from: data)
         else { return [] }
         return meals.sorted { $0.createdAt < $1.createdAt }
     }
 
-    static func upsert(_ meal: MealRecord, defaults: UserDefaults = .standard) {
+    static func upsert(_ meal: MealRecord, defaults: UserDefaults = AppDefaults.store) {
         var meals = all(defaults: defaults)
         if let index = meals.firstIndex(where: { $0.id == meal.id }) {
             meals[index] = meal
@@ -633,21 +633,21 @@ enum MealLog {
         save(meals, defaults: defaults)
     }
 
-    static func remove(id: UUID, defaults: UserDefaults = .standard) {
+    static func remove(id: UUID, defaults: UserDefaults = AppDefaults.store) {
         save(all(defaults: defaults).filter { $0.id != id }, defaults: defaults)
     }
 
-    static func reset(defaults: UserDefaults = .standard) {
+    static func reset(defaults: UserDefaults = AppDefaults.store) {
         defaults.removeObject(forKey: key)
     }
 
-    static func exportJSON(defaults: UserDefaults = .standard) -> String {
+    static func exportJSON(defaults: UserDefaults = AppDefaults.store) -> String {
         let meals = all(defaults: defaults)
         guard !meals.isEmpty, let data = try? JSONEncoder().encode(meals) else { return "" }
         return String(decoding: data, as: UTF8.self)
     }
 
-    static func restore(json: String, defaults: UserDefaults = .standard) {
+    static func restore(json: String, defaults: UserDefaults = AppDefaults.store) {
         guard let data = json.data(using: .utf8),
               let meals = try? JSONDecoder().decode([MealRecord].self, from: data)
         else {

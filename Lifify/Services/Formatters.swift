@@ -1,14 +1,14 @@
 import Foundation
 
 func L(_ german: String, _ english: String) -> String {
-    UserDefaults.standard.string(forKey: "appLanguage") == "en" ? english : german
+    AppDefaults.store.string(forKey: "appLanguage") == "en" ? english : german
 }
 
 enum Money {
     static func string(cents: Int) -> String {
         let formatter = NumberFormatter()
         formatter.numberStyle = .currency
-        formatter.locale = Locale(identifier: UserDefaults.standard.string(forKey: "appLanguage") == "en" ? "en_US" : "de_DE")
+        formatter.locale = Locale(identifier: AppDefaults.store.string(forKey: "appLanguage") == "en" ? "en_US" : "de_DE")
         return formatter.string(from: NSNumber(value: Double(cents) / 100)) ?? "\(Double(cents) / 100)"
     }
 
@@ -43,7 +43,7 @@ enum Money {
 
 enum AppDate {
     static var isGerman: Bool {
-        UserDefaults.standard.string(forKey: "appLanguage") != "en"
+        AppDefaults.store.string(forKey: "appLanguage") != "en"
     }
 
     static var locale: Locale {

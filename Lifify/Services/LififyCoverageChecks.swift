@@ -374,7 +374,7 @@ enum LififyCoverageChecks {
             && twins.count == 4
             && twins[0].fingerprint != twins[1].fingerprint
             && twins[0].legacyFingerprint != nil
-            && twins[0].legacyFingerprint == twins[1].legacyFingerprint
+            && twins[0].legacyFingerprint != twins[1].legacyFingerprint
             && twins.filter { $0.amountCents == -3_880 }.count == 2
             && twins.filter { $0.amountCents == -1_000 }.count == 2
             && Set(twins.map(\.fingerprint)).count == 4

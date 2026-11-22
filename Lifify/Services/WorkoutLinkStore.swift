@@ -125,8 +125,8 @@ enum WorkoutLinkStore {
     }
 
     static func reset() {
-        UserDefaults.standard.removeObject(forKey: challengeKey)
-        UserDefaults.standard.removeObject(forKey: eventKey)
+        AppDefaults.store.removeObject(forKey: challengeKey)
+        AppDefaults.store.removeObject(forKey: eventKey)
         bump()
     }
 
@@ -147,7 +147,7 @@ enum WorkoutLinkStore {
     }
 
     private static func decode<T: Decodable>(_ key: String) -> [T] {
-        guard let data = UserDefaults.standard.data(forKey: key),
+        guard let data = AppDefaults.store.data(forKey: key),
               let rows = try? JSONDecoder().decode([T].self, from: data)
         else { return [] }
         return rows
@@ -155,11 +155,11 @@ enum WorkoutLinkStore {
 
     private static func encode<T: Encodable>(_ rows: [T], key: String, bumpRevision: Bool = true) {
         guard let data = try? JSONEncoder().encode(rows) else { return }
-        UserDefaults.standard.set(data, forKey: key)
+        AppDefaults.store.set(data, forKey: key)
         if bumpRevision { bump() }
     }
 
     private static func bump() {
-        UserDefaults.standard.set(UserDefaults.standard.integer(forKey: revisionKey) + 1, forKey: revisionKey)
+        AppDefaults.store.set(AppDefaults.store.integer(forKey: revisionKey) + 1, forKey: revisionKey)
     }
 }

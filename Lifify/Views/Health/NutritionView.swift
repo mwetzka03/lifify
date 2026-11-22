@@ -443,7 +443,7 @@ struct NutritionBoard: View {
 
     private func storePhoto(_ data: Data?, on key: String, fromCamera: Bool) async {
         if fromCamera,
-           MealCapture.keepsInLibrary(UserDefaults.standard.bool(forKey: MealCapture.saveKey)),
+           MealCapture.keepsInLibrary(AppDefaults.store.bool(forKey: MealCapture.saveKey)),
            let data,
            let image = UIImage(data: data) {
             MealCapture.saveToLibrary(image)
@@ -660,7 +660,7 @@ private struct MealEditor: View {
 
     private static func amountText(_ value: Double) -> String {
         let shown = value.rounded() == value ? String(Int(value)) : String(format: "%.1f", value)
-        if UserDefaults.standard.string(forKey: "appLanguage") == "en" { return shown }
+        if AppDefaults.store.string(forKey: "appLanguage") == "en" { return shown }
         return shown.replacingOccurrences(of: ".", with: ",")
     }
 }

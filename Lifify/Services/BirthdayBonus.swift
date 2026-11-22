@@ -60,11 +60,11 @@ enum UserProfile {
     static let birthKey = "userBirthDate"
     static let awardedYearKey = "lifify.birthdayAwardedYear"
 
-    static func birth(defaults: UserDefaults = .standard) -> Birthday? {
+    static func birth(defaults: UserDefaults = AppDefaults.store) -> Birthday? {
         parse(defaults.string(forKey: birthKey) ?? "")
     }
 
-    static func birthDate(calendar: Calendar = .current, defaults: UserDefaults = .standard) -> Date? {
+    static func birthDate(calendar: Calendar = .current, defaults: UserDefaults = AppDefaults.store) -> Date? {
         guard let birth = birth(defaults: defaults) else { return nil }
         return calendar.date(from: DateComponents(year: birth.year, month: birth.month, day: birth.day))
     }
@@ -74,7 +74,7 @@ enum UserProfile {
         return calendar.date(from: DateComponents(year: year, month: 1, day: 1)) ?? Date()
     }
 
-    static func setBirthDate(_ date: Date, calendar: Calendar = .current, defaults: UserDefaults = .standard) {
+    static func setBirthDate(_ date: Date, calendar: Calendar = .current, defaults: UserDefaults = AppDefaults.store) {
         let today = calendar.startOfDay(for: Date())
         let chosen = min(calendar.startOfDay(for: date), today)
         let parts = calendar.dateComponents([.year, .month, .day], from: chosen)
@@ -82,25 +82,25 @@ enum UserProfile {
         defaults.set(raw(Birthday(year: year, month: month, day: day)), forKey: birthKey)
     }
 
-    static func birthRaw(defaults: UserDefaults = .standard) -> String {
+    static func birthRaw(defaults: UserDefaults = AppDefaults.store) -> String {
         defaults.string(forKey: birthKey) ?? ""
     }
 
-    static func awardedYear(defaults: UserDefaults = .standard) -> Int? {
+    static func awardedYear(defaults: UserDefaults = AppDefaults.store) -> Int? {
         let year = defaults.integer(forKey: awardedYearKey)
         return year > 0 ? year : nil
     }
 
-    static func awardedYearRaw(defaults: UserDefaults = .standard) -> String {
+    static func awardedYearRaw(defaults: UserDefaults = AppDefaults.store) -> String {
         guard let year = awardedYear(defaults: defaults) else { return "" }
         return String(year)
     }
 
-    static func setAwardedYear(_ year: Int, defaults: UserDefaults = .standard) {
+    static func setAwardedYear(_ year: Int, defaults: UserDefaults = AppDefaults.store) {
         defaults.set(year, forKey: awardedYearKey)
     }
 
-    static func restore(birthRaw: String, awardedYearRaw: String, defaults: UserDefaults = .standard) {
+    static func restore(birthRaw: String, awardedYearRaw: String, defaults: UserDefaults = AppDefaults.store) {
         if let birth = parse(birthRaw) {
             defaults.set(raw(birth), forKey: birthKey)
         } else {
@@ -113,7 +113,7 @@ enum UserProfile {
         }
     }
 
-    static func reset(defaults: UserDefaults = .standard) {
+    static func reset(defaults: UserDefaults = AppDefaults.store) {
         defaults.removeObject(forKey: birthKey)
         defaults.removeObject(forKey: awardedYearKey)
     }

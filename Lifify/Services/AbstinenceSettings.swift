@@ -43,6 +43,16 @@ enum AbstinenceSettings {
     private static var cachedExceptions: [String: [AbstinenceException]]?
     private static var cachedRewardLinks: [String: String]?
 
+    static func clearCache() {
+        cachedDifficulty = nil
+        cachedAwarded = nil
+        cachedMultipliers = nil
+        cachedRelapses = nil
+        cachedNotices = nil
+        cachedExceptions = nil
+        cachedRewardLinks = nil
+    }
+
     static func difficulty(for challengeID: UUID) -> AbstinenceDifficulty {
         let raw = difficulties()[challengeID.uuidString] ?? ""
         return AbstinenceDifficulty(rawValue: raw) ?? .medium
@@ -186,13 +196,13 @@ enum AbstinenceSettings {
         cachedNotices = []
         cachedExceptions = [:]
         cachedRewardLinks = [:]
-        UserDefaults.standard.removeObject(forKey: difficultyKey)
-        UserDefaults.standard.removeObject(forKey: awardedKey)
-        UserDefaults.standard.removeObject(forKey: multiplierKey)
-        UserDefaults.standard.removeObject(forKey: relapseKey)
-        UserDefaults.standard.removeObject(forKey: noticeKey)
-        UserDefaults.standard.removeObject(forKey: exceptionKey)
-        UserDefaults.standard.removeObject(forKey: rewardLinkKey)
+        AppDefaults.store.removeObject(forKey: difficultyKey)
+        AppDefaults.store.removeObject(forKey: awardedKey)
+        AppDefaults.store.removeObject(forKey: multiplierKey)
+        AppDefaults.store.removeObject(forKey: relapseKey)
+        AppDefaults.store.removeObject(forKey: noticeKey)
+        AppDefaults.store.removeObject(forKey: exceptionKey)
+        AppDefaults.store.removeObject(forKey: rewardLinkKey)
         bump()
     }
 
@@ -333,7 +343,7 @@ enum AbstinenceSettings {
 
     private static func format(_ value: Double) -> String {
         let formatter = NumberFormatter()
-        formatter.locale = Locale(identifier: UserDefaults.standard.string(forKey: "appLanguage") == "en" ? "en_US" : "de_DE")
+        formatter.locale = Locale(identifier: AppDefaults.store.string(forKey: "appLanguage") == "en" ? "en_US" : "de_DE")
         formatter.minimumFractionDigits = 0
         formatter.maximumFractionDigits = 2
         formatter.numberStyle = .decimal
@@ -362,7 +372,7 @@ enum AbstinenceSettings {
     }
 
     private static func dictionary<T: Decodable>(_ key: String, as type: T.Type) -> T? {
-        guard let data = UserDefaults.standard.data(forKey: key) else { return nil }
+        guard let data = AppDefaults.store.data(forKey: key) else { return nil }
         return try? JSONDecoder().decode(type, from: data)
     }
 
@@ -431,11 +441,11 @@ enum AbstinenceSettings {
 
     private static func save<T: Encodable>(_ value: T, key: String) {
         guard let data = try? JSONEncoder().encode(value) else { return }
-        UserDefaults.standard.set(data, forKey: key)
+        AppDefaults.store.set(data, forKey: key)
         bump()
     }
 
     private static func bump() {
-        UserDefaults.standard.set(UserDefaults.standard.integer(forKey: revisionKey) + 1, forKey: revisionKey)
+        AppDefaults.store.set(AppDefaults.store.integer(forKey: revisionKey) + 1, forKey: revisionKey)
     }
 }

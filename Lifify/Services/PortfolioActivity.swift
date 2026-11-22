@@ -79,6 +79,11 @@ enum HoldingLotStore {
     private static var cached: [String: [HoldingLot]]?
     private(set) static var cacheRevision = 0
 
+    static func clearCache() {
+        cached = nil
+        cacheRevision &+= 1
+    }
+
     static func lots(for holdingID: UUID) -> [HoldingLot] {
         snapshot()[holdingID.uuidString] ?? []
     }
@@ -120,7 +125,7 @@ enum HoldingLotStore {
     }
 
     static func reset() {
-        UserDefaults.standard.removeObject(forKey: key)
+        AppDefaults.store.removeObject(forKey: key)
         cached = [:]
         cacheRevision += 1
     }
@@ -128,7 +133,7 @@ enum HoldingLotStore {
     private static func snapshot() -> [String: [HoldingLot]] {
         if let cached { return cached }
         let decoded: [String: [HoldingLot]]
-        if let data = UserDefaults.standard.data(forKey: key),
+        if let data = AppDefaults.store.data(forKey: key),
            let value = try? JSONDecoder().decode([String: [HoldingLot]].self, from: data) {
             decoded = value
         } else {
@@ -140,7 +145,7 @@ enum HoldingLotStore {
 
     private static func save(_ map: [String: [HoldingLot]]) {
         guard let data = try? JSONEncoder().encode(map) else { return }
-        UserDefaults.standard.set(data, forKey: key)
+        AppDefaults.store.set(data, forKey: key)
         cached = map
         cacheRevision += 1
     }
@@ -189,10 +194,15 @@ enum SavingsPlanStore {
     private static var cached: [SavingsPlanRecord]?
     private(set) static var cacheRevision = 0
 
+    static func clearCache() {
+        cached = nil
+        cacheRevision &+= 1
+    }
+
     static func all() -> [SavingsPlanRecord] {
         if let cached { return cached }
         let decoded: [SavingsPlanRecord]
-        if let data = UserDefaults.standard.data(forKey: key),
+        if let data = AppDefaults.store.data(forKey: key),
            let value = try? JSONDecoder().decode([SavingsPlanRecord].self, from: data) {
             decoded = value
         } else {
@@ -227,18 +237,18 @@ enum SavingsPlanStore {
     }
 
     static func reset() {
-        UserDefaults.standard.removeObject(forKey: key)
+        AppDefaults.store.removeObject(forKey: key)
         cached = []
         cacheRevision += 1
     }
 
     static func save(_ plans: [SavingsPlanRecord]) {
         guard let data = try? JSONEncoder().encode(plans) else { return }
-        if UserDefaults.standard.data(forKey: key) == data {
+        if AppDefaults.store.data(forKey: key) == data {
             cached = plans
             return
         }
-        UserDefaults.standard.set(data, forKey: key)
+        AppDefaults.store.set(data, forKey: key)
         cached = plans
         cacheRevision += 1
     }
@@ -475,6 +485,13 @@ enum HoldingMaintenance {
 
     private static var shareCacheKey: ShareCacheKey?
     private static var shareCache = FutureShares()
+
+    static func clearCache() {
+        quantityMemoKey = nil
+        quantityMemo = [:]
+        shareCacheKey = nil
+        shareCache = FutureShares()
+    }
 
     /// Each future execution buys `amount / current price` shares. The euro value of those
     /// shares is the nominal plan amount, so it is not added a second time.
@@ -740,10 +757,14 @@ enum ClosedPositionStore {
     private static let key = "lifify.closedPositions"
     private static var cached: [ClosedPositionRecord]?
 
+    static func clearCache() {
+        cached = nil
+    }
+
     static func all() -> [ClosedPositionRecord] {
         if let cached { return cached }
         let decoded: [ClosedPositionRecord]
-        if let data = UserDefaults.standard.data(forKey: key),
+        if let data = AppDefaults.store.data(forKey: key),
            let value = try? JSONDecoder().decode([ClosedPositionRecord].self, from: data) {
             decoded = value
         } else {
@@ -767,13 +788,13 @@ enum ClosedPositionStore {
     }
 
     static func reset() {
-        UserDefaults.standard.removeObject(forKey: key)
+        AppDefaults.store.removeObject(forKey: key)
         cached = []
     }
 
     private static func save(_ rows: [ClosedPositionRecord]) {
         guard let data = try? JSONEncoder().encode(rows) else { return }
-        UserDefaults.standard.set(data, forKey: key)
+        AppDefaults.store.set(data, forKey: key)
         cached = rows
     }
 }

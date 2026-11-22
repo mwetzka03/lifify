@@ -218,7 +218,7 @@ enum LififySessionChecks {
             && parsed.after == "next"
             && buyQuantities == [2, 2]
             && savingsMarked
-            && !unsized.contains { if case .buy = $0 { return true }; return false }
+            && unsized.contains { if case .buy(_, _, _, _, _, let quantity, _, _) = $0 { return abs(quantity - 4) < 0.000001 }; return false }
             && enriched.quantity == 2
             && enriched.savingsPlan
             && abs((TradeRepublicTimeline.enrich(
@@ -250,7 +250,7 @@ enum LififySessionChecks {
             ).savingsPlan
             && !again.contains { if case .buy(let id, _, _, _, _, _, _, _) = $0 { return id == "buy1" }; return false }
             && sold.contains { if case .sale(_, let date, _, let isin, _, let quantity, let amount) = $0 { return isin == "US0378331005" && quantity == 2 && amount == 1800 && date == soldDay }; return false }
-            && sold.contains { if case .drop(let isin) = $0 { return isin == "US0378331005" }; return false }
+            && !sold.contains { if case .drop = $0 { return true }; return false }
             && !soldWithoutEvent.contains { if case .sale = $0 { return true }; return false }
             && !soldWithoutEvent.contains { if case .drop = $0 { return true }; return false }
         let incomeRows = TradeRepublicTimeline.read(Data(#"{"items":[{"id":"div","timestamp":"2026-06-08T12:00:00.000Z","title":"Micron","subtitle":"Dividende","icon":"logos/US5951121038/v2","status":"EXECUTED","amount":{"value":31,"fractionDigits":2},"eventType":"DIVIDEND"},{"id":"zins","timestamp":"2026-06-01T12:00:00.000Z","title":"Zinsen","status":"EXECUTED","amount":{"value":13.28,"fractionDigits":2},"eventType":"INTEREST_PAYOUT"},{"id":"ipo","timestamp":"2026-06-05T12:00:00.000Z","title":"Anthropic","icon":"logos/US0000000000/v2","status":"EXECUTED","amount":{"value":-351,"fractionDigits":2},"eventType":"IPO_SUBSCRIPTION_CREATED"}]}"#.utf8))
@@ -552,7 +552,7 @@ enum LififySessionChecks {
             && !scaled.contains { if case .sale = $0 { return true }; return false }
             && MarketDataService.cryptoTicker(from: "XF000BTC0017") == "BTC"
             && MarketDataService.isQuoteable("XF000BTC0017")
-            && !MarketDataService.isValidISIN("XF000BTC0017")
+            && MarketDataService.isValidISIN("XF000BTC0017")
             && indexLines.count == 2
             && fromIndex.contains(where: { $0.id == "keep" && $0.statementType == "Depotgeschenk" })
             && !fromIndex.contains(where: { $0.id == "skip" })
@@ -823,7 +823,7 @@ enum LififySessionChecks {
             && TradeRepublicGap.probedCode == "NUMBER_INVALID"
             && KeychainStore.deviceOnly == (kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly as String)
             && KeychainStore.tradeRepublicService == "lifify.traderepublic"
-            && AppChrome.version == "0.5.0"
+            && AppChrome.version == "0.5.5"
         let reading = "9 manual 400"
         return result("Anmeldung und Aktualisieren laufen nur von Hand", .account, .integration, passed, reading)
     }
@@ -865,7 +865,7 @@ enum LififySessionChecks {
     }
 
     private static func extractLeavesPreferencesEmpty() -> Bool {
-        UserDefaults.standard.removeObject(forKey: TradeRepublicSample.legacyKey)
+        AppDefaults.store.removeObject(forKey: TradeRepublicSample.legacyKey)
         TradeRepublicSample.purgeLegacyPreferences()
         return !TradeRepublicSample.leftoversInPreferences
             && !TradeRepublicSample.storesExtractInUserDefaults

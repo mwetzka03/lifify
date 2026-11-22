@@ -271,26 +271,26 @@ enum BankImportCursor {
     private static let currentPrefix = "lifify.bankImport.current."
 
     static func date(for accountID: UUID) -> Date? {
-        let stored = UserDefaults.standard.double(forKey: key(accountID))
+        let stored = AppDefaults.store.double(forKey: key(accountID))
         guard stored > 0 else { return nil }
         return Date(timeIntervalSince1970: stored)
     }
 
     static func currentCents(for accountID: UUID) -> Int? {
         let key = currentKey(accountID)
-        guard UserDefaults.standard.object(forKey: key) != nil else { return nil }
-        return UserDefaults.standard.integer(forKey: key)
+        guard AppDefaults.store.object(forKey: key) != nil else { return nil }
+        return AppDefaults.store.integer(forKey: key)
     }
 
     static func mark(_ accountID: UUID, at date: Date = Date(), currentCents: Int? = nil) {
-        UserDefaults.standard.set(date.timeIntervalSince1970, forKey: key(accountID))
+        AppDefaults.store.set(date.timeIntervalSince1970, forKey: key(accountID))
         if let currentCents {
-            UserDefaults.standard.set(currentCents, forKey: currentKey(accountID))
+            AppDefaults.store.set(currentCents, forKey: currentKey(accountID))
         }
     }
 
     static func reset() {
-        let defaults = UserDefaults.standard
+        let defaults = AppDefaults.store
         for key in defaults.dictionaryRepresentation().keys
         where key.hasPrefix(prefix) || key.hasPrefix(currentPrefix) {
             defaults.removeObject(forKey: key)
@@ -312,18 +312,18 @@ enum PortfolioLinkStore {
     }
 
     static func portfolioID(for checkingID: UUID) -> UUID? {
-        UserDefaults.standard.string(forKey: key(for: checkingID)).flatMap(UUID.init(uuidString:))
+        AppDefaults.store.string(forKey: key(for: checkingID)).flatMap(UUID.init(uuidString:))
     }
 
     static func link(portfolio portfolioID: UUID, to checkingID: UUID) {
         unlink(portfolio: portfolioID)
-        UserDefaults.standard.set(portfolioID.uuidString, forKey: key(for: checkingID))
+        AppDefaults.store.set(portfolioID.uuidString, forKey: key(for: checkingID))
     }
 
     static func checkingID(for portfolioID: UUID) -> UUID? {
         let prefix = "lifify.portfolioLink."
         let target = portfolioID.uuidString
-        for (key, value) in UserDefaults.standard.dictionaryRepresentation() {
+        for (key, value) in AppDefaults.store.dictionaryRepresentation() {
             guard key.hasPrefix(prefix), (value as? String) == target else { continue }
             return UUID(uuidString: String(key.dropFirst(prefix.count)))
         }
@@ -331,21 +331,21 @@ enum PortfolioLinkStore {
     }
 
     static func unlink(checkingID: UUID) {
-        UserDefaults.standard.removeObject(forKey: key(for: checkingID))
+        AppDefaults.store.removeObject(forKey: key(for: checkingID))
     }
 
     static func unlink(portfolio portfolioID: UUID) {
         let prefix = "lifify.portfolioLink."
         let target = portfolioID.uuidString
-        for (key, value) in UserDefaults.standard.dictionaryRepresentation() {
+        for (key, value) in AppDefaults.store.dictionaryRepresentation() {
             guard key.hasPrefix(prefix), (value as? String) == target else { continue }
-            UserDefaults.standard.removeObject(forKey: key)
+            AppDefaults.store.removeObject(forKey: key)
         }
     }
 
     static func allLinks() -> [(checkingID: UUID, portfolioID: UUID)] {
         let prefix = "lifify.portfolioLink."
-        return UserDefaults.standard.dictionaryRepresentation().compactMap { key, value in
+        return AppDefaults.store.dictionaryRepresentation().compactMap { key, value in
             guard key.hasPrefix(prefix),
                   let checkingID = UUID(uuidString: String(key.dropFirst(prefix.count))),
                   let raw = value as? String,
@@ -609,7 +609,7 @@ enum BankImportApplier {
         }
         guard let earliest = dates.min() else { return nil }
         let forecasts = (try? context.fetch(FetchDescriptor<IncomeForecast>())) ?? []
-        let mode = DashboardPeriodMode(rawValue: UserDefaults.standard.string(forKey: "dashboardPeriodMode") ?? "") ?? .calendarMonth
+        let mode = DashboardPeriodMode(rawValue: AppDefaults.store.string(forKey: "dashboardPeriodMode") ?? "") ?? .calendarMonth
         let primary = mode == .salaryPeriod ? FinancePeriods.primaryForecast(in: forecasts) : nil
         return FinanceService.forecastPeriods(primary: primary, earliest: earliest, latest: earliest).first
     }

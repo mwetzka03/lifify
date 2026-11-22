@@ -317,7 +317,7 @@ enum BackupService {
                 BackupRecord(type: "iconPreference", id: id, strings: [$0])
             }
         }
-        let defaults = UserDefaults.standard
+        let defaults = AppDefaults.store
         if let forecastID = defaults.string(forKey: "primaryIncomeForecastID").flatMap(UUID.init(uuidString:)) {
             records.append(BackupRecord(
                 type: "primaryIncome",
@@ -908,9 +908,9 @@ enum BackupService {
         case "primaryIncome":
             IncomeAssignmentStore.setPrimary(iban: string(0), forecastID: r.id)
         case "secondaryIncome":
-            var mapping = UserDefaults.standard.dictionary(forKey: "secondaryIncomeMappings") as? [String: String] ?? [:]
+            var mapping = AppDefaults.store.dictionary(forKey: "secondaryIncomeMappings") as? [String: String] ?? [:]
             if !string(0).isEmpty { mapping[string(0)] = r.id.uuidString }
-            UserDefaults.standard.set(mapping, forKey: "secondaryIncomeMappings")
+            AppDefaults.store.set(mapping, forKey: "secondaryIncomeMappings")
         case "incomeAssignment":
             if let forecastID = uuid(0) {
                 IncomeAssignmentStore.assign(entryID: r.id, to: forecastID)
@@ -927,13 +927,13 @@ enum BackupService {
         case "appPreferences":
             UserBody.reset()
             MealLog.reset()
-            UserDefaults.standard.set(string(0), forKey: "userName")
-            UserDefaults.standard.set(string(1), forKey: "dashboardPeriodMode")
-            UserDefaults.standard.set(string(2), forKey: "appLanguage")
-            UserDefaults.standard.set(string(3), forKey: "appTheme")
+            AppDefaults.store.set(string(0), forKey: "userName")
+            AppDefaults.store.set(string(1), forKey: "dashboardPeriodMode")
+            AppDefaults.store.set(string(2), forKey: "appLanguage")
+            AppDefaults.store.set(string(3), forKey: "appTheme")
             UserProfile.restore(birthRaw: string(4), awardedYearRaw: string(5))
             if AppPalette(rawValue: string(6)) != nil {
-                UserDefaults.standard.set(string(6), forKey: AppPalette.storageKey)
+                AppDefaults.store.set(string(6), forKey: AppPalette.storageKey)
             }
             if r.strings.count > 7 {
                 UserBody.restore(height: string(7), weight: string(8), sex: string(9), goal: string(10))

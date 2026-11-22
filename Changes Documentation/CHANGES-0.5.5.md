@@ -1,4 +1,4 @@
-# Changes in 0.5.0
+# Changes in 0.5.5
 
 [English](#english) · [Deutsch](#deutsch)
 
@@ -7,7 +7,19 @@
 Lifify 0.5.0 adds a manual Trade Republic sign-in and a way for the Shortcuts
 app to book a Sparkasse or Trade Republic notice. The finance calculations are
 unchanged and stay in [FINANZEN.md](../FINANZEN.md). What changed in 0.4.0 is in
-[CHANGES-0.4.0.md](CHANGES-0.4.0.md). The displayed version is 0.5.0.
+[CHANGES-0.4.0.md](CHANGES-0.4.0.md). The displayed version is 0.5.5.
+
+### 0.5.5: Test foundation
+
+**What changed.** `LififyTests` now has real rule tests in Swift Testing. They cover coins and the wallet, streaks and freezes, the multiplier, abstinence payouts, time slots and groups, workout links, due dates, finance balances, forecasts, the savings-plan forecast, and the backup round trip for Finance and Challenges. Services now read UserDefaults through `AppDefaults.store`.
+
+**Why.** Tests must never write real user data, and the next steps change persistence.
+
+**Effect.** The app still uses `UserDefaults.standard`, so its behavior is unchanged. Tests use an in-memory database and a private suite.
+
+**Failed checks.** Two in-app check groups failed before this step, from four outdated conditions. None was an app bug, and the conditions now match the code: twin rows have different old fingerprints because the old title was the purpose, `XF000BTC0017` passes the ISIN checksum, a buy without a share count is sized from the average price, and a full sale closes the holding through its lots without a separate drop.
+
+**Not covered yet.** Paths that write to the iOS calendar or schedule notifications are not run by the tests: the actual calendar rewrite after a resize, `WorkoutCalendarSync.apply`, abstinence bonuses through `settle`, and relapse. Their pure rules are tested. The full-app and Training backup restores are also not run, because they touch workout files.
 
 ### Setup
 
@@ -74,7 +86,19 @@ Lifify 0.5.0 ergänzt eine manuelle Anmeldung bei Trade Republic und einen Weg,
 mit dem die Kurzbefehle-App eine Sparkassen- oder Trade-Republic-Mitteilung
 bucht. Die Finanzrechnung ist unverändert und bleibt in
 [FINANZEN.md](../FINANZEN.md). Was sich in 0.4.0 geändert hat, steht in
-[CHANGES-0.4.0.md](CHANGES-0.4.0.md). Die angezeigte Version ist 0.5.0.
+[CHANGES-0.4.0.md](CHANGES-0.4.0.md). Die angezeigte Version ist 0.5.5.
+
+### 0.5.5: Testgerüst
+
+**Was sich geändert hat.** `LififyTests` enthält jetzt echte Regeltests mit Swift Testing. Sie decken Coins und Wallet, Streaks und Freezes, den Multiplikator, Abstinenz-Auszahlungen, Zeit-Slots und Gruppen, Training-Verknüpfungen, Fälligkeit, Finanzsalden, Prognosen, die Sparplan-Prognose und den Backup-Rundlauf für Finanzen und Challenges ab. Services lesen UserDefaults jetzt über `AppDefaults.store`.
+
+**Warum.** Tests dürfen nie echte Nutzerdaten schreiben, und die nächsten Schritte ändern die Persistenz.
+
+**Auswirkung.** Die App nutzt weiter `UserDefaults.standard`, ihr Verhalten bleibt gleich. Tests nutzen eine In-Memory-Datenbank und eine eigene Suite.
+
+**Fehlgeschlagene Prüfungen.** Vor diesem Schritt schlugen zwei In-App-Prüfgruppen fehl, wegen vier veralteter Bedingungen. Keine davon war ein App-Fehler, die Bedingungen entsprechen jetzt dem Code: Zwillingszeilen haben verschiedene alte Fingerabdrücke, weil der alte Titel der Verwendungszweck war. `XF000BTC0017` besteht die ISIN-Prüfsumme. Ein Kauf ohne Stückzahl wird über den Durchschnittspreis bemessen. Ein vollständiger Verkauf schließt die Position über ihre Lots, ohne eigenes Entfernen.
+
+**Noch nicht abgedeckt.** Wege, die in den iOS-Kalender schreiben oder Mitteilungen planen, laufen in den Tests nicht: das echte Umschreiben des Termins nach einer Größenänderung, `WorkoutCalendarSync.apply`, Abstinenz-Boni über `settle` und der Rückfall. Ihre reinen Regeln sind getestet. Auch die Wiederherstellung des Gesamt- und des Trainings-Backups läuft nicht, weil sie Trainingsdateien berührt.
 
 ### Einrichtung
 

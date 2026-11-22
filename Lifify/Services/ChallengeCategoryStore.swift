@@ -78,6 +78,10 @@ enum ChallengeCategoryStore {
     private static let storageKey = "lifify.customCategories"
     private static var cache: [CustomChallengeCategory]?
 
+    static func clearCache() {
+        cache = nil
+    }
+
     static func raw(_ id: UUID) -> String {
         "custom:\(id.uuidString)"
     }
@@ -106,7 +110,7 @@ enum ChallengeCategoryStore {
 
     static func all() -> [CustomChallengeCategory] {
         if let cache { return cache }
-        guard let data = UserDefaults.standard.data(forKey: storageKey),
+        guard let data = AppDefaults.store.data(forKey: storageKey),
               let decoded = try? JSONDecoder().decode([CustomChallengeCategory].self, from: data)
         else {
             cache = []
@@ -145,7 +149,7 @@ enum ChallengeCategoryStore {
 
     static func reset() {
         cache = []
-        UserDefaults.standard.removeObject(forKey: storageKey)
+        AppDefaults.store.removeObject(forKey: storageKey)
         bump()
     }
 
@@ -172,13 +176,13 @@ enum ChallengeCategoryStore {
     private static func save(_ items: [CustomChallengeCategory]) {
         cache = items
         if let data = try? JSONEncoder().encode(items) {
-            UserDefaults.standard.set(data, forKey: storageKey)
+            AppDefaults.store.set(data, forKey: storageKey)
         }
         bump()
     }
 
     private static func bump() {
-        let revision = UserDefaults.standard.integer(forKey: revisionKey)
-        UserDefaults.standard.set(revision + 1, forKey: revisionKey)
+        let revision = AppDefaults.store.integer(forKey: revisionKey)
+        AppDefaults.store.set(revision + 1, forKey: revisionKey)
     }
 }

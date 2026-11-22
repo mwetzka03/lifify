@@ -200,7 +200,7 @@ enum HomeBudget {
     }
 
     private static func primaryForecast(in forecasts: [IncomeForecast]) -> IncomeForecast? {
-        guard let idString = UserDefaults.standard.string(forKey: "primaryIncomeForecastID"),
+        guard let idString = AppDefaults.store.string(forKey: "primaryIncomeForecastID"),
               let id = UUID(uuidString: idString)
         else {
             return forecasts.first(where: \.isActive)
@@ -215,7 +215,7 @@ enum HomeBudget {
     ) -> Date {
         let calendar = Calendar.current
         guard DashboardPeriodMode(rawValue: dashboardPeriod) == .salaryPeriod,
-              let idString = UserDefaults.standard.string(forKey: "primaryIncomeForecastID"),
+              let idString = AppDefaults.store.string(forKey: "primaryIncomeForecastID"),
               let id = UUID(uuidString: idString),
               let forecast = forecasts.first(where: { $0.id == id })
         else {
@@ -261,7 +261,7 @@ enum HomeBudget {
             .flatMap { calendar.date(byAdding: .second, value: -1, to: $0) }
             ?? start
         guard DashboardPeriodMode(rawValue: dashboardPeriod) == .salaryPeriod,
-              let idString = UserDefaults.standard.string(forKey: "primaryIncomeForecastID"),
+              let idString = AppDefaults.store.string(forKey: "primaryIncomeForecastID"),
               let id = UUID(uuidString: idString),
               let forecast = forecasts.first(where: { $0.id == id }),
               let limit = calendar.date(byAdding: .year, value: 2, to: start)

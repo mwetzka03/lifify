@@ -9,7 +9,7 @@ enum AppClock {
     static let dayStampKey = "lifify.developerDayStamp"
 
     static var isDeveloperMode: Bool {
-        UserDefaults.standard.bool(forKey: modeKey)
+        AppDefaults.store.bool(forKey: modeKey)
     }
 
     static var now: Date {
@@ -19,7 +19,7 @@ enum AppClock {
         if let stamp = storedStamp(), let combined = combining(stamp: stamp, time: clock, calendar: zone) {
             return combined
         }
-        let stored = UserDefaults.standard.double(forKey: dayKey)
+        let stored = AppDefaults.store.double(forKey: dayKey)
         guard stored > 0 else { return clock }
         return combining(day: Date(timeIntervalSince1970: stored), time: clock, calendar: zone)
     }
@@ -74,7 +74,7 @@ enum AppClock {
            let date = combining(stamp: stamp, time: zone.startOfDay(for: Date()), calendar: zone) {
             return zone.startOfDay(for: date)
         }
-        let stored = UserDefaults.standard.double(forKey: dayKey)
+        let stored = AppDefaults.store.double(forKey: dayKey)
         if stored > 0 { return Date(timeIntervalSince1970: stored) }
         return zone.startOfDay(for: Date())
     }
@@ -82,8 +82,8 @@ enum AppClock {
     /// Stores the calendar day, not a midnight instant, so a time-zone change does not shift it.
     static func setSimulatedDay(_ date: Date, calendar: Calendar = .autoupdatingCurrent) {
         let stamp = stamp(for: date, calendar: calendar)
-        UserDefaults.standard.set(stamp, forKey: dayStampKey)
-        UserDefaults.standard.set(calendar.startOfDay(for: date).timeIntervalSince1970, forKey: dayKey)
+        AppDefaults.store.set(stamp, forKey: dayStampKey)
+        AppDefaults.store.set(calendar.startOfDay(for: date).timeIntervalSince1970, forKey: dayKey)
     }
 
     /// Puts the simulated day back on the real today. Used at launch and when the mode is switched.
@@ -97,14 +97,14 @@ enum AppClock {
         guard let stamp = storedStamp(),
               let date = combining(stamp: stamp, time: Date(), calendar: zone)
         else { return }
-        UserDefaults.standard.set(zone.startOfDay(for: date).timeIntervalSince1970, forKey: dayKey)
+        AppDefaults.store.set(zone.startOfDay(for: date).timeIntervalSince1970, forKey: dayKey)
     }
 
     private static func storedStamp() -> String? {
-        if let stamp = UserDefaults.standard.string(forKey: dayStampKey), !stamp.isEmpty {
+        if let stamp = AppDefaults.store.string(forKey: dayStampKey), !stamp.isEmpty {
             return stamp
         }
-        let stored = UserDefaults.standard.double(forKey: dayKey)
+        let stored = AppDefaults.store.double(forKey: dayKey)
         guard stored > 0 else { return nil }
         return stamp(for: Date(timeIntervalSince1970: stored))
     }

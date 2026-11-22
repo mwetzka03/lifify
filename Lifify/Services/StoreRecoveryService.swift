@@ -5,10 +5,10 @@ enum StoreRecoveryService {
     private static let currentGeneration = 3
 
     static func prepareCompatibleStore() {
-        guard UserDefaults.standard.integer(forKey: generationKey) != currentGeneration else { return }
+        guard AppDefaults.store.integer(forKey: generationKey) != currentGeneration else { return }
         archiveExistingStores()
         resetLaunchState()
-        UserDefaults.standard.set(currentGeneration, forKey: generationKey)
+        AppDefaults.store.set(currentGeneration, forKey: generationKey)
     }
 
     static func archiveExistingStoresAndReset() {
@@ -17,7 +17,7 @@ enum StoreRecoveryService {
     }
 
     private static func resetLaunchState() {
-        let defaults = UserDefaults.standard
+        let defaults = AppDefaults.store
         defaults.set(false, forKey: "hasCompletedOnboarding")
         defaults.set(false, forKey: "onboardingInProgress")
         defaults.set(0, forKey: "onboardingStep")

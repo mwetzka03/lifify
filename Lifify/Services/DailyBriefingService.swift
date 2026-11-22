@@ -178,7 +178,7 @@ enum DailyBriefingService {
     private static func nextSalary(in forecasts: [IncomeForecast], after day: Date, calendar: Calendar) -> Date? {
         guard let limit = calendar.date(byAdding: .year, value: 1, to: day) else { return nil }
         let active = forecasts.filter(\.isActive)
-        let primaryID = UserDefaults.standard.string(forKey: "primaryIncomeForecastID").flatMap(UUID.init(uuidString:))
+        let primaryID = AppDefaults.store.string(forKey: "primaryIncomeForecastID").flatMap(UUID.init(uuidString:))
         let chosen = active.first { $0.id == primaryID } ?? active.first
         guard let chosen else { return nil }
         return CalendarService.nextOccurrences(

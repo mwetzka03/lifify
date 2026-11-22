@@ -67,19 +67,19 @@ enum IconPreferenceStore {
     }
 
     static func icon(for id: UUID, fallback: String) -> String {
-        UserDefaults.standard.string(forKey: key(for: id)) ?? fallback
+        AppDefaults.store.string(forKey: key(for: id)) ?? fallback
     }
 
     static func storedIcon(for id: UUID) -> String? {
-        UserDefaults.standard.string(forKey: key(for: id))
+        AppDefaults.store.string(forKey: key(for: id))
     }
 
     static func set(_ icon: String, for id: UUID) {
-        UserDefaults.standard.set(icon, forKey: key(for: id))
+        AppDefaults.store.set(icon, forKey: key(for: id))
     }
 
     static func remove(for id: UUID) {
-        UserDefaults.standard.removeObject(forKey: key(for: id))
+        AppDefaults.store.removeObject(forKey: key(for: id))
     }
 }
 

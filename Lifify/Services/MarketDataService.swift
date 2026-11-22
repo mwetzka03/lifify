@@ -11,15 +11,15 @@ struct StockSuggestion: Identifiable, Hashable {
 
 enum MarketSymbolStore {
     static func symbol(for holdingID: UUID) -> String? {
-        UserDefaults.standard.string(forKey: "market.symbol.\(holdingID.uuidString)")
+        AppDefaults.store.string(forKey: "market.symbol.\(holdingID.uuidString)")
     }
 
     static func set(_ symbol: String, for holdingID: UUID) {
-        UserDefaults.standard.set(symbol, forKey: "market.symbol.\(holdingID.uuidString)")
+        AppDefaults.store.set(symbol, forKey: "market.symbol.\(holdingID.uuidString)")
     }
 
     static func remove(for holdingID: UUID) {
-        UserDefaults.standard.removeObject(forKey: "market.symbol.\(holdingID.uuidString)")
+        AppDefaults.store.removeObject(forKey: "market.symbol.\(holdingID.uuidString)")
     }
 }
 
@@ -34,6 +34,12 @@ enum HistoricalPriceStore {
     private static var cached: [String: [String: Int]]?
     private static var orderedPrices: [String: [(key: String, cents: Int)]] = [:]
     private(set) static var cacheRevision = 0
+
+    static func clearCache() {
+        cached = nil
+        orderedPrices = [:]
+        cacheRevision &+= 1
+    }
 
     static func cents(for holdingID: UUID, dayKey: String) -> Int? {
         snapshot()[holdingID.uuidString]?[dayKey]
@@ -76,7 +82,7 @@ enum HistoricalPriceStore {
     private static func snapshot() -> [String: [String: Int]] {
         if let cached { return cached }
         let decoded: [String: [String: Int]]
-        if let data = UserDefaults.standard.data(forKey: key),
+        if let data = AppDefaults.store.data(forKey: key),
            let value = try? JSONDecoder().decode([String: [String: Int]].self, from: data) {
             decoded = value
         } else {
@@ -96,7 +102,7 @@ enum HistoricalPriceStore {
 
     private static func save(_ map: [String: [String: Int]]) {
         guard let data = try? JSONEncoder().encode(map) else { return }
-        UserDefaults.standard.set(data, forKey: key)
+        AppDefaults.store.set(data, forKey: key)
         cached = map
         orderedPrices = [:]
         cacheRevision += 1
@@ -106,30 +112,30 @@ enum HistoricalPriceStore {
 enum PreviousCloseStore {
     static func cents(for holdingID: UUID) -> Int? {
         let key = "market.previous.\(holdingID.uuidString)"
-        guard UserDefaults.standard.object(forKey: key) != nil else { return nil }
-        return UserDefaults.standard.integer(forKey: key)
+        guard AppDefaults.store.object(forKey: key) != nil else { return nil }
+        return AppDefaults.store.integer(forKey: key)
     }
 
     static func set(_ cents: Int, for holdingID: UUID) {
-        UserDefaults.standard.set(cents, forKey: "market.previous.\(holdingID.uuidString)")
+        AppDefaults.store.set(cents, forKey: "market.previous.\(holdingID.uuidString)")
     }
 
     static func remove(for holdingID: UUID) {
-        UserDefaults.standard.removeObject(forKey: "market.previous.\(holdingID.uuidString)")
+        AppDefaults.store.removeObject(forKey: "market.previous.\(holdingID.uuidString)")
     }
 }
 
 enum HoldingPurchaseDateStore {
     static func date(for holdingID: UUID) -> Date? {
-        UserDefaults.standard.object(forKey: key(for: holdingID)) as? Date
+        AppDefaults.store.object(forKey: key(for: holdingID)) as? Date
     }
 
     static func set(_ date: Date, for holdingID: UUID) {
-        UserDefaults.standard.set(date, forKey: key(for: holdingID))
+        AppDefaults.store.set(date, forKey: key(for: holdingID))
     }
 
     static func remove(for holdingID: UUID) {
-        UserDefaults.standard.removeObject(forKey: key(for: holdingID))
+        AppDefaults.store.removeObject(forKey: key(for: holdingID))
     }
 
     private static func key(for holdingID: UUID) -> String {
@@ -310,7 +316,7 @@ enum MarketDataService {
         isValidISIN(value) || cryptoTicker(from: value) != nil
     }
 
-    /// Trade Republic crypto instruments use XF… identifiers that fail the ISIN checksum.
+    /// Trade Republic crypto instruments use XF… identifiers. Some of them also pass the ISIN checksum.
     static func cryptoTicker(from isin: String) -> String? {
         let value = isin.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
         guard value.count == 12, value.hasPrefix("XF") else { return nil }

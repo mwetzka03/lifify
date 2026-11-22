@@ -33,6 +33,11 @@ enum StreakSettings {
     private static var cachedStates: [String: State]?
     private static var cachedMultipliers: [Int: Double]?
 
+    static func clearCache() {
+        cachedStates = nil
+        cachedMultipliers = nil
+    }
+
     static func isEnabled(for challengeID: UUID) -> Bool {
         states()[challengeID.uuidString]?.enabled == true
     }
@@ -54,17 +59,17 @@ enum StreakSettings {
     }
 
     static var freezeFactor: Int {
-        guard let stored = UserDefaults.standard.object(forKey: freezeFactorKey) as? Int else { return 10 }
+        guard let stored = AppDefaults.store.object(forKey: freezeFactorKey) as? Int else { return 10 }
         return max(stored, 1)
     }
 
     static func setFreezeFactor(_ value: Int) {
-        UserDefaults.standard.set(max(value, 1), forKey: freezeFactorKey)
+        AppDefaults.store.set(max(value, 1), forKey: freezeFactorKey)
         bump()
     }
 
     static func resetFreezeFactor() {
-        UserDefaults.standard.removeObject(forKey: freezeFactorKey)
+        AppDefaults.store.removeObject(forKey: freezeFactorKey)
         bump()
     }
 
@@ -142,7 +147,7 @@ enum StreakSettings {
     static func editString(for threshold: Int) -> String {
         let value = storedMultiplier(for: threshold)
         let formatter = NumberFormatter()
-        formatter.locale = Locale(identifier: UserDefaults.standard.string(forKey: "appLanguage") == "en" ? "en_US" : "de_DE")
+        formatter.locale = Locale(identifier: AppDefaults.store.string(forKey: "appLanguage") == "en" ? "en_US" : "de_DE")
         formatter.minimumFractionDigits = 0
         formatter.maximumFractionDigits = 2
         formatter.numberStyle = .decimal
@@ -151,7 +156,7 @@ enum StreakSettings {
 
     static func parseMultiplier(_ text: String) -> Double? {
         let formatter = NumberFormatter()
-        formatter.locale = Locale(identifier: UserDefaults.standard.string(forKey: "appLanguage") == "en" ? "en_US" : "de_DE")
+        formatter.locale = Locale(identifier: AppDefaults.store.string(forKey: "appLanguage") == "en" ? "en_US" : "de_DE")
         formatter.numberStyle = .decimal
         if let number = formatter.number(from: text) {
             return max(number.doubleValue, 0)
@@ -177,9 +182,9 @@ enum StreakSettings {
     static func reset() {
         cachedStates = [:]
         cachedMultipliers = [:]
-        UserDefaults.standard.removeObject(forKey: stateKey)
-        UserDefaults.standard.removeObject(forKey: multiplierKey)
-        UserDefaults.standard.removeObject(forKey: freezeFactorKey)
+        AppDefaults.store.removeObject(forKey: stateKey)
+        AppDefaults.store.removeObject(forKey: multiplierKey)
+        AppDefaults.store.removeObject(forKey: freezeFactorKey)
         bump()
     }
 
@@ -235,7 +240,7 @@ enum StreakSettings {
     private static func states() -> [String: State] {
         if let cachedStates { return cachedStates }
         let decoded: [String: State]
-        if let data = UserDefaults.standard.data(forKey: stateKey),
+        if let data = AppDefaults.store.data(forKey: stateKey),
            let value = try? JSONDecoder().decode([String: State].self, from: data) {
             decoded = value
         } else {
@@ -248,7 +253,7 @@ enum StreakSettings {
     private static func multipliers() -> [Int: Double] {
         if let cachedMultipliers { return cachedMultipliers }
         let decoded: [Int: Double]
-        if let data = UserDefaults.standard.data(forKey: multiplierKey),
+        if let data = AppDefaults.store.data(forKey: multiplierKey),
            let raw = try? JSONDecoder().decode([String: Double].self, from: data) {
             decoded = Dictionary(uniqueKeysWithValues: raw.compactMap { key, value in
                 Int(key).map { ($0, value) }
@@ -262,7 +267,7 @@ enum StreakSettings {
 
     private static func saveStates(_ map: [String: State]) {
         guard let data = try? JSONEncoder().encode(map) else { return }
-        UserDefaults.standard.set(data, forKey: stateKey)
+        AppDefaults.store.set(data, forKey: stateKey)
         cachedStates = map
         bump()
     }
@@ -270,12 +275,12 @@ enum StreakSettings {
     private static func saveMultipliers(_ map: [Int: Double]) {
         let raw = Dictionary(uniqueKeysWithValues: map.map { (String($0.key), $0.value) })
         guard let data = try? JSONEncoder().encode(raw) else { return }
-        UserDefaults.standard.set(data, forKey: multiplierKey)
+        AppDefaults.store.set(data, forKey: multiplierKey)
         cachedMultipliers = map
         bump()
     }
 
     private static func bump() {
-        UserDefaults.standard.set(UserDefaults.standard.integer(forKey: revisionKey) + 1, forKey: revisionKey)
+        AppDefaults.store.set(AppDefaults.store.integer(forKey: revisionKey) + 1, forKey: revisionKey)
     }
 }

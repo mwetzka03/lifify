@@ -1602,13 +1602,13 @@ enum VariableBudgetAccounts {
     }
 
     private static func all() -> [String: [UUID]] {
-        guard let data = UserDefaults.standard.data(forKey: key),
+        guard let data = AppDefaults.store.data(forKey: key),
               let decoded = try? JSONDecoder().decode([String: [UUID]].self, from: data) else { return [:] }
         return decoded
     }
 
     private static func save(_ map: [String: [UUID]]) {
         guard let data = try? JSONEncoder().encode(map) else { return }
-        UserDefaults.standard.set(data, forKey: key)
+        AppDefaults.store.set(data, forKey: key)
     }
 }

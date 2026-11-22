@@ -189,9 +189,9 @@ final class DataImportViewModel: ObservableObject {
             if accounts.contains(where: \.isMain) {
                 message = BackupService.restoredMessage(scopes)
             } else {
-                UserDefaults.standard.set(false, forKey: "hasCompletedOnboarding")
-                UserDefaults.standard.set(false, forKey: "onboardingInProgress")
-                UserDefaults.standard.set(0, forKey: "onboardingStep")
+                AppDefaults.store.set(false, forKey: "hasCompletedOnboarding")
+                AppDefaults.store.set(false, forKey: "onboardingInProgress")
+                AppDefaults.store.set(0, forKey: "onboardingStep")
                 message = BackupService.restoredMessage(scopes) + " " + L(
                     "Die Sicherung enthält kein Hauptkonto. Die Einrichtung wird fortgesetzt.",
                     "The backup contains no main account. Setup will continue."

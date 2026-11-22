@@ -36,17 +36,17 @@ enum LififyNotifications {
     private static let briefingPrefix = "lifify.briefing."
 
     static var briefingEnabled: Bool {
-        if UserDefaults.standard.object(forKey: briefingEnabledKey) == nil { return true }
-        return UserDefaults.standard.bool(forKey: briefingEnabledKey)
+        if AppDefaults.store.object(forKey: briefingEnabledKey) == nil { return true }
+        return AppDefaults.store.bool(forKey: briefingEnabledKey)
     }
 
     nonisolated static var briefingHour: Int {
-        let stored = UserDefaults.standard.object(forKey: briefingHourKey) as? Int
+        let stored = AppDefaults.store.object(forKey: briefingHourKey) as? Int
         return min(max(stored ?? 8, 0), 23)
     }
 
     nonisolated static var briefingMinute: Int {
-        let stored = UserDefaults.standard.object(forKey: briefingMinuteKey) as? Int
+        let stored = AppDefaults.store.object(forKey: briefingMinuteKey) as? Int
         return min(max(stored ?? 0, 0), 59)
     }
 
@@ -87,7 +87,7 @@ enum LififyNotifications {
     }
 
     static func resetWeekdayClocks() {
-        UserDefaults.standard.removeObject(forKey: briefingWeekKey)
+        AppDefaults.store.removeObject(forKey: briefingWeekKey)
         bumpBriefing()
     }
 
@@ -111,7 +111,7 @@ enum LififyNotifications {
     }
 
     nonisolated private static func storedWeek() -> [Int: StoredBriefingDay] {
-        guard let data = UserDefaults.standard.data(forKey: briefingWeekKey),
+        guard let data = AppDefaults.store.data(forKey: briefingWeekKey),
               let raw = try? JSONDecoder().decode([String: [Int]].self, from: data)
         else { return [:] }
         var map: [Int: StoredBriefingDay] = [:]
@@ -131,14 +131,14 @@ enum LififyNotifications {
             (String(key), [day.hour, day.minute, day.enabled ? 1 : 0])
         })
         if let data = try? JSONEncoder().encode(raw) {
-            UserDefaults.standard.set(data, forKey: briefingWeekKey)
+            AppDefaults.store.set(data, forKey: briefingWeekKey)
         }
         bumpBriefing()
     }
 
     nonisolated private static func bumpBriefing() {
-        let revision = UserDefaults.standard.integer(forKey: briefingRevisionKey)
-        UserDefaults.standard.set(revision + 1, forKey: briefingRevisionKey)
+        let revision = AppDefaults.store.integer(forKey: briefingRevisionKey)
+        AppDefaults.store.set(revision + 1, forKey: briefingRevisionKey)
     }
 
     static func requestAccess() async -> Bool {

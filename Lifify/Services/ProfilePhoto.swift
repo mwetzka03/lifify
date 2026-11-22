@@ -33,6 +33,6 @@ enum ProfilePhotoStore {
     }
 
     private static func bump() {
-        UserDefaults.standard.set(UserDefaults.standard.integer(forKey: revisionKey) + 1, forKey: revisionKey)
+        AppDefaults.store.set(AppDefaults.store.integer(forKey: revisionKey) + 1, forKey: revisionKey)
     }
 }
