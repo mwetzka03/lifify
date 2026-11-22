@@ -171,6 +171,8 @@ Symbolauswahl enthält ein Hanfblatt und eine Zigarette.
 - iOS 17+, SwiftUI, SwiftData
 - keine UIKit- oder Core-Data-Imports
 - Bundle-ID `com.mwetzka03.lifify`, Anzeigename `Lifify`
-- Views, ViewModels, Models und Services liegen in getrennten Dateien/Ordnern
+- Fachlogik liegt in vier lokalen Swift Packages unter `Packages`: `LififyCore`,
+  `LififyFinance` (mit Trade Republic), `LififyChallenges` und `LififyHealth`
+- Die App enthält Views, Navigation, Backup und das Zusammenschalten der Packages
 - EventKit ausschließlich für die optionale iOS-Systemintegration
 - keine Drittanbieter-Abhängigkeiten und keine Secrets

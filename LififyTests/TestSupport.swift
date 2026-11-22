@@ -1,3 +1,7 @@
+import LififyCore
+import LififyFinance
+import LififyChallenges
+import LififyHealth
 import Foundation
 import SwiftData
 import Testing
@@ -26,6 +30,7 @@ struct TestStore {
 
 @MainActor
 func withTestStore<T>(_ body: @MainActor (TestStore) async throws -> T) async throws -> T {
+    LififyAssembly.install()
     let suite = "lifify.tests.\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suite))
     let schema = Schema(LififySchemaV3.models)

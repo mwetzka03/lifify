@@ -21,6 +21,14 @@ unchanged and stay in [FINANZEN.md](../FINANZEN.md). What changed in 0.4.0 is in
 
 **Not covered yet.** Paths that write to the iOS calendar or schedule notifications are not run by the tests: the actual calendar rewrite after a resize, `WorkoutCalendarSync.apply`, abstinence bonuses through `settle`, and relapse. Their pure rules are tested. The full-app and Training backup restores are also not run, because they touch workout files.
 
+### 0.5.5: Local Swift packages
+
+**What changed.** The logic moved into four local packages under `Packages`: `LififyCore` for shared models and storage, `LififyFinance` with Trade Republic, `LififyChallenges`, and `LififyHealth`. The app keeps the views, navigation, backup, and the wiring between packages.
+
+**Why.** Each area now has clear limits, and the compiler rejects a wrong dependency.
+
+**Effect.** Behavior is unchanged. Health may use Challenges. Challenges reaches meals only through a small hook that the app connects at launch. A store from 0.5.0 opened with this build and kept its data.
+
 ### 0.5.5: Performance
 
 **What changed.** Finance periods are reused until stored data changes. Fixed-cost matching looks only at bookings of the same day. Refund, skip, rejection, and period-link lookups no longer rebuild their data for every booking. The depot sorts by values it computes once.
@@ -152,6 +160,14 @@ bucht. Die Finanzrechnung ist unverändert und bleibt in
 **Fehlgeschlagene Prüfungen.** Vor diesem Schritt schlugen zwei In-App-Prüfgruppen fehl, wegen vier veralteter Bedingungen. Keine davon war ein App-Fehler, die Bedingungen entsprechen jetzt dem Code: Zwillingszeilen haben verschiedene alte Fingerabdrücke, weil der alte Titel der Verwendungszweck war. `XF000BTC0017` besteht die ISIN-Prüfsumme. Ein Kauf ohne Stückzahl wird über den Durchschnittspreis bemessen. Ein vollständiger Verkauf schließt die Position über ihre Lots, ohne eigenes Entfernen.
 
 **Noch nicht abgedeckt.** Wege, die in den iOS-Kalender schreiben oder Mitteilungen planen, laufen in den Tests nicht: das echte Umschreiben des Termins nach einer Größenänderung, `WorkoutCalendarSync.apply`, Abstinenz-Boni über `settle` und der Rückfall. Ihre reinen Regeln sind getestet. Auch die Wiederherstellung des Gesamt- und des Trainings-Backups läuft nicht, weil sie Trainingsdateien berührt.
+
+### 0.5.5: Lokale Swift Packages
+
+**Was sich geändert hat.** Die Logik liegt jetzt in vier lokalen Packages unter `Packages`: `LififyCore` für gemeinsame Modelle und Speicher, `LififyFinance` mit Trade Republic, `LififyChallenges` und `LififyHealth`. Die App behält Views, Navigation, Backup und das Zusammenschalten der Packages.
+
+**Warum.** Jeder Bereich hat klare Grenzen, und der Compiler lehnt falsche Abhängigkeiten ab.
+
+**Auswirkung.** Das Verhalten bleibt gleich. Health darf Challenges nutzen. Challenges erreicht Mahlzeiten nur über eine kleine Schnittstelle, die die App beim Start verbindet. Ein Speicher aus 0.5.0 ließ sich mit diesem Build öffnen und behielt seine Daten.
 
 ### 0.5.5: Performance
 

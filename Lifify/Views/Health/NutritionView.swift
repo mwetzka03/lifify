@@ -1,3 +1,7 @@
+import LififyCore
+import LififyFinance
+import LififyChallenges
+import LififyHealth
 import PhotosUI
 import SwiftData
 import SwiftUI

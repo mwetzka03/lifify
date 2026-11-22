@@ -1,3 +1,7 @@
+import LififyCore
+import LififyFinance
+import LififyChallenges
+import LififyHealth
 import Testing
 @testable import Lifify
 

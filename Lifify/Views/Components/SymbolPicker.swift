@@ -1,3 +1,7 @@
+import LififyCore
+import LififyFinance
+import LififyChallenges
+import LififyHealth
 import Foundation
 import SwiftUI
 
@@ -58,25 +62,6 @@ enum SymbolCatalog {
             SymbolChoice(name: "symbol.hemp-leaf", title: L("Hanfblatt", "Hemp leaf")),
             SymbolChoice(name: "symbol.cigarette", title: L("Zigarette", "Cigarette"))
         ]
-    }
-}
-
-@MainActor
-enum IconPreferenceStore {
-    static func icon(for id: UUID, fallback: String) -> String {
-        storedIcon(for: id) ?? fallback
-    }
-
-    static func storedIcon(for id: UUID) -> String? {
-        LinkTable.map(.icon)[id.uuidString]
-    }
-
-    static func set(_ icon: String, for id: UUID) {
-        LinkTable.set(.icon, key: id.uuidString, value: icon)
-    }
-
-    static func remove(for id: UUID) {
-        LinkTable.set(.icon, key: id.uuidString, value: nil)
     }
 }
 

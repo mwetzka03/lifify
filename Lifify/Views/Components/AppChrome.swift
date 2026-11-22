@@ -1,3 +1,7 @@
+import LififyCore
+import LififyFinance
+import LififyChallenges
+import LififyHealth
 import SwiftUI
 
 /// Shared type scale for every screen except Finance.
@@ -10,7 +14,7 @@ enum AppTextRole: String, Equatable, CaseIterable {
 }
 
 enum AppChrome {
-    static let version = "0.5.5"
+    static let version = AppVersion.current
 
     /// Screens that use the painted canvas. Finance keeps its own card arrangement.
 

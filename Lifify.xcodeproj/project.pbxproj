@@ -6,6 +6,13 @@
 	objectVersion = 71;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		A50000000000000000000001 /* LififyCore in Frameworks */ = {isa = PBXBuildFile; productRef = A40000000000000000000001 /* LififyCore */; };
+		A50000000000000000000002 /* LififyFinance in Frameworks */ = {isa = PBXBuildFile; productRef = A40000000000000000000002 /* LififyFinance */; };
+		A50000000000000000000003 /* LififyChallenges in Frameworks */ = {isa = PBXBuildFile; productRef = A40000000000000000000003 /* LififyChallenges */; };
+		A50000000000000000000004 /* LififyHealth in Frameworks */ = {isa = PBXBuildFile; productRef = A40000000000000000000004 /* LififyHealth */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		A20000000000000000000002 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -41,6 +48,10 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A50000000000000000000001 /* LififyCore in Frameworks */,
+				A50000000000000000000002 /* LififyFinance in Frameworks */,
+				A50000000000000000000003 /* LififyChallenges in Frameworks */,
+				A50000000000000000000004 /* LififyHealth in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -92,6 +103,10 @@
 			);
 			name = Lifify;
 			packageProductDependencies = (
+				A40000000000000000000001 /* LififyCore */,
+				A40000000000000000000002 /* LififyFinance */,
+				A40000000000000000000003 /* LififyChallenges */,
+				A40000000000000000000004 /* LififyHealth */,
 			);
 			productName = Lifify;
 			productReference = A10000000000000000000004 /* Lifify.app */;
@@ -149,6 +164,12 @@
 			);
 			mainGroup = A10000000000000000000002;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				A30000000000000000000001 /* XCLocalSwiftPackageReference "Packages/LififyCore" */,
+				A30000000000000000000002 /* XCLocalSwiftPackageReference "Packages/LififyFinance" */,
+				A30000000000000000000003 /* XCLocalSwiftPackageReference "Packages/LififyChallenges" */,
+				A30000000000000000000004 /* XCLocalSwiftPackageReference "Packages/LififyHealth" */,
+			);
 			productRefGroup = A10000000000000000000003 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -381,6 +402,44 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		A30000000000000000000001 /* XCLocalSwiftPackageReference "Packages/LififyCore" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/LififyCore;
+		};
+		A30000000000000000000002 /* XCLocalSwiftPackageReference "Packages/LififyFinance" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/LififyFinance;
+		};
+		A30000000000000000000003 /* XCLocalSwiftPackageReference "Packages/LififyChallenges" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/LififyChallenges;
+		};
+		A30000000000000000000004 /* XCLocalSwiftPackageReference "Packages/LififyHealth" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/LififyHealth;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		A40000000000000000000001 /* LififyCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = LififyCore;
+		};
+		A40000000000000000000002 /* LififyFinance */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = LififyFinance;
+		};
+		A40000000000000000000003 /* LififyChallenges */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = LififyChallenges;
+		};
+		A40000000000000000000004 /* LififyHealth */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = LififyHealth;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = A1000000000000000000000A /* Project object */;
 }

@@ -1,3 +1,7 @@
+import LififyCore
+import LififyFinance
+import LififyChallenges
+import LififyHealth
 import Foundation
 
 /// UserDefaults values the backup carries as they are, sorted by backup area.

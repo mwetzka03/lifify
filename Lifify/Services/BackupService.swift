@@ -1,56 +1,11 @@
+import LififyCore
+import LififyFinance
+import LififyChallenges
+import LififyHealth
 import Foundation
 import SwiftData
 import SwiftUI
 import UniformTypeIdentifiers
-
-struct LififyBackup: Codable {
-    let version: Int
-    let exportedAt: Date
-    let records: [BackupRecord]
-}
-
-struct BackupRecord: Codable {
-    let type: String
-    let id: UUID
-    var strings: [String] = []
-    var integers: [Int] = []
-    var doubles: [Double] = []
-    var booleans: [Bool] = []
-    var dates: [Date?] = []
-    var uuids: [UUID?] = []
-
-    init(
-        type: String,
-        id: UUID,
-        strings: [String] = [],
-        integers: [Int] = [],
-        doubles: [Double] = [],
-        booleans: [Bool] = [],
-        dates: [Date?] = [],
-        uuids: [UUID?] = []
-    ) {
-        self.type = type
-        self.id = id
-        self.strings = strings
-        self.integers = integers
-        self.doubles = doubles
-        self.booleans = booleans
-        self.dates = dates
-        self.uuids = uuids
-    }
-
-    init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        type = try container.decode(String.self, forKey: .type)
-        id = try container.decode(UUID.self, forKey: .id)
-        strings = try container.decodeIfPresent([String].self, forKey: .strings) ?? []
-        integers = try container.decodeIfPresent([Int].self, forKey: .integers) ?? []
-        doubles = try container.decodeIfPresent([Double].self, forKey: .doubles) ?? []
-        booleans = try container.decodeIfPresent([Bool].self, forKey: .booleans) ?? []
-        dates = try container.decodeIfPresent([Date?].self, forKey: .dates) ?? []
-        uuids = try container.decodeIfPresent([UUID?].self, forKey: .uuids) ?? []
-    }
-}
 
 struct BackupDocument: FileDocument {
     static var readableContentTypes: [UTType] { [.json] }
