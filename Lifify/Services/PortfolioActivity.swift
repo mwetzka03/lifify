@@ -75,7 +75,6 @@ struct HoldingLot: Codable, Identifiable, Hashable {
 
 @MainActor
 enum HoldingLotStore {
-    private static let key = "lifify.holdingLots"
     private static var cached: [String: [HoldingLot]]?
     private(set) static var cacheRevision = 0
 
@@ -95,11 +94,7 @@ enum HoldingLotStore {
     }
 
     static func add(_ lot: HoldingLot, holdingID: UUID) {
-        var map = snapshot()
-        var rows = map[holdingID.uuidString] ?? []
-        rows.append(lot)
-        map[holdingID.uuidString] = rows
-        save(map)
+        replace(lots(for: holdingID) + [lot], holdingID: holdingID)
     }
 
     static func replace(_ lots: [HoldingLot], holdingID: UUID) {
@@ -109,7 +104,16 @@ enum HoldingLotStore {
         } else {
             map[holdingID.uuidString] = lots
         }
-        save(map)
+        if let context = LififyDatabase.sideContext {
+            let descriptor = FetchDescriptor<StoredHoldingLot>(predicate: #Predicate { $0.holdingID == holdingID })
+            ((try? context.fetch(descriptor)) ?? []).forEach(context.delete)
+            for (position, lot) in lots.enumerated() {
+                context.insert(StoredHoldingLot(lot, holdingID: holdingID, position: position))
+            }
+            LififyDatabase.saveSide()
+        }
+        cached = map
+        cacheRevision += 1
     }
 
     static func remove(lotID: UUID, holdingID: UUID) {
@@ -119,35 +123,21 @@ enum HoldingLotStore {
     }
 
     static func removeAll(for holdingID: UUID) {
-        var map = snapshot()
-        map.removeValue(forKey: holdingID.uuidString)
-        save(map)
+        replace([], holdingID: holdingID)
     }
 
     static func reset() {
-        AppDefaults.store.removeObject(forKey: key)
+        LififyDatabase.deleteAll(StoredHoldingLot.self)
         cached = [:]
         cacheRevision += 1
     }
 
     private static func snapshot() -> [String: [HoldingLot]] {
         if let cached { return cached }
-        let decoded: [String: [HoldingLot]]
-        if let data = AppDefaults.store.data(forKey: key),
-           let value = try? JSONDecoder().decode([String: [HoldingLot]].self, from: data) {
-            decoded = value
-        } else {
-            decoded = [:]
-        }
+        let rows = LififyDatabase.rows(FetchDescriptor<StoredHoldingLot>(sortBy: [SortDescriptor(\.position)]))
+        let decoded = Dictionary(grouping: rows, by: \.holdingID.uuidString).mapValues { $0.map(\.lot) }
         cached = decoded
         return decoded
-    }
-
-    private static func save(_ map: [String: [HoldingLot]]) {
-        guard let data = try? JSONEncoder().encode(map) else { return }
-        AppDefaults.store.set(data, forKey: key)
-        cached = map
-        cacheRevision += 1
     }
 }
 
@@ -190,7 +180,6 @@ struct SavingsPlanRecord: Codable, Identifiable, Hashable {
 
 @MainActor
 enum SavingsPlanStore {
-    private static let key = "lifify.savingsPlans"
     private static var cached: [SavingsPlanRecord]?
     private(set) static var cacheRevision = 0
 
@@ -201,13 +190,8 @@ enum SavingsPlanStore {
 
     static func all() -> [SavingsPlanRecord] {
         if let cached { return cached }
-        let decoded: [SavingsPlanRecord]
-        if let data = AppDefaults.store.data(forKey: key),
-           let value = try? JSONDecoder().decode([SavingsPlanRecord].self, from: data) {
-            decoded = value
-        } else {
-            decoded = []
-        }
+        let rows = LififyDatabase.rows(FetchDescriptor<StoredSavingsPlan>(sortBy: [SortDescriptor(\.position)]))
+        let decoded = rows.map(\.plan)
         cached = decoded
         return decoded
     }
@@ -237,18 +221,20 @@ enum SavingsPlanStore {
     }
 
     static func reset() {
-        AppDefaults.store.removeObject(forKey: key)
+        LififyDatabase.deleteAll(StoredSavingsPlan.self)
         cached = []
         cacheRevision += 1
     }
 
     static func save(_ plans: [SavingsPlanRecord]) {
-        guard let data = try? JSONEncoder().encode(plans) else { return }
-        if AppDefaults.store.data(forKey: key) == data {
-            cached = plans
-            return
+        guard plans != all() else { return }
+        if let context = LififyDatabase.sideContext {
+            ((try? context.fetch(FetchDescriptor<StoredSavingsPlan>())) ?? []).forEach(context.delete)
+            for (position, plan) in plans.enumerated() {
+                context.insert(StoredSavingsPlan(plan, position: position))
+            }
+            LififyDatabase.saveSide()
         }
-        AppDefaults.store.set(data, forKey: key)
         cached = plans
         cacheRevision += 1
     }
@@ -754,7 +740,6 @@ struct ClosedPositionRecord: Codable, Hashable {
 
 @MainActor
 enum ClosedPositionStore {
-    private static let key = "lifify.closedPositions"
     private static var cached: [ClosedPositionRecord]?
 
     static func clearCache() {
@@ -763,13 +748,8 @@ enum ClosedPositionStore {
 
     static func all() -> [ClosedPositionRecord] {
         if let cached { return cached }
-        let decoded: [ClosedPositionRecord]
-        if let data = AppDefaults.store.data(forKey: key),
-           let value = try? JSONDecoder().decode([ClosedPositionRecord].self, from: data) {
-            decoded = value
-        } else {
-            decoded = []
-        }
+        let rows = LififyDatabase.rows(FetchDescriptor<StoredClosedPosition>(sortBy: [SortDescriptor(\.position)]))
+        let decoded = rows.map(\.record)
         cached = decoded
         return decoded
     }
@@ -788,13 +768,18 @@ enum ClosedPositionStore {
     }
 
     static func reset() {
-        AppDefaults.store.removeObject(forKey: key)
+        LififyDatabase.deleteAll(StoredClosedPosition.self)
         cached = []
     }
 
     private static func save(_ rows: [ClosedPositionRecord]) {
-        guard let data = try? JSONEncoder().encode(rows) else { return }
-        AppDefaults.store.set(data, forKey: key)
+        if let context = LififyDatabase.sideContext {
+            ((try? context.fetch(FetchDescriptor<StoredClosedPosition>())) ?? []).forEach(context.delete)
+            for (position, record) in rows.enumerated() {
+                context.insert(StoredClosedPosition(record, position: position))
+            }
+            LififyDatabase.saveSide()
+        }
         cached = rows
     }
 }

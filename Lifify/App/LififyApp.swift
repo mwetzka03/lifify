@@ -13,6 +13,7 @@ struct LififyApp: App {
         _containerResult = State(initialValue: result)
         if case .success(let container) = result {
             LififyDatabase.container = container
+            LegacyDataMigration.run()
         }
     }
 
@@ -32,7 +33,41 @@ struct LififyApp: App {
     }
 }
 
+/// The app's container, plus a separate context for stores that have no view-level context.
+/// Its saves never commit a form the person is still editing on the main context.
 @MainActor
 enum LififyDatabase {
-    static var container: ModelContainer?
+    static var container: ModelContainer? {
+        didSet {
+            sideContext = container.map { container in
+                let context = ModelContext(container)
+                context.autosaveEnabled = false
+                return context
+            }
+            AppDefaults.clearCaches()
+        }
+    }
+
+    private(set) static var sideContext: ModelContext?
+
+    static func rows<T: PersistentModel>(_ descriptor: FetchDescriptor<T>) -> [T] {
+        guard let sideContext else { return [] }
+        return (try? sideContext.fetch(descriptor)) ?? []
+    }
+
+    static func deleteAll<T: PersistentModel>(_ type: T.Type) {
+        guard let sideContext else { return }
+        rows(FetchDescriptor<T>()).forEach(sideContext.delete)
+        saveSide()
+    }
+
+    static func saveSide() {
+        guard let sideContext else { return }
+        do {
+            try sideContext.save()
+        } catch {
+            assertionFailure("Saving Lifify data failed: \(error)")
+            sideContext.rollback()
+        }
+    }
 }

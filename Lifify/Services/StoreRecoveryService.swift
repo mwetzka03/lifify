@@ -63,13 +63,18 @@ enum StoreRecoveryService {
     /// When the restore fails, that store is put back.
     static func recover(from backup: Data, url: URL? = nil) throws -> ModelContainer {
         guard try BackupService.scope(ofData: backup) == .all else { throw StoreRecoveryError.notAFullBackup }
+        let previous = LififyDatabase.container
+        LififyDatabase.container = nil
         let archive = archiveExistingStores()
         do {
             let container = try makeContainer(url: url)
+            LififyDatabase.container = container
+            LegacyDataMigration.run()
             try BackupService.restore(data: backup, into: container.mainContext)
             try container.mainContext.save()
             return container
         } catch {
+            LififyDatabase.container = previous
             removeCurrentStores()
             if let archive { moveStores(from: archive) }
             throw error

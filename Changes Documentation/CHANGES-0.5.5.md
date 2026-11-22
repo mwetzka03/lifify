@@ -29,6 +29,8 @@ unchanged and stay in [FINANZEN.md](../FINANZEN.md). What changed in 0.4.0 is in
 
 **Effect.** During first-time setup the old behavior stays: closing the app or a broken partial store starts setup again.
 
+**Moved to the database.** On first launch of 0.5.5, data moves once from UserDefaults into SwiftData. Old keys are deleted only after the new rows are saved. Unreadable data stays untouched and the move runs again on the next launch. Moved so far: portfolio lots, savings plans, closed positions, market symbols, previous closes, purchase dates, and portfolio links.
+
 ### 0.5.5: Complete backup
 
 **What changed.** The backup now also carries transfer forecasts, refund links, forecast skips, period links and rejected matches, Shortcuts templates, variable budget accounts, bank import cursors, default trade settings, pinned challenges and groups, event offers, the Fast Food reward link, and display and briefing choices. A Finance or Challenges file carries only its own area. Device-wide choices are in the entire-app backup.
@@ -139,6 +141,8 @@ bucht. Die Finanzrechnung ist unverändert und bleibt in
 **Warum.** Ein stilles Zurücksetzen konnte wie ein vollständiger Datenverlust wirken.
 
 **Auswirkung.** Während der Ersteinrichtung bleibt das bisherige Verhalten: Schließen der App oder ein defekter Teilstand beginnt die Einrichtung von vorn.
+
+**In die Datenbank umgezogen.** Beim ersten Start von 0.5.5 ziehen Daten einmalig von UserDefaults nach SwiftData um. Alte Schlüssel werden erst gelöscht, wenn die neuen Zeilen gespeichert sind. Unlesbare Daten bleiben unangetastet, der Umzug läuft beim nächsten Start erneut. Bisher umgezogen: Depot-Lots, Sparpläne, geschlossene Positionen, Marktsymbole, Vortageskurse, Kaufdaten und Depot-Verknüpfungen.
 
 ### 0.5.5: Vollständiges Backup
 

@@ -306,53 +306,61 @@ enum BankImportCursor {
     }
 }
 
+@MainActor
 enum PortfolioLinkStore {
-    private static func key(for checkingID: UUID) -> String {
-        "lifify.portfolioLink.\(checkingID.uuidString)"
+    private static var cached: [UUID: UUID]?
+
+    static func clearCache() {
+        cached = nil
     }
 
     static func portfolioID(for checkingID: UUID) -> UUID? {
-        AppDefaults.store.string(forKey: key(for: checkingID)).flatMap(UUID.init(uuidString:))
+        snapshot()[checkingID]
     }
 
     static func link(portfolio portfolioID: UUID, to checkingID: UUID) {
-        unlink(portfolio: portfolioID)
-        AppDefaults.store.set(portfolioID.uuidString, forKey: key(for: checkingID))
+        var map = snapshot().filter { $0.value != portfolioID }
+        map[checkingID] = portfolioID
+        save(map)
     }
 
     static func checkingID(for portfolioID: UUID) -> UUID? {
-        let prefix = "lifify.portfolioLink."
-        let target = portfolioID.uuidString
-        for (key, value) in AppDefaults.store.dictionaryRepresentation() {
-            guard key.hasPrefix(prefix), (value as? String) == target else { continue }
-            return UUID(uuidString: String(key.dropFirst(prefix.count)))
-        }
-        return nil
+        snapshot().first { $0.value == portfolioID }?.key
     }
 
     static func unlink(checkingID: UUID) {
-        AppDefaults.store.removeObject(forKey: key(for: checkingID))
+        var map = snapshot()
+        map.removeValue(forKey: checkingID)
+        save(map)
     }
 
     static func unlink(portfolio portfolioID: UUID) {
-        let prefix = "lifify.portfolioLink."
-        let target = portfolioID.uuidString
-        for (key, value) in AppDefaults.store.dictionaryRepresentation() {
-            guard key.hasPrefix(prefix), (value as? String) == target else { continue }
-            AppDefaults.store.removeObject(forKey: key)
-        }
+        save(snapshot().filter { $0.value != portfolioID })
     }
 
     static func allLinks() -> [(checkingID: UUID, portfolioID: UUID)] {
-        let prefix = "lifify.portfolioLink."
-        return AppDefaults.store.dictionaryRepresentation().compactMap { key, value in
-            guard key.hasPrefix(prefix),
-                  let checkingID = UUID(uuidString: String(key.dropFirst(prefix.count))),
-                  let raw = value as? String,
-                  let portfolioID = UUID(uuidString: raw)
-            else { return nil }
-            return (checkingID, portfolioID)
+        snapshot().map { (checkingID: $0.key, portfolioID: $0.value) }
+    }
+
+    private static func snapshot() -> [UUID: UUID] {
+        if let cached { return cached }
+        let rows = LififyDatabase.rows(FetchDescriptor<StoredPortfolioLink>())
+        let map = Dictionary(rows.map { ($0.checkingID, $0.portfolioID) }, uniquingKeysWith: { first, _ in first })
+        cached = map
+        return map
+    }
+
+    private static func save(_ map: [UUID: UUID]) {
+        guard map != snapshot() else { return }
+        if let context = LififyDatabase.sideContext {
+            ((try? context.fetch(FetchDescriptor<StoredPortfolioLink>())) ?? []).forEach(context.delete)
+            LififyDatabase.saveSide()
+            for (checkingID, portfolioID) in map {
+                context.insert(StoredPortfolioLink(checkingID: checkingID, portfolioID: portfolioID))
+            }
+            LififyDatabase.saveSide()
         }
+        cached = map
     }
 }
 

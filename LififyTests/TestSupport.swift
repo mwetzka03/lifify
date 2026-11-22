@@ -34,7 +34,9 @@ func withTestStore<T>(_ body: @MainActor (TestStore) async throws -> T) async th
     let files = FileManager.default.temporaryDirectory.appendingPathComponent(suite, isDirectory: true)
     AppDefaults.use(defaults)
     AppFiles.use(files)
+    LififyDatabase.container = container
     defer {
+        LififyDatabase.container = nil
         AppDefaults.use(nil)
         AppFiles.use(nil)
         defaults.removePersistentDomain(forName: suite)

@@ -553,6 +553,7 @@ enum PortfolioUnit: String, CaseIterable, Identifiable {
     }
 }
 
+@MainActor
 func holdingPerformance(_ holding: PortfolioHolding) -> HoldingPerformance {
     let value = Int((holding.quantity * Double(holding.currentPriceCents)).rounded())
     let purchaseValue = Int((holding.quantity * Double(holding.purchasePriceCents)).rounded())

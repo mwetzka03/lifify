@@ -9,17 +9,78 @@ struct StockSuggestion: Identifiable, Hashable {
     var id: String { symbol }
 }
 
+@MainActor
+enum HoldingMarketStore {
+    struct Values: Equatable {
+        var symbol: String?
+        var previousCloseCents: Int?
+        var purchaseDate: Date?
+    }
+
+    private static var cached: [UUID: Values]?
+
+    static func clearCache() {
+        cached = nil
+    }
+
+    static func values(for holdingID: UUID) -> Values {
+        snapshot()[holdingID] ?? Values()
+    }
+
+    static func update(_ holdingID: UUID, _ change: (inout Values) -> Void) {
+        var map = snapshot()
+        var values = map[holdingID] ?? Values()
+        change(&values)
+        let empty = values == Values()
+        map[holdingID] = empty ? nil : values
+        cached = map
+        guard let context = LififyDatabase.sideContext else { return }
+        let descriptor = FetchDescriptor<StoredHoldingMarket>(predicate: #Predicate { $0.holdingID == holdingID })
+        let row = (try? context.fetch(descriptor))?.first
+        if empty {
+            if let row { context.delete(row) }
+        } else if let row {
+            row.symbol = values.symbol
+            row.previousCloseCents = values.previousCloseCents
+            row.purchaseDate = values.purchaseDate
+        } else {
+            context.insert(StoredHoldingMarket(
+                holdingID: holdingID,
+                symbol: values.symbol,
+                previousCloseCents: values.previousCloseCents,
+                purchaseDate: values.purchaseDate
+            ))
+        }
+        LififyDatabase.saveSide()
+    }
+
+    private static func snapshot() -> [UUID: Values] {
+        if let cached { return cached }
+        var map: [UUID: Values] = [:]
+        for row in LififyDatabase.rows(FetchDescriptor<StoredHoldingMarket>()) {
+            map[row.holdingID] = Values(
+                symbol: row.symbol,
+                previousCloseCents: row.previousCloseCents,
+                purchaseDate: row.purchaseDate
+            )
+        }
+        cached = map
+        return map
+    }
+}
+
+@MainActor
 enum MarketSymbolStore {
     static func symbol(for holdingID: UUID) -> String? {
-        AppDefaults.store.string(forKey: "market.symbol.\(holdingID.uuidString)")
+        HoldingMarketStore.values(for: holdingID).symbol
     }
 
     static func set(_ symbol: String, for holdingID: UUID) {
-        AppDefaults.store.set(symbol, forKey: "market.symbol.\(holdingID.uuidString)")
+        HoldingMarketStore.update(holdingID) { $0.symbol = symbol }
     }
 
     static func remove(for holdingID: UUID) {
-        AppDefaults.store.removeObject(forKey: "market.symbol.\(holdingID.uuidString)")
+        HoldingMarketStore.update(holdingID) { $0.symbol = nil }
     }
 }
 
@@ -109,37 +170,33 @@ enum HistoricalPriceStore {
     }
 }
 
+@MainActor
 enum PreviousCloseStore {
     static func cents(for holdingID: UUID) -> Int? {
-        let key = "market.previous.\(holdingID.uuidString)"
-        guard AppDefaults.store.object(forKey: key) != nil else { return nil }
-        return AppDefaults.store.integer(forKey: key)
+        HoldingMarketStore.values(for: holdingID).previousCloseCents
     }
 
     static func set(_ cents: Int, for holdingID: UUID) {
-        AppDefaults.store.set(cents, forKey: "market.previous.\(holdingID.uuidString)")
+        HoldingMarketStore.update(holdingID) { $0.previousCloseCents = cents }
     }
 
     static func remove(for holdingID: UUID) {
-        AppDefaults.store.removeObject(forKey: "market.previous.\(holdingID.uuidString)")
+        HoldingMarketStore.update(holdingID) { $0.previousCloseCents = nil }
     }
 }
 
+@MainActor
 enum HoldingPurchaseDateStore {
     static func date(for holdingID: UUID) -> Date? {
-        AppDefaults.store.object(forKey: key(for: holdingID)) as? Date
+        HoldingMarketStore.values(for: holdingID).purchaseDate
     }
 
     static func set(_ date: Date, for holdingID: UUID) {
-        AppDefaults.store.set(date, forKey: key(for: holdingID))
+        HoldingMarketStore.update(holdingID) { $0.purchaseDate = date }
     }
 
     static func remove(for holdingID: UUID) {
-        AppDefaults.store.removeObject(forKey: key(for: holdingID))
-    }
-
-    private static func key(for holdingID: UUID) -> String {
-        "holding.purchased.\(holdingID.uuidString)"
+        HoldingMarketStore.update(holdingID) { $0.purchaseDate = nil }
     }
 }
 

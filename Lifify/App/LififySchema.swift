@@ -54,7 +54,12 @@ enum LififySchemaV3: VersionedSchema {
     static let versionIdentifier = Schema.Version(3, 0, 0)
     static var models: [any PersistentModel.Type] {
         LififySchemaV2.models + [
-            DataMigrationRecord.self
+            DataMigrationRecord.self,
+            StoredHoldingLot.self,
+            StoredSavingsPlan.self,
+            StoredClosedPosition.self,
+            StoredHoldingMarket.self,
+            StoredPortfolioLink.self
         ]
     }
 }

@@ -23,7 +23,7 @@ enum AppDefaults {
     }
 
     @MainActor
-    private static func clearCaches() {
+    static func clearCaches() {
         ChallengeTimeStore.clearCache()
         ChallengeCategoryStore.clearCache()
         StreakSettings.clearCache()
@@ -33,6 +33,8 @@ enum AppDefaults {
         SavingsPlanStore.clearCache()
         HoldingMaintenance.clearCache()
         ClosedPositionStore.clearCache()
+        HoldingMarketStore.clearCache()
+        PortfolioLinkStore.clearCache()
     }
 }
 
