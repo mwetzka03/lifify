@@ -11,6 +11,7 @@ enum LegacyDataMigration {
         migrateDepot(context)
         migrateFinanceLinks(context)
         migrateChallenges(context)
+        normalizeGroupMembership(context)
         AppDefaults.clearCaches()
     }
 
@@ -54,6 +55,19 @@ enum LegacyDataMigration {
 
     static func keys(prefix: String) -> [String] {
         AppDefaults.store.dictionaryRepresentation().keys.filter { $0.hasPrefix(prefix) }
+    }
+
+    /// Older records may hold only the single group. Afterward `groupIDsRaw` is the one source.
+    private static func normalizeGroupMembership(_ context: ModelContext) {
+        move(area: "challengeGroups", context: context, oldKeys: { [] }, insert: {
+            for challenge in try context.fetch(FetchDescriptor<ChallengeItem>()) {
+                let ids = challenge.groupIDs
+                if challenge.groupIDsRaw != ChallengeGroups.stored(ids) || challenge.groupID != ids.first {
+                    challenge.groupIDs = ids
+                }
+            }
+            return true
+        })
     }
 
     private static func insertMap<T: Codable>(_ type: T.Type, kind: LinkKind, key: String, context: ModelContext) -> Bool {

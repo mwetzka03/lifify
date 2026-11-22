@@ -241,6 +241,28 @@ extension LififyRuleTests {
             }
         }
 
+        @Test func movedDataIsOnDiskAfterReopening() async throws {
+            try await withTestStore { store in
+                try FileManager.default.createDirectory(at: AppFiles.supportDirectory, withIntermediateDirectories: true)
+                let url = AppFiles.supportDirectory.appendingPathComponent("default.store")
+                let schema = Schema(LififySchemaV2.models)
+                do {
+                    let old = try ModelContainer(for: schema, configurations: [ModelConfiguration(schema: schema, url: url)])
+                    old.mainContext.insert(Account(name: "Giro", isMain: true))
+                    try old.mainContext.save()
+                }
+                let seeded = try seedDepot(store.defaults)
+                LififyDatabase.container = try StoreRecoveryService.makeContainer(url: url)
+                LegacyDataMigration.run()
+                LififyDatabase.container = nil
+                LififyDatabase.container = try StoreRecoveryService.makeContainer(url: url)
+                #expect(HoldingLotStore.lots(for: seeded.holding) == seeded.lots)
+                #expect(SavingsPlanStore.all() == [seeded.plan])
+                let accounts = try #require(LififyDatabase.container).mainContext
+                #expect(try accounts.fetchCount(FetchDescriptor<Account>()) == 1)
+            }
+        }
+
         @Test func valuesSurviveAFreshRead() async throws {
             try await withTestStore { _ in
                 let holding = UUID()

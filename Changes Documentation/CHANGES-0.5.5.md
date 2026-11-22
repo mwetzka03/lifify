@@ -31,6 +31,8 @@ unchanged and stay in [FINANZEN.md](../FINANZEN.md). What changed in 0.4.0 is in
 
 **Moved to the database.** On first launch of 0.5.5, data moves once from UserDefaults into SwiftData. Old keys are deleted only after the new rows are saved. Unreadable data stays untouched and the move runs again on the next launch. Moved so far: portfolio lots, savings plans, closed positions, market symbols, previous closes, purchase dates, portfolio links, refund and income links, forecast skips, period links and rejected matches, expense group links, transfer forecasts, Shortcuts templates, budget accounts, bank import cursors, streak states, abstinence data, challenge minutes and event members, workout links, pins, custom categories, reward policies, reminder and event repeats, icons, and meals. Settings such as language, theme, multipliers, body data, and briefing times stay in UserDefaults.
 
+**Group and event links.** A challenge now has one source for its groups. The direct event link and the event member list stay separate on purpose: only the direct link sets the streak quota, so merging them would change streaks. Tests pin this behavior. Removing the old columns needs frozen copies of the version 2 models first.
+
 ### 0.5.5: Complete backup
 
 **What changed.** The backup now also carries transfer forecasts, refund links, forecast skips, period links and rejected matches, Shortcuts templates, variable budget accounts, bank import cursors, default trade settings, pinned challenges and groups, event offers, the Fast Food reward link, and display and briefing choices. A Finance or Challenges file carries only its own area. Device-wide choices are in the entire-app backup.
@@ -143,6 +145,8 @@ bucht. Die Finanzrechnung ist unverändert und bleibt in
 **Auswirkung.** Während der Ersteinrichtung bleibt das bisherige Verhalten: Schließen der App oder ein defekter Teilstand beginnt die Einrichtung von vorn.
 
 **In die Datenbank umgezogen.** Beim ersten Start von 0.5.5 ziehen Daten einmalig von UserDefaults nach SwiftData um. Alte Schlüssel werden erst gelöscht, wenn die neuen Zeilen gespeichert sind. Unlesbare Daten bleiben unangetastet, der Umzug läuft beim nächsten Start erneut. Bisher umgezogen: Depot-Lots, Sparpläne, geschlossene Positionen, Marktsymbole, Vortageskurse, Kaufdaten, Depot-Verknüpfungen, Erstattungs- und Einkommens-Verknüpfungen, übersprungene Prognosen, Zeitraum-Verknüpfungen und abgelehnte Treffer, Ausgabengruppen-Zuordnungen, Umbuchungsprognosen, Kurzbefehl-Vorlagen, Budget-Konten, Bankimport-Stände, Streak-Zustände, Abstinenzdaten, Challenge-Minuten und Termin-Mitglieder, Workout-Links, Pins, eigene Kategorien, Einlöse-Regeln, Wiederholungen von Erinnerungen und Terminen, Symbole und Mahlzeiten. Einstellungen wie Sprache, Design, Multiplikatoren, Körperdaten und Briefing-Zeiten bleiben in UserDefaults.
+
+**Gruppen- und Terminverknüpfungen.** Eine Challenge hat jetzt eine Quelle für ihre Gruppen. Die direkte Terminverknüpfung und die Mitgliederliste bleiben bewusst getrennt: Nur die direkte Verknüpfung bestimmt das Streak-Soll, ein Zusammenlegen würde Streaks verändern. Tests halten dieses Verhalten fest. Um alte Spalten zu entfernen, braucht es zuerst eingefrorene Kopien der Modelle aus Version 2.
 
 ### 0.5.5: Vollständiges Backup
 

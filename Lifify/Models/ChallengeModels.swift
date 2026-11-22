@@ -130,8 +130,9 @@ final class ChallengeItem {
     var weeklyDays: String
     var rewardCoins: Int
     var streakTarget: Int
-    var groupID: UUID?
-    /// Every group this challenge belongs to, including the one from its event.
+    /// The first group, kept in step by `groupIDs`. It stays as a column so version 2 stores still open.
+    private(set) var groupID: UUID?
+    /// The one source for group membership, including the group from its event. Write through `groupIDs`.
     var groupIDsRaw: String = ""
     var isArchived: Bool
     var externalIdentifier: String?

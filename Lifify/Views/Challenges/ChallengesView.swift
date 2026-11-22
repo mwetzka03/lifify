@@ -1063,7 +1063,7 @@ struct ChallengeForm: View {
         _difficulty = State(initialValue: challenge.map { AbstinenceSettings.difficulty(for: $0.id) } ?? .medium)
         _durationText = State(initialValue: challenge.flatMap { ChallengeTimeStore.minutes(for: $0.id).map(String.init) } ?? "")
         _linkedEventID = State(initialValue: challenge.flatMap { ChallengeTimeStore.eventID(containing: $0.id) })
-        _groupID = State(initialValue: challenge?.groupID)
+        _groupID = State(initialValue: challenge?.groupIDs.first)
         let presetIcon = if presetCategory == .abstinence {
             "lungs.fill"
         } else if presetCategory == .sport {
@@ -1359,7 +1359,6 @@ struct ChallengeForm: View {
         challenge.weekdaySet = !abstinence && recurrence == .weekly ? weekdays : []
         challenge.rewardCoins = max(rewardCoins, 0)
         challenge.streakTarget = 0
-        challenge.groupID = groupID
         if abstinence {
             StreakSettings.setEnabled(false, for: challenge.id)
             AbstinenceSettings.setDifficulty(difficulty, for: challenge.id)
