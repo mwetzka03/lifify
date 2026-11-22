@@ -124,9 +124,12 @@ enum LinkTable {
     static let backupType = "financeLink"
     static let challengeBackupType = "challengeLink"
     private static var cached: [LinkKind: [String: String]] = [:]
+    /// Changes with every write, so derived lookups know when to rebuild.
+    private(set) static var revision = 0
 
     static func clearCache() {
         cached = [:]
+        revision &+= 1
     }
 
     static func map(_ kind: LinkKind) -> [String: String] {
@@ -142,6 +145,7 @@ enum LinkTable {
         let current = map(kind)
         guard current != values else { return }
         cached[kind] = values
+        revision &+= 1
         guard let context = LififyDatabase.sideContext else { return }
         let raw = kind.rawValue
         let rows = (try? context.fetch(FetchDescriptor<StoredLink>(predicate: #Predicate { $0.kindRaw == raw }))) ?? []

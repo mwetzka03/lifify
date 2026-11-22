@@ -178,7 +178,8 @@ struct PortfolioView: View {
     private var sortedHoldings: [PortfolioHolding] {
         switch PortfolioSort(rawValue: sort) ?? .value {
         case .value:
-            return openHoldings.sorted { projectedValue($0) > projectedValue($1) }
+            let values = Dictionary(uniqueKeysWithValues: openHoldings.map { ($0.id, projectedValue($0)) })
+            return openHoldings.sorted { (values[$0.id] ?? 0) > (values[$1.id] ?? 0) }
         case .purchase:
             return openHoldings.sorted { lhs, rhs in
                 let left = HoldingPurchaseDateStore.date(for: lhs.id) ?? .distantPast
@@ -489,7 +490,8 @@ struct PortfolioElementsView: View {
     private var sortedHoldings: [PortfolioHolding] {
         switch PortfolioSort(rawValue: sort) ?? .value {
         case .value:
-            return visibleHoldings.sorted { projectedValue($0) > projectedValue($1) }
+            let values = Dictionary(uniqueKeysWithValues: visibleHoldings.map { ($0.id, projectedValue($0)) })
+            return visibleHoldings.sorted { (values[$0.id] ?? 0) > (values[$1.id] ?? 0) }
         case .purchase:
             return visibleHoldings.sorted { lhs, rhs in
                 let left = HoldingPurchaseDateStore.date(for: lhs.id) ?? .distantPast

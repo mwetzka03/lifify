@@ -21,6 +21,21 @@ unchanged and stay in [FINANZEN.md](../FINANZEN.md). What changed in 0.4.0 is in
 
 **Not covered yet.** Paths that write to the iOS calendar or schedule notifications are not run by the tests: the actual calendar rewrite after a resize, `WorkoutCalendarSync.apply`, abstinence bonuses through `settle`, and relapse. Their pure rules are tested. The full-app and Training backup restores are also not run, because they touch workout files.
 
+### 0.5.5: Performance
+
+**What changed.** Finance periods are reused until stored data changes. Fixed-cost matching looks only at bookings of the same day. Refund, skip, rejection, and period-link lookups no longer rebuild their data for every booking. The depot sorts by values it computes once.
+
+**Measured.** Release build in the iPhone 17 simulator, stress data with 5,000 bookings, 30 holdings, 1,200 lots, and 365 prices per holding. Median of three first opens, until the main thread stayed free.
+
+| Screen | Before | After |
+| --- | ---: | ---: |
+| Finance overview | 8.4 s | 1.4 s |
+| Depot | 36.2 s | 1.5 s |
+
+**Effect.** The calculations and their results are unchanged. Unsaved edits skip the reused values. These are simulator values with test data, so times on an iPhone will differ.
+
+**Loading screen.** The loading screen on return to the app stays. It also covers the sync with the iOS calendar, which could not be measured here with real calendar data.
+
 ### 0.5.5: Data storage
 
 **What changed.** The database now opens through a versioned migration plan (schema V3). A finished app no longer moves its store aside when it cannot be opened. It shows the error and offers to restore a backup of the entire app. Only that choice moves the old store into an archive folder, and a failed restore puts it back.
@@ -137,6 +152,21 @@ bucht. Die Finanzrechnung ist unverändert und bleibt in
 **Fehlgeschlagene Prüfungen.** Vor diesem Schritt schlugen zwei In-App-Prüfgruppen fehl, wegen vier veralteter Bedingungen. Keine davon war ein App-Fehler, die Bedingungen entsprechen jetzt dem Code: Zwillingszeilen haben verschiedene alte Fingerabdrücke, weil der alte Titel der Verwendungszweck war. `XF000BTC0017` besteht die ISIN-Prüfsumme. Ein Kauf ohne Stückzahl wird über den Durchschnittspreis bemessen. Ein vollständiger Verkauf schließt die Position über ihre Lots, ohne eigenes Entfernen.
 
 **Noch nicht abgedeckt.** Wege, die in den iOS-Kalender schreiben oder Mitteilungen planen, laufen in den Tests nicht: das echte Umschreiben des Termins nach einer Größenänderung, `WorkoutCalendarSync.apply`, Abstinenz-Boni über `settle` und der Rückfall. Ihre reinen Regeln sind getestet. Auch die Wiederherstellung des Gesamt- und des Trainings-Backups läuft nicht, weil sie Trainingsdateien berührt.
+
+### 0.5.5: Performance
+
+**Was sich geändert hat.** Finanzzeiträume werden wiederverwendet, bis sich gespeicherte Daten ändern. Der Fixkosten-Abgleich prüft nur noch Buchungen desselben Tages. Erstattungen, übersprungene Prognosen, Ablehnungen und Zeitraum-Verknüpfungen bauen ihre Daten nicht mehr für jede Buchung neu auf. Das Depot sortiert nach einmal berechneten Werten.
+
+**Gemessen.** Release-Build im iPhone-17-Simulator, Stresstest mit 5.000 Buchungen, 30 Positionen, 1.200 Lots und 365 Kursen je Position. Median aus drei ersten Aufrufen, bis der Hauptthread frei blieb.
+
+| Bildschirm | Vorher | Nachher |
+| --- | ---: | ---: |
+| Finanzübersicht | 8,4 s | 1,4 s |
+| Depot | 36,2 s | 1,5 s |
+
+**Auswirkung.** Die Berechnungen und ihre Ergebnisse bleiben gleich. Ungespeicherte Änderungen umgehen die wiederverwendeten Werte. Es sind Simulatorwerte mit Testdaten, auf dem iPhone weichen die Zeiten ab.
+
+**Ladebildschirm.** Der Ladebildschirm beim Zurückkehren bleibt. Er deckt auch den Abgleich mit dem iOS-Kalender ab, der sich hier nicht mit echten Kalenderdaten messen ließ.
 
 ### 0.5.5: Datenspeicher
 

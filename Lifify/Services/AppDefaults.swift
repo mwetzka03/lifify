@@ -1,4 +1,5 @@
 import Foundation
+import SwiftData
 
 /// The one place services get their UserDefaults from.
 /// The app always uses `.standard`. Tests swap in an isolated suite, so they never touch user data.
@@ -57,6 +58,38 @@ enum AppFiles {
     static func use(_ directory: URL?) {
         lock.lock()
         replacement = directory
+        lock.unlock()
+    }
+}
+
+/// Counts saves across all model contexts, so derived values know when to recompute.
+enum ModelChangeCounter {
+    private static let lock = NSLock()
+    nonisolated(unsafe) private static var count = 0
+    nonisolated(unsafe) private static var observer: NSObjectProtocol?
+
+    static var value: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return count
+    }
+
+    static func bump() {
+        lock.lock()
+        count &+= 1
+        lock.unlock()
+    }
+
+    static func startObserving() {
+        lock.lock()
+        let needsObserver = observer == nil
+        lock.unlock()
+        guard needsObserver else { return }
+        let token = NotificationCenter.default.addObserver(forName: ModelContext.didSave, object: nil, queue: nil) { _ in
+            ModelChangeCounter.bump()
+        }
+        lock.lock()
+        observer = token
         lock.unlock()
     }
 }

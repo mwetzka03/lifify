@@ -87,6 +87,78 @@ extension LififyRuleTests {
         }
     }
 
+    @Suite("Finance caches stay correct")
+    @MainActor
+    struct FinanceCacheTests {
+        private func setup(_ store: TestStore) throws -> (Account, LedgerEntry, [LedgerEntry]) {
+            let account = Account(name: "Giro", isMain: true)
+            let oldest = LedgerEntry(date: date(2026, 3, 10), title: "Alt", amountCents: -100, kind: .expense, accountID: account.id)
+            let newer = LedgerEntry(date: date(2026, 5, 10), title: "Neu", amountCents: -100, kind: .expense, accountID: account.id)
+            store.context.insert(account)
+            store.context.insert(oldest)
+            store.context.insert(newer)
+            try store.context.save()
+            return (account, oldest, [oldest, newer])
+        }
+
+        @Test func periodsFollowASavedDateChange() async throws {
+            try await withTestStore { store in
+                let (account, oldest, entries) = try setup(store)
+                let before = FinancePeriods.all(entries: entries, forecasts: [], accounts: [account])
+                oldest.date = date(2026, 1, 10)
+                try store.context.save()
+                let after = FinancePeriods.all(entries: entries, forecasts: [], accounts: [account])
+                #expect(after.count == before.count + 2)
+            }
+        }
+
+        @Test func periodsFollowAnUnsavedDateChange() async throws {
+            try await withTestStore { store in
+                let (account, oldest, entries) = try setup(store)
+                let before = FinancePeriods.all(entries: entries, forecasts: [], accounts: [account])
+                oldest.date = date(2026, 1, 10)
+                let after = FinancePeriods.all(entries: entries, forecasts: [], accounts: [account])
+                #expect(after.count == before.count + 2)
+            }
+        }
+
+        @Test func dayIndexFollowsChangesAndKeepsOrder() async throws {
+            try await withTestStore { store in
+                let (_, oldest, entries) = try setup(store)
+                #expect(ExpenseDayIndex.candidates(on: date(2026, 3, 10, 20), in: entries).map(\.id) == [oldest.id])
+                oldest.date = date(2026, 5, 10, 8)
+                #expect(ExpenseDayIndex.candidates(on: date(2026, 3, 10), in: entries).isEmpty)
+                try store.context.save()
+                #expect(ExpenseDayIndex.candidates(on: date(2026, 5, 10), in: entries).map(\.id) == entries.map(\.id))
+            }
+        }
+
+        @Test func refundLookupFollowsWrites() async throws {
+            try await withTestStore { _ in
+                let refund = UUID(), original = UUID()
+                #expect(RefundLinkStore.refundIDs(for: original).isEmpty)
+                RefundLinkStore.link(refundID: refund, to: original)
+                #expect(RefundLinkStore.refundIDs(for: original) == [refund])
+                #expect(RefundLinkStore.isRefunded(original))
+                RefundLinkStore.unlink(refundID: refund)
+                #expect(!RefundLinkStore.isRefunded(original))
+            }
+        }
+
+        @Test func periodLinkCoversOnlyItsForecastAndPeriod() async throws {
+            try await withTestStore { store in
+                let (_, oldest, entries) = try setup(store)
+                let forecast = UUID()
+                ForecastPeriodLinkStore.assign(entryID: oldest.id, kind: .fixed, forecastID: forecast)
+                let march = ForecastPeriod(start: date(2026, 3, 1), end: date(2026, 3, 31))
+                let april = ForecastPeriod(start: date(2026, 4, 1), end: date(2026, 4, 30))
+                #expect(ForecastPeriodLinkStore.covers(.fixed, id: forecast, entries: entries, period: march))
+                #expect(!ForecastPeriodLinkStore.covers(.fixed, id: forecast, entries: entries, period: april))
+                #expect(!ForecastPeriodLinkStore.covers(.income, id: forecast, entries: entries, period: march))
+            }
+        }
+    }
+
     @Suite("Depot and savings plans")
     @MainActor
     struct PortfolioTests {

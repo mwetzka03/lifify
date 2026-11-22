@@ -781,10 +781,8 @@ enum FinanceService {
         _ occurrence: (date: Date, amount: Int, title: String, costID: UUID),
         entries: [LedgerEntry]
     ) -> LedgerEntry? {
-        entries.first { entry in
-            guard entry.kind == .expense || entry.kind == .transfer else { return false }
+        ExpenseDayIndex.candidates(on: occurrence.date, in: entries).first { entry in
             if ForecastMatchRejectionStore.isRejected(costID: occurrence.costID, entryID: entry.id) { return false }
-            guard Calendar.current.isDate(entry.date, inSameDayAs: occurrence.date) else { return false }
             if entry.fixedCostID == occurrence.costID { return true }
             let sameAmount = abs(entry.amountCents) == occurrence.amount
             if entry.kind == .transfer {
@@ -1096,6 +1094,41 @@ enum FinanceService {
 
     private static func endOfDay(_ date: Date) -> Date {
         Calendar.current.date(byAdding: .day, value: 1, to: Calendar.current.startOfDay(for: date))?.addingTimeInterval(-1) ?? date
+    }
+}
+
+/// Expenses and transfers by day, in their original order. One forecast asks this thousands of times.
+/// It holds the array it indexed, and unsaved edits skip the index.
+@MainActor
+enum ExpenseDayIndex {
+    private static var indexed: [LedgerEntry] = []
+    private static var generation = -1
+    private static var byDay: [Date: [LedgerEntry]] = [:]
+
+    static func candidates(on date: Date, in entries: [LedgerEntry]) -> [LedgerEntry] {
+        let calendar = Calendar.current
+        if entries.first?.modelContext?.hasChanges == true {
+            return entries.filter {
+                ($0.kind == .expense || $0.kind == .transfer) && calendar.isDate($0.date, inSameDayAs: date)
+            }
+        }
+        let current = ModelChangeCounter.value
+        if generation != current || !sameArray(indexed, entries) {
+            indexed = entries
+            generation = current
+            byDay = [:]
+            for entry in entries where entry.kind == .expense || entry.kind == .transfer {
+                byDay[calendar.startOfDay(for: entry.date), default: []].append(entry)
+            }
+        }
+        return byDay[calendar.startOfDay(for: date)] ?? []
+    }
+
+    private static func sameArray(_ lhs: [LedgerEntry], _ rhs: [LedgerEntry]) -> Bool {
+        guard lhs.count == rhs.count else { return false }
+        return lhs.withUnsafeBufferPointer { left in
+            rhs.withUnsafeBufferPointer { right in left.baseAddress == right.baseAddress }
+        }
     }
 }
 

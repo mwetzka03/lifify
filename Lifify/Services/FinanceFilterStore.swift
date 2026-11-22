@@ -57,9 +57,45 @@ final class FinanceFilterStore: ObservableObject {
 
 @MainActor
 enum FinancePeriods {
+    private struct MemoKey: Equatable {
+        var generation: Int
+        var day: Date
+        var entryCount: Int
+        var mainID: UUID?
+        var primaryID: UUID?
+        var primaryFirstDate: Date?
+        var primaryCadence: String?
+        var primaryRule: String?
+        var primaryDay: Int?
+    }
+
+    private static var memo: (key: MemoKey, periods: [ForecastPeriod])?
+
+    /// Views ask for the periods many times per frame. The answer is reused until stored data changes.
+    /// Unsaved edits skip the memo, so a changed date is never answered from an old result.
     @MainActor
     static func all(entries: [LedgerEntry], forecasts: [IncomeForecast], accounts: [Account]) -> [ForecastPeriod] {
         let main = accounts.first(where: \.isMain)
+        let primary = primaryForecast(in: forecasts)
+        let key = MemoKey(
+            generation: ModelChangeCounter.value,
+            day: Calendar.current.startOfDay(for: .now),
+            entryCount: entries.count,
+            mainID: main?.id,
+            primaryID: primary?.id,
+            primaryFirstDate: primary?.firstPaymentDate,
+            primaryCadence: primary?.cadenceRaw,
+            primaryRule: primary?.dueRuleRaw,
+            primaryDay: primary?.dayOfMonth
+        )
+        let pending = entries.first?.modelContext?.hasChanges == true
+        if !pending, let memo, memo.key == key { return memo.periods }
+        let periods = computeAll(entries: entries, primary: primary, main: main)
+        memo = pending ? nil : (key, periods)
+        return periods
+    }
+
+    private static func computeAll(entries: [LedgerEntry], primary: IncomeForecast?, main: Account?) -> [ForecastPeriod] {
         let relevant = entries.filter { entry in
             guard let main else { return false }
             return entry.accountID == main.id
@@ -69,7 +105,7 @@ enum FinancePeriods {
         guard let earliest = relevant.map(\.date).min() else { return [] }
         let latest = Calendar.current.date(byAdding: .month, value: 18, to: .now) ?? .now
         return FinanceService.forecastPeriods(
-            primary: primaryForecast(in: forecasts),
+            primary: primary,
             earliest: earliest,
             latest: latest
         )

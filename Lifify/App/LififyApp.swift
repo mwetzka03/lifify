@@ -39,6 +39,8 @@ struct LififyApp: App {
 enum LififyDatabase {
     static var container: ModelContainer? {
         didSet {
+            ModelChangeCounter.startObserving()
+            ModelChangeCounter.bump()
             sideContext = container.map { container in
                 let context = ModelContext(container)
                 context.autosaveEnabled = false

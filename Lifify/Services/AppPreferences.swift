@@ -129,12 +129,18 @@ enum RefundLinkStore {
         mapping()[refundID.uuidString].flatMap(UUID.init(uuidString:))
     }
 
+    private static var reverse: (revision: Int, ids: [String: [UUID]])?
+
     static func refundIDs(for originalID: UUID) -> [UUID] {
-        let token = originalID.uuidString
-        return mapping().compactMap { key, value in
-            guard value == token else { return nil }
-            return UUID(uuidString: key)
+        let revision = LinkTable.revision
+        if reverse?.revision != revision {
+            var ids: [String: [UUID]] = [:]
+            for (refund, original) in mapping() {
+                if let id = UUID(uuidString: refund) { ids[original, default: []].append(id) }
+            }
+            reverse = (revision, ids)
         }
+        return reverse?.ids[originalID.uuidString] ?? []
     }
 
     static func isRefund(_ entryID: UUID) -> Bool {
@@ -142,7 +148,7 @@ enum RefundLinkStore {
     }
 
     static func isRefunded(_ originalID: UUID) -> Bool {
-        mapping().values.contains(originalID.uuidString)
+        !refundIDs(for: originalID).isEmpty
     }
 
     static func unlink(refundID: UUID) {
@@ -384,7 +390,7 @@ enum ForecastSkipStore {
     }
 
     static func isSkipped(_ kind: ForecastRefKind, id: UUID, on day: Date) -> Bool {
-        all().contains(token(kind, id, day))
+        LinkTable.map(.forecastSkip)[token(kind, id, day)] != nil
     }
 
     static func reset() {
@@ -438,10 +444,10 @@ enum ForecastPeriodLinkStore {
     }
 
     static func covers(_ kind: ForecastRefKind, id: UUID, entries: [LedgerEntry], period: ForecastPeriod) -> Bool {
-        entries.contains { entry in
-            guard period.contains(entry.date), let link = link(for: entry.id) else { return false }
-            return link.kind == kind && link.id == id
-        }
+        let wanted = "\(kind.rawValue)|\(id.uuidString)"
+        let linked = Set(mapping().compactMap { $0.value == wanted ? UUID(uuidString: $0.key) : nil })
+        guard !linked.isEmpty else { return false }
+        return entries.contains { linked.contains($0.id) && period.contains($0.date) }
     }
 
     static func clear(entryID: UUID) {
@@ -491,7 +497,9 @@ enum ForecastMatchRejectionStore {
     }
 
     static func isRejected(costID: UUID, entryID: UUID) -> Bool {
-        all().contains(token(costID, entryID))
+        let rejected = LinkTable.map(.matchRejection)
+        guard !rejected.isEmpty else { return false }
+        return rejected[token(costID, entryID)] != nil
     }
 
     static func reset() {
