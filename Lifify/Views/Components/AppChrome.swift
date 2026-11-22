@@ -13,7 +13,6 @@ enum AppChrome {
     static let version = "0.5.5"
 
     /// Screens that use the painted canvas. Finance keeps its own card arrangement.
-    static let glassScreens = ["home", "challenges", "health", "settings", "onboarding", "finance"]
 
     static func font(_ role: AppTextRole) -> Font {
         switch role {
@@ -83,9 +82,7 @@ enum ChallengeBoard {
 /// Card layout for Challenges and Health. One challenge in a section uses the full width.
 enum CardBoard {
     static let challengeColumnCount = 2
-    static let groupUsesFullWidth = true
     static let singleCardUsesFullWidth = true
-    static let healthTileCount = 2
     static let healthFiltersShareOneRow = true
     /// Midpoint of the old capsule (about 28, no extra padding) and the tall one (44 and 6).
     static let toolbarMinHeight: CGFloat = 36

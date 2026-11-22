@@ -13,19 +13,14 @@ has its own changelog, as [CHANGES-0.5.5.md](Changes%20Documentation/CHANGES-0.5
 Those version files live in Changes Documentation. The README and the other
 documents stay at the top and stay bilingual in the same way.
 
-### Checks
-
-New behavior gets a unit check and an integration check. The checks live with
-the other checks, they are grouped by topic, and they do not write the user's
-data. A check page names the source files that matter, the methods the check
-calls, and what the measured line means in plain language. The measured line
-is shown once. Each step says what should happen and which file it reads.
-
 ### Tests
 
-Rule tests live in `LififyTests` and use Swift Testing. They run through
-`withTestStore`, which provides an in-memory database and a private UserDefaults
-suite. Services read UserDefaults through `AppDefaults.store`, never directly.
+New behavior gets automated tests in `LififyTests`, written with Swift Testing
+and grouped by topic. Test real rules, not constants or UI text against
+themselves. Tests run through `withTestStore`, which provides an in-memory
+database and a private UserDefaults suite, so they never write user data.
+Services read UserDefaults through `AppDefaults.store`, never directly. A step
+is finished when the build and all tests pass.
 
 ### Design
 
@@ -47,21 +42,15 @@ zuerst. Jede Version hat ihr eigenes Änderungsprotokoll, so wie
 Versionsdateien liegen in Changes Documentation. Die README und die übrigen
 Dokumente bleiben oben und auf dieselbe Weise zweisprachig.
 
-### Prüfungen
-
-Neues Verhalten bekommt eine Unit-Prüfung und eine Integrationsprüfung. Die
-Prüfungen stehen bei den anderen Prüfungen, sie sind nach Thema gruppiert, und
-sie schreiben keine Nutzerdaten. Eine Prüfseite nennt die Quelldateien, die
-dazugehören, die Methoden, die die Prüfung aufruft, und in einfacher Sprache,
-was die gemessene Zeile bedeutet. Die gemessene Zeile steht einmal da. Jeder
-Schritt sagt, was passieren soll, und nennt die Datei, die er liest.
-
 ### Tests
 
-Regeltests liegen in `LififyTests` und nutzen Swift Testing. Sie laufen über
-`withTestStore`, das eine In-Memory-Datenbank und eine eigene
-UserDefaults-Suite bereitstellt. Services lesen UserDefaults über
-`AppDefaults.store`, nie direkt.
+Neues Verhalten bekommt automatische Tests in `LififyTests`, geschrieben mit
+Swift Testing und nach Thema gruppiert. Getestet werden echte Regeln, nicht
+Konstanten oder UI-Texte gegen sich selbst. Tests laufen über `withTestStore`,
+das eine In-Memory-Datenbank und eine eigene UserDefaults-Suite bereitstellt.
+Sie schreiben also nie Nutzerdaten. Services lesen UserDefaults über
+`AppDefaults.store`, nie direkt. Ein Schritt ist fertig, wenn Build und alle
+Tests grün sind.
 
 ### Design
 

@@ -21,6 +21,14 @@ unchanged and stay in [FINANZEN.md](../FINANZEN.md). What changed in 0.4.0 is in
 
 **Not covered yet.** Paths that write to the iOS calendar or schedule notifications are not run by the tests: the actual calendar rewrite after a resize, `WorkoutCalendarSync.apply`, abstinence bonuses through `settle`, and relapse. Their pure rules are tested. The full-app and Training backup restores are also not run, because they touch workout files.
 
+### 0.5.5: In-app check page removed
+
+**What changed.** The test page under developer mode and its check code are gone from the app. Of the 108 checks, 99 worked examples moved into `LififyTests`. Nine checks, and the conditions inside other checks that only compared UI text, symbols, or constants with themselves, were dropped. The constants that existed only for those checks were removed: `TradeRepublicRefresh`, `TradeRepublicGap`, five `TradeRepublicSample` flags, and three layout constants.
+
+**Why.** Test code does not belong in the shipped app, and Xcode now runs the rules.
+
+**Effect.** Developer mode no longer has Run tests. The simulated day and the Trade Republic extract stay. Trade Republic still stores no PIN or session and does not refresh on its own. That behavior comes from the sign-in code, not from the removed constants.
+
 ### Setup
 
 Setup can restore the entire app from one JSON file, or only one area:
@@ -68,11 +76,7 @@ expense on Trade Republic. The same transfer is not booked twice within three
 days. The same account, amount, and direction inside six hours becomes one
 booking.
 
-The new behavior has a unit check and an integration check. The checks do not
-write user data.
-
-This environment has no Xcode, so the project was not built and the checks were
-not executed. Swift braces were balanced locally.
+The real sign-in with a phone, PIN, and app confirmation is not part of the automated tests.
 
 ### Ideas, not built
 
@@ -99,6 +103,14 @@ bucht. Die Finanzrechnung ist unverändert und bleibt in
 **Fehlgeschlagene Prüfungen.** Vor diesem Schritt schlugen zwei In-App-Prüfgruppen fehl, wegen vier veralteter Bedingungen. Keine davon war ein App-Fehler, die Bedingungen entsprechen jetzt dem Code: Zwillingszeilen haben verschiedene alte Fingerabdrücke, weil der alte Titel der Verwendungszweck war. `XF000BTC0017` besteht die ISIN-Prüfsumme. Ein Kauf ohne Stückzahl wird über den Durchschnittspreis bemessen. Ein vollständiger Verkauf schließt die Position über ihre Lots, ohne eigenes Entfernen.
 
 **Noch nicht abgedeckt.** Wege, die in den iOS-Kalender schreiben oder Mitteilungen planen, laufen in den Tests nicht: das echte Umschreiben des Termins nach einer Größenänderung, `WorkoutCalendarSync.apply`, Abstinenz-Boni über `settle` und der Rückfall. Ihre reinen Regeln sind getestet. Auch die Wiederherstellung des Gesamt- und des Trainings-Backups läuft nicht, weil sie Trainingsdateien berührt.
+
+### 0.5.5: In-App-Prüfseite entfernt
+
+**Was sich geändert hat.** Die Testseite im Entwicklermodus und ihr Prüfcode sind aus der App entfernt. Von den 108 Prüfungen sind 99 Rechenbeispiele nach `LififyTests` umgezogen. Neun Prüfungen und die Bedingungen in anderen Prüfungen, die nur UI-Texte, Symbole oder Konstanten mit sich selbst verglichen, sind entfallen. Die nur dafür vorhandenen Konstanten sind entfernt: `TradeRepublicRefresh`, `TradeRepublicGap`, fünf Schalter in `TradeRepublicSample` und drei Layout-Konstanten.
+
+**Warum.** Testcode gehört nicht in die ausgelieferte App, und Xcode führt die Regeln jetzt aus.
+
+**Auswirkung.** Im Entwicklermodus gibt es „Tests ausführen“ nicht mehr. Der simulierte Tag und der Trade-Republic-Auszug bleiben. Trade Republic speichert weiter weder PIN noch Sitzung und aktualisiert nicht von selbst. Das Verhalten kommt aus dem Anmeldecode, nicht aus den entfernten Konstanten.
 
 ### Einrichtung
 
@@ -157,11 +169,7 @@ Trade Republic. Dieselbe Umbuchung wird innerhalb von drei Tagen nicht doppelt
 gebucht. Dasselbe Konto, derselbe Betrag und dieselbe Richtung innerhalb von
 sechs Stunden werden eine Buchung.
 
-Das neue Verhalten hat eine Unit-Prüfung und eine Integrationsprüfung. Die
-Prüfungen schreiben keine Nutzerdaten.
-
-Diese Umgebung hat kein Xcode. Das Projekt wurde nicht gebaut, und die
-Prüfungen wurden nicht ausgeführt. Die Swift-Klammern wurden lokal geprüft.
+Die echte Anmeldung mit Telefon, PIN und Bestätigung in der App ist nicht Teil der automatischen Tests.
 
 ### Ideen, nicht umgesetzt
 

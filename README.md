@@ -168,7 +168,7 @@ rot. Die Links unter Weitere Bereiche sind eine Stufe größer als die Kacheltit
 Was sich in 0.5.5 geändert hat, steht in [CHANGES-0.5.5.md](Changes%20Documentation/CHANGES-0.5.5.md),
 was sich in 0.4.0 geändert hat in [CHANGES-0.4.0.md](Changes%20Documentation/CHANGES-0.4.0.md),
 was sich in 0.3.0 geändert hat in [CHANGES-0.3.0.md](Changes%20Documentation/CHANGES-0.3.0.md). Jede Datei auf Englisch und Deutsch.
-Wie Änderungen, Prüfungen und der Stil gehalten werden, steht in [RULES.md](RULES.md).
+Wie Änderungen, Tests und der Stil gehalten werden, steht in [RULES.md](RULES.md).
 
 Die Finanzregeln stehen in [FINANZEN.md](FINANZEN.md).
 

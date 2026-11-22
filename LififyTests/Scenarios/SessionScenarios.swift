@@ -1,23 +1,12 @@
 import Foundation
+@testable import Lifify
 import Security
 
 /// Checks for the Trade Republic session and the bank-notice shortcut.
 /// They use values in memory and do not write the user's data.
 @MainActor
-enum LififySessionChecks {
-    static func run() -> [LififyCheckResult] {
-        [
-            noticeReadsAmountDirectionAndTitle(),
-            sameBookingInsideTheWindowCountsOnce(),
-            depotSetsQuantityAndCostAndInventsNothing(),
-            deadSessionDoesNotStartAnotherLogin(),
-            sparkasseAndTradeRepublicLandOnTheMatchingAccount(),
-            noticeTemplateBooksTheExample(),
-            signInAndRefreshStayManual()
-        ]
-    }
-
-    private static func noticeReadsAmountDirectionAndTitle() -> LififyCheckResult {
+enum SessionScenarios {
+    static func noticeReadsAmountDirectionAndTitle() -> RuleScenario {
         let debit = BankNotice.parse("Abbuchung 12,34 EUR REWE", fallbackTitle: "Sparkasse")
         let credit = BankNotice.parse("Gutschrift +1.250,00 € Gehalt", fallbackTitle: "Sparkasse")
         let bare = BankNotice.parse("12,34 EUR", fallbackTitle: "Sparkasse")
@@ -56,7 +45,7 @@ enum LififySessionChecks {
         return result("Eine Mitteilung nennt Betrag, Richtung und Titel", .bankImport, .unit, passed, reading)
     }
 
-    private static func sameBookingInsideTheWindowCountsOnce() -> LififyCheckResult {
+    static func sameBookingInsideTheWindowCountsOnce() -> RuleScenario {
         let account = UUID()
         let now = Date(timeIntervalSince1970: 1_700_000_000)
         guard let notice = BankNotice.parse("Abbuchung 4,20 EUR REWE", fallbackTitle: "Sparkasse") else {
@@ -77,7 +66,7 @@ enum LififySessionChecks {
         return result("Dieselbe Buchung im kurzen Fenster zählt einmal", .bankImport, .unit, passed, reading)
     }
 
-    private static func depotSetsQuantityAndCostAndInventsNothing() -> LififyCheckResult {
+    static func depotSetsQuantityAndCostAndInventsNothing() -> RuleScenario {
         let payload = #"{"categories":[{"positions":[{"isin":"IE00B4L5Y983","name":"World","netSize":2.5,"averageBuyIn":80}]}]}"#
         let read = TradeRepublicPortfolio.read(Data(payload.utf8))
         let position: TradeRepublicPosition?
@@ -529,10 +518,6 @@ enum LififySessionChecks {
                 if case .buy(_, _, _, _, _, let quantity, _, _) = move { return quantity }
                 return nil
             }.reduce(0, +) - 2) < 0.00001
-            && !TradeRepublicSample.clipsExtract
-            && TradeRepublicSample.alwaysStores
-            && !TradeRepublicSample.storesExtractInUserDefaults
-            && !TradeRepublicSample.showsFullExtractText
             && TradeRepublicSample.exportFilenamePrefix == "TradeRepublic-Auszug"
             && TradeRepublicCopy.looksLikeBackup("{\"backupScope\":\"finance\"}")
             && TradeRepublicCopy.looksLikeBackup("\"type\" : \"account\"")
@@ -562,7 +547,6 @@ enum LififySessionChecks {
             && TradeRepublicSample.snapshot(
                 from: "===== compactPortfolio =====\n\(payload)\n===== cash =====\n[{\"amount\":1234.56}]"
             )?.cashCents == 123_456
-            && TradeRepublicSample.extractRequiresDeveloperMode
             && BankImportApplier.ownAccountWindowDays == 3
             && BankNotice.transferWindowDays == BankImportApplier.ownAccountWindowDays
             && abs(Calendar.current.dateComponents([.day], from: Calendar.current.startOfDay(for: fourteenth), to: Calendar.current.startOfDay(for: sixteenth)).day ?? 99) == 2
@@ -610,12 +594,12 @@ enum LififySessionChecks {
         return result("Ein Depotstand setzt Menge und Einstand und erfindet nichts", .portfolio, .unit, passed && synced && categories && receipts, reading)
     }
 
-    private static func deadSessionDoesNotStartAnotherLogin() -> LififyCheckResult {
+    static func deadSessionDoesNotStartAnotherLogin() -> RuleScenario {
         let dead = TradeRepublicRequest.failure(statusCode: 401, errorCode: nil, savedSession: true)
         let notStarted = TradeRepublicRequest.failure(statusCode: 401, errorCode: nil)
         let duringProcess = TradeRepublicRequest.failure(statusCode: 401, errorCode: nil, duringProcess: true)
         let wrongPin = TradeRepublicRequest.failure(statusCode: 401, errorCode: "PIN_INVALID")
-        let invalidNumber = TradeRepublicRequest.failure(statusCode: 400, errorCode: TradeRepublicGap.probedCode)
+        let invalidNumber = TradeRepublicRequest.failure(statusCode: 400, errorCode: "NUMBER_INVALID")
         let header = "tr_session=example"
         let message = TradeRepublicFailure.sessionDead.message
         let headers = TradeRepublicRequest.headers()
@@ -629,13 +613,6 @@ enum LififySessionChecks {
             && TradeRepublicRequest.canonicalPhone("0176 123") == "+49176123"
             && TradeRepublicRequest.canonicalPhone("+49 170") == "+49170"
             && headers["X-TR-Device-Info"] == again["X-TR-Device-Info"]
-            && TradeRepublicRefresh.manualOnly
-            && !TradeRepublicRefresh.onLaunch
-            && !TradeRepublicRefresh.onTimer
-            && !TradeRepublicRefresh.onFinanceOpen
-            && !TradeRepublicRefresh.usesStoredPIN
-            && TradeRepublicGap.deviceConfirmationRequired
-            && !TradeRepublicGap.completedOnThisMachine
             && TradeRepublicCookies.keepsSession(header)
             && !TradeRepublicCookies.keepsSession("aws-waf-token=example")
             && !message.localizedCaseInsensitiveContains("example")
@@ -647,7 +624,7 @@ enum LififySessionChecks {
         return result("Eine tote Sitzung startet keine neue Anmeldung", .account, .unit, passed, reading)
     }
 
-    private static func sparkasseAndTradeRepublicLandOnTheMatchingAccount() -> LififyCheckResult {
+    static func sparkasseAndTradeRepublicLandOnTheMatchingAccount() -> RuleScenario {
         let sparkasse = UUID()
         let main = UUID()
         let trade = UUID()
@@ -738,7 +715,7 @@ enum LififySessionChecks {
         return result("Sparkasse und Trade Republic landen auf dem passenden Konto", .bankImport, .integration, passed, reading)
     }
 
-    private static func noticeTemplateBooksTheExample() -> LififyCheckResult {
+    static func noticeTemplateBooksTheExample() -> RuleScenario {
         let sparkasse = UUID()
         let trade = UUID()
         let accounts = [
@@ -807,27 +784,6 @@ enum LififySessionChecks {
         )
     }
 
-    private static func signInAndRefreshStayManual() -> LififyCheckResult {
-        let signIn = OnboardingSteps.tradeRepublicSignIn
-        let passed = OnboardingSteps.count == 9
-            && OnboardingSteps.tradeRepublic == "Trade Republic"
-            && (signIn == "Trade Republic anmelden (optional)" || signIn == "Sign in to Trade Republic (optional)")
-            && (TradeRepublicCopy.signIn == "Bei Trade Republic anmelden" || TradeRepublicCopy.signIn == "Sign in to Trade Republic")
-            && !TradeRepublicRefresh.storesSession
-            && TradeRepublicRefresh.manualOnly
-            && !TradeRepublicRefresh.onLaunch
-            && !TradeRepublicRefresh.onTimer
-            && !TradeRepublicRefresh.onFinanceOpen
-            && !TradeRepublicRefresh.usesStoredPIN
-            && TradeRepublicGap.probedStatus == 400
-            && TradeRepublicGap.probedCode == "NUMBER_INVALID"
-            && KeychainStore.deviceOnly == (kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly as String)
-            && KeychainStore.tradeRepublicService == "lifify.traderepublic"
-            && AppChrome.version == "0.5.5"
-        let reading = "9 manual 400"
-        return result("Anmeldung und Aktualisieren laufen nur von Hand", .account, .integration, passed, reading)
-    }
-
     private static func bookedAmount(_ plan: BankNoticePlan) -> Int? {
         switch plan {
         case .book(_, _, let amount, _), .bookTransfer(_, _, _, let amount):
@@ -868,7 +824,6 @@ enum LififySessionChecks {
         AppDefaults.store.removeObject(forKey: TradeRepublicSample.legacyKey)
         TradeRepublicSample.purgeLegacyPreferences()
         return !TradeRepublicSample.leftoversInPreferences
-            && !TradeRepublicSample.storesExtractInUserDefaults
             && TradeRepublicSample.previewCharacterLimit == 1600
             && TradeRepublicSample.exportFilename.hasPrefix(TradeRepublicSample.exportFilenamePrefix)
     }
@@ -914,12 +869,12 @@ enum LififySessionChecks {
 
     private static func result(
         _ name: String,
-        _ topic: LififyCheckTopic,
-        _ kind: LififyCheckKind,
+        _ topic: RuleTopic,
+        _ kind: RuleKind,
         _ passed: Bool,
         _ reading: String
-    ) -> LififyCheckResult {
-        LififyCheckResult(
+    ) -> RuleScenario {
+        RuleScenario(
             name: name,
             passed: passed,
             detail: passed ? nil : reading,

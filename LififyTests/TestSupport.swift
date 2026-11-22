@@ -46,3 +46,31 @@ func date(_ year: Int, _ month: Int, _ day: Int, _ hour: Int = 12, _ minute: Int
 func days(_ count: Int, after start: Date) -> Date {
     Calendar.current.date(byAdding: .day, value: count, to: start)!
 }
+
+enum RuleKind {
+    case unit
+    case integration
+}
+
+enum RuleTopic {
+    case streak, multiplier, challenge, calendar, training, abstinence, developer, finance
+    case screen, account, forecast, budget, portfolio, bankImport, backup, shop, navigation
+}
+
+/// The outcome of one worked example with its measured values.
+struct RuleScenario {
+    var name: String
+    var passed: Bool
+    var detail: String?
+    var reading: String = ""
+    var kind: RuleKind
+    var topic: RuleTopic
+}
+
+@MainActor
+func expectScenario(_ scenario: @MainActor () -> RuleScenario) async throws {
+    try await withTestStore { _ in
+        let result = scenario()
+        #expect(result.passed, "\(result.name): \(result.detail ?? result.reading)")
+    }
+}

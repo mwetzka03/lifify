@@ -1,43 +1,11 @@
 import Foundation
+@testable import Lifify
 
 /// Checks for the booking picker and the screens outside Finance.
 /// They read labels and catalog data only and do not write the user's data.
 @MainActor
-enum LififyFeatureChecks {
-    static func run() -> [LififyCheckResult] {
-        [
-            manualCategoriesStayOutOfThePicker(),
-            manualPickerMatchesTheAmountField(),
-            symbolChoicesIncludeLeafAndCigarette(),
-            glassScreensMatchTheVisiblePages(),
-            lightAndDarkPaintsDiffer(),
-            fourPalettesKeepLightAndDark(),
-            testCategoriesStartCollapsed(),
-            briefingDaysSitInOneRow(),
-            versionStaysUnderDeveloperMode(),
-            advancedEditorSettingsStartClosed(),
-            cardsUseTwoColumns(),
-            sharedCardRoundsTheEnds(),
-            caloriesFollowBodyAndGoal(),
-            trainingDayRaisesTheCalorieTarget(),
-            fastFoodCostsAndACleanDayPays(),
-            pinsStopAtFour(),
-            linkedSportCannotBeCheckedByHand(),
-            nutritionKeyDepotAndMealsFollowOneRule(),
-            emptyCategoryHidesTheCheckCircle(),
-            profileLibraryAndCalorieDeficit(),
-            goalDecidesNutritionCoins(),
-            calendarOpensOnToday(),
-            nutrientCardNamesTheMainThree(),
-            finishedChallengeStaysInItsGroup(),
-            singleFilterShowsGroupedChallenges(),
-            pinnedChallengesStayAboveTheFilter(),
-            deletingAGroupCanLeaveTheChallenges(),
-            eventGroupStopsWhenTheSlotIsFull()
-        ]
-    }
-
-    private static func manualCategoriesStayOutOfThePicker() -> LififyCheckResult {
+enum FeatureScenarios {
+    static func manualCategoriesStayOutOfThePicker() -> RuleScenario {
         let locked: Set<BookingCategory> = [.portfolioBuy, .portfolioSale, .savingsPlan]
         let offered = Set(BookingCategory.manualChoices)
         let labels = BookingCategory.manualChoices.map(\.label)
@@ -45,7 +13,7 @@ enum LififyFeatureChecks {
         let passed = locked.isDisjoint(with: offered)
             && labels.allSatisfy { !$0.isEmpty }
             && Set(labels).isDisjoint(with: lockedLabels)
-        return LififyCheckResult(
+        return RuleScenario(
             name: "Manuelle Buchung blendet Depot und Sparplan aus",
             passed: passed,
             detail: passed ? nil : labels.joined(separator: ", "),
@@ -55,7 +23,7 @@ enum LififyFeatureChecks {
         )
     }
 
-    private static func manualPickerMatchesTheAmountField() -> LififyCheckResult {
+    static func manualPickerMatchesTheAmountField() -> RuleScenario {
         let labels = BookingCategory.manualChoices.map(\.label)
         let blocked = [
             BookingCategory.portfolioBuy.label,
@@ -64,7 +32,7 @@ enum LififyFeatureChecks {
         ]
         let cents = Money.cents(from: "19,99") == 1999 && Money.cents(from: "1.250,50") == 125050
         let passed = cents && blocked.allSatisfy { !labels.contains($0) } && labels.count == 9
-        return LififyCheckResult(
+        return RuleScenario(
             name: "Buchungsfeld und Betrag nutzen dieselben Kategorien",
             passed: passed,
             detail: passed ? nil : "Cents \(Money.cents(from: "19,99") ?? -1), \(labels.joined(separator: ", "))",
@@ -74,7 +42,7 @@ enum LififyFeatureChecks {
         )
     }
 
-    private static func symbolChoicesIncludeLeafAndCigarette() -> LififyCheckResult {
+    static func symbolChoicesIncludeLeafAndCigarette() -> RuleScenario {
         let choices = SymbolCatalog.choices()
         let names = choices.map(\.name)
         let leaf = choices.first { $0.name == "symbol.hemp-leaf" }
@@ -85,7 +53,7 @@ enum LififyFeatureChecks {
             && AppSymbol.assetName(in: "symbol.hemp-leaf") == "hemp-leaf"
             && AppSymbol.assetName(in: "symbol.cigarette") == "cigarette"
             && AppSymbol.assetName(in: "leaf") == nil
-        return LififyCheckResult(
+        return RuleScenario(
             name: "Die Symbolauswahl enthält Hanfblatt und Zigarette",
             passed: passed,
             detail: passed ? nil : names.joined(separator: ", "),
@@ -95,39 +63,11 @@ enum LififyFeatureChecks {
         )
     }
 
-    private static func glassScreensMatchTheVisiblePages() -> LififyCheckResult {
-        let health = HealthScreen.sectionTitles()
-        let settings = SettingsDirectory.rows()
-        let expectedSettings = ["person.fill", "gearshape.fill", "eurosign", "flame.fill", "heart.fill", "externaldrive.fill"]
-        let passed = health == [L("Training", "Training"), L("Ernährung", "Nutrition")]
-            && settings.map(\.symbol) == expectedSettings
-            && settings.map(\.title) == [
-                L("Nutzereinstellungen", "User settings"),
-                L("Allgemein", "General"),
-                L("Finanzen", "Finance"),
-                L("Herausforderung", "Challenges"),
-                L("Gesundheit", "Health"),
-                L("Daten", "Data")
-            ]
-            && AppChrome.glassScreens == ["home", "challenges", "health", "settings", "onboarding", "finance"]
-            && AppChrome.glassScreens.contains("finance")
-            && AppChrome.version == "0.5.5"
-            && NutritionCopy.recognitionPending == L("Die Erkennung ist noch nicht verbunden.", "Recognition is not connected yet.")
-        return LififyCheckResult(
-            name: "Gesundheit, Einstellungen und Glasflächen zeigen dieselben Titel",
-            passed: passed,
-            detail: passed ? nil : "\(health.joined(separator: ", ")) / \(AppChrome.version)",
-            reading: "\(health.joined(separator: ", ")) / \(AppChrome.version)",
-            kind: .integration,
-            topic: .screen
-        )
-    }
-
-    private static func lightAndDarkPaintsDiffer() -> LififyCheckResult {
+    static func lightAndDarkPaintsDiffer() -> RuleScenario {
         let passed = AppLook.modesDiffer()
         let light = AppLook.canvasTop(.light)
         let dark = AppLook.canvasTop(.dark)
-        return LififyCheckResult(
+        return RuleScenario(
             name: "Hell und Dunkel haben eigene Flächen",
             passed: passed,
             detail: passed ? nil : "hell \(light.brightness), dunkel \(dark.brightness)",
@@ -137,7 +77,7 @@ enum LififyFeatureChecks {
         )
     }
 
-    private static func fourPalettesKeepLightAndDark() -> LififyCheckResult {
+    static func fourPalettesKeepLightAndDark() -> RuleScenario {
         let labels = AppPalette.allCases.map(\.label)
         let green = AppLook.accent(.light, palette: .green)
         let blue = AppLook.accent(.light, palette: .blue)
@@ -157,7 +97,7 @@ enum LififyFeatureChecks {
             && violet.green < green.green
             && AppLook.canvasTop(.light, palette: .blue) != AppLook.canvasTop(.light, palette: .green)
             && AppLook.canvasTop(.dark, palette: .violet) != AppLook.canvasTop(.dark, palette: .bordeaux)
-        return LififyCheckResult(
+        return RuleScenario(
             name: "Vier Stile haben je eine helle und eine dunkle Fläche",
             passed: passed,
             detail: passed ? nil : labels.joined(separator: ", "),
@@ -167,36 +107,7 @@ enum LififyFeatureChecks {
         )
     }
 
-    private static func testCategoriesStartCollapsed() -> LififyCheckResult {
-        let sample = [
-            LififyCheckResult(name: "Zeta", passed: true, detail: nil, kind: .unit, topic: .shop),
-            LififyCheckResult(name: "Mango", passed: false, detail: "fehlt", reading: "fehlt", kind: .integration, topic: .shop),
-            LififyCheckResult(name: "Alpha", passed: true, detail: nil, kind: .unit, topic: .shop),
-            LififyCheckResult(name: "C", passed: true, detail: nil, kind: .unit, topic: .account),
-            LififyCheckResult(name: "D", passed: true, detail: nil, kind: .unit, topic: .navigation)
-        ]
-        let groups = CheckResultList.groups(from: sample)
-        let titles = groups.map(\.topic.title)
-        let sorted = titles.sorted { $0.localizedStandardCompare($1) == .orderedAscending }
-        let shopNames = groups[2].rows.map(\.name)
-        let passed = CheckResultList.startsCollapsed
-            && titles == sorted
-            && groups.map(\.topic) == [.account, .navigation, .shop]
-            && shopNames == ["Alpha", "Zeta", "Mango"]
-            && groups[2].summary == "2/3"
-            && groups[2].allPassed == false
-            && groups[0].summary == "1/1"
-        return LififyCheckResult(
-            name: "Testkategorien starten eingeklappt",
-            passed: passed,
-            detail: passed ? nil : groups.map { "\($0.topic.title) \($0.summary)" }.joined(separator: ", "),
-            reading: groups.map { "\($0.topic.title) \($0.summary)" }.joined(separator: ", "),
-            kind: .integration,
-            topic: .screen
-        )
-    }
-
-    private static func briefingDaysSitInOneRow() -> LififyCheckResult {
+    static func briefingDaysSitInOneRow() -> RuleScenario {
         let flags = [2: false]
         let labels = BriefingSchedule.weekdays.map(BriefingWeek.abbreviation)
         let expected = [
@@ -208,7 +119,7 @@ enum LififyFeatureChecks {
             && BriefingWeek.delivers(master: true, weekday: 3, flags: flags)
             && BriefingWeek.delivers(master: false, weekday: 3, flags: flags) == false
             && BriefingWeek.isSelected(weekday: 5, flags: [:])
-        return LififyCheckResult(
+        return RuleScenario(
             name: "Die Briefingtage stehen nebeneinander",
             passed: passed,
             detail: passed ? nil : labels.joined(separator: " "),
@@ -218,26 +129,11 @@ enum LififyFeatureChecks {
         )
     }
 
-    private static func versionStaysUnderDeveloperMode() -> LififyCheckResult {
-        let order = GeneralSettingsOrder.sections
-        let passed = order == ["appearance", "briefing", "developer", "version"]
-            && order.last == "version"
-            && order.dropLast().last == "developer"
-        return LififyCheckResult(
-            name: "Die Version steht unter dem Entwicklermodus",
-            passed: passed,
-            detail: passed ? nil : order.joined(separator: ", "),
-            reading: order.joined(separator: ", "),
-            kind: .unit,
-            topic: .developer
-        )
-    }
-
-    private static func advancedEditorSettingsStartClosed() -> LififyCheckResult {
+    static func advancedEditorSettingsStartClosed() -> RuleScenario {
         let passed = EditorCopy.moreStartsClosed
             && (EditorCopy.moreSettings == "Weitere Einstellungen" || EditorCopy.moreSettings == "More settings")
             && ReminderSyncPreference.isEnabled(for: UUID())
-        return LififyCheckResult(
+        return RuleScenario(
             name: "Weitere Einstellungen starten geschlossen",
             passed: passed,
             detail: passed ? nil : EditorCopy.moreSettings,
@@ -247,18 +143,16 @@ enum LififyFeatureChecks {
         )
     }
 
-    private static func cardsUseTwoColumns() -> LififyCheckResult {
+    static func cardsUseTwoColumns() -> RuleScenario {
         let titles = HealthScreen.sectionTitles()
         let symbols = titles.map(CardBoard.healthSymbol(matching:))
         let duration = ChallengeCardCopy.scheduleLine(recurrence: L("Einmalig", "Once"), minutes: 30)
         let bubbles = AccountBubbleBar.titles(accountNames: ["Sparkasse", "Trade Republic"], includesDepot: true)
         let passed = CardBoard.challengeColumnCount == 2
             && CardBoard.challengeColumns().count == 2
-            && CardBoard.groupUsesFullWidth
             && CardBoard.singleCardUsesFullWidth
-            && CardBoard.healthTileCount == 2
             && CardBoard.healthFiltersShareOneRow
-            && titles.count == CardBoard.healthTileCount
+            && titles.count == 2
             && symbols == ["figure.run", "fork.knife"]
             && CardBoard.toolbarMinHeight == 36
             && CardBoard.toolbarVerticalPadding == 3
@@ -272,9 +166,7 @@ enum LififyFeatureChecks {
             && !CardBoard.spansFullWidth(index: 1, count: 2)
             && CardBoard.spansFullWidth(index: 2, count: 3)
             && FactorBoard.streakBubbles() == StreakSettings.thresholds.map { "\($0)×" }
-            && CheckStories.expectedLine("1,2").contains("1,2")
-            && CheckStories.actualLine("1,2").contains("1,2")
-        return LififyCheckResult(
+        return RuleScenario(
             name: "Challenges und Gesundheit nutzen ein Kartenraster",
             passed: passed,
             detail: passed ? nil : "\(symbols.joined(separator: ", ")) / \(bubbles.joined(separator: ", "))",
@@ -284,7 +176,7 @@ enum LififyFeatureChecks {
         )
     }
 
-    private static func sharedCardRoundsTheEnds() -> LififyCheckResult {
+    static func sharedCardRoundsTheEnds() -> RuleScenario {
         let three = (0..<3).map { ListCardEdge.edge(index: $0, count: 3) }
         let single = ListCardEdge.edge(index: 0, count: 1)
         let passed = three == [.top, .middle, .bottom]
@@ -293,7 +185,7 @@ enum LififyFeatureChecks {
             && !three[1].roundsTop && !three[1].roundsBottom
             && !three[2].roundsTop && three[2].roundsBottom
             && single.roundsTop && single.roundsBottom
-        return LififyCheckResult(
+        return RuleScenario(
             name: "Die erste und die letzte Zeile runden die Kachel",
             passed: passed,
             detail: passed ? nil : "\(three.count)",
@@ -303,7 +195,7 @@ enum LififyFeatureChecks {
         )
     }
 
-    private static func caloriesFollowBodyAndGoal() -> LififyCheckResult {
+    static func caloriesFollowBodyAndGoal() -> RuleScenario {
         let lose = NutritionPlan.dayTarget(weightKg: 70, heightCm: 165, age: 30, sex: .female, goal: .loseFat, trained: false)
         let hold = NutritionPlan.dayTarget(weightKg: 70, heightCm: 165, age: 30, sex: .female, goal: .maintain, trained: false)
         let gain = NutritionPlan.dayTarget(weightKg: 80, heightCm: 180, age: 25, sex: .male, goal: .gainMuscle, trained: false)
@@ -315,7 +207,7 @@ enum LififyFeatureChecks {
             && BodyGoal.gainMuscle.percent == 110
             && NutritionPlan.trainingBonus == 250
         let reading = "\(lose ?? 0), \(hold ?? 0), \(gain ?? 0), \(open ?? 0)"
-        return LififyCheckResult(
+        return RuleScenario(
             name: "Die Kalorien folgen Körper und Ziel",
             passed: passed,
             detail: passed ? nil : reading,
@@ -325,7 +217,7 @@ enum LififyFeatureChecks {
         )
     }
 
-    private static func trainingDayRaisesTheCalorieTarget() -> LififyCheckResult {
+    static func trainingDayRaisesTheCalorieTarget() -> RuleScenario {
         let calendar = Calendar(identifier: .gregorian)
         let day = calendar.date(from: DateComponents(year: 2026, month: 11, day: 8)) ?? .now
         var session = WorkoutSession(plan: WorkoutPlan(name: "Kraft"))
@@ -351,7 +243,7 @@ enum LififyFeatureChecks {
             && !DepotLoad.showsBoard(ready: false)
             && DepotLoad.showsBoard(ready: true)
         let reading = "\(active ?? 0), \(eaten), user"
-        return LififyCheckResult(
+        return RuleScenario(
             name: "Ein Trainingstag hebt das Kalorienziel",
             passed: passed,
             detail: passed ? nil : reading,
@@ -361,7 +253,7 @@ enum LififyFeatureChecks {
         )
     }
 
-    private static func fastFoodCostsAndACleanDayPays() -> LififyCheckResult {
+    static func fastFoodCostsAndACleanDayPays() -> RuleScenario {
         let clean = MealScore.coins(eaten: 1000, target: 1400, kinds: [.whole, .balanced])
         let fast = MealScore.coins(eaten: 1000, target: 1400, kinds: [.fastFood])
         let over = MealScore.coins(eaten: 2000, target: 1400, kinds: [.whole])
@@ -376,7 +268,7 @@ enum LififyFeatureChecks {
             && MealScore.points(for: .fastFood) < 0
             && MealScore.points(for: .whole) > 0
         let reading = "\(MealScore.fastFoodPrice), \(clean), \(fast), \(over)"
-        return LififyCheckResult(
+        return RuleScenario(
             name: "Fast Food kostet Coins und ein sauberer Tag zahlt",
             passed: passed,
             detail: passed ? nil : reading,
@@ -386,7 +278,7 @@ enum LififyFeatureChecks {
         )
     }
 
-    private static func pinsStopAtFour() -> LififyCheckResult {
+    static func pinsStopAtFour() -> RuleScenario {
         let ids = (0..<4).map { _ in UUID() }
         let held = ChallengePinStore.kept(ids, adding: UUID())
         let grew = ChallengePinStore.kept(Array(ids.prefix(3)), adding: UUID())
@@ -397,7 +289,7 @@ enum LififyFeatureChecks {
             && dropped.count == 3
             && !dropped.contains(ids[0])
         let reading = "\(held.count), \(dropped.count)"
-        return LififyCheckResult(
+        return RuleScenario(
             name: "Höchstens vier Challenges bleiben angepinnt",
             passed: passed,
             detail: passed ? nil : reading,
@@ -407,13 +299,13 @@ enum LififyFeatureChecks {
         )
     }
 
-    private static func linkedSportCannotBeCheckedByHand() -> LififyCheckResult {
+    static func linkedSportCannotBeCheckedByHand() -> RuleScenario {
         let sport = ChallengeCheckoff.allowsHand(category: .sport, linkedWorkouts: 1)
         let open = ChallengeCheckoff.allowsHand(category: .sport, linkedWorkouts: 0)
         let other = ChallengeCheckoff.allowsHand(category: .other, linkedWorkouts: 1)
         let passed = !sport && open && other
         let reading = "sport, other"
-        return LififyCheckResult(
+        return RuleScenario(
             name: "Eine gekoppelte Sport-Challenge lässt sich nicht abhaken",
             passed: passed,
             detail: passed ? nil : "\(sport), \(open), \(other)",
@@ -423,7 +315,7 @@ enum LififyFeatureChecks {
         )
     }
 
-    private static func nutritionKeyDepotAndMealsFollowOneRule() -> LififyCheckResult {
+    static func nutritionKeyDepotAndMealsFollowOneRule() -> RuleScenario {
         let passed = !MealRecognition.connected(hasKey: false)
             && MealRecognition.connected(hasKey: true)
             && MealRecognition.model == "gemini-2.5-flash"
@@ -436,7 +328,7 @@ enum LififyFeatureChecks {
             && MealKind.resolved("fast_food") == .fastFood
             && MealKind.fastFood.label == L("Fast Food", "Fast food")
         let reading = "ready, 25, 4"
-        return LififyCheckResult(
+        return RuleScenario(
             name: "Schlüssel, Depot und Ernährung folgen derselben Regel",
             passed: passed,
             detail: passed ? nil : reading,
@@ -446,14 +338,14 @@ enum LififyFeatureChecks {
         )
     }
 
-    private static func emptyCategoryHidesTheCheckCircle() -> LififyCheckResult {
+    static func emptyCategoryHidesTheCheckCircle() -> RuleScenario {
         let hidden = !ChallengeBoard.showsCategory(unpinned: 0)
         let shown = ChallengeBoard.showsCategory(unpinned: 1)
         let noCircle = !ChallengeBoard.showsCheckCircle(allowsHand: false)
         let circle = ChallengeBoard.showsCheckCircle(allowsHand: true)
         let passed = hidden && shown && noCircle && circle
         let reading = "0, weg"
-        return LififyCheckResult(
+        return RuleScenario(
             name: "Eine leere Kategorie zeigt keinen Haken",
             passed: passed,
             detail: passed ? nil : "\(hidden), \(shown), \(noCircle), \(circle)",
@@ -463,7 +355,7 @@ enum LififyFeatureChecks {
         )
     }
 
-    private static func profileLibraryAndCalorieDeficit() -> LififyCheckResult {
+    static func profileLibraryAndCalorieDeficit() -> RuleScenario {
         let rows = SettingsDirectory.rows()
         let passed = rows.first?.symbol == "person.fill"
             && rows.first?.title == L("Nutzereinstellungen", "User settings")
@@ -477,7 +369,7 @@ enum LififyFeatureChecks {
             && ChallengeCreateMenu.group == L("Gruppe", "Group")
             && ChallengeCreateMenu.labels.count == 4
         let reading = "Profil, aus, Kaloriendefizit"
-        return LififyCheckResult(
+        return RuleScenario(
             name: "Profil, Galerie und Kaloriendefizit",
             passed: passed,
             detail: passed ? nil : reading,
@@ -487,7 +379,7 @@ enum LififyFeatureChecks {
         )
     }
 
-    private static func goalDecidesNutritionCoins() -> LififyCheckResult {
+    static func goalDecidesNutritionCoins() -> RuleScenario {
         let over = MealScore.coins(eaten: 2000, target: 1400, kinds: [.hearty], goal: .loseFat)
         let underMuscle = MealScore.coins(eaten: 1000, target: 1400, kinds: [.hearty], goal: .gainMuscle)
         let reached = MealScore.coins(eaten: 1400, target: 1400, kinds: [.hearty], goal: .gainMuscle)
@@ -506,7 +398,7 @@ enum LififyFeatureChecks {
             && NutritionCopy.challengeTitle(for: .gainMuscle) == L("Muskelaufbau", "Build muscle")
             && NutritionCopy.challengeTitle(for: .maintain) == L("Kalorien halten", "Hold calories")
         let reading = "0, -20"
-        return LififyCheckResult(
+        return RuleScenario(
             name: "Ein Ziel entscheidet die Ernährungs-Coins",
             passed: passed,
             detail: passed ? nil : "\(over), \(underMuscle), \(reached), \(reversed)",
@@ -516,7 +408,7 @@ enum LififyFeatureChecks {
         )
     }
 
-    private static func calendarOpensOnToday() -> LififyCheckResult {
+    static func calendarOpensOnToday() -> RuleScenario {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .gmt
         let today = calendar.date(from: DateComponents(year: 2026, month: 11, day: 14)) ?? .now
@@ -534,7 +426,7 @@ enum LififyFeatureChecks {
             && EventOffer.enabled(stored: nil)
             && !EventOffer.enabled(stored: false)
         let reading = "30, 45"
-        return LififyCheckResult(
+        return RuleScenario(
             name: "Der Kalender öffnet beim heutigen Tag",
             passed: passed,
             detail: passed ? nil : "\(index ?? -1), \(left), \(group)",
@@ -544,7 +436,7 @@ enum LififyFeatureChecks {
         )
     }
 
-    private static func nutrientCardNamesTheMainThree() -> LififyCheckResult {
+    static func nutrientCardNamesTheMainThree() -> RuleScenario {
         let protein = NutrientGuide.daily(.protein, weightKg: 70, sex: .female, goal: .loseFat, calorieTarget: 1698)
         let fiber = NutrientGuide.daily(.fiber, weightKg: 70, sex: .female, goal: .loseFat, calorieTarget: 1698)
         let passed = NutrientGuide.headlines == [.protein, .carbohydrate, .fat]
@@ -553,7 +445,7 @@ enum LififyFeatureChecks {
             && NutrientGuide.daily(.carbohydrate, weightKg: 70, sex: .female, goal: .loseFat, calorieTarget: 2000) == 225
             && NutrientGuide.daily(.fat, weightKg: 70, sex: .female, goal: .loseFat, calorieTarget: 2000) == 67
         let reading = "112, 30"
-        return LififyCheckResult(
+        return RuleScenario(
             name: "Eiweiß, Kohlenhydrate und Fett stehen groß",
             passed: passed,
             detail: passed ? nil : "\(protein), \(fiber)",
@@ -563,7 +455,7 @@ enum LififyFeatureChecks {
         )
     }
 
-    private static func finishedChallengeStaysInItsGroup() -> LififyCheckResult {
+    static func finishedChallengeStaysInItsGroup() -> RuleScenario {
         let open = UUID(uuidString: "00000000-0000-0000-0000-000000000031")!
         let done = UUID(uuidString: "00000000-0000-0000-0000-000000000032")!
         let now = Date(timeIntervalSince1970: 1_800_000_000)
@@ -583,7 +475,7 @@ enum LififyFeatureChecks {
             && ChallengeGroupBoard.showsInPinned(pinned: true)
             && !ChallengeGroupBoard.showsInOwnSection(pinned: true)
         let reading = "Gruppe, aus"
-        return LififyCheckResult(
+        return RuleScenario(
             name: "Eine erledigte Challenge bleibt in der Gruppe",
             passed: passed,
             detail: passed ? nil : suggested.map(\.uuidString).joined(separator: ", "),
@@ -593,7 +485,7 @@ enum LififyFeatureChecks {
         )
     }
 
-    private static func singleFilterShowsGroupedChallenges() -> LififyCheckResult {
+    static func singleFilterShowsGroupedChallenges() -> RuleScenario {
         let first = UUID(uuidString: "00000000-0000-0000-0000-000000000051")!
         let late = UUID(uuidString: "00000000-0000-0000-0000-000000000052")!
         let members = EventChallengeLink.members(already: [first], linked: nil, adding: late)
@@ -603,7 +495,7 @@ enum LififyFeatureChecks {
             && members == [first, late]
             && EventChallengeLink.makesGroup(count: members.count)
         let reading = "einzeln, \(members.count)"
-        return LififyCheckResult(
+        return RuleScenario(
             name: "Einzeln zeigt die Challenges einer Gruppe",
             passed: passed,
             detail: passed ? nil : "\(members.count)",
@@ -613,7 +505,7 @@ enum LififyFeatureChecks {
         )
     }
 
-    private static func pinnedChallengesStayAboveTheFilter() -> LififyCheckResult {
+    static func pinnedChallengesStayAboveTheFilter() -> RuleScenario {
         let ids = (1...6).map { UUID(uuidString: String(format: "00000000-0000-0000-0000-00000000008%d", $0))! }
         let pinned = Array(ids.prefix(ChallengePinStore.limit))
         let below = ChallengePinLayout.below(ids: ids, pinned: pinned)
@@ -621,7 +513,7 @@ enum LififyFeatureChecks {
             && below == Array(ids.suffix(2))
             && ChallengePinStore.limit == 4
         let reading = "\(pinned.count), \(below.count)"
-        return LififyCheckResult(
+        return RuleScenario(
             name: "Angepinnte Challenges stehen über dem Filter",
             passed: passed,
             detail: passed ? nil : "\(below.count)",
@@ -631,7 +523,7 @@ enum LififyFeatureChecks {
         )
     }
 
-    private static func deletingAGroupCanLeaveTheChallenges() -> LififyCheckResult {
+    static func deletingAGroupCanLeaveTheChallenges() -> RuleScenario {
         let eventGroup = UUID(uuidString: "00000000-0000-0000-0000-000000000093")!
         let chosen = UUID(uuidString: "00000000-0000-0000-0000-000000000094")!
         let kept = GroupRemoval.remaining([chosen, eventGroup], removing: eventGroup)
@@ -639,7 +531,7 @@ enum LififyFeatureChecks {
             && GroupRemoval.clearsCalendarLink(generatedFromEvent: true)
             && !GroupRemoval.clearsCalendarLink(generatedFromEvent: false)
         let reading = "einzeln, \(kept.count)"
-        return LififyCheckResult(
+        return RuleScenario(
             name: "Nur die Gruppe löschen lässt die Challenges einzeln",
             passed: passed,
             detail: passed ? nil : "\(kept.count)",
@@ -649,7 +541,7 @@ enum LififyFeatureChecks {
         )
     }
 
-    private static func eventGroupStopsWhenTheSlotIsFull() -> LififyCheckResult {
+    static func eventGroupStopsWhenTheSlotIsFull() -> RuleScenario {
         let line = ChallengeCardCopy.scheduleLine(recurrence: L("Einmalig", "Once"), minutes: 30)
         let open = GroupJoin.canJoin(linkedToEvent: false, oneTime: true, minutes: 200, remaining: 0)
         let fits = GroupJoin.canJoin(linkedToEvent: true, oneTime: true, minutes: 30, remaining: 30)
@@ -658,7 +550,7 @@ enum LififyFeatureChecks {
         let lineOK = line == "Einmalig - 30 Minuten" || line == "Once - 30 minutes"
         let passed = lineOK && open && fits && !over && !weekly
         let reading = open && !over ? "offen, voll" : "zu"
-        return LififyCheckResult(
+        return RuleScenario(
             name: "Eine Termin-Gruppe nimmt Challenges nur bis der Slot voll ist",
             passed: passed,
             detail: passed ? nil : line,

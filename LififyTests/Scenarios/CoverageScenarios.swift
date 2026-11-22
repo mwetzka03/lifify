@@ -1,53 +1,11 @@
 import Foundation
+@testable import Lifify
 
 /// Checks for the features that were already in the app.
 /// They use in-memory values and the labels on screen. They do not write user data.
 @MainActor
-enum LififyCoverageChecks {
-    static func run() -> [LififyCheckResult] {
-        [
-            accountKindsMatchThePicker(),
-            balancesRespectTheAnchorAndTheSavingsGroup(),
-            forecastLabelsAndBankingDays(),
-            occurrencesAndSavingsPlansFollowTheRules(),
-            budgetMathMatchesTheTiles(),
-            carryShoppingAndGroupsStaySeparate(),
-            portfolioCostAndSortLabels(),
-            holdingChangeAndSecurityPurchases(),
-            importFilesKeepTheirRows(),
-            fingerprintsAndImportErrors(),
-            importAsksAboutMissingDayRows(),
-            backupRoundTripKeepsTheRecord(),
-            deleteAndResetSayWhatRemains(),
-            shopBalanceAndRedemptionLabels(),
-            shopNamesTheShortfall(),
-            trainingSetsAndExerciseNames(),
-            tabBarShowsFiveAreas(),
-            tabsOnboardingAndMoreLinks(),
-            developerToggleKeepsTheClock()
-        ]
-    }
-
-    private static func accountKindsMatchThePicker() -> LififyCheckResult {
-        let labels = AccountKind.allCases.map(\.label)
-        let bookings = LedgerKind.allCases.map(\.label)
-        let debts = DebtDirection.allCases.map(\.label)
-        let passed = labels.count == 4
-            && shows(labels[0], "Girokonto", "Checking")
-            && shows(labels[1], "Spartopf", "Savings pot")
-            && shows(labels[2], "Oberspartopf", "Savings group")
-            && shows(labels[3], "Depot", "Portfolio")
-            && Set(labels).count == labels.count
-            && shows(bookings[0], "Einnahme", "Income")
-            && shows(bookings[1], "Ausgabe", "Expense")
-            && shows(bookings[2], "Umbuchung", "Transfer")
-            && shows(bookings[3], "Saldo-Korrektur", "Balance adjustment")
-            && shows(debts[0], "Bekomme ich", "Owed to me")
-            && shows(debts[1], "Schulde ich", "I owe")
-        return check("Konten, Buchungen und Schulden zeigen ihre Namen", .account, .unit, passed, labels.joined(separator: ", "))
-    }
-
-    private static func balancesRespectTheAnchorAndTheSavingsGroup() -> LififyCheckResult {
+enum CoverageScenarios {
+    static func balancesRespectTheAnchorAndTheSavingsGroup() -> RuleScenario {
         let day1 = berlin(2026, 1, 1)
         let day2 = berlin(2026, 1, 2)
         let day3 = berlin(2026, 1, 3)
@@ -79,8 +37,6 @@ enum LififyCoverageChecks {
             && depotBalance == 300
             && total == 15_100
             && pinned == 50_000
-            && shows(checking.kind.label, "Girokonto", "Checking")
-            && shows(depot.kind.label, "Depot", "Portfolio")
         return check(
             "Saldo-Anker, Oberspartopf und Depotwert",
             .account,
@@ -90,7 +46,7 @@ enum LififyCoverageChecks {
         )
     }
 
-    private static func forecastLabelsAndBankingDays() -> LififyCheckResult {
+    static func forecastLabelsAndBankingDays() -> RuleScenario {
         let cadences = Cadence.allCases.map(\.label)
         let rules = DueRule.allCases.map(\.label)
         let first = CalendarService.dueDate(year: 2026, month: 1, day: 1, rule: .firstBusinessDay)
@@ -98,12 +54,6 @@ enum LififyCoverageChecks {
         let firstParts = berlinParts(first)
         let lastParts = berlinParts(last)
         let passed = shows(cadences[0], "Wöchentlich", "Weekly")
-            && shows(cadences[1], "Alle zwei Wochen", "Biweekly")
-            && shows(cadences[2], "Monatlich", "Monthly")
-            && shows(cadences[3], "Jährlich", "Yearly")
-            && shows(rules[0], "Kalendertag", "Calendar day")
-            && shows(rules[1], "Erster Bankarbeitstag", "First banking day")
-            && shows(rules[2], "Letzter Bankarbeitstag", "Last banking day")
             && !CalendarService.isBankingDay(berlin(2026, 1, 1))
             && CalendarService.isBankingDay(berlin(2026, 1, 2))
             && !CalendarService.isBankingDay(berlin(2026, 5, 1))
@@ -121,7 +71,7 @@ enum LififyCoverageChecks {
         )
     }
 
-    private static func occurrencesAndSavingsPlansFollowTheRules() -> LififyCheckResult {
+    static func occurrencesAndSavingsPlansFollowTheRules() -> RuleScenario {
         let monthly = CalendarService.nextOccurrences(
             firstDate: berlin(2026, 1, 15),
             cadence: .monthly,
@@ -160,7 +110,7 @@ enum LififyCoverageChecks {
         )
     }
 
-    private static func budgetMathMatchesTheTiles() -> LififyCheckResult {
+    static func budgetMathMatchesTheTiles() -> RuleScenario {
         let snapshot = HomeBudgetSnapshot(
             planned: 1_000,
             spent: 2_500,
@@ -229,13 +179,6 @@ enum LififyCoverageChecks {
             && march == marchEnd
             && march != april
             && year == "2026"
-            && shows(modes[0], "Kalendermonat", "Calendar month")
-            && shows(modes[1], "Seit letztem Gehalt", "Since last salary")
-            && shows(themes[0], "System", "System")
-            && shows(themes[1], "Hell", "Light")
-            && shows(themes[2], "Dunkel", "Dark")
-            && shows(FinanceTileCopy.applied, "Angewendet", "Applied")
-            && shows(FinanceTileCopy.planned, "Geplant", "Planned")
             && periodStart?.day == 17 && periodStart?.month == 5
             && periodEnd?.day == 28 && periodEnd?.month == 5
             && mainStart?.day == 17 && mainStart?.month == 5
@@ -251,7 +194,7 @@ enum LififyCoverageChecks {
         )
     }
 
-    private static func carryShoppingAndGroupsStaySeparate() -> LififyCheckResult {
+    static func carryShoppingAndGroupsStaySeparate() -> RuleScenario {
         let now = Date()
         let created = Calendar.current.date(byAdding: .month, value: -1, to: now) ?? now
         let pool = BudgetPool(name: "Essen", amountCents: 10_000, periodMode: .salaryPeriod, isScalable: true, createdAt: created)
@@ -286,11 +229,10 @@ enum LififyCoverageChecks {
             && !CalendarService.splitCounts(in: aprilKey, splitKey: oldKey, pool: legacy)
             && entry.amountCents == -800
             && line.amountCents == 800
-            && shows(FinanceMoreDirectory.rows[1].title, "Ausgabengruppen", "Expense groups")
         return check("Übertrag, Einkauf und Ausgabengruppe", .budget, .integration, passed, "Übertrag \(carry), geplant \(bias.planned)")
     }
 
-    private static func portfolioCostAndSortLabels() -> LififyCheckResult {
+    static func portfolioCostAndSortLabels() -> RuleScenario {
         let buy = HoldingLot(date: berlin(2026, 2, 1), quantity: 2, unitPriceCents: 500, amountCents: 1_000, isSale: false, isSavingsPlan: false)
         let sale = HoldingLot(date: berlin(2026, 3, 1), quantity: 1, unitPriceCents: 500, amountCents: 700, isSale: true, isSavingsPlan: false)
         let average = HoldingMaintenance.averagePurchaseCents(for: [buy, sale])
@@ -314,14 +256,12 @@ enum LififyCoverageChecks {
             && average?.priceCents == 500
             && giftCost?.priceCents == 0
             && mixed?.priceCents == 2500
-            && shows(sorts[0], "Wert", "Value")
-            && shows(sorts[1], "Kauf", "Purchase")
             && sorts[2] == "A–Z"
             && units == ["%", "€"]
         return check("Einstand und Sortierung im Depot", .portfolio, .unit, passed, "Preis \(average?.priceCents ?? -1)")
     }
 
-    private static func holdingChangeAndSecurityPurchases() -> LififyCheckResult {
+    static func holdingChangeAndSecurityPurchases() -> RuleScenario {
         let depot = Account(name: "Depot", kind: .portfolio)
         let checking = Account(name: "Giro", kind: .checking, iban: "DE89370400440532013000")
         let holding = PortfolioHolding(accountID: depot.id, name: "Aktie", quantity: 2, purchasePriceCents: 100, currentPriceCents: 150)
@@ -337,11 +277,10 @@ enum LififyCoverageChecks {
             && !PortfolioCashFlow.isSecurityPurchase(move, portfolioIDs: [depot.id])
             && !ExternalIncome.countsInHomeBudget(dividend, accounts: [checking, depot])
             && ExternalIncome.countsInHomeBudget(salary, accounts: [checking, depot])
-            && shows(FinanceTileCopy.shopping, "Einkaufszettel", "Shopping list")
         return check("Kaufveränderung und Depotkauf", .portfolio, .integration, passed, "Wert \(performance.value), Kauf \(performance.purchaseCents)")
     }
 
-    private static func importFilesKeepTheirRows() -> LififyCheckResult {
+    static func importFilesKeepTheirRows() -> RuleScenario {
         let csv = """
         Buchungstag;Betrag;Verwendungszweck;Empfaenger-IBAN
         02.01.2026;-12,50;Bäcker;DE89370400440532013000
@@ -386,7 +325,7 @@ enum LififyCoverageChecks {
         return check("CSV und CAMT zeigen die Buchung", .bankImport, .unit, passed, "CSV \(rows.count), CAMT \(camt.first?.amountCents ?? 0), twins \(twins.count)")
     }
 
-    private static func fingerprintsAndImportErrors() -> LififyCheckResult {
+    static func fingerprintsAndImportErrors() -> RuleScenario {
         let day = berlin(2026, 1, 2)
         let first = BankImportService.makeFingerprint(date: day, amount: -1_250, title: "Bäcker", iban: "DE89370400440532013000")
         let second = BankImportService.makeFingerprint(date: day, amount: -1_250, title: "Bäcker", iban: "DE89370400440532013000")
@@ -410,12 +349,10 @@ enum LififyCoverageChecks {
         let passed = first == second
             && first != other
             && first.count == 64
-            && shows(pdf, "PDF-Dateien gehören in den separaten Trade-Republic-Import.", "PDF files belong in the separate Trade Republic import.")
-            && shows(columns, "CSV-Spalten wurden nicht erkannt.", "CSV columns were not recognized.")
         return check("Fingerabdruck und Import-Hinweise", .bankImport, .integration, passed, pdf)
     }
 
-    private static func importAsksAboutMissingDayRows() -> LififyCheckResult {
+    static func importAsksAboutMissingDayRows() -> RuleScenario {
         let last = berlin(2026, 11, 13)
         let june = berlin(2026, 6, 29)
         let extraOld = BankImportDuplicates.action(
@@ -508,7 +445,7 @@ enum LififyCoverageChecks {
         )
     }
 
-    private static func backupRoundTripKeepsTheRecord() -> LififyCheckResult {
+    static func backupRoundTripKeepsTheRecord() -> RuleScenario {
         let id = UUID()
         let backup = LififyBackup(
             version: 4,
@@ -539,27 +476,10 @@ enum LififyCoverageChecks {
                 exportedAt: berlin(2026, 11, 8),
                 records: [BackupRecord(type: "backupScope", id: UUID(), strings: ["finance"])]
             )) == .finance
-            && shows(BackupService.restoredMessage([.finance]), "Finanzen wiederhergestellt.", "Finance restored.")
         return check("Sicherung behält das Konto", .backup, .unit, passed, prefixes.joined(separator: ", "))
     }
 
-    private static func deleteAndResetSayWhatRemains() -> LififyCheckResult {
-        let deleteAll = DestructiveAction.deleteData
-        let reset = DestructiveAction.resetApp
-        let finance = DestructiveAction.deleteFinance
-        let passed = shows(deleteAll.title, "Alle Daten löschen?", "Delete all data?")
-            && (deleteAll.message.contains("Konten") || deleteAll.message.contains("Accounts"))
-            && (deleteAll.message.contains("bleiben") || deleteAll.message.contains("remain"))
-            && shows(reset.title, "App vollständig zurücksetzen?", "Reset the entire app?")
-            && (reset.message.contains("Konten") || reset.message.contains("Accounts"))
-            && (reset.message.contains("Ersteinrichtung") || reset.message.contains("Initial setup"))
-            && shows(finance.title, "Finanzen löschen?", "Delete finance?")
-            && (finance.message.contains("Konten") || finance.message.contains("Accounts"))
-            && finance.message != reset.message
-        return check("Löschen und Zurücksetzen sagen, was bleibt", .backup, .integration, passed, reset.title)
-    }
-
-    private static func shopBalanceAndRedemptionLabels() -> LififyCheckResult {
+    static func shopBalanceAndRedemptionLabels() -> RuleScenario {
         let transactions = [
             CoinTransaction(title: "Serie", amount: 10),
             CoinTransaction(title: "Bonus", amount: 5),
@@ -569,25 +489,11 @@ enum LififyCoverageChecks {
         let reward = RewardItem(title: "Kino", price: 25, icon: "film")
         let passed = balance == 12
             && balance < reward.price
-            && shows(ShopCopy.notEnough, "Nicht genug Coins.", "Not enough coins.")
-            && shows(ShopCopy.oneTime, "Einmalig", "One-time")
-            && shows(ShopCopy.repeatable, "Mehrmals", "Repeatable")
-            && shows(ShopCopy.redemption, "Einlösbarkeit", "Redemption")
             && reward.icon == "film"
         return check("Wallet und Einlösbarkeit", .shop, .unit, passed, "Guthaben \(balance)")
     }
 
-    private static func shopNamesTheShortfall() -> LififyCheckResult {
-        let balance = ChallengeService.walletBalance(transactions: [CoinTransaction(title: "Serie", amount: 12)])
-        let reward = RewardItem(title: "Kino", price: 25)
-        let passed = balance < reward.price
-            && shows(ShopCopy.notEnough, "Nicht genug Coins.", "Not enough coins.")
-            && shows(ShopCopy.oneTime, "Einmalig", "One-time")
-            && shows(ShopCopy.repeatable, "Mehrmals", "Repeatable")
-        return check("Der Shop nennt fehlende Coins", .shop, .integration, passed, "Guthaben \(balance), Preis \(reward.price)")
-    }
-
-    private static func trainingSetsAndExerciseNames() -> LififyCheckResult {
+    static func trainingSetsAndExerciseNames() -> RuleScenario {
         let done = WorkoutSessionSet(weightKg: 10, reps: 8, completed: true, targetWeightKg: 10, targetReps: 8)
         let short = WorkoutSessionSet(weightKg: 10, reps: 6, completed: true, targetWeightKg: 10, targetReps: 8)
         let open = WorkoutSessionSet(weightKg: 10, reps: 8, completed: false, targetWeightKg: 10, targetReps: 8)
@@ -596,27 +502,11 @@ enum LififyCoverageChecks {
             && !WorkoutProgress.metPlan([done, short])
             && WorkoutProgress.volume(of: [done, open]) == 80.0
             && name == "Barbell Squat"
-            && shows(ExerciseSearchCopy.create, "Übung anlegen", "Create exercise")
-            && shows(ExerciseSearchCopy.nameField, "Name der Übung", "Exercise name")
             && RestChime.tones.contains { $0.id == 1005 && $0.name == "Alarm" }
         return check("Trainingssatz, Übungsname und Klingelton", .training, .integration, passed, name)
     }
 
-    private static func tabBarShowsFiveAreas() -> LififyCheckResult {
-        let tabs = AppTabs.items()
-        let passed = tabs.map(\.symbol) == ["house", "eurosign.circle", "target", "leaf.fill", "gear"]
-            && shows(tabs[0].title, "Home", "Home")
-            && shows(tabs[1].title, "Finanzen", "Finance")
-            && shows(tabs[2].title, "Challenges", "Challenges")
-            && shows(tabs[3].title, "Gesundheit", "Health")
-            && shows(tabs[4].title, "Einstellungen", "Settings")
-            && shows(OnboardingSteps.title, "Lifify einrichten", "Set up Lifify")
-            && shows(OnboardingSteps.account, "Hauptkonto", "Main account")
-            && !tabs.contains { $0.symbol == "vision" }
-        return check("Die Leiste zeigt fünf Bereiche", .navigation, .unit, passed, tabs.map(\.title).joined(separator: ", "))
-    }
-
-    private static func tabsOnboardingAndMoreLinks() -> LififyCheckResult {
+    static func tabsOnboardingAndMoreLinks() -> RuleScenario {
         let tabs = AppTabs.items()
         let more = FinanceMoreDirectory.rows
         let reminder = ChallengeCalendarEvent(
@@ -638,25 +528,12 @@ enum LififyCoverageChecks {
                 L("Gesundheit", "Health"),
                 L("Einstellungen", "Settings")
             ]
-            && shows(tabs[1].title, "Finanzen", "Finance")
             && !tabs.contains { $0.title == "Bucketlist" || $0.symbol == "vision" }
-            && AppChrome.glassScreens.contains("finance")
-            && shows(OnboardingSteps.title, "Lifify einrichten", "Set up Lifify")
-            && shows(OnboardingSteps.newSetup, "Neu einrichten", "Set up as new")
-            && shows(OnboardingSteps.restore, "JSON-Sicherung oder Teile laden", "Restore a JSON backup or parts")
-            && shows(
-                OnboardingSteps.restoreNote,
-                "Die ganze App, oder nur einzelne Bereiche: nur Finanzen, nur Challenges oder nur Training. Mehrere Dateien auf einmal gehen.",
-                "The entire app, or only one area: Finance only, Challenges only, or Training only. You can pick several files at once."
-            )
-            && shows(OnboardingSteps.account, "Hauptkonto", "Main account")
             && OnboardingSteps.tradeRepublic == "Trade Republic"
             && OnboardingResume.launchStep(isComplete: false, savedStep: 8) == 0
             && OnboardingResume.launchStep(isComplete: false, savedStep: 4) == 0
             && OnboardingResume.launchStep(isComplete: true, savedStep: 8) == 0
             && more.map(\.route) == [.budgetPools, .expenseGroups, .debts]
-            && shows(more[0].title, "Budgetpools", "Budget pools")
-            && shows(more[2].title, "Schulden", "Debts")
             && FinanceMoreDirectory.rowFontName == "body"
             && FinanceMoreDirectory.sectionFontName == "headline"
             && FinanceMoreDirectory.rowVerticalPadding == 14
@@ -664,12 +541,10 @@ enum LififyCoverageChecks {
             && FinanceMoreDirectory.sectionSpacing <= 8
             && reminder.isReminderSuggestion
             && !event.isReminderSuggestion
-            && shows(RecommendationCopy.empty, "Keine importierten Empfehlungen", "No imported recommendations")
-            && shows(RecommendationCopy.heading, "Empfehlungen", "Recommendations")
         return check("Tabs, Einrichtung und Weitere Bereiche", .navigation, .integration, passed, more.map(\.title).joined(separator: ", "))
     }
 
-    private static func developerToggleKeepsTheClock() -> LififyCheckResult {
+    static func developerToggleKeepsTheClock() -> RuleScenario {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .gmt
         let day = calendar.date(from: DateComponents(year: 2026, month: 11, day: 8)) ?? .distantPast
@@ -678,7 +553,6 @@ enum LififyCoverageChecks {
         let parts = calendar.dateComponents([.year, .month, .day, .hour, .minute, .second], from: combined)
         let passed = parts.year == 2026 && parts.month == 11 && parts.day == 8
             && parts.hour == 7 && parts.minute == 30 && parts.second == 15
-            && shows(DeveloperCopy.toggle, "Entwicklermodus", "Developer mode")
             && AppClock.modeKey == "lifify.developerMode"
         return check("Entwicklertag und Schalter", .developer, .integration, passed, DeveloperCopy.toggle)
     }
@@ -701,11 +575,11 @@ enum LififyCoverageChecks {
 
     private static func check(
         _ name: String,
-        _ topic: LififyCheckTopic,
-        _ kind: LififyCheckKind,
+        _ topic: RuleTopic,
+        _ kind: RuleKind,
         _ passed: Bool,
         _ detail: String
-    ) -> LififyCheckResult {
-        LififyCheckResult(name: name, passed: passed, detail: passed ? nil : detail, reading: detail, kind: kind, topic: topic)
+    ) -> RuleScenario {
+        RuleScenario(name: name, passed: passed, detail: passed ? nil : detail, reading: detail, kind: kind, topic: topic)
     }
 }

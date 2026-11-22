@@ -1,176 +1,10 @@
 import Foundation
+@testable import Lifify
 
-enum LififyCheckKind: String, Equatable {
-    case unit
-    case integration
-
-    var label: String {
-        switch self {
-        case .unit: "Unit"
-        case .integration: "Integration"
-        }
-    }
-}
-
-enum LififyCheckTopic: String, CaseIterable, Equatable {
-    case streak
-    case multiplier
-    case challenge
-    case calendar
-    case training
-    case abstinence
-    case developer
-    case finance
-    case screen
-    case account
-    case forecast
-    case budget
-    case portfolio
-    case bankImport
-    case backup
-    case shop
-    case navigation
-
-    var title: String {
-        switch self {
-        case .streak: L("Streak", "Streak")
-        case .multiplier: L("Multiplikator", "Multiplier")
-        case .challenge: L("Challenge", "Challenge")
-        case .calendar: L("Kalender", "Calendar")
-        case .training: L("Training", "Training")
-        case .abstinence: L("Abstinenz", "Abstinence")
-        case .developer: L("Entwicklermodus", "Developer mode")
-        case .finance: L("Finanzen", "Finance")
-        case .screen: L("Oberfläche", "Screens")
-        case .account: L("Konten", "Accounts")
-        case .forecast: L("Prognose", "Forecast")
-        case .budget: L("Budget", "Budget")
-        case .portfolio: L("Depot", "Portfolio")
-        case .bankImport: L("Import", "Import")
-        case .backup: L("Sicherung", "Backup")
-        case .shop: L("Shop", "Shop")
-        case .navigation: L("Navigation", "Navigation")
-        }
-    }
-}
-
-struct LififyCheckResult: Identifiable, Equatable {
-    var name: String
-    var passed: Bool
-    var detail: String?
-    /// The measured values, kept even when the check passed.
-    var reading: String = ""
-    var kind: LififyCheckKind
-    var topic: LififyCheckTopic
-    var id: String { name }
-}
-
-struct CheckTopicGroup: Identifiable, Equatable {
-    var topic: LififyCheckTopic
-    var rows: [LififyCheckResult]
-    var id: String { topic.rawValue }
-    var passedCount: Int { rows.filter(\.passed).count }
-    var summary: String { "\(passedCount)/\(rows.count)" }
-    var allPassed: Bool { passedCount == rows.count }
-}
-
-enum CheckResultList {
-    /// The test screen opens with every category collapsed.
-    static let startsCollapsed = true
-
-    static func groups(from results: [LififyCheckResult]) -> [CheckTopicGroup] {
-        LififyCheckTopic.allCases.compactMap { topic in
-            let rows = results.filter { $0.topic == topic }
-            return rows.isEmpty ? nil : CheckTopicGroup(topic: topic, rows: ordered(rows))
-        }
-        .sorted { $0.topic.title.localizedStandardCompare($1.topic.title) == .orderedAscending }
-    }
-
-    /// Unit checks first, then integration checks, and alphabetical within each kind.
-    private static func ordered(_ rows: [LififyCheckResult]) -> [LififyCheckResult] {
-        rows.sorted { lhs, rhs in
-            if lhs.kind != rhs.kind { return lhs.kind == .unit }
-            return lhs.name.localizedStandardCompare(rhs.name) == .orderedAscending
-        }
-    }
-}
-
-/// Regression checks for streaks, link captions, and workout links.
-/// They only read models in memory and do not write the user's data.
+/// Example scenarios for streaks, link captions, and workout links.
 @MainActor
-enum LififyChecks {
-    static func run() -> [LififyCheckResult] {
-        let results = [
-            multiplierReplacesLowerStep(),
-            defaultMultipliersMatchSettings(),
-            defaultMultiplierScalesTheBaseReward(),
-            freezePriceUsesWholeFactor(),
-            weeklyQuotaWhileOpen(),
-            extraDaysStillCount(),
-            weeklyQuotaKeepsStreakWithFreeze(),
-            weeklyQuotaResetsAfterFreezes(),
-            monthlyQuota(),
-            dailyStreakCountsEachDay(),
-            recurringChallengeStaysActive(),
-            completionHistoryGroupsByDay(),
-            dueDatesFollowRecurrence(),
-            coinsStayAtBaseWithoutStreak(),
-            challengeCaptionNamesTheChallenge(),
-            calendarCaptionNamesTheEntry(),
-            countedCalendarTitles(),
-            syncWindowCoversOneYear(),
-            seriesKeepsChallengeLink(),
-            syncKeepsEventsOutsideTheWindow(),
-            nextYearInWindowJoinsTheLinkedWorkout(),
-            linkingChallengePullsCalendar(),
-            linkingEventPullsChallenge(),
-            removingChallengeDropsItsEvents(),
-            uncheckingOneEventDropsTheChallenge(),
-            manualEventStaysOffTheChallenge(),
-            nextOccurrenceJoinsWorkout(),
-            workoutClockUsesFiveMinutes(),
-            abstinenceClockCountsUp(),
-            abstinenceBonusUsesDifficulty(),
-            abstinenceMilestonesStayInOrder(),
-            abstinenceRunPaysDaysAndStepsOnce(),
-            abstinenceExceptionLeavesTheTimer(),
-            challengeSlotFitsFourOfFive(),
-            finishedChallengesShrinkTheSlot(),
-            challengeBelongsToEventAndGroup(),
-            emptyNutritionDayKeepsStartingFreezes(),
-            calendarLineSitsOnTheGroup(),
-            scheduleLineAndOpenGroup(),
-            oldChallengesAreSuggested(),
-            briefingNamesTheDay(),
-            todaysAbstinenceNoticeOnly(),
-            openChallengesGetEveningAndClock(),
-            streakWarningAndBirthdayFollowTheClock(),
-            recentEventsCanBeAssigned(),
-            linkingSetsTheChallengeDay(),
-            categoriesSplitTheActiveList(),
-            briefingClockFollowsTheWeekday(),
-            shopTilesShareARow(),
-            abstinenceHistoryStaysOneRow(),
-            birthdayPaysFiveHundredOnce(),
-            birthdayFollowsTheYear(),
-            developerDayKeepsClockTime()
-        ] + LififyFeatureChecks.run() + LififyCoverageChecks.run() + LififySessionChecks.run()
-        return results + [storiesExplainEveryCheck(results)]
-    }
-
-    private static func storiesExplainEveryCheck(_ results: [LififyCheckResult]) -> LififyCheckResult {
-        let missing = results.filter { !CheckStories.isComplete($0.name) }.map(\.name)
-        let passed = missing.isEmpty && CheckStories.isComplete("Jede Prüfung erklärt ihre Schritte")
-        return result(
-            "Jede Prüfung erklärt ihre Schritte",
-            .screen,
-            .integration,
-            passed,
-            missing.joined(separator: ", ")
-        )
-    }
-
-    private static func multiplierReplacesLowerStep() -> LififyCheckResult {
+enum ChallengeScenarios {
+    static func multiplierReplacesLowerStep() -> RuleScenario {
         let atTwelve = StreakSettings.factor(forStreak: 12, configured: [5: 1.1, 10: 1.2])
         let atSeven = StreakSettings.factor(forStreak: 7, configured: [5: 1.1, 10: 1.2])
         let unsetHigher = StreakSettings.factor(forStreak: 12, configured: [5: 1.1])
@@ -178,20 +12,20 @@ enum LififyChecks {
         return result("Multiplikator ersetzt die niedrigere Stufe", .multiplier, .unit, passed, "12× \(atTwelve), 7× \(atSeven), ohne 10er \(unsetHigher)")
     }
 
-    private static func challengeCaptionNamesTheChallenge() -> LififyCheckResult {
+    static func challengeCaptionNamesTheChallenge() -> RuleScenario {
         let text = LinkCaption.challenge("Gym")
         let passed = text == "Mit Challenge Gym verknüpft" || text == "Linked to challenge Gym"
         return result("Challenge-Name im Kalender", .calendar, .unit, passed, text)
     }
 
-    private static func calendarCaptionNamesTheEntry() -> LififyCheckResult {
+    static func calendarCaptionNamesTheEntry() -> RuleScenario {
         let when = AppDate.numeric(day(2026, 10, 25))
         let text = LinkCaption.calendar(titles: ["Gym"], count: 1, singleDate: day(2026, 10, 25))
         let passed = text == "Mit Kalender Gym · \(when) verknüpft" || text == "Linked to calendar Gym · \(when)"
         return result("Kalendereintrag in der Challenge", .calendar, .unit, passed, text ?? "leer")
     }
 
-    private static func developerDayKeepsClockTime() -> LififyCheckResult {
+    static func developerDayKeepsClockTime() -> RuleScenario {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .gmt
         let day = calendar.date(from: DateComponents(year: 2026, month: 11, day: 2)) ?? .distantPast
@@ -231,7 +65,7 @@ enum LififyChecks {
             && parts.hour == 16 && parts.minute == 5 && parts.second == 9
     }
 
-    private static func linkingChallengePullsCalendar() -> LififyCheckResult {
+    static func linkingChallengePullsCalendar() -> RuleScenario {
         let gym = UUID()
         let monday = UUID()
         let wednesday = UUID()
@@ -250,7 +84,7 @@ enum LififyChecks {
         return result("Challenge zieht ihre Kalendereinträge nach", .training, .unit, passed, "Termine \(next.events.count)")
     }
 
-    private static func linkingEventPullsChallenge() -> LififyCheckResult {
+    static func linkingEventPullsChallenge() -> RuleScenario {
         let gym = UUID()
         let monday = UUID()
         let wednesday = UUID()
@@ -267,7 +101,7 @@ enum LififyChecks {
         return result("Kalendereintrag zieht Challenge und Geschwister nach", .training, .unit, passed, "Challenges \(next.challenges.count), Termine \(next.events.count)")
     }
 
-    private static func removingChallengeDropsItsEvents() -> LififyCheckResult {
+    static func removingChallengeDropsItsEvents() -> RuleScenario {
         let gym = UUID()
         let other = UUID()
         let monday = UUID()
@@ -292,7 +126,7 @@ enum LififyChecks {
         )
     }
 
-    private static func uncheckingOneEventDropsTheChallenge() -> LififyCheckResult {
+    static func uncheckingOneEventDropsTheChallenge() -> RuleScenario {
         let gym = UUID()
         let monday = UUID()
         let wednesday = UUID()
@@ -308,7 +142,7 @@ enum LififyChecks {
         return result("Einen Termin abwählen löst die Challenge", .training, .unit, passed, "Challenges \(next.challenges.count), Termine \(next.events.count)")
     }
 
-    private static func manualEventStaysOffTheChallenge() -> LififyCheckResult {
+    static func manualEventStaysOffTheChallenge() -> RuleScenario {
         let gym = UUID()
         let other = UUID()
         let monday = UUID()
@@ -327,7 +161,7 @@ enum LififyChecks {
         return result("Manuelle und fremde Termine bleiben draußen", .training, .integration, passed, "Termine \(closed.events.count)")
     }
 
-    private static func weeklyQuotaWhileOpen() -> LififyCheckResult {
+    static func weeklyQuotaWhileOpen() -> RuleScenario {
         let status = weeklyStatus(
             eventsOn: [day(2026, 10, 5), day(2026, 10, 7), day(2026, 10, 9)],
             completionsOn: [day(2026, 10, 5), day(2026, 10, 8)],
@@ -338,7 +172,7 @@ enum LififyChecks {
         return result("Offene Woche zählt beliebige Tage", .streak, .integration, passed, "Serie \(status.count), \(status.done)/\(status.required)")
     }
 
-    private static func extraDaysStillCount() -> LififyCheckResult {
+    static func extraDaysStillCount() -> RuleScenario {
         let challenge = ChallengeItem(title: "Gym", category: .sport, recurrence: .weekly, startDate: day(2026, 10, 5), weeklyDays: [2, 4, 6])
         let completions = [day(2026, 10, 6), day(2026, 10, 7), day(2026, 10, 8), day(2026, 10, 11)].map {
             ChallengeCompletion(challengeID: challenge.id, date: $0, earnedCoins: 0)
@@ -355,7 +189,7 @@ enum LififyChecks {
         return result("Mehr Tage als die Woche verlangt zählen mit", .streak, .integration, passed, "Serie \(status.count), \(status.done)/\(status.required)")
     }
 
-    private static func weeklyQuotaKeepsStreakWithFreeze() -> LififyCheckResult {
+    static func weeklyQuotaKeepsStreakWithFreeze() -> RuleScenario {
         let status = weeklyStatus(
             eventsOn: [day(2026, 10, 5), day(2026, 10, 7), day(2026, 10, 9)],
             completionsOn: [day(2026, 10, 5), day(2026, 10, 8)],
@@ -366,7 +200,7 @@ enum LififyChecks {
         return result("Freeze hält die angefangene Serie", .streak, .integration, passed, "Serie \(status.count), Freezes verbraucht \(status.freezeKeys.count)")
     }
 
-    private static func weeklyQuotaResetsAfterFreezes() -> LififyCheckResult {
+    static func weeklyQuotaResetsAfterFreezes() -> RuleScenario {
         let status = weeklyStatus(
             eventsOn: [
                 day(2026, 10, 5), day(2026, 10, 7), day(2026, 10, 9),
@@ -381,7 +215,7 @@ enum LififyChecks {
         return result("Dritte verpasste Woche setzt die Serie auf 0", .streak, .integration, passed, "Serie \(status.count), Freezes verbraucht \(status.freezeKeys.count)")
     }
 
-    private static func monthlyQuota() -> LififyCheckResult {
+    static func monthlyQuota() -> RuleScenario {
         let challenge = ChallengeItem(
             title: "Monatsabschluss",
             recurrence: .monthly,
@@ -416,7 +250,7 @@ enum LififyChecks {
         )
     }
 
-    private static func dailyStreakCountsEachDay() -> LififyCheckResult {
+    static func dailyStreakCountsEachDay() -> RuleScenario {
         let challenge = ChallengeItem(title: "Täglich", recurrence: .daily, startDate: day(2026, 10, 5))
         let completions = [day(2026, 10, 5), day(2026, 10, 6), day(2026, 10, 7)].map {
             ChallengeCompletion(challengeID: challenge.id, date: $0, earnedCoins: 0)
@@ -433,7 +267,7 @@ enum LififyChecks {
         return result("Tägliche Serie zählt jeden Tag", .streak, .integration, passed, "Serie \(status.count), heute \(status.done)/\(status.required)")
     }
 
-    private static func defaultMultipliersMatchSettings() -> LififyCheckResult {
+    static func defaultMultipliersMatchSettings() -> RuleScenario {
         let expected: [Int: Double] = [
             5: 1.1, 10: 1.2, 15: 1.3, 20: 1.4, 25: 1.5,
             50: 1.75, 100: 2, 200: 2.25, 250: 2.5, 500: 2.75, 1000: 3
@@ -446,7 +280,7 @@ enum LififyChecks {
         return result("Standardwerte bleiben, bis eine Stufe geändert wird", .multiplier, .unit, passed, "5× \(merged[5] ?? 0)")
     }
 
-    private static func defaultMultiplierScalesTheBaseReward() -> LififyCheckResult {
+    static func defaultMultiplierScalesTheBaseReward() -> RuleScenario {
         let challenge = ChallengeItem(title: "Gym", recurrence: .daily, startDate: day(2026, 10, 1), rewardCoins: 10)
         let completions = (1...12).map {
             ChallengeCompletion(challengeID: challenge.id, date: day(2026, 10, $0), earnedCoins: 0)
@@ -467,7 +301,7 @@ enum LififyChecks {
         return result("Standard-Multiplikator skaliert die Basis-Belohnung", .multiplier, .integration, passed, "Serie \(status.count), Faktor \(factor), Coins \(coins)")
     }
 
-    private static func freezePriceUsesWholeFactor() -> LififyCheckResult {
+    static func freezePriceUsesWholeFactor() -> RuleScenario {
         let ten = StreakSettings.price(rewardCoins: 12, factor: 10)
         let twenty = StreakSettings.price(rewardCoins: 12, factor: 20)
         let minimum = StreakSettings.price(rewardCoins: 12, factor: 0)
@@ -483,7 +317,7 @@ enum LififyChecks {
         return result("Freeze-Preis ist ein ganzzahliger Faktor", .streak, .unit, passed, "10× \(ten), 20× \(twenty), Faktor \(wholeTen ?? 0)")
     }
 
-    private static func recurringChallengeStaysActive() -> LififyCheckResult {
+    static func recurringChallengeStaysActive() -> RuleScenario {
         let weeklyStays = ChallengeActivity.staysOnActiveList(recurrence: .weekly, hasCompletion: true)
         let onceLeaves = !ChallengeActivity.staysOnActiveList(recurrence: .none, hasCompletion: true)
         let onceOpen = ChallengeActivity.staysOnActiveList(recurrence: .none, hasCompletion: false)
@@ -494,7 +328,7 @@ enum LififyChecks {
         return result("Wiederkehrend bleibt aktiv und wird heute grau", .challenge, .unit, passed, "aktiv \(weeklyStays), einmalig weg \(onceLeaves)")
     }
 
-    private static func completionHistoryGroupsByDay() -> LififyCheckResult {
+    static func completionHistoryGroupsByDay() -> RuleScenario {
         let gym = UUID()
         let reading = UUID()
         let days = ChallengeHistory.grouped(completions: [
@@ -512,7 +346,7 @@ enum LififyChecks {
         return result("Verlauf gruppiert erledigte Challenges nach Tag", .challenge, .integration, passed, "Tage \(days.count), heute \(first?.entries.count ?? 0)")
     }
 
-    private static func dueDatesFollowRecurrence() -> LififyCheckResult {
+    static func dueDatesFollowRecurrence() -> RuleScenario {
         let weekly = ChallengeItem(title: "Gym", recurrence: .weekly, startDate: day(2026, 10, 5), weeklyDays: [2, 4, 6])
         let daily = ChallengeItem(title: "Lesen", recurrence: .daily, startDate: day(2026, 10, 5))
         let monthly = ChallengeItem(title: "Monat", recurrence: .monthly, startDate: day(2026, 10, 25))
@@ -531,7 +365,7 @@ enum LififyChecks {
         return result("Fällig folgt täglich, wöchentlich, monatlich, jährlich und einmalig", .challenge, .integration, passed, "Woche \(ChallengeService.isDue(weekly, on: day(2026, 10, 5)))")
     }
 
-    private static func coinsStayAtBaseWithoutStreak() -> LififyCheckResult {
+    static func coinsStayAtBaseWithoutStreak() -> RuleScenario {
         let challenge = ChallengeItem(title: "Gym", rewardCoins: 15)
         let coins = ChallengeService.projectedCoins(
             challenge: challenge,
@@ -543,13 +377,13 @@ enum LififyChecks {
         return result("Ohne Streak bleibt die Basis-Belohnung", .challenge, .integration, passed, "Coins \(coins)")
     }
 
-    private static func countedCalendarTitles() -> LififyCheckResult {
+    static func countedCalendarTitles() -> RuleScenario {
         let text = LinkCaption.countedTitles(["GYM", "GYM", "GYM", "Officeday"])
         let passed = text == "GYM · 3, Officeday"
         return result("Gleiche Kalendertitel werden zusammengezählt", .calendar, .unit, passed, text)
     }
 
-    private static func syncWindowCoversOneYear() -> LififyCheckResult {
+    static func syncWindowCoversOneYear() -> RuleScenario {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .gmt
         let now = calendar.date(from: DateComponents(year: 2026, month: 10, day: 25, hour: 12)) ?? .distantPast
@@ -564,7 +398,7 @@ enum LififyChecks {
         return result("Sync umfasst ein Jahr voraus und 30 Tage zurück", .calendar, .unit, passed, "Fenster \(CalendarSyncWindow.pastDays)/\(CalendarSyncWindow.futureDays)")
     }
 
-    private static func seriesKeepsChallengeLink() -> LififyCheckResult {
+    static func seriesKeepsChallengeLink() -> RuleScenario {
         let gym = UUID()
         let group = UUID()
         let reward = UUID()
@@ -577,7 +411,7 @@ enum LififyChecks {
         return result("Neue Serientermine behalten die Challenge", .calendar, .unit, passed, "Challenge \(links.challengeID == gym)")
     }
 
-    private static func syncKeepsEventsOutsideTheWindow() -> LififyCheckResult {
+    static func syncKeepsEventsOutsideTheWindow() -> RuleScenario {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .gmt
         let now = calendar.date(from: DateComponents(year: 2026, month: 10, day: 25, hour: 12)) ?? .distantPast
@@ -595,7 +429,7 @@ enum LififyChecks {
         return result("Sync löscht nur verschwundene Termine im Jahresfenster", .calendar, .integration, passed, "alt bleibt")
     }
 
-    private static func nextYearInWindowJoinsTheLinkedWorkout() -> LififyCheckResult {
+    static func nextYearInWindowJoinsTheLinkedWorkout() -> RuleScenario {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .gmt
         let now = calendar.date(from: DateComponents(year: 2026, month: 10, day: 25, hour: 12)) ?? .distantPast
@@ -621,7 +455,7 @@ enum LififyChecks {
         return result("Termin im Jahresfenster hängt an Challenge und Training", .calendar, .integration, passed, "Termine \(closed.events.count)")
     }
 
-    private static func nextOccurrenceJoinsWorkout() -> LififyCheckResult {
+    static func nextOccurrenceJoinsWorkout() -> RuleScenario {
         let gym = UUID()
         let currentYear = UUID()
         let nextYear = UUID()
@@ -637,7 +471,7 @@ enum LififyChecks {
         return result("Termin im nächsten Jahr hängt am Training", .training, .integration, passed, "Termine \(closed.events.count)")
     }
 
-    private static func workoutClockUsesFiveMinutes() -> LififyCheckResult {
+    static func workoutClockUsesFiveMinutes() -> RuleScenario {
         let raw = Date(timeIntervalSinceReferenceDate: 1_000)
         let rounded = WorkoutCalendarSync.clock(raw)
         let passed = rounded.timeIntervalSinceReferenceDate == 900
@@ -684,7 +518,7 @@ enum LififyChecks {
         return calendar.date(from: components) ?? Date(timeIntervalSince1970: 0)
     }
 
-    private static func abstinenceClockCountsUp() -> LififyCheckResult {
+    static func abstinenceClockCountsUp() -> RuleScenario {
         let zero = AbstinenceRules.clock(-5)
         let minute = AbstinenceRules.clock(3_661)
         let day = AbstinenceRules.clock(86_400 + 3_661)
@@ -694,7 +528,7 @@ enum LififyChecks {
         return result("Timer zählt Tage, Stunden, Minuten und Sekunden", .abstinence, .unit, passed, "\(minute.hours):\(minute.minutes):\(minute.seconds)")
     }
 
-    private static func abstinenceBonusUsesDifficulty() -> LififyCheckResult {
+    static func abstinenceBonusUsesDifficulty() -> RuleScenario {
         let easy = AbstinenceRules.defaultMultipliers[.easy] ?? [:]
         let medium = AbstinenceRules.defaultMultipliers[.medium] ?? [:]
         let hard = AbstinenceRules.defaultMultipliers[.hard] ?? [:]
@@ -711,7 +545,7 @@ enum LififyChecks {
         return result("Schwer zahlt mehr als leicht, ein Faktor bleibt editierbar", .abstinence, .unit, passed, "halb \(half), anderthalb \(fraction)")
     }
 
-    private static func abstinenceMilestonesStayInOrder() -> LififyCheckResult {
+    static func abstinenceMilestonesStayInOrder() -> RuleScenario {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .gmt
         let start = calendar.date(from: DateComponents(year: 2026, month: 10, day: 25, hour: 12)) ?? .distantPast
@@ -738,7 +572,7 @@ enum LififyChecks {
         return result("Boni sitzen auf 1, 2, 4, 8, 24 und 72 Stunden, dann 7, 14, 30 Tage und 1 Jahr", .abstinence, .unit, passed, "72h \(reached72.contains(.hour72))")
     }
 
-    private static func abstinenceRunPaysDaysAndStepsOnce() -> LififyCheckResult {
+    static func abstinenceRunPaysDaysAndStepsOnce() -> RuleScenario {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .gmt
         let start = calendar.date(from: DateComponents(year: 2026, month: 10, day: 1, hour: 12)) ?? .distantPast
@@ -762,7 +596,7 @@ enum LififyChecks {
         return result("Ein Lauf zahlt jeden Tag und jede Stufe einmal, ein Rückfall startet die Boni neu", .abstinence, .integration, passed, "Tage \(first.days.count), Stufen \(first.milestones.count), neu \(relapsed.milestones.count)")
     }
 
-    private static func abstinenceExceptionLeavesTheTimer() -> LififyCheckResult {
+    static func abstinenceExceptionLeavesTheTimer() -> RuleScenario {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .gmt
         let start = calendar.date(from: DateComponents(year: 2026, month: 10, day: 1, hour: 8)) ?? .distantPast
@@ -773,7 +607,7 @@ enum LififyChecks {
         return result("Eine Ausnahme ändert den Timer nicht", .abstinence, .unit, passed, "Stufen \(before.milestones.count)")
     }
 
-    private static func challengeSlotFitsFourOfFive() -> LififyCheckResult {
+    static func challengeSlotFitsFourOfFive() -> RuleScenario {
         let count = ChallengeTimeRules.fitCount(minutes: [30, 30, 30, 30, 30], slotMinutes: 120)
         let caption = LinkCaption.challenges(["Lesen", "Schreiben"])
         let passed = count == 4
@@ -787,7 +621,7 @@ enum LififyChecks {
         return result("In zwei Stunden passen vier Challenges à 30 Minuten", .challenge, .unit, passed, "passen \(count), \(caption ?? "leer")")
     }
 
-    private static func finishedChallengesShrinkTheSlot() -> LififyCheckResult {
+    static func finishedChallengesShrinkTheSlot() -> RuleScenario {
         let first = UUID(uuidString: "00000000-0000-0000-0000-000000000061")!
         let second = UUID(uuidString: "00000000-0000-0000-0000-000000000062")!
         var calendar = Calendar(identifier: .gregorian)
@@ -807,7 +641,7 @@ enum LififyChecks {
         return result("Der Termin rückt, wenn alle Challenges abgehakt sind", .challenge, .integration, passed, reading)
     }
 
-    private static func challengeBelongsToEventAndGroup() -> LififyCheckResult {
+    static func challengeBelongsToEventAndGroup() -> RuleScenario {
         let chosen = UUID(uuidString: "00000000-0000-0000-0000-000000000071")!
         let eventGroup = UUID(uuidString: "00000000-0000-0000-0000-000000000072")!
         let both = ChallengeGroups.membership(chosen: chosen, eventGroup: eventGroup)
@@ -821,7 +655,7 @@ enum LififyChecks {
         return result("Eine Challenge bleibt in Termin und Gruppe", .challenge, .unit, passed, reading)
     }
 
-    private static func emptyNutritionDayKeepsStartingFreezes() -> LififyCheckResult {
+    static func emptyNutritionDayKeepsStartingFreezes() -> RuleScenario {
         let challenge = ChallengeItem(
             title: "Kaloriendefizit",
             recurrence: .daily,
@@ -859,7 +693,7 @@ enum LififyChecks {
         return result("Ein Tag ohne Mahlzeiten lässt die zwei Freezes", .streak, .unit, passed, reading)
     }
 
-    private static func calendarLineSitsOnTheGroup() -> LififyCheckResult {
+    static func calendarLineSitsOnTheGroup() -> RuleScenario {
         let eventGroup = UUID(uuidString: "00000000-0000-0000-0000-000000000091")!
         let chosen = UUID(uuidString: "00000000-0000-0000-0000-000000000092")!
         let onGroup = GroupCalendarLine.belongsOnGroup(eventGroupID: eventGroup, membership: [chosen, eventGroup])
@@ -869,7 +703,7 @@ enum LififyChecks {
         return result("Die Kalenderzeile steht in der Stilfarbe an der Gruppe", .challenge, .unit, passed, "auf der Gruppe")
     }
 
-    private static func scheduleLineAndOpenGroup() -> LififyCheckResult {
+    static func scheduleLineAndOpenGroup() -> RuleScenario {
         let line = ChallengeCardCopy.scheduleLine(recurrence: L("Einmalig", "Once"), minutes: 20)
         let weekly = ChallengeCardCopy.scheduleLine(recurrence: L("Wöchentlich", "Weekly"), minutes: 30)
         let bare = ChallengeCardCopy.scheduleLine(recurrence: L("Täglich", "Daily"), minutes: nil)
@@ -892,7 +726,7 @@ enum LififyChecks {
         return result("Einmalig und die Dauer stehen in einer Zeile", .challenge, .unit, passed, reading)
     }
 
-    private static func oldChallengesAreSuggested() -> LififyCheckResult {
+    static func oldChallengesAreSuggested() -> RuleScenario {
         let now = Date(timeIntervalSince1970: 1_800_000_000)
         let old = now.addingTimeInterval(-(8 * 86_400))
         let fresh = now.addingTimeInterval(-(2 * 86_400))
@@ -915,7 +749,7 @@ enum LififyChecks {
         return result("Vorschläge beginnen bei der ältesten Challenge", .challenge, .unit, passed, "\(suggested.count)")
     }
 
-    private static func briefingNamesTheDay() -> LififyCheckResult {
+    static func briefingNamesTheDay() -> RuleScenario {
         let text = DailyBriefing.text(
             events: [DailyBriefingLine(title: "Fokus", detail: "10:00")],
             challenges: [DailyBriefingLine(title: "Lesen", detail: "+10")],
@@ -944,7 +778,7 @@ enum LififyChecks {
         return result("Das Tagesbriefing nennt Termine, Coins, Belohnung, Gehalt und Ausgaben", .challenge, .unit, passed, text)
     }
 
-    private static func todaysAbstinenceNoticeOnly() -> LififyCheckResult {
+    static func todaysAbstinenceNoticeOnly() -> RuleScenario {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .gmt
         let today = calendar.date(from: DateComponents(year: 2026, month: 11, day: 8, hour: 12)) ?? .distantFuture
@@ -976,7 +810,7 @@ enum LififyChecks {
         )
     }
 
-    private static func openChallengesGetEveningAndClock() -> LififyCheckResult {
+    static func openChallengesGetEveningAndClock() -> RuleScenario {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .gmt
         let day = calendar.date(from: DateComponents(year: 2026, month: 11, day: 8)) ?? .distantFuture
@@ -1016,7 +850,7 @@ enum LififyChecks {
         )
     }
 
-    private static func streakWarningAndBirthdayFollowTheClock() -> LififyCheckResult {
+    static func streakWarningAndBirthdayFollowTheClock() -> RuleScenario {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .gmt
         let sunday = calendar.date(from: DateComponents(year: 2026, month: 11, day: 8, hour: 12)) ?? .distantFuture
@@ -1090,7 +924,7 @@ enum LififyChecks {
         )
     }
 
-    private static func recentEventsCanBeAssigned() -> LififyCheckResult {
+    static func recentEventsCanBeAssigned() -> RuleScenario {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .gmt
         let today = calendar.date(from: DateComponents(year: 2026, month: 11, day: 14, hour: 12)) ?? .now
@@ -1146,7 +980,7 @@ enum LififyChecks {
         return result("Die Terminauswahl öffnet beim heutigen Tag", .challenge, .unit, passed, reading)
     }
 
-    private static func linkingSetsTheChallengeDay() -> LififyCheckResult {
+    static func linkingSetsTheChallengeDay() -> RuleScenario {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .gmt
         let eventStart = calendar.date(from: DateComponents(year: 2026, month: 11, day: 18, hour: 19, minute: 15)) ?? .now
@@ -1175,7 +1009,7 @@ enum LififyChecks {
         return result("Ein Termin setzt den Tag der Challenge", .challenge, .unit, passed, reading)
     }
 
-    private static func categoriesSplitTheActiveList() -> LififyCheckResult {
+    static func categoriesSplitTheActiveList() -> RuleScenario {
         let separate = UUID(uuidString: "00000000-0000-0000-0000-000000000021")!
         let pooled = UUID(uuidString: "00000000-0000-0000-0000-000000000022")!
         let abstinence = UUID(uuidString: "00000000-0000-0000-0000-000000000023")!
@@ -1202,7 +1036,7 @@ enum LififyChecks {
         return result("Sport und Abstinenz stehen separat, der Rest in einem Topf", .challenge, .unit, passed, sections.map(\.id).joined(separator: ","))
     }
 
-    private static func briefingClockFollowsTheWeekday() -> LififyCheckResult {
+    static func briefingClockFollowsTheWeekday() -> RuleScenario {
         let monday = BriefingSchedule.clock(weekday: 2, overrides: [2: BriefingClock(hour: 7, minute: 30)], fallback: BriefingClock(hour: 8, minute: 0))
         let sunday = BriefingSchedule.clock(weekday: 1, overrides: [:], fallback: BriefingClock(hour: 8, minute: 0))
         let late = BriefingSchedule.clock(weekday: 6, overrides: [6: BriefingClock(hour: 25, minute: 70)], fallback: BriefingClock(hour: 8, minute: 0))
@@ -1213,13 +1047,13 @@ enum LififyChecks {
         return result("Das Briefing hat von Montag bis Sonntag eine eigene Uhrzeit", .challenge, .unit, passed, "\(monday.hour):\(monday.minute)")
     }
 
-    private static func shopTilesShareARow() -> LififyCheckResult {
+    static func shopTilesShareARow() -> RuleScenario {
         let rows = ShopRows.pairs([1, 2, 3, 4, 5])
         let passed = rows.count == 3 && rows[0] == [1, 2] && rows[1] == [3, 4] && rows[2] == [5]
         return result("Zwei Shop-Kacheln teilen sich eine Reihe", .challenge, .unit, passed, "\(rows.count)")
     }
 
-    private static func abstinenceHistoryStaysOneRow() -> LififyCheckResult {
+    static func abstinenceHistoryStaysOneRow() -> RuleScenario {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .gmt
         let abstinence = UUID(uuidString: "00000000-0000-0000-0000-000000000031")!
@@ -1244,7 +1078,7 @@ enum LififyChecks {
         return result("Eine Abstinenz steht unter Abgeschlossen als ein Eintrag", .abstinence, .integration, passed, "\(spans.count)")
     }
 
-    private static func birthdayPaysFiveHundredOnce() -> LififyCheckResult {
+    static func birthdayPaysFiveHundredOnce() -> RuleScenario {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .gmt
         let birth = Birthday(year: 1990, month: 11, day: 8)
@@ -1267,7 +1101,7 @@ enum LififyChecks {
         return result("Geburtstag zahlt 500 Coins einmal an diesem Tag", .challenge, .unit, passed, "heute \(BirthdayBonus.isDue(birth: birth, on: today, awardedYear: nil, calendar: calendar))")
     }
 
-    private static func birthdayFollowsTheYear() -> LififyCheckResult {
+    static func birthdayFollowsTheYear() -> RuleScenario {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .gmt
         let birth = Birthday(year: 1990, month: 11, day: 8)
@@ -1284,11 +1118,11 @@ enum LififyChecks {
 
     private static func result(
         _ name: String,
-        _ topic: LififyCheckTopic,
-        _ kind: LififyCheckKind,
+        _ topic: RuleTopic,
+        _ kind: RuleKind,
         _ passed: Bool,
         _ detail: String
-    ) -> LififyCheckResult {
-        LififyCheckResult(name: name, passed: passed, detail: passed ? nil : detail, reading: detail, kind: kind, topic: topic)
+    ) -> RuleScenario {
+        RuleScenario(name: name, passed: passed, detail: passed ? nil : detail, reading: detail, kind: kind, topic: topic)
     }
 }

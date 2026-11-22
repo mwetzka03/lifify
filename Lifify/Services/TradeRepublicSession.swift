@@ -1,25 +1,6 @@
 import CryptoKit
 import Foundation
 
-/// What a confirmed Trade Republic web session is allowed to do on its own.
-/// Refresh runs only when a button calls it. A dead session does not sign in again.
-enum TradeRepublicRefresh {
-    static let onLaunch = false
-    static let onTimer = false
-    static let onFinanceOpen = false
-    static let manualOnly = true
-    static let usesStoredPIN = false
-    static let storesSession = false
-}
-
-/// The login call from this environment. A fake number is rejected before any session exists.
-enum TradeRepublicGap {
-    static let probedStatus = 400
-    static let probedCode = "NUMBER_INVALID"
-    static let deviceConfirmationRequired = true
-    static let completedOnThisMachine = false
-}
-
 enum TradeRepublicFailure: Error, Equatable {
     case invalidPhone
     case invalidPin
@@ -78,11 +59,6 @@ enum TradeRepublicFailure: Error, Equatable {
 
 enum TradeRepublicSample {
     static let revisionKey = "lifify.tradeRepublic.sampleRevision"
-    static let clipsExtract = false
-    static let alwaysStores = true
-    static let storesExtractInUserDefaults = false
-    static let showsFullExtractText = false
-    static let extractRequiresDeveloperMode = true
     static let exportFilenamePrefix = "TradeRepublic-Auszug"
     static let previewCharacterLimit = 1600
     static let legacyKey = "lifify.tradeRepublic.sample"
