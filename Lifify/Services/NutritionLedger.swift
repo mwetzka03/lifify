@@ -35,6 +35,22 @@ enum NutritionLedger {
         }
     }
 
+    /// After the meal list is replaced, coins follow it. Charges of meals that are gone are refunded.
+    /// A restored meal whose charge does not exist here is booked again by the next settle.
+    static func reconcileCharges(previous: [MealRecord], context: ModelContext) {
+        var meals = MealLog.all()
+        let kept = Set(meals.compactMap(\.chargeID))
+        for chargeID in Set(previous.compactMap(\.chargeID)).subtracting(kept) {
+            refund(chargeID, context: context)
+        }
+        let purchases = Set(((try? context.fetch(FetchDescriptor<RewardPurchase>())) ?? []).map(\.id))
+        for index in meals.indices {
+            guard let chargeID = meals[index].chargeID, !purchases.contains(chargeID) else { continue }
+            meals[index].chargeID = nil
+            MealLog.upsert(meals[index])
+        }
+    }
+
     private static func ensureChallenge(context: ModelContext) -> ChallengeItem {
         let stored = (try? context.fetch(FetchDescriptor<ChallengeItem>())) ?? []
         let goal = UserBody.current().goal

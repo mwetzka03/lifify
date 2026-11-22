@@ -173,6 +173,86 @@ extension LififyRuleTests {
             }
         }
 
+        private func healthBackup(_ store: TestStore) throws -> Data {
+            let snapshot = try WorkoutStore(fileURL: WorkoutStore.defaultFileURL()).exportSnapshotData()
+            return try BackupService.exportData(
+                accounts: [], entries: [], splits: [], fixedCosts: [], variableBudgets: [], pools: [],
+                forecasts: [], shopping: [], debts: [], groups: [], lines: [], holdings: [],
+                calendarEvents: [], challenges: [], completions: [], challengeGroups: [],
+                coinTransactions: [], rewards: [], purchases: [], bucketItems: [],
+                scope: .training,
+                workoutSnapshot: snapshot
+            )
+        }
+
+        private func meal(_ title: String, kind: MealKind = .balanced, photo: String? = nil) -> MealRecord {
+            MealRecord(dayKey: NutritionPlan.dayKey(.now), title: title, source: .manual, status: .draft, photoName: photo, kind: kind)
+        }
+
+        @Test func healthBackupCarriesTrainingAndMealsWithoutPhotos() async throws {
+            try await withTestStore { store in
+                let workouts = WorkoutStore(fileURL: WorkoutStore.defaultFileURL())
+                let plan = WorkoutPlan(name: "Push")
+                workouts.save(plan: plan)
+                let saved = meal("Reis", photo: "abc.jpg")
+                MealLog.upsert(saved)
+                let data = try healthBackup(store)
+                #expect(BackupService.restoredMessage([.training]).contains(L("Gesundheit", "Health")))
+                let text = String(decoding: data, as: UTF8.self)
+                #expect(text.contains("mealLog"))
+                #expect(!text.contains("mealPhoto"))
+
+                MealLog.reset()
+                WorkoutStore.clearStored()
+                try BackupService.restore(data: data, into: store.context)
+
+                #expect(MealLog.all().map(\.id) == [saved.id])
+                #expect(WorkoutStore(fileURL: WorkoutStore.defaultFileURL()).plans.map(\.id) == [plan.id])
+            }
+        }
+
+        @Test func trainingFileWithoutMealsLeavesMealsAlone() async throws {
+            try await withTestStore { store in
+                let data = try healthBackup(store)
+                let decoder = JSONDecoder()
+                decoder.dateDecodingStrategy = .iso8601
+                let backup = try decoder.decode(LififyBackup.self, from: data)
+                let older = LififyBackup(version: backup.version, exportedAt: backup.exportedAt, records: backup.records.filter { $0.type != "mealLog" })
+                let encoder = JSONEncoder()
+                encoder.dateEncodingStrategy = .iso8601
+                let kept = meal("Bleibt")
+                MealLog.upsert(kept)
+                try BackupService.restore(data: encoder.encode(older), into: store.context)
+                #expect(MealLog.all().map(\.id) == [kept.id])
+            }
+        }
+
+        @Test func healthRestoreKeepsTheWalletInStepWithMeals() async throws {
+            try await withTestStore { store in
+                let data = try healthBackup(store)
+                MealLog.upsert(meal("Burger", kind: .fastFood))
+                NutritionLedger.settle(context: store.context, sessions: [])
+                try #expect(store.wallet() == -MealScore.fastFoodPrice)
+                try BackupService.restore(data: data, into: store.context)
+                #expect(MealLog.all().isEmpty)
+                try #expect(store.wallet() == 0)
+            }
+        }
+
+        @Test func restoredFastFoodIsChargedOnce() async throws {
+            try await withTestStore { store in
+                MealLog.upsert(meal("Burger", kind: .fastFood))
+                NutritionLedger.settle(context: store.context, sessions: [])
+                let data = try healthBackup(store)
+                try store.all(RewardPurchase.self).forEach(store.context.delete)
+                try store.all(CoinTransaction.self).forEach(store.context.delete)
+                try store.context.save()
+                try BackupService.restore(data: data, into: store.context)
+                try #expect(store.wallet() == -MealScore.fastFoodPrice)
+                try #expect(store.all(RewardPurchase.self).count == 1)
+            }
+        }
+
         @Test func fastFoodRewardStaysSingleAfterRestore() async throws {
             try await withTestStore { store in
                 NutritionLedger.settle(context: store.context, sessions: [])

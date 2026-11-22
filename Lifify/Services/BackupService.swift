@@ -82,7 +82,7 @@ enum BackupScope: String, CaseIterable {
         case .all: "Lifify"
         case .finance: "Lifify-Finanzen"
         case .challenges: "Lifify-Challenges"
-        case .training: "Lifify-Training"
+        case .training: "Lifify-Gesundheit"
         }
     }
 
@@ -91,13 +91,15 @@ enum BackupScope: String, CaseIterable {
         case .all: L("gesamte App", "entire app")
         case .finance: L("Finanzen", "Finance")
         case .challenges: L("Challenges", "Challenges")
-        case .training: L("Training", "Training")
+        case .training: L("Gesundheit", "Health")
         }
     }
 }
 
 @MainActor
 enum BackupService {
+    /// The meal list of a Health backup. Photos are not part of any backup.
+    private static let mealLogType = "mealLog"
     private static let financeTypes: Set<String> = [
         "account", "entry", "split", "fixed", "variable", "pool", "forecast", "shopping", "debt",
         "group", "line", "holding", "holdingLot", "savingsPlan", "closedPosition", "portfolioLink",
@@ -377,6 +379,9 @@ enum BackupService {
         if let snapshot = BackupDefaults.record(scope: scope) {
             records.append(snapshot)
         }
+        if scope == .training {
+            records.append(BackupRecord(type: mealLogType, id: UUID(), strings: [MealLog.exportJSON(defaults: defaults)]))
+        }
         if scope == .all || scope == .training, let workoutSnapshot, !workoutSnapshot.isEmpty {
             records.append(BackupRecord(
                 type: "workoutSnapshot",
@@ -415,7 +420,7 @@ enum BackupService {
                 case .challenges:
                     try restoreChallenges(backup, into: context)
                 case .training:
-                    try restoreTraining(backup)
+                    try restoreTraining(backup, into: context)
                 }
             }
         }
@@ -590,12 +595,18 @@ enum BackupService {
         BackupDefaults.restore(from: backup.records, scope: .challenges)
     }
 
-    private static func restoreTraining(_ backup: LififyBackup) throws {
+    private static func restoreTraining(_ backup: LififyBackup, into context: ModelContext) throws {
+        try restoreWorkoutSnapshot(from: backup, required: true)
         WorkoutLinkStore.reset()
         for record in backup.records where record.type == "workoutChallengeLink" || record.type == "workoutEventLink" {
             insertLink(record)
         }
-        try restoreWorkoutSnapshot(from: backup, required: true)
+        // A training file from before 0.5.5 has no meal list and leaves the meals alone.
+        guard let mealLog = backup.records.first(where: { $0.type == mealLogType }) else { return }
+        let previous = MealLog.all()
+        MealLog.restore(json: mealLog.strings.first ?? "")
+        NutritionLedger.reconcileCharges(previous: previous, context: context)
+        NutritionLedger.settle(context: context, sessions: WorkoutStore().sessions)
     }
 
     private static func scopedRecords(
@@ -928,7 +939,7 @@ enum BackupService {
             }
         case "workoutChallengeLink", "workoutEventLink":
             insertLink(r)
-        case "backupScope", "workoutSnapshot", BackupDefaults.recordType:
+        case "backupScope", "workoutSnapshot", BackupDefaults.recordType, mealLogType:
             break
         case "appPreferences":
             UserBody.reset()

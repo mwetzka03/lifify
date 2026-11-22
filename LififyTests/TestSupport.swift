@@ -31,10 +31,14 @@ func withTestStore<T>(_ body: @MainActor (TestStore) async throws -> T) async th
     let schema = Schema(LififySchemaV2.models)
     let configuration = ModelConfiguration(suite, schema: schema, isStoredInMemoryOnly: true)
     let container = try ModelContainer(for: schema, configurations: [configuration])
+    let files = FileManager.default.temporaryDirectory.appendingPathComponent(suite, isDirectory: true)
     AppDefaults.use(defaults)
+    AppFiles.use(files)
     defer {
         AppDefaults.use(nil)
+        AppFiles.use(nil)
         defaults.removePersistentDomain(forName: suite)
+        try? FileManager.default.removeItem(at: files)
     }
     return try await body(TestStore(defaults: defaults, container: container))
 }

@@ -29,6 +29,8 @@ unchanged and stay in [FINANZEN.md](../FINANZEN.md). What changed in 0.4.0 is in
 
 **Effect.** Older backup files still restore and leave these values as they are. A new backup replaces them, including clearing values it does not contain. Restoring no longer creates a second Fast Food reward.
 
+**Health export.** Export training is now Export health and carries workouts and the meal list. Restoring it keeps fast-food coins in step with the meals: charges of meals that are gone are refunded, and a restored fast-food meal without a charge is booked once. Older training files still restore and leave the meals alone.
+
 **Not included.** Meal and profile photos, exercise images, price caches, UI refresh counters, developer and setup state, the Trade Republic extract, and everything in the Keychain.
 
 ### 0.5.5: Shop lock on a negative balance
@@ -129,6 +131,8 @@ bucht. Die Finanzrechnung ist unverändert und bleibt in
 **Warum.** Diese Werte wurden beim Wiederherstellen zurückgesetzt, aber nie exportiert, und gingen dadurch verloren.
 
 **Auswirkung.** Ältere Backup-Dateien lassen sich weiter einspielen und lassen diese Werte unverändert. Ein neues Backup ersetzt sie und entfernt auch Werte, die es nicht enthält. Eine Wiederherstellung legt keine zweite Fast-Food-Belohnung mehr an.
+
+**Gesundheits-Export.** Aus „Training exportieren“ wird „Gesundheit exportieren“ mit Trainings und Mahlzeitenliste. Beim Einspielen bleiben die Fast-Food-Coins passend zu den Mahlzeiten: Buchungen nicht mehr vorhandener Mahlzeiten werden erstattet, eine wiederhergestellte Fast-Food-Mahlzeit ohne Buchung wird einmal gebucht. Ältere Trainingsdateien lassen sich weiter einspielen und lassen die Mahlzeiten unverändert.
 
 **Nicht enthalten.** Mahlzeiten- und Profilfotos, Übungsbilder, Kurs-Caches, UI-Aktualisierungszähler, Entwickler- und Einrichtungszustand, der Trade-Republic-Auszug und alles im Schlüsselbund.
 

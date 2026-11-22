@@ -63,7 +63,7 @@ struct DataManagementView: View {
                 Button {
                     createBackup(.training)
                 } label: {
-                    Label(L("Training exportieren", "Export training"), systemImage: "figure.strengthtraining.traditional")
+                    Label(L("Gesundheit exportieren (Training und Mahlzeiten)", "Export health (training and meals)"), systemImage: "heart.text.square")
                 }
                 Button {
                     importingBackup = true
@@ -71,8 +71,8 @@ struct DataManagementView: View {
                     Label(L("Sicherung wiederherstellen", "Restore backup"), systemImage: "arrow.clockwise.icloud")
                 }
                 Text(L(
-                    "Eine Teilsicherung ersetzt nur diesen Bereich. Eine volle Sicherung ersetzt alles.",
-                    "A partial backup replaces only that area. A full backup replaces everything."
+                    "Eine Teilsicherung ersetzt nur diesen Bereich. Eine volle Sicherung ersetzt alles. Fotos sind nicht enthalten.",
+                    "A partial backup replaces only that area. A full backup replaces everything. Photos are not included."
                 ))
                 .font(.caption)
                 .foregroundStyle(.secondary)

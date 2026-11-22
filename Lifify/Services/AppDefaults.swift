@@ -35,3 +35,21 @@ enum AppDefaults {
         ClosedPositionStore.clearCache()
     }
 }
+
+/// The folder for data files. Tests swap in a temporary one, so they never touch user files.
+enum AppFiles {
+    private static let lock = NSLock()
+    nonisolated(unsafe) private static var replacement: URL?
+
+    static var supportDirectory: URL {
+        lock.lock()
+        defer { lock.unlock() }
+        return replacement ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+    }
+
+    static func use(_ directory: URL?) {
+        lock.lock()
+        replacement = directory
+        lock.unlock()
+    }
+}

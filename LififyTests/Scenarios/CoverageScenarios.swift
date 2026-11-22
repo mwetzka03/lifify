@@ -468,7 +468,7 @@ enum CoverageScenarios {
             && decodedLots?.records.first?.type == "holdingLot"
             && decodedLots?.records.first?.id == lotID
             && decodedLots?.records.first?.strings == ["gift"]
-            && prefixes == ["Lifify", "Lifify-Finanzen", "Lifify-Challenges", "Lifify-Training"]
+            && prefixes == ["Lifify", "Lifify-Finanzen", "Lifify-Challenges", "Lifify-Gesundheit"]
             && BackupScope.restoreOrder == [.all, .finance, .challenges, .training]
             && BackupScope.allowsSeveralFiles
             && BackupService.scope(of: LififyBackup(
