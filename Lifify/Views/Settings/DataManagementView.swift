@@ -86,9 +86,9 @@ struct DataManagementView: View {
                     Label(L("Finanzen löschen", "Delete finance"), systemImage: "eurosign.circle")
                 }
                 Button(role: .destructive) {
-                    destructiveAction = .deleteTraining
+                    destructiveAction = .deleteHealth
                 } label: {
-                    Label(L("Training löschen", "Delete training"), systemImage: "figure.strengthtraining.traditional")
+                    Label(L("Gesundheit löschen (Training und Mahlzeiten)", "Delete health (training and meals)"), systemImage: "heart.text.square")
                 }
                 Button(role: .destructive) {
                     destructiveAction = .deleteChallenges
@@ -206,8 +206,8 @@ struct DataManagementView: View {
                 try BackupService.deleteUserData(from: context)
             case .deleteFinance:
                 try BackupService.deleteFinanceData(from: context)
-            case .deleteTraining:
-                try BackupService.deleteTrainingData()
+            case .deleteHealth:
+                try BackupService.deleteHealthData(from: context)
                 workouts.reset()
             case .deleteChallenges:
                 try BackupService.deleteChallengeData(from: context)
@@ -298,7 +298,7 @@ struct FinanceImportSettings: View {
 
 enum DestructiveAction {
     case deleteFinance
-    case deleteTraining
+    case deleteHealth
     case deleteChallenges
     case deleteData
     case resetApp
@@ -306,7 +306,7 @@ enum DestructiveAction {
     var title: String {
         switch self {
         case .deleteFinance: L("Finanzen löschen?", "Delete finance?")
-        case .deleteTraining: L("Training löschen?", "Delete training?")
+        case .deleteHealth: L("Gesundheit löschen?", "Delete health?")
         case .deleteChallenges: L("Challenges löschen?", "Delete challenges?")
         case .deleteData: L("Alle Daten löschen?", "Delete all data?")
         case .resetApp: L("App vollständig zurücksetzen?", "Reset the entire app?")
@@ -320,10 +320,10 @@ enum DestructiveAction {
                 "Buchungen, Budgets, Prognosen, Einkäufe, Schulden, Depot und Pools werden gelöscht. Konten, Challenges, Kalender und Trainings bleiben.",
                 "Transactions, budgets, forecasts, shopping, debts, holdings, and pools will be deleted. Accounts, challenges, calendar, and training remain."
             )
-        case .deleteTraining:
+        case .deleteHealth:
             L(
-                "Trainingspläne, Einheiten, Mahlzeiten und die Verknüpfungen zu Challenges werden gelöscht. Challenges, Kalender und Finanzen bleiben.",
-                "Workout plans, sessions, meals, and the links to challenges will be deleted. Challenges, calendar, and finance remain."
+                "Trainingspläne, Einheiten, Mahlzeiten mit Fotos und die Verknüpfungen zu Challenges werden gelöscht. Fast-Food-Käufe dieser Mahlzeiten werden erstattet. Challenges, Kalender und Finanzen bleiben.",
+                "Workout plans, sessions, meals with photos, and the links to challenges will be deleted. Fast-food purchases of those meals are refunded. Challenges, calendar, and finance remain."
             )
         case .deleteChallenges:
             L(

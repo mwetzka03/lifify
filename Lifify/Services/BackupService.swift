@@ -496,7 +496,14 @@ enum BackupService {
         ChallengeCategoryStore.reset()
     }
 
-    static func deleteTrainingData() throws {
+    /// Removes training and meals with their photos. Fast-food charges of those meals are refunded.
+    static func deleteHealthData(from context: ModelContext) throws {
+        for meal in MealLog.all() {
+            NutritionLedger.forget(meal, context: context)
+            MealPhotoStore.remove(meal.photoName)
+        }
+        MealLog.reset()
+        MealPhotoStore.removeAll()
         WorkoutLinkStore.reset()
         ExerciseImageStore.removeAll()
         WorkoutStore.clearStored()

@@ -257,6 +257,28 @@ extension LififyRuleTests {
             }
         }
 
+        @Test func healthDeleteRemovesMealsPhotosAndCharges() async throws {
+            try await withTestStore { store in
+                let workouts = WorkoutStore(fileURL: WorkoutStore.defaultFileURL())
+                workouts.save(plan: WorkoutPlan(name: "Push"))
+                let id = UUID()
+                let photo = try #require(MealPhotoStore.save(Data("jpg".utf8), id: id))
+                MealLog.upsert(MealRecord(id: id, dayKey: NutritionPlan.dayKey(.now), title: "Burger", source: .photo, status: .draft, photoName: photo, kind: .fastFood))
+                store.context.insert(CoinTransaction(title: "Start", amount: 40))
+                try store.context.save()
+                NutritionLedger.settle(context: store.context, sessions: [])
+                try #expect(store.wallet() == 40 - MealScore.fastFoodPrice)
+
+                try BackupService.deleteHealthData(from: store.context)
+
+                #expect(MealLog.all().isEmpty)
+                #expect(MealPhotoStore.load(photo) == nil)
+                try #expect(store.wallet() == 40)
+                try #expect(store.all(RewardPurchase.self).isEmpty)
+                #expect(WorkoutStore(fileURL: WorkoutStore.defaultFileURL()).plans.isEmpty)
+            }
+        }
+
         @Test func fastFoodRewardStaysSingleAfterRestore() async throws {
             try await withTestStore { store in
                 NutritionLedger.settle(context: store.context, sessions: [])

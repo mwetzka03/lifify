@@ -703,9 +703,11 @@ enum MealPhotoStore {
         try? FileManager.default.removeItem(at: directory().appendingPathComponent(name))
     }
 
+    static func removeAll() {
+        try? FileManager.default.removeItem(at: directory())
+    }
+
     private static func directory() -> URL {
-        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
-            ?? FileManager.default.temporaryDirectory
-        return base.appendingPathComponent("MealPhotos", isDirectory: true)
+        AppFiles.supportDirectory.appendingPathComponent("MealPhotos", isDirectory: true)
     }
 }
