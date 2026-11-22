@@ -28,7 +28,7 @@ struct TestStore {
 func withTestStore<T>(_ body: @MainActor (TestStore) async throws -> T) async throws -> T {
     let suite = "lifify.tests.\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suite))
-    let schema = Schema(LififySchemaV2.models)
+    let schema = Schema(LififySchemaV3.models)
     let configuration = ModelConfiguration(suite, schema: schema, isStoredInMemoryOnly: true)
     let container = try ModelContainer(for: schema, configurations: [configuration])
     let files = FileManager.default.temporaryDirectory.appendingPathComponent(suite, isDirectory: true)

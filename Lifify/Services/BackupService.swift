@@ -435,6 +435,10 @@ enum BackupService {
         return backup
     }
 
+    static func scope(ofData data: Data) throws -> BackupScope {
+        scope(of: try decode(data))
+    }
+
     static func scope(of backup: LififyBackup) -> BackupScope {
         BackupScope(rawValue: backup.records.first { $0.type == "backupScope" }?.strings.first ?? "") ?? .all
     }

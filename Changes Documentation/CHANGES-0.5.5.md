@@ -21,6 +21,14 @@ unchanged and stay in [FINANZEN.md](../FINANZEN.md). What changed in 0.4.0 is in
 
 **Not covered yet.** Paths that write to the iOS calendar or schedule notifications are not run by the tests: the actual calendar rewrite after a resize, `WorkoutCalendarSync.apply`, abstinence bonuses through `settle`, and relapse. Their pure rules are tested. The full-app and Training backup restores are also not run, because they touch workout files.
 
+### 0.5.5: Data storage
+
+**What changed.** The database now opens through a versioned migration plan (schema V3). A finished app no longer moves its store aside when it cannot be opened. It shows the error and offers to restore a backup of the entire app. Only that choice moves the old store into an archive folder, and a failed restore puts it back.
+
+**Why.** A silent reset could look like total data loss.
+
+**Effect.** During first-time setup the old behavior stays: closing the app or a broken partial store starts setup again.
+
 ### 0.5.5: Complete backup
 
 **What changed.** The backup now also carries transfer forecasts, refund links, forecast skips, period links and rejected matches, Shortcuts templates, variable budget accounts, bank import cursors, default trade settings, pinned challenges and groups, event offers, the Fast Food reward link, and display and briefing choices. A Finance or Challenges file carries only its own area. Device-wide choices are in the entire-app backup.
@@ -123,6 +131,14 @@ bucht. Die Finanzrechnung ist unverändert und bleibt in
 **Fehlgeschlagene Prüfungen.** Vor diesem Schritt schlugen zwei In-App-Prüfgruppen fehl, wegen vier veralteter Bedingungen. Keine davon war ein App-Fehler, die Bedingungen entsprechen jetzt dem Code: Zwillingszeilen haben verschiedene alte Fingerabdrücke, weil der alte Titel der Verwendungszweck war. `XF000BTC0017` besteht die ISIN-Prüfsumme. Ein Kauf ohne Stückzahl wird über den Durchschnittspreis bemessen. Ein vollständiger Verkauf schließt die Position über ihre Lots, ohne eigenes Entfernen.
 
 **Noch nicht abgedeckt.** Wege, die in den iOS-Kalender schreiben oder Mitteilungen planen, laufen in den Tests nicht: das echte Umschreiben des Termins nach einer Größenänderung, `WorkoutCalendarSync.apply`, Abstinenz-Boni über `settle` und der Rückfall. Ihre reinen Regeln sind getestet. Auch die Wiederherstellung des Gesamt- und des Trainings-Backups läuft nicht, weil sie Trainingsdateien berührt.
+
+### 0.5.5: Datenspeicher
+
+**Was sich geändert hat.** Die Datenbank öffnet jetzt über einen versionierten Migrationsplan (Schema V3). Eine fertig eingerichtete App schiebt ihren Speicher nicht mehr weg, wenn er sich nicht öffnen lässt. Sie zeigt den Fehler und bietet an, eine Sicherung der gesamten App wiederherzustellen. Erst diese Wahl verschiebt den alten Speicher in einen Archivordner, ein fehlgeschlagener Restore legt ihn zurück.
+
+**Warum.** Ein stilles Zurücksetzen konnte wie ein vollständiger Datenverlust wirken.
+
+**Auswirkung.** Während der Ersteinrichtung bleibt das bisherige Verhalten: Schließen der App oder ein defekter Teilstand beginnt die Einrichtung von vorn.
 
 ### 0.5.5: Vollständiges Backup
 

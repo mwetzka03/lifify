@@ -4,36 +4,17 @@ import UserNotifications
 
 @main
 struct LififyApp: App {
+    @State private var containerResult: Result<ModelContainer, Error>
+
     init() {
         UNUserNotificationCenter.current().delegate = NotificationCenterDelegate.shared
         AppClock.resetSimulatedDay()
-        if case .success(let container) = containerResult {
+        let result = StoreRecoveryService.openContainer()
+        _containerResult = State(initialValue: result)
+        if case .success(let container) = result {
             LififyDatabase.container = container
         }
     }
-
-    private let containerResult: Result<ModelContainer, Error> = {
-        StoreRecoveryService.prepareCompatibleStore()
-        let schema = Schema(LififySchemaV2.models)
-        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
-        do {
-            return .success(try ModelContainer(for: schema, configurations: [configuration]))
-        } catch let initialError {
-            StoreRecoveryService.archiveExistingStoresAndReset()
-            do {
-                return .success(try ModelContainer(for: schema, configurations: [configuration]))
-            } catch {
-                let combinedError = NSError(
-                    domain: "com.mwetzka03.lifify.storage",
-                    code: 1,
-                    userInfo: [
-                        NSLocalizedDescriptionKey: "\(error.localizedDescription) (\(initialError.localizedDescription))"
-                    ]
-                )
-                return .failure(combinedError)
-            }
-        }
-    }()
 
     var body: some Scene {
         WindowGroup {
@@ -42,12 +23,10 @@ struct LififyApp: App {
                 AppEntryView()
                     .modelContainer(container)
             case .failure(let error):
-                ContentUnavailableView(
-                    L("Datenspeicher nicht verfügbar", "Data store unavailable"),
-                    systemImage: "externaldrive.badge.exclamationmark",
-                    description: Text(error.localizedDescription)
-                )
-                .padding()
+                StoreFailureView(error: error) { container in
+                    LififyDatabase.container = container
+                    containerResult = .success(container)
+                }
             }
         }
     }
