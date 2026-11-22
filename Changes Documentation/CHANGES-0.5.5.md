@@ -29,7 +29,7 @@ unchanged and stay in [FINANZEN.md](../FINANZEN.md). What changed in 0.4.0 is in
 
 **Effect.** During first-time setup the old behavior stays: closing the app or a broken partial store starts setup again.
 
-**Moved to the database.** On first launch of 0.5.5, data moves once from UserDefaults into SwiftData. Old keys are deleted only after the new rows are saved. Unreadable data stays untouched and the move runs again on the next launch. Moved so far: portfolio lots, savings plans, closed positions, market symbols, previous closes, purchase dates, and portfolio links.
+**Moved to the database.** On first launch of 0.5.5, data moves once from UserDefaults into SwiftData. Old keys are deleted only after the new rows are saved. Unreadable data stays untouched and the move runs again on the next launch. Moved so far: portfolio lots, savings plans, closed positions, market symbols, previous closes, purchase dates, portfolio links, refund and income links, forecast skips, period links and rejected matches, expense group links, transfer forecasts, Shortcuts templates, budget accounts, and bank import cursors.
 
 ### 0.5.5: Complete backup
 
@@ -142,7 +142,7 @@ bucht. Die Finanzrechnung ist unverändert und bleibt in
 
 **Auswirkung.** Während der Ersteinrichtung bleibt das bisherige Verhalten: Schließen der App oder ein defekter Teilstand beginnt die Einrichtung von vorn.
 
-**In die Datenbank umgezogen.** Beim ersten Start von 0.5.5 ziehen Daten einmalig von UserDefaults nach SwiftData um. Alte Schlüssel werden erst gelöscht, wenn die neuen Zeilen gespeichert sind. Unlesbare Daten bleiben unangetastet, der Umzug läuft beim nächsten Start erneut. Bisher umgezogen: Depot-Lots, Sparpläne, geschlossene Positionen, Marktsymbole, Vortageskurse, Kaufdaten und Depot-Verknüpfungen.
+**In die Datenbank umgezogen.** Beim ersten Start von 0.5.5 ziehen Daten einmalig von UserDefaults nach SwiftData um. Alte Schlüssel werden erst gelöscht, wenn die neuen Zeilen gespeichert sind. Unlesbare Daten bleiben unangetastet, der Umzug läuft beim nächsten Start erneut. Bisher umgezogen: Depot-Lots, Sparpläne, geschlossene Positionen, Marktsymbole, Vortageskurse, Kaufdaten, Depot-Verknüpfungen, Erstattungs- und Einkommens-Verknüpfungen, übersprungene Prognosen, Zeitraum-Verknüpfungen und abgelehnte Treffer, Ausgabengruppen-Zuordnungen, Umbuchungsprognosen, Kurzbefehl-Vorlagen, Budget-Konten und Bankimport-Stände.
 
 ### 0.5.5: Vollständiges Backup
 

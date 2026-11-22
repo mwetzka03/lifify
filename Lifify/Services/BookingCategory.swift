@@ -92,6 +92,7 @@ struct BookingPaint {
     var differenceCents: Int?
 }
 
+@MainActor
 enum BookingClassification {
     static func category(
         of entry: LedgerEntry,

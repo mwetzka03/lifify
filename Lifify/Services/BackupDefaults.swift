@@ -8,22 +8,16 @@ import Foundation
 /// - device and setup state: developer day, onboarding, store generation
 /// - Trade Republic extract and everything in the Keychain, such as the Gemini key
 /// `market.*`, `icon.*`, and the other stores with their own record types are exported separately.
+@MainActor
 enum BackupDefaults {
     static let recordType = "defaultsSnapshot"
+    /// A file with this record was written by 0.5.5 and carries the complete finance relations.
 
     static let financeKeys: Set<String> = [
-        "lifify.refundLinks",
-        "lifify.transferForecasts",
-        "lifify.transferForecastAssignments",
-        "lifify.forecastSkips",
-        "lifify.forecastPeriodLinks",
-        "lifify.forecastMatchRejections",
-        "lifify.noticeTemplates",
-        "lifify.variableBudgetAccounts",
         TradeAccountPreference.storageKey,
         TradeFeePreference.storageKey
     ]
-    static let financePrefixes = ["lifify.bankImport.cursor.", "lifify.bankImport.current."]
+    static let financePrefixes: [String] = []
 
     static let challengeKeys: Set<String> = [
         "lifify.pinnedChallenges",
@@ -45,9 +39,6 @@ enum BackupDefaults {
     ]
 
     private static let revisionKeys = [
-        ForecastSkipStore.revisionKey,
-        ForecastPeriodLinkStore.revisionKey,
-        ForecastMatchRejectionStore.revisionKey,
         ChallengePinStore.revisionKey,
         ChallengeGroupPinStore.revisionKey
     ]

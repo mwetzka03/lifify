@@ -1,4 +1,5 @@
 import Foundation
+import SwiftData
 
 enum NoticeTemplateAction: String, Codable, CaseIterable, Equatable, Hashable {
     case expense
@@ -75,19 +76,47 @@ struct NoticeTemplate: Identifiable, Codable, Equatable {
     ]
 }
 
+@MainActor
 enum NoticeTemplateStore {
-    private static let key = "lifify.noticeTemplates"
+    static let backupType = "noticeTemplate"
+    private static var cached: [NoticeTemplate]?
+
+    static func clearCache() {
+        cached = nil
+    }
 
     static func all() -> [NoticeTemplate] {
-        guard let data = AppDefaults.store.data(forKey: key),
-              let rows = try? JSONDecoder().decode([NoticeTemplate].self, from: data)
-        else { return [] }
-        return rows
+        if let cached { return cached }
+        let rows = LififyDatabase.rows(FetchDescriptor<StoredNoticeTemplate>(sortBy: [SortDescriptor(\.position)]))
+        let decoded = rows.compactMap { try? JSONDecoder().decode(NoticeTemplate.self, from: $0.payload) }
+        cached = decoded
+        return decoded
     }
 
     static func save(_ templates: [NoticeTemplate]) {
-        guard let data = try? JSONEncoder().encode(templates) else { return }
-        AppDefaults.store.set(data, forKey: key)
+        if let context = LififyDatabase.sideContext {
+            ((try? context.fetch(FetchDescriptor<StoredNoticeTemplate>())) ?? []).forEach(context.delete)
+            for (position, template) in templates.enumerated() {
+                guard let payload = try? JSONEncoder().encode(template) else { continue }
+                context.insert(StoredNoticeTemplate(payload: payload, position: position))
+            }
+            LififyDatabase.saveSide()
+        }
+        cached = templates
+    }
+
+    static func exportRecords() -> [BackupRecord] {
+        all().compactMap { template in
+            guard let data = try? JSONEncoder().encode(template) else { return nil }
+            return BackupRecord(type: backupType, id: UUID(), strings: [String(decoding: data, as: UTF8.self)])
+        }
+    }
+
+    static func restore(_ record: BackupRecord) {
+        guard let text = record.strings.first,
+              let value = try? JSONDecoder().decode(NoticeTemplate.self, from: Data(text.utf8))
+        else { return }
+        save(all() + [value])
     }
 
     static func matching(text: String, accountID: UUID, in templates: [NoticeTemplate]) -> NoticeTemplate? {
@@ -97,6 +126,6 @@ enum NoticeTemplateStore {
     }
 
     static func reset() {
-        AppDefaults.store.removeObject(forKey: key)
+        save([])
     }
 }

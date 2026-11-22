@@ -104,7 +104,8 @@ enum BackupService {
         "account", "entry", "split", "fixed", "variable", "pool", "forecast", "shopping", "debt",
         "group", "line", "holding", "holdingLot", "savingsPlan", "closedPosition", "portfolioLink",
         "marketSymbol", "previousClose", "purchaseDate",
-        "primaryIncome", "secondaryIncome", "incomeAssignment", "expenseGroupAssignment"
+        "primaryIncome", "secondaryIncome", "incomeAssignment", "expenseGroupAssignment",
+        FinanceLinkTable.backupType, TransferForecastStore.backupType, NoticeTemplateStore.backupType
     ]
     private static let challengeTypes: Set<String> = [
         "challengeEvent", "challenge", "reminderRecurrence", "eventRecurrence", "completion",
@@ -124,7 +125,8 @@ enum BackupService {
         "challengeDuration", "challengeActual", "challengeTimeMembers", "challengeTimePlanned",
         "customCategory", "briefingWeekday",
         "primaryIncome", "secondaryIncome", "incomeAssignment", "expenseGroupAssignment",
-        "workoutChallengeLink", "workoutEventLink", "appPreferences", "backupScope", "workoutSnapshot"
+        "workoutChallengeLink", "workoutEventLink", "appPreferences", "backupScope", "workoutSnapshot",
+        FinanceLinkTable.backupType, TransferForecastStore.backupType, NoticeTemplateStore.backupType
     ]
 
     static func exportData(
@@ -320,20 +322,23 @@ enum BackupService {
             }
         }
         let defaults = AppDefaults.store
-        if let forecastID = defaults.string(forKey: "primaryIncomeForecastID").flatMap(UUID.init(uuidString:)) {
+        records += FinanceLinkTable.exportRecords()
+        records += TransferForecastStore.exportRecords()
+        records += NoticeTemplateStore.exportRecords()
+        if let forecastID = IncomeAssignmentStore.primaryForecastID {
             records.append(BackupRecord(
                 type: "primaryIncome",
                 id: forecastID,
-                strings: [defaults.string(forKey: "primaryIncomeIBAN") ?? ""]
+                strings: [IncomeAssignmentStore.primaryIBAN ?? ""]
             ))
         }
-        let secondary = defaults.dictionary(forKey: "secondaryIncomeMappings") as? [String: String] ?? [:]
+        let secondary = IncomeAssignmentStore.secondaryMappings()
         records += secondary.compactMap { iban, forecastID in
             UUID(uuidString: forecastID).map {
                 BackupRecord(type: "secondaryIncome", id: $0, strings: [iban])
             }
         }
-        let assignments = defaults.dictionary(forKey: "incomeEntryAssignments") as? [String: String] ?? [:]
+        let assignments = IncomeAssignmentStore.entryAssignments()
         records += assignments.compactMap { entryID, forecastID in
             guard let entryID = UUID(uuidString: entryID),
                   let forecastID = UUID(uuidString: forecastID)
@@ -532,6 +537,7 @@ enum BackupService {
         ChallengeTimeStore.reset()
         ChallengeCategoryStore.reset()
         LififyNotifications.resetWeekdayClocks()
+        clearBudgetAccountsIfCarried(by: backup)
         for record in backup.records where sideTypes.contains(record.type) {
             insert(record, into: context)
         }
@@ -562,6 +568,7 @@ enum BackupService {
             insert(record, into: context)
         }
         try context.save()
+        clearBudgetAccountsIfCarried(by: backup)
         for record in backup.records where financeTypes.contains(record.type) && sideTypes.contains(record.type) {
             insert(record, into: context)
         }
@@ -646,6 +653,12 @@ enum BackupService {
             return
         }
         try WorkoutStore.replaceStoredSnapshot(data)
+    }
+
+    /// A file from before 0.5.5 has no budget accounts, so the current ones stay.
+    private static func clearBudgetAccountsIfCarried(by backup: LififyBackup) {
+        guard backup.records.contains(where: { $0.type == BackupDefaults.recordType }) else { return }
+        VariableBudgetAccounts.reset()
     }
 
     private static func resetFinanceSideStores() {
@@ -929,9 +942,7 @@ enum BackupService {
         case "primaryIncome":
             IncomeAssignmentStore.setPrimary(iban: string(0), forecastID: r.id)
         case "secondaryIncome":
-            var mapping = AppDefaults.store.dictionary(forKey: "secondaryIncomeMappings") as? [String: String] ?? [:]
-            if !string(0).isEmpty { mapping[string(0)] = r.id.uuidString }
-            AppDefaults.store.set(mapping, forKey: "secondaryIncomeMappings")
+            IncomeAssignmentStore.addSecondary(iban: string(0), forecastID: r.id)
         case "incomeAssignment":
             if let forecastID = uuid(0) {
                 IncomeAssignmentStore.assign(entryID: r.id, to: forecastID)
@@ -943,6 +954,12 @@ enum BackupService {
             }
         case "workoutChallengeLink", "workoutEventLink":
             insertLink(r)
+        case FinanceLinkTable.backupType:
+            FinanceLinkTable.restore(r)
+        case TransferForecastStore.backupType:
+            TransferForecastStore.restore(r)
+        case NoticeTemplateStore.backupType:
+            NoticeTemplateStore.restore(r)
         case "backupScope", "workoutSnapshot", BackupDefaults.recordType, mealLogType:
             break
         case "appPreferences":

@@ -7,12 +7,10 @@ extension LififyRuleTests {
     @Suite("Backup completeness")
     @MainActor
     struct BackupCompletenessTests {
-        private let cursorKey = "lifify.bankImport.cursor.\(UUID().uuidString)"
-        private let currentKey = "lifify.bankImport.current.\(UUID().uuidString)"
         private let offerKey = "lifify.eventOffer.\(UUID().uuidString)"
 
         private var financeValues: [String] {
-            Array(BackupDefaults.financeKeys) + [cursorKey, currentKey]
+            Array(BackupDefaults.financeKeys)
         }
 
         private var challengeValues: [String] {
@@ -110,11 +108,11 @@ extension LififyRuleTests {
                 let data = try export(store, scope: .challenges)
 
                 challengeValues.forEach { store.defaults.removeObject(forKey: $0) }
-                store.defaults.set(Data("newer".utf8), forKey: "lifify.forecastSkips")
+                store.defaults.set(Data("newer".utf8), forKey: TradeFeePreference.storageKey)
                 try BackupService.restore(data: data, into: store.context)
 
                 #expect(values(challengeValues, store.defaults) == challenges)
-                #expect(store.defaults.data(forKey: "lifify.forecastSkips") == Data("newer".utf8))
+                #expect(store.defaults.data(forKey: TradeFeePreference.storageKey) == Data("newer".utf8))
             }
         }
 

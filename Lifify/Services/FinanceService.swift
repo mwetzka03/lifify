@@ -1524,8 +1524,6 @@ enum FixedCostScope {
 
 @MainActor
 enum VariableBudgetAccounts {
-    private static let key = "lifify.variableBudgetAccounts"
-
     static func storedIDs(for budgetID: UUID) -> [UUID]? {
         let map = all()
         guard map.keys.contains(budgetID.uuidString) else { return nil }
@@ -1601,14 +1599,19 @@ enum VariableBudgetAccounts {
         return hasher.finalize()
     }
 
+    static func reset() {
+        FinanceLinkTable.clear(.budgetAccounts)
+    }
+
     private static func all() -> [String: [UUID]] {
-        guard let data = AppDefaults.store.data(forKey: key),
-              let decoded = try? JSONDecoder().decode([String: [UUID]].self, from: data) else { return [:] }
-        return decoded
+        FinanceLinkTable.map(.budgetAccounts).mapValues { raw in
+            raw.split(separator: ",").compactMap { UUID(uuidString: String($0)) }
+        }
     }
 
     private static func save(_ map: [String: [UUID]]) {
-        guard let data = try? JSONEncoder().encode(map) else { return }
-        AppDefaults.store.set(data, forKey: key)
+        FinanceLinkTable.replace(.budgetAccounts, with: map.mapValues { ids in
+            ids.map(\.uuidString).joined(separator: ",")
+        })
     }
 }

@@ -9,6 +9,7 @@ enum LegacyDataMigration {
     static func run() {
         guard let context = LififyDatabase.sideContext else { return }
         migrateDepot(context)
+        migrateFinanceLinks(context)
         AppDefaults.clearCaches()
     }
 
@@ -52,6 +53,69 @@ enum LegacyDataMigration {
 
     static func keys(prefix: String) -> [String] {
         AppDefaults.store.dictionaryRepresentation().keys.filter { $0.hasPrefix(prefix) }
+    }
+
+    private static func migrateFinanceLinks(_ context: ModelContext) {
+        let defaults = AppDefaults.store
+        let maps: [(FinanceLinkKind, String)] = [
+            (.refund, "lifify.refundLinks"),
+            (.transferAssignment, "lifify.transferForecastAssignments"),
+            (.forecastPeriod, "lifify.forecastPeriodLinks"),
+            (.expenseGroup, "lifify.expenseGroupAssignments"),
+            (.incomeSecondary, "secondaryIncomeMappings"),
+            (.incomeEntry, "incomeEntryAssignments")
+        ]
+        let sets: [(FinanceLinkKind, String)] = [
+            (.forecastSkip, "lifify.forecastSkips"),
+            (.matchRejection, "lifify.forecastMatchRejections")
+        ]
+        let transferKey = "lifify.transferForecasts"
+        let templateKey = "lifify.noticeTemplates"
+        let budgetKey = "lifify.variableBudgetAccounts"
+        let cursorPrefix = "lifify.bankImport.cursor."
+        let currentPrefix = "lifify.bankImport.current."
+        let primary = ["primaryIncomeIBAN", "primaryIncomeForecastID"]
+        move(area: "financeLinks", context: context, oldKeys: {
+            maps.map(\.1) + sets.map(\.1) + [transferKey, templateKey, budgetKey] + primary
+                + keys(prefix: cursorPrefix) + keys(prefix: currentPrefix)
+        }, insert: {
+            for (kind, key) in maps {
+                guard defaults.object(forKey: key) != nil else { continue }
+                guard let values = defaults.dictionary(forKey: key) as? [String: String] else { return false }
+                values.forEach { context.insert(StoredFinanceLink(kind: kind, key: $0.key, value: $0.value)) }
+            }
+            for (kind, key) in sets {
+                guard defaults.object(forKey: key) != nil else { continue }
+                guard let values = defaults.stringArray(forKey: key) else { return false }
+                Set(values).forEach { context.insert(StoredFinanceLink(kind: kind, key: $0, value: "")) }
+            }
+            if let forecast = defaults.string(forKey: "primaryIncomeForecastID") {
+                context.insert(StoredFinanceLink(kind: .incomePrimary, key: "forecastID", value: forecast))
+                if let iban = defaults.string(forKey: "primaryIncomeIBAN") {
+                    context.insert(StoredFinanceLink(kind: .incomePrimary, key: "iban", value: iban))
+                }
+            }
+            guard let transfers = decoded([TransferForecastRecord].self, key: transferKey, empty: []),
+                  let templates = decoded([NoticeTemplate].self, key: templateKey, empty: []),
+                  let budgets = decoded([String: [UUID]].self, key: budgetKey, empty: [:])
+            else { return false }
+            for (position, record) in transfers.enumerated() {
+                context.insert(StoredTransferForecast(record, position: position))
+            }
+            for (position, template) in templates.enumerated() {
+                context.insert(StoredNoticeTemplate(payload: try JSONEncoder().encode(template), position: position))
+            }
+            for (budget, ids) in budgets where !ids.isEmpty {
+                context.insert(StoredFinanceLink(kind: .budgetAccounts, key: budget, value: ids.map(\.uuidString).joined(separator: ",")))
+            }
+            for key in keys(prefix: cursorPrefix) {
+                context.insert(StoredFinanceLink(kind: .bankCursor, key: String(key.dropFirst(cursorPrefix.count)), value: String(defaults.double(forKey: key))))
+            }
+            for key in keys(prefix: currentPrefix) {
+                context.insert(StoredFinanceLink(kind: .bankCurrent, key: String(key.dropFirst(currentPrefix.count)), value: String(defaults.integer(forKey: key))))
+            }
+            return true
+        })
     }
 
     private static func migrateDepot(_ context: ModelContext) {

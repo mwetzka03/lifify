@@ -55,6 +55,7 @@ final class FinanceFilterStore: ObservableObject {
     }
 }
 
+@MainActor
 enum FinancePeriods {
     @MainActor
     static func all(entries: [LedgerEntry], forecasts: [IncomeForecast], accounts: [Account]) -> [ForecastPeriod] {
@@ -75,7 +76,7 @@ enum FinancePeriods {
     }
 
     static func primaryForecast(in forecasts: [IncomeForecast]) -> IncomeForecast? {
-        guard let id = AppDefaults.store.string(forKey: "primaryIncomeForecastID").flatMap(UUID.init(uuidString:)) else {
+        guard let id = IncomeAssignmentStore.primaryForecastID else {
             return nil
         }
         return forecasts.first { $0.id == id }

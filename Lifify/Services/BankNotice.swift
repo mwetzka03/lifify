@@ -53,6 +53,7 @@ enum BankNoticeCopy {
     static var shortcutTitle: String { L("Bankmitteilung buchen", "Record bank notice") }
 }
 
+@MainActor
 enum BankNotice {
     /// Wallet and bank notices for one payment usually arrive within a few hours.
     static let duplicateWindow: TimeInterval = 6 * 60 * 60

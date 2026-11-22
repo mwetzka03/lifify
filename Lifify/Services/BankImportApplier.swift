@@ -266,43 +266,27 @@ enum ImportBalance {
     }
 }
 
+@MainActor
 enum BankImportCursor {
-    private static let prefix = "lifify.bankImport.cursor."
-    private static let currentPrefix = "lifify.bankImport.current."
-
     static func date(for accountID: UUID) -> Date? {
-        let stored = AppDefaults.store.double(forKey: key(accountID))
-        guard stored > 0 else { return nil }
+        guard let stored = FinanceLinkTable.map(.bankCursor)[accountID.uuidString].flatMap(Double.init), stored > 0 else { return nil }
         return Date(timeIntervalSince1970: stored)
     }
 
     static func currentCents(for accountID: UUID) -> Int? {
-        let key = currentKey(accountID)
-        guard AppDefaults.store.object(forKey: key) != nil else { return nil }
-        return AppDefaults.store.integer(forKey: key)
+        FinanceLinkTable.map(.bankCurrent)[accountID.uuidString].flatMap(Int.init)
     }
 
     static func mark(_ accountID: UUID, at date: Date = Date(), currentCents: Int? = nil) {
-        AppDefaults.store.set(date.timeIntervalSince1970, forKey: key(accountID))
+        FinanceLinkTable.set(.bankCursor, key: accountID.uuidString, value: String(date.timeIntervalSince1970))
         if let currentCents {
-            AppDefaults.store.set(currentCents, forKey: currentKey(accountID))
+            FinanceLinkTable.set(.bankCurrent, key: accountID.uuidString, value: String(currentCents))
         }
     }
 
     static func reset() {
-        let defaults = AppDefaults.store
-        for key in defaults.dictionaryRepresentation().keys
-        where key.hasPrefix(prefix) || key.hasPrefix(currentPrefix) {
-            defaults.removeObject(forKey: key)
-        }
-    }
-
-    private static func key(_ accountID: UUID) -> String {
-        prefix + accountID.uuidString
-    }
-
-    private static func currentKey(_ accountID: UUID) -> String {
-        currentPrefix + accountID.uuidString
+        FinanceLinkTable.clear(.bankCursor)
+        FinanceLinkTable.clear(.bankCurrent)
     }
 }
 

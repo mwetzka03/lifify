@@ -1,4 +1,5 @@
 import Foundation
+import SwiftData
 
 enum DashboardPeriodMode: String, CaseIterable, Identifiable {
     case calendarMonth
@@ -14,15 +15,20 @@ enum DashboardPeriodMode: String, CaseIterable, Identifiable {
     }
 }
 
+@MainActor
 enum IncomeAssignmentStore {
+    private static let ibanKey = "iban"
+    private static let forecastKey = "forecastID"
+
+    static var primaryForecastID: UUID? {
+        FinanceLinkTable.map(.incomePrimary)[forecastKey].flatMap(UUID.init(uuidString:))
+    }
+
     static func setPrimary(iban: String, forecastID: UUID) {
         let normalized = normalize(iban)
-        if normalized.isEmpty {
-            AppDefaults.store.removeObject(forKey: "primaryIncomeIBAN")
-        } else {
-            AppDefaults.store.set(normalized, forKey: "primaryIncomeIBAN")
-        }
-        AppDefaults.store.set(forecastID.uuidString, forKey: "primaryIncomeForecastID")
+        var values = [forecastKey: forecastID.uuidString]
+        if !normalized.isEmpty { values[ibanKey] = normalized }
+        FinanceLinkTable.replace(.incomePrimary, with: values)
     }
 
     static func setSecondary(_ values: [(iban: String, forecastID: UUID)]) {
@@ -30,42 +36,50 @@ enum IncomeAssignmentStore {
             let iban = normalize(value.iban)
             return iban.isEmpty ? nil : (iban, value.forecastID.uuidString)
         }
-        let mapping = Dictionary(pairs, uniquingKeysWith: { _, newest in newest })
-        AppDefaults.store.set(mapping, forKey: "secondaryIncomeMappings")
+        FinanceLinkTable.replace(.incomeSecondary, with: Dictionary(pairs, uniquingKeysWith: { _, newest in newest }))
+    }
+
+    static func secondaryMappings() -> [String: String] {
+        FinanceLinkTable.map(.incomeSecondary)
+    }
+
+    static func addSecondary(iban: String, forecastID: UUID) {
+        guard !iban.isEmpty else { return }
+        FinanceLinkTable.set(.incomeSecondary, key: iban, value: forecastID.uuidString)
+    }
+
+    static func entryAssignments() -> [String: String] {
+        FinanceLinkTable.map(.incomeEntry)
+    }
+
+    static var primaryIBAN: String? {
+        FinanceLinkTable.map(.incomePrimary)[ibanKey]
     }
 
     static func forecastID(for iban: String) -> UUID? {
         let normalized = normalize(iban)
         guard !normalized.isEmpty else { return nil }
-        if AppDefaults.store.string(forKey: "primaryIncomeIBAN") == normalized,
-           let value = AppDefaults.store.string(forKey: "primaryIncomeForecastID") {
-            return UUID(uuidString: value)
+        if primaryIBAN == normalized, let primaryForecastID {
+            return primaryForecastID
         }
-        let mapping = AppDefaults.store.dictionary(forKey: "secondaryIncomeMappings") as? [String: String]
-        return mapping?[normalized].flatMap(UUID.init(uuidString:))
+        return secondaryMappings()[normalized].flatMap(UUID.init(uuidString:))
     }
 
     static func assign(entryID: UUID, to forecastID: UUID) {
-        var mapping = AppDefaults.store.dictionary(forKey: "incomeEntryAssignments") as? [String: String] ?? [:]
-        mapping[entryID.uuidString] = forecastID.uuidString
-        AppDefaults.store.set(mapping, forKey: "incomeEntryAssignments")
+        FinanceLinkTable.set(.incomeEntry, key: entryID.uuidString, value: forecastID.uuidString)
     }
 
     static func clear(entryID: UUID) {
-        var mapping = AppDefaults.store.dictionary(forKey: "incomeEntryAssignments") as? [String: String] ?? [:]
-        guard mapping.removeValue(forKey: entryID.uuidString) != nil else { return }
-        AppDefaults.store.set(mapping, forKey: "incomeEntryAssignments")
+        FinanceLinkTable.set(.incomeEntry, key: entryID.uuidString, value: nil)
     }
 
     static func ibans(for forecastID: UUID) -> [String] {
         var values: [String] = []
-        if AppDefaults.store.string(forKey: "primaryIncomeForecastID") == forecastID.uuidString,
-           let iban = AppDefaults.store.string(forKey: "primaryIncomeIBAN") {
+        if primaryForecastID == forecastID, let iban = primaryIBAN {
             let normalized = normalize(iban)
             if !normalized.isEmpty { values.append(normalized) }
         }
-        let mapping = AppDefaults.store.dictionary(forKey: "secondaryIncomeMappings") as? [String: String] ?? [:]
-        for (iban, identifier) in mapping where identifier == forecastID.uuidString {
+        for (iban, identifier) in secondaryMappings() where identifier == forecastID.uuidString {
             let normalized = normalize(iban)
             if !normalized.isEmpty, !values.contains(normalized) { values.append(normalized) }
         }
@@ -73,27 +87,22 @@ enum IncomeAssignmentStore {
     }
 
     static func forecastID(forEntryID entryID: UUID) -> UUID? {
-        let mapping = AppDefaults.store.dictionary(forKey: "incomeEntryAssignments") as? [String: String]
-        return mapping?[entryID.uuidString].flatMap(UUID.init(uuidString:))
+        entryAssignments()[entryID.uuidString].flatMap(UUID.init(uuidString:))
     }
 
     static func reset() {
-        ["primaryIncomeIBAN", "primaryIncomeForecastID", "secondaryIncomeMappings", "incomeEntryAssignments"].forEach {
-            AppDefaults.store.removeObject(forKey: $0)
-        }
+        [.incomePrimary, .incomeSecondary, .incomeEntry].forEach(FinanceLinkTable.clear)
     }
 
     static func fingerprint() -> Int {
         var hasher = Hasher()
-        hasher.combine(AppDefaults.store.string(forKey: "primaryIncomeIBAN"))
-        hasher.combine(AppDefaults.store.string(forKey: "primaryIncomeForecastID"))
-        let secondary = AppDefaults.store.dictionary(forKey: "secondaryIncomeMappings") as? [String: String] ?? [:]
-        for pair in secondary.sorted(by: { $0.key < $1.key }) {
+        hasher.combine(primaryIBAN)
+        hasher.combine(primaryForecastID)
+        for pair in secondaryMappings().sorted(by: { $0.key < $1.key }) {
             hasher.combine(pair.key)
             hasher.combine(pair.value)
         }
-        let assigned = AppDefaults.store.dictionary(forKey: "incomeEntryAssignments") as? [String: String] ?? [:]
-        for pair in assigned.sorted(by: { $0.key < $1.key }) {
+        for pair in entryAssignments().sorted(by: { $0.key < $1.key }) {
             hasher.combine(pair.key)
             hasher.combine(pair.value)
         }
@@ -106,8 +115,8 @@ enum IncomeAssignmentStore {
 }
 
 /// Links a refund booking to the expense it pays back. The map is refund id → original id.
+@MainActor
 enum RefundLinkStore {
-    private static let key = "lifify.refundLinks"
 
     static func link(refundID: UUID, to originalID: UUID) {
         guard refundID != originalID else { return }
@@ -164,7 +173,7 @@ enum RefundLinkStore {
     }
 
     static func reset() {
-        AppDefaults.store.removeObject(forKey: key)
+        FinanceLinkTable.clear(.refund)
     }
 
     static func fingerprint() -> Int {
@@ -185,11 +194,11 @@ enum RefundLinkStore {
     }
 
     private static func mapping() -> [String: String] {
-        AppDefaults.store.dictionary(forKey: key) as? [String: String] ?? [:]
+        FinanceLinkTable.map(.refund)
     }
 
     private static func save(_ map: [String: String]) {
-        AppDefaults.store.set(map, forKey: key)
+        FinanceLinkTable.replace(.refund, with: map)
     }
 }
 
@@ -243,12 +252,20 @@ struct TransferForecastRecord: Codable, Identifiable, Hashable {
     }
 }
 
+@MainActor
 enum TransferForecastStore {
-    private static let key = "lifify.transferForecasts"
+    static let backupType = "transferForecast"
+    private static var cached: [TransferForecastRecord]?
+
+    static func clearCache() {
+        cached = nil
+    }
 
     static func all() -> [TransferForecastRecord] {
-        guard let data = AppDefaults.store.data(forKey: key),
-              let decoded = try? JSONDecoder().decode([TransferForecastRecord].self, from: data) else { return [] }
+        if let cached { return cached }
+        let rows = LififyDatabase.rows(FetchDescriptor<StoredTransferForecast>(sortBy: [SortDescriptor(\.position)]))
+        let decoded = rows.map(\.record)
+        cached = decoded
         return decoded
     }
 
@@ -268,19 +285,41 @@ enum TransferForecastStore {
     }
 
     static func reset() {
-        AppDefaults.store.removeObject(forKey: key)
+        LififyDatabase.deleteAll(StoredTransferForecast.self)
+        cached = []
         TransferForecastAssignmentStore.reset()
     }
 
+    static func exportRecords() -> [BackupRecord] {
+        all().compactMap { record in
+            guard let data = try? JSONEncoder().encode(record) else { return nil }
+            return BackupRecord(type: backupType, id: record.id, strings: [String(decoding: data, as: UTF8.self)])
+        }
+    }
+
+    static func restore(_ record: BackupRecord) {
+        guard let text = record.strings.first,
+              let value = try? JSONDecoder().decode(TransferForecastRecord.self, from: Data(text.utf8))
+        else { return }
+        upsert(value)
+    }
+
     private static func save(_ records: [TransferForecastRecord]) {
-        guard let data = try? JSONEncoder().encode(records) else { return }
-        AppDefaults.store.set(data, forKey: key)
+        if let context = LififyDatabase.sideContext {
+            ((try? context.fetch(FetchDescriptor<StoredTransferForecast>())) ?? []).forEach(context.delete)
+            LififyDatabase.saveSide()
+            for (position, record) in records.enumerated() {
+                context.insert(StoredTransferForecast(record, position: position))
+            }
+            LififyDatabase.saveSide()
+        }
+        cached = records
     }
 }
 
 /// One real transfer in a period stands in for every occurrence of its forecast in that period.
+@MainActor
 enum TransferForecastAssignmentStore {
-    private static let key = "lifify.transferForecastAssignments"
 
     static func assign(entryID: UUID, forecastID: UUID) {
         var map = mapping()
@@ -304,7 +343,7 @@ enum TransferForecastAssignmentStore {
     }
 
     static func reset() {
-        AppDefaults.store.removeObject(forKey: key)
+        FinanceLinkTable.clear(.transferAssignment)
     }
 
     static func fingerprint() -> Int {
@@ -317,11 +356,11 @@ enum TransferForecastAssignmentStore {
     }
 
     private static func mapping() -> [String: String] {
-        AppDefaults.store.dictionary(forKey: key) as? [String: String] ?? [:]
+        FinanceLinkTable.map(.transferAssignment)
     }
 
     private static func save(_ map: [String: String]) {
-        AppDefaults.store.set(map, forKey: key)
+        FinanceLinkTable.replace(.transferAssignment, with: map)
     }
 }
 
@@ -334,8 +373,8 @@ enum ForecastRefKind: String, Codable {
 }
 
 /// Hides one forecast date without deleting the series.
+@MainActor
 enum ForecastSkipStore {
-    private static let key = "lifify.forecastSkips"
     static let revisionKey = "lifify.forecastSkipRevision"
 
     static func skip(_ kind: ForecastRefKind, id: UUID, on day: Date) {
@@ -349,7 +388,7 @@ enum ForecastSkipStore {
     }
 
     static func reset() {
-        AppDefaults.store.removeObject(forKey: key)
+        FinanceLinkTable.clear(.forecastSkip)
         AppDefaults.store.set(revision() + 1, forKey: revisionKey)
     }
 
@@ -367,11 +406,11 @@ enum ForecastSkipStore {
     }
 
     private static func all() -> Set<String> {
-        Set(AppDefaults.store.stringArray(forKey: key) ?? [])
+        Set(FinanceLinkTable.map(.forecastSkip).keys)
     }
 
     private static func save(_ values: Set<String>) {
-        AppDefaults.store.set(Array(values), forKey: key)
+        FinanceLinkTable.replace(.forecastSkip, with: Dictionary(uniqueKeysWithValues: values.map { ($0, "") }))
         AppDefaults.store.set(revision() + 1, forKey: revisionKey)
     }
 
@@ -381,8 +420,8 @@ enum ForecastSkipStore {
 }
 
 /// A real booking replaces every occurrence of one forecast inside its period.
+@MainActor
 enum ForecastPeriodLinkStore {
-    private static let key = "lifify.forecastPeriodLinks"
     static let revisionKey = "lifify.forecastLinkRevision"
 
     static func assign(entryID: UUID, kind: ForecastRefKind, forecastID: UUID) {
@@ -412,7 +451,7 @@ enum ForecastPeriodLinkStore {
     }
 
     static func reset() {
-        AppDefaults.store.removeObject(forKey: key)
+        FinanceLinkTable.clear(.forecastPeriod)
         AppDefaults.store.set(revision() + 1, forKey: revisionKey)
     }
 
@@ -427,11 +466,11 @@ enum ForecastPeriodLinkStore {
     }
 
     private static func mapping() -> [String: String] {
-        AppDefaults.store.dictionary(forKey: key) as? [String: String] ?? [:]
+        FinanceLinkTable.map(.forecastPeriod)
     }
 
     private static func save(_ map: [String: String]) {
-        AppDefaults.store.set(map, forKey: key)
+        FinanceLinkTable.replace(.forecastPeriod, with: map)
         AppDefaults.store.set(revision() + 1, forKey: revisionKey)
     }
 
@@ -441,8 +480,8 @@ enum ForecastPeriodLinkStore {
 }
 
 /// Stops a same-day fixed-cost match from attaching again after the user removes it.
+@MainActor
 enum ForecastMatchRejectionStore {
-    private static let key = "lifify.forecastMatchRejections"
     static let revisionKey = "lifify.forecastMatchRejectionRevision"
 
     static func reject(costID: UUID, entryID: UUID) {
@@ -456,7 +495,7 @@ enum ForecastMatchRejectionStore {
     }
 
     static func reset() {
-        AppDefaults.store.removeObject(forKey: key)
+        FinanceLinkTable.clear(.matchRejection)
         AppDefaults.store.set(revision() + 1, forKey: revisionKey)
     }
 
@@ -474,11 +513,11 @@ enum ForecastMatchRejectionStore {
     }
 
     private static func all() -> Set<String> {
-        Set(AppDefaults.store.stringArray(forKey: key) ?? [])
+        Set(FinanceLinkTable.map(.matchRejection).keys)
     }
 
     private static func save(_ values: Set<String>) {
-        AppDefaults.store.set(Array(values), forKey: key)
+        FinanceLinkTable.replace(.matchRejection, with: Dictionary(uniqueKeysWithValues: values.map { ($0, "") }))
         AppDefaults.store.set(revision() + 1, forKey: revisionKey)
     }
 
@@ -508,8 +547,8 @@ enum RewardPolicyStore {
 }
 
 /// Which expense group shows a booking. The booking itself is not changed.
+@MainActor
 enum ExpenseGroupAssignmentStore {
-    private static let key = "lifify.expenseGroupAssignments"
     static let revisionKey = "lifify.expenseGroupAssignmentRevision"
 
     static func groupID(for entryID: UUID) -> UUID? {
@@ -555,16 +594,16 @@ enum ExpenseGroupAssignmentStore {
     }
 
     static func reset() {
-        AppDefaults.store.removeObject(forKey: key)
+        FinanceLinkTable.clear(.expenseGroup)
         AppDefaults.store.set(revision() + 1, forKey: revisionKey)
     }
 
     private static func mapping() -> [String: String] {
-        AppDefaults.store.dictionary(forKey: key) as? [String: String] ?? [:]
+        FinanceLinkTable.map(.expenseGroup)
     }
 
     private static func save(_ map: [String: String]) {
-        AppDefaults.store.set(map, forKey: key)
+        FinanceLinkTable.replace(.expenseGroup, with: map)
         AppDefaults.store.set(revision() + 1, forKey: revisionKey)
     }
 

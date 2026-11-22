@@ -96,6 +96,84 @@ extension LififyRuleTests {
             }
         }
 
+        @Test func financeLinksMoveCompletely() async throws {
+            try await withTestStore { store in
+                let defaults = store.defaults
+                let refund = UUID(), original = UUID(), forecast = UUID(), entry = UUID(), group = UUID(), budget = UUID(), account = UUID()
+                let transfer = TransferForecastRecord(name: "Sparen", amountCents: 5_000, fromAccountID: account, cadence: .weekly, firstDate: day, dueRule: .lastBusinessDay, dayOfMonth: 3)
+                let template = NoticeTemplate(id: UUID(), accountID: account, name: "Steam", example: "Steam -9,99", action: .expense)
+                defaults.set([refund.uuidString: original.uuidString], forKey: "lifify.refundLinks")
+                defaults.set([entry.uuidString: forecast.uuidString], forKey: "lifify.transferForecastAssignments")
+                defaults.set([entry.uuidString: "fixed|\(forecast.uuidString)"], forKey: "lifify.forecastPeriodLinks")
+                defaults.set([entry.uuidString: group.uuidString], forKey: "lifify.expenseGroupAssignments")
+                defaults.set(["DE1": forecast.uuidString], forKey: "secondaryIncomeMappings")
+                defaults.set([entry.uuidString: forecast.uuidString], forKey: "incomeEntryAssignments")
+                defaults.set("DE2", forKey: "primaryIncomeIBAN")
+                defaults.set(forecast.uuidString, forKey: "primaryIncomeForecastID")
+                defaults.set(["income|\(forecast.uuidString)|\(day.dayKey)"], forKey: "lifify.forecastSkips")
+                defaults.set(["fixed|\(forecast.uuidString)|\(entry.uuidString)"], forKey: "lifify.forecastMatchRejections")
+                defaults.set(try JSONEncoder().encode([transfer]), forKey: "lifify.transferForecasts")
+                defaults.set(try JSONEncoder().encode([template]), forKey: "lifify.noticeTemplates")
+                defaults.set(try JSONEncoder().encode([budget.uuidString: [account]]), forKey: "lifify.variableBudgetAccounts")
+                defaults.set(1_780_000_000.5, forKey: "lifify.bankImport.cursor.\(account.uuidString)")
+                defaults.set(-1_234, forKey: "lifify.bankImport.current.\(account.uuidString)")
+
+                LegacyDataMigration.run()
+
+                #expect(RefundLinkStore.originalID(for: refund) == original)
+                #expect(TransferForecastAssignmentStore.forecastID(for: entry) == forecast)
+                #expect(ForecastPeriodLinkStore.link(for: entry)?.id == forecast)
+                #expect(ExpenseGroupAssignmentStore.groupID(for: entry) == group)
+                #expect(IncomeAssignmentStore.forecastID(for: "DE1") == forecast)
+                #expect(IncomeAssignmentStore.forecastID(for: "DE2") == forecast)
+                #expect(IncomeAssignmentStore.primaryForecastID == forecast)
+                #expect(IncomeAssignmentStore.forecastID(forEntryID: entry) == forecast)
+                #expect(ForecastSkipStore.isSkipped(.income, id: forecast, on: day))
+                #expect(ForecastMatchRejectionStore.isRejected(costID: forecast, entryID: entry))
+                #expect(TransferForecastStore.all() == [transfer])
+                #expect(NoticeTemplateStore.all() == [template])
+                #expect(VariableBudgetAccounts.storedIDs(for: budget) == [account])
+                #expect(BankImportCursor.date(for: account) == Date(timeIntervalSince1970: 1_780_000_000.5))
+                #expect(BankImportCursor.currentCents(for: account) == -1_234)
+                for key in ["lifify.refundLinks", "primaryIncomeForecastID", "lifify.forecastSkips", "lifify.transferForecasts", "lifify.bankImport.cursor.\(account.uuidString)"] {
+                    #expect(defaults.object(forKey: key) == nil)
+                }
+            }
+        }
+
+        @Test func financeLinksSurviveBackupAndRestore() async throws {
+            try await withTestStore { store in
+                let refund = UUID(), original = UUID(), forecast = UUID(), budget = UUID(), account = UUID()
+                let transfer = TransferForecastRecord(name: "Sparen", amountCents: 5_000, firstDate: day)
+                let template = NoticeTemplate(id: UUID(), accountID: account, name: "Steam", example: "Steam -9,99", action: .expense)
+                RefundLinkStore.link(refundID: refund, to: original)
+                ForecastSkipStore.skip(.income, id: forecast, on: day)
+                TransferForecastStore.upsert(transfer)
+                NoticeTemplateStore.save([template])
+                VariableBudgetAccounts.set([account], for: budget)
+                BankImportCursor.mark(account, at: day, currentCents: 500)
+                let data = try BackupService.exportData(
+                    accounts: [], entries: [], splits: [], fixedCosts: [], variableBudgets: [], pools: [],
+                    forecasts: [], shopping: [], debts: [], groups: [], lines: [], holdings: [],
+                    calendarEvents: [], challenges: [], completions: [], challengeGroups: [],
+                    coinTransactions: [], rewards: [], purchases: [], bucketItems: [],
+                    scope: .finance
+                )
+                try BackupService.deleteFinanceData(from: store.context)
+                VariableBudgetAccounts.reset()
+                #expect(TransferForecastStore.all().isEmpty)
+                try BackupService.restore(data: data, into: store.context)
+                AppDefaults.clearCaches()
+                #expect(RefundLinkStore.originalID(for: refund) == original)
+                #expect(ForecastSkipStore.isSkipped(.income, id: forecast, on: day))
+                #expect(TransferForecastStore.all() == [transfer])
+                #expect(NoticeTemplateStore.all() == [template])
+                #expect(VariableBudgetAccounts.storedIDs(for: budget) == [account])
+                #expect(BankImportCursor.date(for: account) == day)
+                #expect(BankImportCursor.currentCents(for: account) == 500)
+            }
+        }
+
         @Test func valuesSurviveAFreshRead() async throws {
             try await withTestStore { _ in
                 let holding = UUID()
