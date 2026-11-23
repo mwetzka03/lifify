@@ -1089,6 +1089,7 @@ struct DashboardView: View {
         hasher.combine(SavingsPlanStore.cacheRevision)
         hasher.combine(HoldingLotStore.cacheRevision)
         hasher.combine(HistoricalPriceStore.cacheRevision)
+        hasher.combine(ReturnScenario.revision)
         hasher.combine(TransferForecastStore.all().count)
         hasher.combine(accounts.count)
         hasher.combine(fixedCosts.count)
@@ -1173,6 +1174,9 @@ struct DashboardView: View {
         let today = Calendar.current.startOfDay(for: .now)
         if period.contains(today) { return L("Heute", "Today") }
         if period.end < today { return L("Zum Periodenende", "At period end") }
+        if ReturnScenario.applies(on: period.end), holdings.contains(where: ReturnScenario.isETF) {
+            return L("Szenario zum Periodenende", "Scenario at period end")
+        }
         return L("Prognose zum Periodenende", "Forecast at period end")
     }
 

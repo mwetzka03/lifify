@@ -434,6 +434,7 @@ private struct FinanceSettingsView: View {
     @State private var importingBank = false
     @State private var importingTradeRepublic = false
     @AppStorage(PeriodReviewNotifier.enabledKey) private var reviewNotice = false
+    @AppStorage(ReturnScenario.enabledKey) private var scenarioEnabled = false
 
     var body: some View {
         Form {
@@ -476,6 +477,14 @@ private struct FinanceSettingsView: View {
                         .frame(maxWidth: 90)
                     Text("€")
                         .foregroundStyle(.secondary)
+                }
+                NavigationLink {
+                    ReturnScenarioSettingsView()
+                } label: {
+                    LabeledContent(
+                        L("Renditeszenario", "Return scenario"),
+                        value: scenarioEnabled ? L("An", "On") : L("Aus", "Off")
+                    )
                 }
             } header: {
                 Text(L("Depot", "Portfolio"))

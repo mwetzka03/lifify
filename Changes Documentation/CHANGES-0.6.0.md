@@ -171,6 +171,19 @@ Version 0.6.0 first improves the code base (part A) and then adds new features
   future savings plan shares. Accumulating ETFs pay nothing and do not appear.
 - **Tests changed:** The navigation test expects the new link.
 
+### 0.6.0: Optional return scenario (B7)
+
+- **What:** A switch under Settings, Finance, Depot lets ETFs grow in future
+  forecast periods at their own historic return: 10 years, else 5 years, else
+  3 %. The screen lists each position's rate and basis, and the ETF detection
+  can be corrected by hand.
+- **Why:** A forecast with flat prices understates a long-term ETF depot.
+- **Effect:** Off by default, and then every forecast stays exactly as before.
+  Past periods and the running period never change. Values with the scenario
+  are marked. Stocks, crypto, and other positions keep today's price.
+- **Limits:** Past returns are no guarantee. Returns come from Yahoo Finance in
+  the listing's currency.
+
 ## Deutsch
 
 ### Überblick
@@ -354,3 +367,17 @@ Funktionen (Teil B). Diese Datei wächst mit jedem abgeschlossenen Schritt.
   inklusive künftiger Sparplan-Stücke. Thesaurierende ETFs zahlen nichts und
   erscheinen nicht.
 - **Geänderte Tests:** Der Navigationstest erwartet den neuen Link.
+
+### 0.6.0: Optionales Renditeszenario (B7)
+
+- **Was:** Ein Schalter unter Einstellungen, Finanzen, Depot lässt ETFs in
+  künftigen Prognosezeiträumen mit ihrer eigenen historischen Rendite wachsen:
+  10 Jahre, sonst 5 Jahre, sonst 3 %. Die Seite zeigt Satz und Grundlage jeder
+  Position, die ETF-Erkennung lässt sich von Hand korrigieren.
+- **Warum:** Eine Prognose mit festen Kursen unterschätzt ein langfristiges
+  ETF-Depot.
+- **Auswirkung:** Standardmäßig aus, dann bleibt jede Prognose exakt wie bisher.
+  Vergangene Zeiträume und der laufende ändern sich nie. Werte mit Szenario sind
+  gekennzeichnet. Aktien, Krypto und Sonstiges bleiben beim heutigen Kurs.
+- **Grenzen:** Vergangene Renditen sind keine Garantie. Die Renditen stammen von
+  Yahoo Finance in der Währung des Handelsplatzes.

@@ -407,7 +407,7 @@ public enum HoldingMaintenance {
     /// still add their nominal euro amount.
     public static func marketValue(of holdings: [PortfolioHolding], through day: Date) -> Int {
         let held = holdings.reduce(0) { total, holding in
-            total + valued(quantity(of: holding, through: day, holdings: holdings), of: holding, pricedOn: day)
+            total + marketValue(of: holding, through: day, holdings: holdings)
         }
         return held + futureShares(through: day, holdings: holdings).unmatchedCents
     }
@@ -439,7 +439,32 @@ public enum HoldingMaintenance {
 
     /// Returns a holding's value at the end of a day.
     public static func marketValue(of holding: PortfolioHolding, through day: Date, holdings: [PortfolioHolding]) -> Int {
-        valued(quantity(of: holding, through: day, holdings: holdings), of: holding, pricedOn: day)
+        if ReturnScenario.applies(on: day), let annual = ReturnScenario.annualReturn(for: holding) {
+            return scenarioValue(of: holding, annual: annual, through: day, holdings: holdings)
+        }
+        return valued(quantity(of: holding, through: day, holdings: holdings), of: holding, pricedOn: day)
+    }
+
+    /// Grows today's shares from today and each future savings plan amount from its execution.
+    ///
+    /// - Parameters:
+    ///   - holding: The ETF.
+    ///   - annual: Its yearly return.
+    ///   - day: The forecast day.
+    ///   - holdings: The positions in scope, which decide the plan's target.
+    /// - Returns: The value on that day in cents.
+    private static func scenarioValue(of holding: PortfolioHolding, annual: Double, through day: Date, holdings: [PortfolioHolding]) -> Int {
+        let now = FinanceClock.now
+        let held = heldQuantity(of: holding, before: dayCutoff(now))
+        var value = held * Double(max(holding.currentPriceCents, 0)) * ReturnScenario.growth(annual: annual, from: now, to: day)
+        let ordered = holdings.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        for plan in SavingsPlanStore.all() where plan.active {
+            guard ordered.first(where: { matches($0, plan: plan) && $0.currentPriceCents > 0 })?.id == holding.id else { continue }
+            for execution in futureExecutionDates(plan, through: day) {
+                value += Double(abs(plan.amountCents)) * ReturnScenario.growth(annual: annual, from: execution, to: day)
+            }
+        }
+        return Int(value.rounded())
     }
 
     /// Cost, proceeds and difference of one sale. Fees stay inside the cash amounts.
@@ -587,21 +612,26 @@ public enum HoldingMaintenance {
 
     /// Executions after today and after the last booked execution, through `day`.
     private static func futureExecutionCount(_ plan: SavingsPlanRecord, through day: Date) -> Int {
+        futureExecutionDates(plan, through: day).count
+    }
+
+    /// The executions after today and after the last booked one, through `day`.
+    private static func futureExecutionDates(_ plan: SavingsPlanRecord, through day: Date) -> [Date] {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: FinanceClock.now)
         let target = calendar.startOfDay(for: day)
-        guard target > today else { return 0 }
+        guard target > today else { return [] }
         let tomorrow = calendar.date(byAdding: .day, value: 1, to: today) ?? today
         let afterLast = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: plan.lastExecution)) ?? tomorrow
         let from = max(tomorrow, afterLast)
-        guard from <= target else { return 0 }
+        guard from <= target else { return [] }
         let month = plan.cadence == .yearly ? calendar.component(.month, from: plan.lastExecution) : nil
         return CalendarService.savingsPlanDates(
             cadence: plan.cadence,
             from: from,
             through: target,
             yearlyMonth: month
-        ).count
+        )
     }
 
     /// Calculates a sale's result from the average cost.

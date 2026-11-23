@@ -667,6 +667,19 @@ full to be right, the statement has to be imported again after a rule change.
 - Shares on the new date include future savings plan executions.
 - A position that is no longer held has no forecast.
 
+### Return scenario
+
+- The scenario is off by default and is switched under Settings, Finance, Depot.
+- Without it, future savings plan shares use today's price and prices do not
+  change.
+- With it, only ETFs grow, and only in periods after the running one.
+- Each ETF uses its own yearly average over 10 years, otherwise 5 years,
+  otherwise 3 %.
+- Growth compounds monthly. Today's shares grow from today, each future savings
+  plan amount from its execution date.
+- An ETF is recognized from the market data and can be corrected by hand.
+- Leveraged ETFs use their own history without a special calculation.
+
 ## Deutsch
 
 - Diese Datei beschreibt, wie Lifify Konten, Zeiträume, Einnahmen, Ausgaben,
@@ -1352,3 +1365,17 @@ Auszug nach einer Regeländerung neu importiert werden.
   Zahlung ÷ damaliger Bestand × Bestand am neuen Datum.
 - Der Bestand am neuen Datum enthält künftige Sparplan-Ausführungen.
 - Eine nicht mehr gehaltene Position hat keine Prognose.
+
+### Renditeszenario
+
+- Das Szenario ist standardmäßig aus und liegt unter Einstellungen, Finanzen,
+  Depot.
+- Ohne Szenario nutzen künftige Sparplan-Stücke den heutigen Kurs, und die Kurse
+  bleiben gleich.
+- Mit Szenario wachsen nur ETFs und nur in Zeiträumen nach dem laufenden.
+- Jeder ETF nutzt seinen eigenen Jahresdurchschnitt aus 10 Jahren, sonst aus 5
+  Jahren, sonst 3 %.
+- Das Wachstum wird monatlich verzinst. Heutige Stücke wachsen ab heute, jeder
+  künftige Sparplan-Betrag ab seiner Ausführung.
+- Ein ETF wird aus den Marktdaten erkannt und lässt sich von Hand korrigieren.
+- Hebel-ETFs nutzen ihre eigene Historie ohne Sonderrechnung.

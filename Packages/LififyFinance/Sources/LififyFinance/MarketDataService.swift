@@ -284,6 +284,32 @@ public enum MarketDataService {
             changed = true
         }
         if changed { try? context.save() }
+        await refreshScenarioRates(holdings: holdings)
+    }
+
+    /// Loads ten years of monthly prices and stores each position's type and yearly return.
+    /// It runs only while the return scenario is on.
+    public static func refreshScenarioRates(holdings: [PortfolioHolding]) async {
+        guard refreshesPrices, ReturnScenario.isEnabled else { return }
+        for holding in holdings where isValidISIN(holding.symbol) {
+            guard let symbol = try? await scenarioSymbol(for: holding),
+                  let series = try? await chartSeries(symbol: symbol, range: "10y", interval: "1mo")
+            else { continue }
+            let result = ReturnScenario.historicReturn(points: series.points, now: FinanceClock.now)
+            ReturnScenario.store(
+                ScenarioRate(annual: result.annual, basis: result.basis, isETF: series.instrumentType?.uppercased() == "ETF"),
+                for: holding.symbol
+            )
+        }
+    }
+
+    /// Finds the market symbol of a position.
+    private static func scenarioSymbol(for holding: PortfolioHolding) async throws -> String {
+        if let stored = MarketSymbolStore.symbol(for: holding.id) { return stored }
+        guard let match = preferred(try await suggestions(for: holding.symbol)) else {
+            throw MarketDataError.instrumentNotFound
+        }
+        return match.symbol
     }
 
     /// Returns the current euro price of an ISIN.
@@ -602,13 +628,13 @@ public enum MarketDataService {
     }
 
     /// Loads a chart series for a range.
-    private static func chartSeries(symbol: String, range: String) async throws -> YahooSeries {
+    private static func chartSeries(symbol: String, range: String, interval: String = "1d") async throws -> YahooSeries {
         var allowed = CharacterSet.urlPathAllowed
         allowed.insert(charactersIn: "=")
         let encoded = symbol.addingPercentEncoding(withAllowedCharacters: allowed) ?? symbol
         let urls = [
-            "https://query1.finance.yahoo.com/v8/finance/chart/\(encoded)?interval=1d&range=\(range)",
-            "https://query2.finance.yahoo.com/v8/finance/chart/\(encoded)?interval=1d&range=\(range)"
+            "https://query1.finance.yahoo.com/v8/finance/chart/\(encoded)?interval=\(interval)&range=\(range)",
+            "https://query2.finance.yahoo.com/v8/finance/chart/\(encoded)?interval=\(interval)&range=\(range)"
         ].compactMap(URL.init(string:))
         let response: YahooChartResponse = try await requestFirst(urls)
         guard let result = response.chart.result?.first else { throw MarketDataError.priceUnavailable }
@@ -623,7 +649,8 @@ public enum MarketDataService {
             currency: result.meta.currency,
             points: points,
             marketPrice: result.meta.regularMarketPrice,
-            previousClose: result.meta.previousClose ?? result.meta.chartPreviousClose
+            previousClose: result.meta.previousClose ?? result.meta.chartPreviousClose,
+            instrumentType: result.meta.instrumentType
         )
     }
 
@@ -718,10 +745,12 @@ private struct YahooSeries {
     let points: [(date: Date, price: Double)]
     let marketPrice: Double?
     let previousClose: Double?
+    let instrumentType: String?
 }
 
 /// The chart's metadata.
 private struct YahooChartMeta: Decodable {
+    let instrumentType: String?
     let regularMarketPrice: Double?
     let previousClose: Double?
     let chartPreviousClose: Double?

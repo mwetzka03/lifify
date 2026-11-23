@@ -183,6 +183,11 @@ private struct PortfolioValueHeader: View {
             Text(Money.string(cents: content.marketValueCents))
                 .font(.title2.bold())
             PortfolioPerformanceLabel(performance: content.totals, basis: basis, unit: unit)
+            if content.usesScenario {
+                Label(L("Szenario mit historischer ETF-Rendite", "Scenario with historic ETF return"), systemImage: "chart.line.uptrend.xyaxis")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
         }
     }
 }
@@ -197,7 +202,7 @@ private struct PortfolioRowContent: View {
         HStack(alignment: .top) {
             VStack(alignment: .leading, spacing: 3) {
                 Text(row.holding.name).foregroundStyle(.primary)
-                Text("\(row.quantity.formatted()) × \(Money.string(cents: row.shownPriceCents))")
+                Text("\(row.quantity.formatted()) × \(Money.string(cents: row.shownPriceCents))\(ReturnScenario.isEnabled && ReturnScenario.isETF(row.holding) ? " · ETF" : "")")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

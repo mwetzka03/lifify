@@ -26,6 +26,7 @@ struct PortfolioShareChartView: View {
         hasher.combine(HoldingLotStore.cacheRevision)
         hasher.combine(SavingsPlanStore.cacheRevision)
         hasher.combine(HistoricalPriceStore.cacheRevision)
+        hasher.combine(ReturnScenario.revision)
         for forecast in forecasts {
             hasher.combine(forecast.id)
             hasher.combine(forecast.amountCents)

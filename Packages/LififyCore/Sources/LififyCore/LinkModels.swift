@@ -52,6 +52,10 @@ public enum LinkKind: String, CaseIterable, Codable, Sendable {
     case pinnedChallenges
     case pinnedGroups
     case eventOffer
+    /// Cached yearly returns of ETFs. They are loaded again, so no backup carries them.
+    case etfReturn
+    /// Manual corrections of the ETF detection.
+    case etfOverride
     /// Payees whose subscription suggestion was dismissed.
     case subscriptionRejection
     /// Favorite meals. The Health backup carries them as one record.
@@ -62,11 +66,11 @@ public enum LinkKind: String, CaseIterable, Codable, Sendable {
 
     public static let financeRecords: [LinkKind] = [
         .refund, .transferAssignment, .forecastSkip, .forecastPeriod, .matchRejection,
-        .budgetAccounts, .bankCursor, .bankCurrent, .dismissedNoticeTemplates, .subscriptionRejection
+        .budgetAccounts, .bankCursor, .bankCurrent, .dismissedNoticeTemplates, .subscriptionRejection, .etfOverride
     ]
     public static let challengeRecords: [LinkKind] = [.pinnedChallenges, .pinnedGroups, .eventOffer, .fastFoodReward]
     /// Temporary developer data that a backup must never carry.
-    public static let neverBackedUp: Set<LinkKind> = [.simulatedEffects]
+    public static let neverBackedUp: Set<LinkKind> = [.simulatedEffects, .etfReturn]
 }
 
 /// Reads and writes the finance relations. Reads come from memory after the first load.

@@ -173,6 +173,8 @@ public struct PortfolioSnapshot {
     public var rows: [PortfolioRow] = []
     public var totals = HoldingPerformance()
     public var marketValueCents = 0
+    /// Whether the shown value contains the return scenario.
+    public var usesScenario = false
 }
 
 /// Holds the depot calculations and repeats them only when an input changed.
@@ -202,6 +204,7 @@ public final class PortfolioScreenModel {
         let planRevision: Int
         let priceRevision: Int
         let marketRevision: Int
+        let scenarioRevision: Int
     }
 
     @ObservationIgnored private var key: Key?
@@ -225,7 +228,8 @@ public final class PortfolioScreenModel {
         stored = PortfolioSnapshot(
             rows: Self.sorted(rows, by: order),
             totals: rows.reduce(HoldingPerformance()) { $0.adding($1.performance) },
-            marketValueCents: HoldingMaintenance.marketValue(of: holdings, through: day)
+            marketValueCents: HoldingMaintenance.marketValue(of: holdings, through: day),
+            usesScenario: ReturnScenario.applies(on: day) && holdings.contains { ReturnScenario.isETF($0) }
         )
         key = current
         return stored
@@ -250,7 +254,8 @@ public final class PortfolioScreenModel {
             lotRevision: HoldingLotStore.cacheRevision,
             planRevision: SavingsPlanStore.cacheRevision,
             priceRevision: HistoricalPriceStore.cacheRevision,
-            marketRevision: HoldingMarketStore.cacheRevision
+            marketRevision: HoldingMarketStore.cacheRevision,
+            scenarioRevision: ReturnScenario.revision
         )
     }
 

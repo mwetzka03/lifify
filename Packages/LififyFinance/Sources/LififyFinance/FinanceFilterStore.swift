@@ -102,9 +102,13 @@ public enum FinancePeriods {
             primaryDay: primary?.dayOfMonth
         )
         let pending = entries.first?.modelContext?.hasChanges == true
-        if !pending, let memo, memo.key == key { return memo.periods }
+        if !pending, let memo, memo.key == key {
+            ReturnScenario.noteCurrentPeriod(in: memo.periods)
+            return memo.periods
+        }
         let periods = computeAll(entries: entries, primary: primary, main: main)
         memo = pending ? nil : (key, periods)
+        ReturnScenario.noteCurrentPeriod(in: periods)
         return periods
     }
 
