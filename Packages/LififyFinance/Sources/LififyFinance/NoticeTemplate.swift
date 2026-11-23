@@ -2,6 +2,7 @@ import Foundation
 import LififyCore
 import SwiftData
 
+/// What a bank notice template books.
 public enum NoticeTemplateAction: String, Codable, CaseIterable, Equatable, Hashable {
     case expense
     case income
@@ -24,6 +25,7 @@ public enum NoticeTemplateAction: String, Codable, CaseIterable, Equatable, Hash
     }
 }
 
+/// A saved pattern that turns a bank notice into a booking.
 public struct NoticeTemplate: Identifiable, Codable, Equatable {
     public var id: UUID
     public var accountID: UUID
@@ -55,10 +57,12 @@ public struct NoticeTemplate: Identifiable, Codable, Equatable {
         self.format = format
     }
 
+    /// The stored field names.
     private enum CodingKeys: String, CodingKey {
         case id, accountID, name, example, action, counterpartyAccountID, isEnabled, format
     }
 
+    /// Decodes a template. Fields missing from older versions get defaults.
     public init(from decoder: Decoder) throws {
         let box = try decoder.container(keyedBy: CodingKeys.self)
         id = try box.decode(UUID.self, forKey: .id)
@@ -71,6 +75,7 @@ public struct NoticeTemplate: Identifiable, Codable, Equatable {
         format = try box.decodeIfPresent(NoticeFormat.self, forKey: .format)
     }
 
+    /// Says whether the notice fits this template.
     public func matches(_ text: String) -> Bool {
         if let format { return format.matches(text) }
         let needed = Self.markers(in: example)
@@ -84,6 +89,7 @@ public struct NoticeTemplate: Identifiable, Codable, Equatable {
         }
     }
 
+    /// Extracts the marker words of a text.
     public static func markers(in text: String) -> [String] {
         let folded = folded(text)
         return markerWords.filter { word in
@@ -94,6 +100,7 @@ public struct NoticeTemplate: Identifiable, Codable, Equatable {
         }
     }
 
+    /// Folds case and accents for comparison.
     private static func folded(_ text: String) -> String {
         text.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "de_DE"))
     }
@@ -107,15 +114,18 @@ public struct NoticeTemplate: Identifiable, Codable, Equatable {
     ]
 }
 
+/// Stores the notice templates.
 @MainActor
 public enum NoticeTemplateStore {
     public static let backupType = "noticeTemplate"
     private static var cached: [NoticeTemplate]?
 
+    /// Drops the in-memory copy.
     public static func clearCache() {
         cached = nil
     }
 
+    /// Returns all templates.
     public static func all() -> [NoticeTemplate] {
         if let cached { return cached }
         let rows = LififyDatabase.rows(FetchDescriptor<StoredNoticeTemplate>(sortBy: [SortDescriptor(\.position)]))
@@ -124,6 +134,7 @@ public enum NoticeTemplateStore {
         return decoded
     }
 
+    /// Replaces all templates.
     public static func save(_ templates: [NoticeTemplate]) {
         if let context = LififyDatabase.sideContext {
             ((try? context.fetch(FetchDescriptor<StoredNoticeTemplate>())) ?? []).forEach(context.delete)
@@ -136,6 +147,7 @@ public enum NoticeTemplateStore {
         cached = templates
     }
 
+    /// Exports the templates for a backup.
     public static func exportRecords() -> [BackupRecord] {
         all().compactMap { template in
             guard let data = try? JSONEncoder().encode(template) else { return nil }
@@ -143,6 +155,7 @@ public enum NoticeTemplateStore {
         }
     }
 
+    /// Restores one template from a backup.
     public static func restore(_ record: BackupRecord) {
         guard let text = record.strings.first,
               let value = try? JSONDecoder().decode(NoticeTemplate.self, from: Data(text.utf8))
@@ -150,6 +163,7 @@ public enum NoticeTemplateStore {
         save(all() + [value])
     }
 
+    /// Finds the template that fits a notice on an account.
     public static func matching(text: String, accountID: UUID, in templates: [NoticeTemplate]) -> NoticeTemplate? {
         let hits = templates.filter { $0.isEnabled && $0.accountID == accountID && $0.matches(text) }
         let own = hits.filter { $0.format == nil }
@@ -157,6 +171,7 @@ public enum NoticeTemplateStore {
         return own ?? hits.first
     }
 
+    /// Deletes all templates.
     public static func reset() {
         save([])
         LinkTable.clear(.dismissedNoticeTemplates)

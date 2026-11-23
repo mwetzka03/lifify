@@ -2,6 +2,7 @@ import Foundation
 import LififyCore
 import SwiftData
 
+/// The outcome of a bank import.
 public struct BankImportResult {
     public var importedCount: Int
     public var holdingCount: Int
@@ -26,22 +27,27 @@ public struct BankImportResult {
     }
 }
 
+/// Calculates and repairs opening balances around an import.
 @MainActor
 public enum ImportBalance {
     public static let currentFingerprint = "saldo-korrektur"
 
+    /// The opening balance that leads to the current balance after the rows.
     public static func openingCents(current: Int, rowAmounts: [Int]) -> Int {
         current - rowAmounts.reduce(0, +)
     }
 
+    /// The correction between the entered and the calculated balance.
     public static func correctionCents(current: Int, computed: Int) -> Int {
         current - computed
     }
 
+    /// The opening balance that fits the current balance and later bookings.
     public static func fittedOpeningCents(current: Int, laterEffect: Int) -> Int {
         current - laterEffect
     }
 
+    /// Says whether a booking is the stored current-balance pin of an account.
     public static func isCurrentPin(_ entry: LedgerEntry, accountID: UUID) -> Bool {
         guard entry.accountID == accountID, entry.kind == .adjustment else { return false }
         if entry.importFingerprint == currentFingerprint { return true }
@@ -162,6 +168,7 @@ public enum ImportBalance {
         return entry
     }
 
+    /// Removes older current-balance pins of an account.
     private static func removeAbsolutePins(
         accountID: UUID,
         entries: inout [LedgerEntry],
@@ -174,6 +181,7 @@ public enum ImportBalance {
         entries.removeAll { isCurrentPin($0, accountID: accountID) }
     }
 
+    /// Finds the account's earliest opening balance.
     private static func firstOpening(accountID: UUID, in entries: [LedgerEntry]) -> LedgerEntry? {
         entries
             .filter { $0.kind == .adjustment && $0.accountID == accountID && !isCurrentPin($0, accountID: accountID) }
@@ -183,6 +191,7 @@ public enum ImportBalance {
             .first
     }
 
+    /// Creates an opening balance booking.
     private static func makeOpening(
         account: Account,
         entries: inout [LedgerEntry],
@@ -206,6 +215,7 @@ public enum ImportBalance {
         return opening
     }
 
+    /// Inserts a correction booking.
     private static func insertDelta(
         account: Account,
         entries: inout [LedgerEntry],
@@ -229,6 +239,7 @@ public enum ImportBalance {
         return entry
     }
 
+    /// Moves an opening balance so the account reaches the entered amount.
     @discardableResult
     private static func anchorOpening(
         _ opening: LedgerEntry,
@@ -262,6 +273,7 @@ public enum ImportBalance {
         return changed
     }
 
+    /// Says whether the booking is titled as an opening balance.
     private static func isOpeningTitle(_ entry: LedgerEntry) -> Bool {
         entry.title == L("Eröffnungssaldo", "Opening balance")
             || entry.title == L("Startsaldo", "Opening balance")
@@ -270,6 +282,7 @@ public enum ImportBalance {
             || entry.title == "Opening balance"
     }
 
+    /// Says whether the account holds Trade Republic bookings.
     private static func isTradeRepublicChecking(_ account: Account, entries: [LedgerEntry]) -> Bool {
         entries.contains {
             $0.accountID == account.id
@@ -279,17 +292,21 @@ public enum ImportBalance {
     }
 }
 
+/// Remembers when an account was last imported and its balance then.
 @MainActor
 public enum BankImportCursor {
+    /// Returns the last import date.
     public static func date(for accountID: UUID) -> Date? {
         guard let stored = LinkTable.map(.bankCursor)[accountID.uuidString].flatMap(Double.init), stored > 0 else { return nil }
         return Date(timeIntervalSince1970: stored)
     }
 
+    /// Returns the balance entered at the last import.
     public static func currentCents(for accountID: UUID) -> Int? {
         LinkTable.map(.bankCurrent)[accountID.uuidString].flatMap(Int.init)
     }
 
+    /// Stores the import date and balance.
     public static func mark(_ accountID: UUID, at date: Date = Date(), currentCents: Int? = nil) {
         LinkTable.set(.bankCursor, key: accountID.uuidString, value: String(date.timeIntervalSince1970))
         if let currentCents {
@@ -297,48 +314,58 @@ public enum BankImportCursor {
         }
     }
 
+    /// Forgets all import dates and balances.
     public static func reset() {
         LinkTable.clear(.bankCursor)
         LinkTable.clear(.bankCurrent)
     }
 }
 
+/// Links each checking account to its depot.
 @MainActor
 public enum PortfolioLinkStore {
     private static var cached: [UUID: UUID]?
 
+    /// Drops the in-memory copy.
     public static func clearCache() {
         cached = nil
     }
 
+    /// Returns the depot of a checking account.
     public static func portfolioID(for checkingID: UUID) -> UUID? {
         snapshot()[checkingID]
     }
 
+    /// Links a depot to one checking account.
     public static func link(portfolio portfolioID: UUID, to checkingID: UUID) {
         var map = snapshot().filter { $0.value != portfolioID }
         map[checkingID] = portfolioID
         save(map)
     }
 
+    /// Returns the checking account of a depot.
     public static func checkingID(for portfolioID: UUID) -> UUID? {
         snapshot().first { $0.value == portfolioID }?.key
     }
 
+    /// Removes the link of a checking account.
     public static func unlink(checkingID: UUID) {
         var map = snapshot()
         map.removeValue(forKey: checkingID)
         save(map)
     }
 
+    /// Removes the link of a depot.
     public static func unlink(portfolio portfolioID: UUID) {
         save(snapshot().filter { $0.value != portfolioID })
     }
 
+    /// Lists all links.
     public static func allLinks() -> [(checkingID: UUID, portfolioID: UUID)] {
         snapshot().map { (checkingID: $0.key, portfolioID: $0.value) }
     }
 
+    /// Reads the links.
     private static func snapshot() -> [UUID: UUID] {
         if let cached { return cached }
         let rows = LififyDatabase.rows(FetchDescriptor<StoredPortfolioLink>())
@@ -347,6 +374,7 @@ public enum PortfolioLinkStore {
         return map
     }
 
+    /// Writes the links when they changed.
     private static func save(_ map: [UUID: UUID]) {
         guard map != snapshot() else { return }
         if let context = LififyDatabase.sideContext {
@@ -361,8 +389,10 @@ public enum PortfolioLinkStore {
     }
 }
 
+/// Merges depots that an import created twice.
 @MainActor
 public enum PortfolioConsolidation {
+    /// Merges generated depot accounts into one per checking account.
     public static func consolidate(context: ModelContext) {
         let accounts = (try? context.fetch(FetchDescriptor<Account>())) ?? []
         let portfolios = accounts.filter { $0.kind == .portfolio }
@@ -379,14 +409,17 @@ public enum PortfolioConsolidation {
         if changed { try? context.save() }
     }
 
+    /// Says whether a depot name was generated by an import.
     public static func isGeneratedName(_ name: String) -> Bool {
         let folded = name.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: Locale(identifier: "de_DE"))
         return folded.hasPrefix("depot ·") || folded.hasPrefix("portfolio ·")
     }
 }
 
+/// Books an imported statement into the ledger.
 @MainActor
 public enum BankImportApplier {
+    /// Applies a parsed statement to the chosen account.
     public static func apply(
         document: BankImportDocument,
         to destination: BankImportDestination,
@@ -602,6 +635,7 @@ public enum BankImportApplier {
         )
     }
 
+    /// Finds the first period of the main account.
     public static func firstMainAccountPeriod(
         entries: [LedgerEntry],
         accounts: [Account],
@@ -619,6 +653,7 @@ public enum BankImportApplier {
         return FinanceService.forecastPeriods(primary: primary, earliest: earliest, latest: earliest).first
     }
 
+    /// Calculates the statement balance before a day.
     private static func statementBalance(before day: Date, rows: [ImportedTransaction], opening: Int) -> Int {
         let calendar = Calendar.current
         let start = calendar.startOfDay(for: day)
@@ -632,6 +667,7 @@ public enum BankImportApplier {
         return saldo
     }
 
+    /// Finds or creates the checking account of a statement.
     private static func checkingAccount(
         for document: BankImportDocument,
         destination: BankImportDestination,
@@ -671,6 +707,7 @@ public enum BankImportApplier {
         }
     }
 
+    /// Finds or creates the linked depot.
     private static func portfolioAccount(
         for checking: Account,
         document: BankImportDocument,
@@ -695,6 +732,7 @@ public enum BankImportApplier {
         return (account, [account])
     }
 
+    /// Removes bookings of an earlier import of the same statement.
     private static func replacePreviousStatement(
         on checkingID: UUID,
         portfolioID: UUID?,
@@ -732,6 +770,7 @@ public enum BankImportApplier {
         SavingsPlanStore.removeAll(portfolioID: portfolioID)
     }
 
+    /// Finds the person's own account on the other side of a row.
     private static func counterpartyAccount(
         for row: ImportedTransaction,
         checking: Account,
@@ -750,10 +789,12 @@ public enum BankImportApplier {
         }
     }
 
+    /// Normalizes an IBAN for comparison.
     private static func normalizedIBAN(_ value: String) -> String {
         value.replacingOccurrences(of: " ", with: "").uppercased()
     }
 
+    /// Says whether the transfer is already booked.
     private static func transferExists(
         on date: Date,
         amount: Int,
@@ -771,6 +812,7 @@ public enum BankImportApplier {
         ) != nil
     }
 
+    /// Turns a booking into a transfer between two own accounts.
     private static func bookTransfer(
         _ entry: LedgerEntry,
         row: ImportedTransaction,
@@ -793,6 +835,7 @@ public enum BankImportApplier {
         }
     }
 
+    /// Removes the mirrored row of a transfer.
     @discardableResult
     private static func removeMirror(
         of row: ImportedTransaction,
@@ -819,6 +862,7 @@ public enum BankImportApplier {
         return date
     }
 
+    /// Builds the ledger booking of a row.
     private static func ledgerEntry(for row: ImportedTransaction, checkingID: UUID, portfolioID: UUID?) -> LedgerEntry {
         if row.trade != nil, let portfolioID {
             let amount = abs(row.amountCents)
@@ -856,6 +900,7 @@ public enum BankImportApplier {
         )
     }
 
+    /// Applies a security trade to its holding.
     private static func apply(
         _ trade: ImportedSecurityTrade,
         cashCents: Int,
@@ -912,15 +957,18 @@ public enum BankImportApplier {
         HoldingPurchaseDateStore.set(date, for: holding.id)
     }
 
+    /// Keeps the earliest purchase date of a holding.
     private static func rememberPurchase(_ date: Date, holdingID: UUID) {
         if let existing = HoldingPurchaseDateStore.date(for: holdingID), existing <= date { return }
         HoldingPurchaseDateStore.set(date, for: holdingID)
     }
 
+    /// Says whether a booking touches the account.
     private static func entryTouches(_ entry: LedgerEntry, accountID: UUID) -> Bool {
         entry.accountID == accountID || entry.fromAccountID == accountID || entry.toAccountID == accountID
     }
 
+    /// Books one cash row, or queues a question about it.
     @discardableResult
     public static func ingestCashRow(
         _ row: ImportedTransaction,
@@ -1006,6 +1054,7 @@ public enum BankImportApplier {
         return entry
     }
 
+    /// Books the answers from the import review.
     public static func commitReview(_ review: ImportReview, context: ModelContext) throws {
         var entries = try context.fetch(FetchDescriptor<LedgerEntry>())
         let accounts = try context.fetch(FetchDescriptor<Account>())
@@ -1250,6 +1299,7 @@ public enum BankImportApplier {
         return changed
     }
 
+    /// Says whether a booking mentions Trade Republic.
     private static func mentionsTradeRepublic(_ entry: LedgerEntry) -> Bool {
         "\(entry.title)\n\(entry.notes)"
             .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "de_DE"))
@@ -1289,6 +1339,7 @@ public enum BankImportApplier {
         }
     }
 
+    /// Builds a transfer question.
     private static func transferChoice(
         entry: LedgerEntry,
         row: ImportedTransaction,
@@ -1314,6 +1365,7 @@ public enum BankImportApplier {
         )
     }
 
+    /// Builds a question about a similar booking.
     private static func similarChoice(
         row: ImportedTransaction,
         existing: LedgerEntry,
@@ -1333,6 +1385,7 @@ public enum BankImportApplier {
         )
     }
 
+    /// Finds a booking that could be the other side of a transfer.
     private static func transferMatch(
         row: ImportedTransaction,
         other: Account,
@@ -1349,6 +1402,7 @@ public enum BankImportApplier {
         }
     }
 
+    /// Finds a booking similar to the row.
     private static func similarMatch(
         row: ImportedTransaction,
         entries: [LedgerEntry],
@@ -1378,12 +1432,14 @@ public enum BankImportApplier {
         return shorter.count >= 8 && longer.hasPrefix(shorter)
     }
 
+    /// Reduces a title to its main payee.
     private static func payeeKey(_ title: String) -> String {
         let head = title.split(whereSeparator: { $0 == "/" || $0 == "|" }).first.map(String.init) ?? title
         let folded = head.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "de_DE"))
         return String(folded.filter { $0.isLetter || $0.isNumber })
     }
 
+    /// Finds an existing transfer on that day.
     private static func existingTransfer(
         on date: Date,
         amount: Int,
@@ -1401,6 +1457,7 @@ public enum BankImportApplier {
         }
     }
 
+    /// Says whether two dates lie within a number of days.
     private static func withinDays(_ date: Date, of other: Date, days: Int) -> Bool {
         let calendar = Calendar.current
         let delta = abs(calendar.dateComponents(
@@ -1411,6 +1468,7 @@ public enum BankImportApplier {
         return delta <= days
     }
 
+    /// Says whether the row and booking share an IBAN.
     private static func sharesIBAN(_ row: ImportedTransaction, entry: LedgerEntry) -> Bool {
         let candidates = [row.senderIBAN, row.recipientIBAN, row.iban]
             .map(normalizedIBAN)

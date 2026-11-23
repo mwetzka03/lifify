@@ -1,6 +1,7 @@
 import Foundation
 import LififyCore
 
+/// One entry of the Trade Republic timeline.
 public struct TradeRepublicActivity: Equatable, Sendable {
     public var id: String
     public var date: Date
@@ -33,6 +34,7 @@ public struct TradeRepublicActivity: Equatable, Sendable {
     }
 }
 
+/// A live savings plan.
 public struct TradeRepublicPlan: Equatable, Sendable {
     public var isin: String
     public var name: String
@@ -49,6 +51,7 @@ public struct TradeRepublicPlan: Equatable, Sendable {
     }
 }
 
+/// Everything loaded in one session.
 public struct TradeRepublicSnapshot: Equatable, Sendable {
     public var positions: [TradeRepublicPosition]
     public var activities: [TradeRepublicActivity]
@@ -64,7 +67,9 @@ public struct TradeRepublicSnapshot: Equatable, Sendable {
     }
 }
 
+/// Reads the cash balance from a response.
 public enum TradeRepublicCash {
+    /// Returns the best cash amount in the text.
     public static func cents(from text: String) -> Int? {
         guard let start = text.firstIndex(where: { $0 == "\u{7B}" || $0 == "[" }) else { return nil }
         guard let object = try? JSONSerialization.jsonObject(with: Data(text[start...].utf8)) else { return nil }
@@ -72,11 +77,13 @@ public enum TradeRepublicCash {
         return found.max(by: { $0.rank < $1.rank })?.cents
     }
 
+    /// A possible cash amount with its JSON path.
     private struct Candidate {
         var cents: Int
         var rank: Int
     }
 
+    /// Collects possible cash amounts.
     private static func candidates(in object: Any, path: [String]) -> [Candidate] {
         if let row = object as? [String: Any] {
             var found: [Candidate] = []
@@ -97,10 +104,12 @@ public enum TradeRepublicCash {
         return []
     }
 
+    /// Reads a money object.
     private static func moneyObject(_ row: [String: Any]) -> Int? {
         scalarCents(row["value"]) ?? scalarCents(row["amount"])
     }
 
+    /// Says whether a key names money.
     private static func isMoneyKey(_ key: String) -> Bool {
         let folded = key.lowercased()
         return folded == "amount"
@@ -132,6 +141,7 @@ public enum TradeRepublicCash {
         return 1
     }
 
+    /// Reads a scalar amount.
     private static func scalarCents(_ value: Any?) -> Int? {
         switch value {
         case let number as Double: return Int((number * 100).rounded())
@@ -143,6 +153,7 @@ public enum TradeRepublicCash {
     }
 }
 
+/// A stored position compared with the live one.
 public struct HeldPosition: Equatable {
     public var symbol: String
     public var name: String
@@ -159,6 +170,7 @@ public struct HeldPosition: Equatable {
     }
 }
 
+/// A change to a depot position.
 public enum TradeRepublicMove: Equatable {
     case cash(id: String, date: Date, title: String, amountCents: Int, statementType: String)
     case grant(id: String, date: Date, title: String, isin: String, name: String, quantity: Double, amountCents: Int, statementType: String)
@@ -168,12 +180,15 @@ public enum TradeRepublicMove: Equatable {
     case drop(isin: String)
 }
 
+/// Reads the timeline.
 public enum TradeRepublicTimeline {
+    /// Reads a page from text.
     public static func read(text: String) -> (items: [TradeRepublicActivity], after: String?) {
         guard let start = text.firstIndex(of: "{") else { return ([], nil) }
         return read(Data(text[start...].utf8))
     }
 
+    /// Reads a page from data.
     public static func read(_ data: Data) -> (items: [TradeRepublicActivity], after: String?) {
         guard let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return ([], nil) }
         let rows = object["items"] as? [[String: Any]] ?? []
@@ -184,13 +199,16 @@ public enum TradeRepublicTimeline {
 
     public static let openingBalanceFingerprint = "tr-startsaldo"
 
+    /// Builds the fingerprint of an event.
     public static func fingerprint(_ id: String) -> String { "tr-\(id)" }
 
+    /// Says whether a fingerprint comes from a live session.
     public static func isSessionFingerprint(_ value: String?) -> Bool {
         guard let value else { return false }
         return value.hasPrefix("tr-")
     }
 
+    /// Converts one timeline row.
     private static func activity(_ row: [String: Any]) -> TradeRepublicActivity? {
         guard let id = row["id"] as? String, !id.isEmpty else { return nil }
         let status = (row["status"] as? String) ?? ""
@@ -220,6 +238,7 @@ public enum TradeRepublicTimeline {
         return item
     }
 
+    /// Adds values from an event's detail page.
     public static func enrich(_ item: TradeRepublicActivity, detail text: String) -> TradeRepublicActivity {
         guard let start = text.firstIndex(where: { $0 == "{" || $0 == "[" }),
               let object = try? JSONSerialization.jsonObject(with: Data(text[start...].utf8))
@@ -272,12 +291,14 @@ public enum TradeRepublicTimeline {
         }
     }
 
+    /// Reads activities from an index section.
     public static func activities(fromIndex text: String) -> [TradeRepublicActivity] {
         text.split(whereSeparator: \.isNewline).compactMap { line in
             activity(fromIndexLine: String(line))
         }
     }
 
+    /// Says whether the event may be a gift of shares.
     public static func mightBeGrant(_ eventType: String) -> Bool {
         let folded = eventType.uppercased().replacingOccurrences(of: "_", with: "")
         return folded.contains("GIFT")
@@ -288,6 +309,7 @@ public enum TradeRepublicTimeline {
             || folded.contains("GIVEAWAY")
     }
 
+    /// Reads one index line.
     private static func activity(fromIndexLine line: String) -> TradeRepublicActivity? {
         let parts = line.split(separator: "\t", omittingEmptySubsequences: false).map(String.init)
         guard parts.count >= 7 else { return nil }
@@ -318,6 +340,7 @@ public enum TradeRepublicTimeline {
         return item
     }
 
+    /// Maps an event to a statement type.
     private static func statementType(
         eventType: String,
         title: String,
@@ -349,6 +372,7 @@ public enum TradeRepublicTimeline {
         return ""
     }
 
+    /// Says whether the type is a gift.
     private static func isGift(_ compact: String) -> Bool {
         compact.contains("GIFT")
             || compact.contains("GESCHENK")
@@ -359,6 +383,7 @@ public enum TradeRepublicTimeline {
             || compact.contains("GIVE AWAY")
     }
 
+    /// Says whether the event finished.
     private static func isFinished(_ status: String) -> Bool {
         let folded = status.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
         return folded.isEmpty
@@ -367,11 +392,13 @@ public enum TradeRepublicTimeline {
             || folded == "COMPLETED"
     }
 
+    /// Says whether the event is a savings plan.
     private static func isSavingsPlan(_ eventType: String) -> Bool {
         let folded = eventType.uppercased().replacingOccurrences(of: "_", with: "")
         return folded.contains("SAVINGSPLAN") || folded.contains("SAVINGPLAN")
     }
 
+    /// Says whether the event is a trade.
     private static func isTrade(_ eventType: String, isin: String, title: String) -> Bool {
         if isDerivative(title) { return false }
         guard !isin.isEmpty else { return false }
@@ -400,6 +427,7 @@ public enum TradeRepublicTimeline {
             || compact.contains("WARRANT")
     }
 
+    /// Reads the ISIN from an icon path.
     private static func isin(from icon: String) -> String {
         guard let regex = try? NSRegularExpression(pattern: #"logos/([A-Z]{2}[A-Z0-9]{9}[0-9])"#),
               let match = regex.firstMatch(in: icon, range: NSRange(icon.startIndex..., in: icon)),
@@ -408,12 +436,14 @@ public enum TradeRepublicTimeline {
         return String(icon[range])
     }
 
+    /// Reads an amount in cents.
     private static func cents(_ amount: [String: Any]?) -> Int? {
         guard let amount, let number = doubleValue(amount["value"]) else { return nil }
         let digits = intValue(amount["fractionDigits"]) ?? 2
         return Int((number * pow(10, Double(digits))).rounded())
     }
 
+    /// Parses a timeline date.
     private static func date(from text: String) -> Date? {
         let normalized = text.replacingOccurrences(of: "+0000", with: "Z")
         let formatter = ISO8601DateFormatter()
@@ -423,6 +453,7 @@ public enum TradeRepublicTimeline {
         return formatter.date(from: normalized)
     }
 
+    /// Reads a number.
     private static func doubleValue(_ value: Any?) -> Double? {
         switch value {
         case let number as Double: return number
@@ -433,6 +464,7 @@ public enum TradeRepublicTimeline {
         }
     }
 
+    /// Reads an integer.
     private static func intValue(_ value: Any?) -> Int? {
         switch value {
         case let number as Int: return number
@@ -441,6 +473,7 @@ public enum TradeRepublicTimeline {
         }
     }
 
+    /// Reads a share count from a row or its detail texts.
     private static func shareCount(_ row: [String: Any]) -> Double? {
         if let number = doubleValue(row["shares"] ?? row["quantity"] ?? row["netSize"] ?? row["size"]), number > 0 {
             return number
@@ -484,6 +517,7 @@ public enum TradeRepublicTimeline {
         return nil
     }
 
+    /// Finds a value by a label containing the title.
     private static func labeledText(in object: Any, titles: [String]) -> String? {
         if let row = object as? [String: Any] {
             let title = ((row["title"] as? String) ?? "").folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "de_DE"))
@@ -511,6 +545,7 @@ public enum TradeRepublicTimeline {
         return folded == "sparplan" || folded == "savings plan" || folded == "savingsplan"
     }
 
+    /// Finds a value by an exact label.
     private static func exactLabeledText(in object: Any, titles: [String]) -> String? {
         if let row = object as? [String: Any] {
             let title = ((row["title"] as? String) ?? "")
@@ -533,6 +568,7 @@ public enum TradeRepublicTimeline {
         return nil
     }
 
+    /// Reads a number from a text.
     private static func number(in text: String, unit: Bool) -> Double? {
         let folded = text.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "de_DE"))
         if unit && !folded.contains("stk") && !folded.contains("stuck") && !folded.contains("share") && !folded.contains("anteil") {
@@ -546,6 +582,7 @@ public enum TradeRepublicTimeline {
     }
 }
 
+/// Compares live positions with the stored depot.
 public enum TradeRepublicSync {
     /// A buy whose price is a few cents per share is a dividend, not a purchase.
     public static func purchase(_ item: TradeRepublicActivity, averageCents: Int) -> Bool {
@@ -564,6 +601,7 @@ public enum TradeRepublicSync {
         return unit >= max(averageCents / 8, 1) && unit <= averageCents * 8
     }
 
+    /// Calculates the depot changes.
     public static func changes(
         positions: [TradeRepublicPosition],
         holdings: [HeldPosition],
@@ -747,15 +785,18 @@ public enum TradeRepublicSync {
         }
     }
 
+    /// Lists the sales that closed a position.
     private static func exitSales(symbol: String, name: String, activities: [TradeRepublicActivity]) -> [TradeRepublicActivity] {
         activities.filter { claimsSale(symbol: symbol, name: name, item: $0) }.sorted { $0.date < $1.date }
     }
 
+    /// Says whether the sale belongs to the held position.
     private static func claimsSale(_ holding: HeldPosition, item: TradeRepublicActivity) -> Bool {
         let symbol = holding.symbol.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
         return claimsSale(symbol: symbol, name: holding.name, item: item)
     }
 
+    /// Says whether the sale belongs to the instrument.
     private static func claimsSale(symbol: String, name: String, item: TradeRepublicActivity) -> Bool {
         guard item.trade, item.amountCents > 0 else { return false }
         if !item.isin.isEmpty && item.isin.caseInsensitiveCompare(symbol) == .orderedSame { return true }
@@ -763,6 +804,7 @@ public enum TradeRepublicSync {
         return !named.isEmpty && item.title.localizedCaseInsensitiveContains(named)
     }
 
+    /// Adds the purchases of a position.
     @discardableResult
     private static func appendBuys(
         position: TradeRepublicPosition,
@@ -844,12 +886,14 @@ public enum TradeRepublicSync {
         return covered + rest
     }
 
+    /// Returns a gift's value.
     private static func giftValueCents(quantity: Double, averageCents: Int, eventAmount: Int) -> Int {
         if eventAmount > 0 { return eventAmount }
         guard quantity > 0.0000005, averageCents > 0 else { return 0 }
         return Int((quantity * Double(averageCents)).rounded())
     }
 
+    /// Finds the dates of gifted shares.
     public static func giftDates(
         positions: [TradeRepublicPosition],
         activities: [TradeRepublicActivity]
@@ -879,6 +923,7 @@ public enum TradeRepublicSync {
         return dates
     }
 
+    /// Says whether the activity belongs to an instrument.
     public static func matchesInstrument(_ item: TradeRepublicActivity, isin: String, name: String) -> Bool {
         let symbol = isin.trimmingCharacters(in: .whitespacesAndNewlines)
         if !item.isin.isEmpty, !symbol.isEmpty, item.isin.caseInsensitiveCompare(symbol) == .orderedSame {
@@ -890,6 +935,7 @@ public enum TradeRepublicSync {
         return titled.localizedStandardContains(named) || named.localizedStandardContains(titled)
     }
 
+    /// Adds sales for a reduced quantity.
     private static func appendSales(
         quantity: Double,
         position: TradeRepublicPosition,
@@ -905,6 +951,7 @@ public enum TradeRepublicSync {
         appendLots(delta: quantity, events: chosen, buying: false, isin: symbol, name: name, cost: holding.purchasePriceCents, now: now, into: &moves)
     }
 
+    /// Distributes a change across lots.
     private static func appendLots(
         delta: Double,
         events: [TradeRepublicActivity],
@@ -957,6 +1004,7 @@ public enum TradeRepublicSync {
         }
     }
 
+    /// Builds one lot.
     private static func lot(
         id: String,
         date: Date,
@@ -991,7 +1039,9 @@ public enum TradeRepublicSync {
     }
 }
 
+/// Reads the live savings plans.
 public enum TradeRepublicPlans {
+    /// Reads plans from a response.
     public static func read(text: String) -> [TradeRepublicPlan] {
         guard let start = text.firstIndex(where: { $0 == "{" || $0 == "[" }),
               let object = try? JSONSerialization.jsonObject(with: Data(text[start...].utf8))
@@ -1007,6 +1057,7 @@ public enum TradeRepublicPlans {
         return byISIN.values.sorted { $0.isin < $1.isin }
     }
 
+    /// Maps an interval to a cadence.
     public static func cadence(for interval: String) -> Cadence {
         let folded = interval.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "de_DE"))
         if folded.contains("second") || folded.contains("two") || folded.contains("bi") { return .biweekly }
@@ -1015,6 +1066,7 @@ public enum TradeRepublicPlans {
         return .monthly
     }
 
+    /// Collects plans from nested JSON.
     private static func collect(_ object: Any, into found: inout [TradeRepublicPlan]) {
         if let row = object as? [String: Any] {
             if let plan = plan(from: row) { found.append(plan) }
@@ -1024,6 +1076,7 @@ public enum TradeRepublicPlans {
         }
     }
 
+    /// Reads one plan.
     private static func plan(from row: [String: Any]) -> TradeRepublicPlan? {
         let isin = ((row["instrumentId"] as? String) ?? (row["isin"] as? String) ?? "")
             .trimmingCharacters(in: .whitespacesAndNewlines)
@@ -1039,6 +1092,7 @@ public enum TradeRepublicPlans {
         return TradeRepublicPlan(isin: isin, name: name, amountCents: amount, interval: interval, active: !inactive)
     }
 
+    /// Reads an amount in cents.
     private static func cents(_ value: Any?) -> Int? {
         if let row = value as? [String: Any] {
             let number: Double?

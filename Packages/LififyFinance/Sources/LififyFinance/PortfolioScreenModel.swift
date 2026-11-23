@@ -9,6 +9,7 @@ public protocol PortfolioOption: RawRepresentable, CaseIterable, Identifiable, H
     var label: String { get }
 }
 
+/// Default behavior of depot options.
 public extension PortfolioOption {
     /// The raw value identifies the option.
     var id: String { rawValue }
@@ -184,6 +185,7 @@ public struct PortfolioSnapshot {
 public final class PortfolioScreenModel {
     /// The inputs a snapshot depends on.
     private struct Key: Equatable {
+        /// The values of one position that affect the result.
         struct Position: Equatable {
             let id: UUID
             let name: String
@@ -286,6 +288,7 @@ public final class PortfolioScreenModel {
     }
 }
 
+/// Depot helpers of the finance filter.
 public extension FinanceFilterStore {
     /// The end of the selected finance period, or now when none is selected.
     func projectionDay(entries: [LedgerEntry], forecasts: [IncomeForecast], accounts: [Account]) -> Date {
@@ -293,6 +296,7 @@ public extension FinanceFilterStore {
     }
 }
 
+/// Removal and repair helpers for positions.
 public extension HoldingMaintenance {
     /// Deletes a position with its lots and market values. Its stored price history stays.
     static func deletePosition(_ holding: PortfolioHolding, context: ModelContext) {

@@ -4,14 +4,17 @@ import LififyCore
 /// Settings import: skip older days that already have the same number of bookings.
 /// Ask about the last booking day, and about days where the file has extra rows.
 public enum BankImportDuplicates {
+    /// The decisions for one import.
     public struct Plan {
         public var skip: Set<String> = []
         public var reviewByFingerprint: [String: ImportSimilarChoice] = [:]
 
+        /// Says whether a row is already in the ledger.
         public func shouldSkip(_ fingerprint: String) -> Bool {
             skip.contains(fingerprint)
         }
 
+        /// Returns the review question of a row, if it needs one.
         public func reviewChoice(for fingerprint: String) -> ImportSimilarChoice? {
             reviewByFingerprint[fingerprint]
         }
@@ -22,6 +25,7 @@ public enum BankImportDuplicates {
         }
     }
 
+    /// What happens to a row.
     public enum Action: Equatable {
         case skip
         case ingest
@@ -48,12 +52,14 @@ public enum BankImportDuplicates {
         return .skip
     }
 
+    /// Decides for each imported row whether to book, skip, or ask.
     public static func plan(
         rows: [ImportedTransaction],
         entries: [LedgerEntry],
         accountID: UUID,
         calendar: Calendar = .current
     ) -> Plan {
+        /// The start of a date's day.
         func day(_ date: Date) -> Date { calendar.startOfDay(for: date) }
         let cashRows = rows.filter { $0.trade == nil }
         let existing = entries.filter { entry in
@@ -133,6 +139,7 @@ public enum BankImportDuplicates {
         return plan
     }
 
+    /// Says whether a stored booking is the same as the row.
     private static func isIdentical(_ entry: LedgerEntry, row: ImportedTransaction) -> Bool {
         if entry.importFingerprint == row.fingerprint { return true }
         if let legacy = row.legacyFingerprint, entry.importFingerprint == legacy {
@@ -142,6 +149,7 @@ public enum BankImportDuplicates {
         return false
     }
 
+    /// Says whether a stored booking resembles the row.
     private static func isSimilar(_ entry: LedgerEntry, row: ImportedTransaction) -> Bool {
         guard entry.kind != .adjustment else { return false }
         guard abs(entry.amountCents) == abs(row.amountCents) else { return false }
@@ -151,6 +159,7 @@ public enum BankImportDuplicates {
         return true
     }
 
+    /// Compares two payees by their main name.
     private static func payeesMatch(_ lhs: String, _ rhs: String) -> Bool {
         let left = payeeKey(lhs)
         let right = payeeKey(rhs)
@@ -161,12 +170,14 @@ public enum BankImportDuplicates {
         return shorter.count >= 8 && longer.hasPrefix(shorter)
     }
 
+    /// Reduces a title to its main payee.
     private static func payeeKey(_ title: String) -> String {
         let head = title.split(whereSeparator: { $0 == "/" || $0 == "|" }).first.map(String.init) ?? title
         let folded = head.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "de_DE"))
         return String(folded.filter { $0.isLetter || $0.isNumber })
     }
 
+    /// Builds the question for a row that resembles a stored booking.
     private static func choice(
         row: ImportedTransaction,
         existing: LedgerEntry,
@@ -190,6 +201,7 @@ public enum BankImportDuplicates {
         )
     }
 
+    /// Builds the question for an extra row on a day.
     private static func extraChoice(
         row: ImportedTransaction,
         leftover: LedgerEntry?,

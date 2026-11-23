@@ -2,6 +2,7 @@ import Foundation
 import LififyCore
 import SwiftData
 
+/// Cost, proceeds, and result of a sale.
 public struct SaleEconomics: Equatable {
     public var quantity: Double
     public var costCents: Int
@@ -16,6 +17,7 @@ public struct SaleEconomics: Equatable {
     }
 }
 
+/// One buy or sale of a holding.
 public struct HoldingLot: Codable, Identifiable, Hashable {
     public var id: UUID
     public var date: Date
@@ -50,10 +52,12 @@ public struct HoldingLot: Codable, Identifiable, Hashable {
         self.source = source
     }
 
+    /// The stored field names.
     public enum CodingKeys: String, CodingKey {
         case id, date, quantity, unitPriceCents, amountCents, isSale, isSavingsPlan, ledgerEntryID, source
     }
 
+    /// Decodes a lot. Fields missing from older versions get defaults.
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decode(UUID.self, forKey: .id)
@@ -67,6 +71,7 @@ public struct HoldingLot: Codable, Identifiable, Hashable {
         source = try container.decodeIfPresent(String.self, forKey: .source) ?? ""
     }
 
+    /// Encodes a lot.
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(id, forKey: .id)
@@ -81,30 +86,36 @@ public struct HoldingLot: Codable, Identifiable, Hashable {
     }
 }
 
+/// Stores the lots of all holdings.
 @MainActor
 public enum HoldingLotStore {
     private static var cached: [String: [HoldingLot]]?
     public private(set) static var cacheRevision = 0
 
+    /// Drops the in-memory copy.
     public static func clearCache() {
         cached = nil
         cacheRevision &+= 1
     }
 
+    /// Returns the lots of a holding.
     public static func lots(for holdingID: UUID) -> [HoldingLot] {
         snapshot()[holdingID.uuidString] ?? []
     }
 
+    /// Returns all lots by holding.
     public static func allByHolding() -> [UUID: [HoldingLot]] {
         Dictionary(uniqueKeysWithValues: snapshot().compactMap { key, lots in
             UUID(uuidString: key).map { ($0, lots) }
         })
     }
 
+    /// Adds a lot.
     public static func add(_ lot: HoldingLot, holdingID: UUID) {
         replace(lots(for: holdingID) + [lot], holdingID: holdingID)
     }
 
+    /// Replaces the lots of a holding.
     public static func replace(_ lots: [HoldingLot], holdingID: UUID) {
         var map = snapshot()
         if lots.isEmpty {
@@ -124,22 +135,26 @@ public enum HoldingLotStore {
         cacheRevision += 1
     }
 
+    /// Removes one lot.
     public static func remove(lotID: UUID, holdingID: UUID) {
         var rows = lots(for: holdingID)
         rows.removeAll { $0.id == lotID }
         replace(rows, holdingID: holdingID)
     }
 
+    /// Removes all lots of a holding.
     public static func removeAll(for holdingID: UUID) {
         replace([], holdingID: holdingID)
     }
 
+    /// Deletes all lots.
     public static func reset() {
         LififyDatabase.deleteAll(StoredHoldingLot.self)
         cached = [:]
         cacheRevision += 1
     }
 
+    /// Reads the lots.
     private static func snapshot() -> [String: [HoldingLot]] {
         if let cached { return cached }
         let rows = LififyDatabase.rows(FetchDescriptor<StoredHoldingLot>(sortBy: [SortDescriptor(\.position)]))
@@ -149,6 +164,7 @@ public enum HoldingLotStore {
     }
 }
 
+/// A savings plan.
 public struct SavingsPlanRecord: Codable, Identifiable, Hashable {
     public var id: UUID
     public var isin: String
@@ -174,6 +190,7 @@ public struct SavingsPlanRecord: Codable, Identifiable, Hashable {
         }
     }
 
+    /// Returns the next execution after a date.
     @MainActor
     public func nextExecution(after date: Date = .now) -> Date? {
         guard active else { return nil }
@@ -201,16 +218,19 @@ public struct SavingsPlanRecord: Codable, Identifiable, Hashable {
     }
 }
 
+/// Stores the savings plans.
 @MainActor
 public enum SavingsPlanStore {
     private static var cached: [SavingsPlanRecord]?
     public private(set) static var cacheRevision = 0
 
+    /// Drops the in-memory copy.
     public static func clearCache() {
         cached = nil
         cacheRevision &+= 1
     }
 
+    /// Returns all plans.
     public static func all() -> [SavingsPlanRecord] {
         if let cached { return cached }
         let rows = LififyDatabase.rows(FetchDescriptor<StoredSavingsPlan>(sortBy: [SortDescriptor(\.position)]))
@@ -219,16 +239,19 @@ public enum SavingsPlanStore {
         return decoded
     }
 
+    /// Replaces the plans of a depot.
     public static func replace(_ plans: [SavingsPlanRecord], portfolioID: UUID) {
         var kept = all().filter { $0.portfolioAccountID != portfolioID }
         kept.append(contentsOf: plans)
         save(kept)
     }
 
+    /// Removes the plans of a depot.
     public static func removeAll(portfolioID: UUID) {
         save(all().filter { $0.portfolioAccountID != portfolioID })
     }
 
+    /// Adds a plan or replaces the one with the same ID.
     public static func upsert(_ plan: SavingsPlanRecord) {
         var plans = all()
         if let index = plans.firstIndex(where: { $0.id == plan.id }) {
@@ -239,16 +262,19 @@ public enum SavingsPlanStore {
         save(plans)
     }
 
+    /// Deletes a plan.
     public static func remove(id: UUID) {
         save(all().filter { $0.id != id })
     }
 
+    /// Deletes all plans.
     public static func reset() {
         LififyDatabase.deleteAll(StoredSavingsPlan.self)
         cached = []
         cacheRevision += 1
     }
 
+    /// Writes the plans when they changed.
     public static func save(_ plans: [SavingsPlanRecord]) {
         guard plans != all() else { return }
         if let context = LififyDatabase.sideContext {
@@ -263,6 +289,7 @@ public enum SavingsPlanStore {
     }
 }
 
+/// Keeps holdings, lots, and their bookings consistent.
 @MainActor
 public enum HoldingMaintenance {
     /// Einstand is the cash paid divided by the shares still held, rounded once.
@@ -306,6 +333,7 @@ public enum HoldingMaintenance {
         return true
     }
 
+    /// Finds the booking of a lot.
     public static func ledgerEntry(for lot: HoldingLot, holding: PortfolioHolding, context: ModelContext) -> LedgerEntry? {
         let entries = (try? context.fetch(FetchDescriptor<LedgerEntry>())) ?? []
         if let id = lot.ledgerEntryID, let entry = entries.first(where: { $0.id == id }) {
@@ -322,6 +350,7 @@ public enum HoldingMaintenance {
         }
     }
 
+    /// Updates the booking of an edited lot.
     public static func updateLedger(previous: HoldingLot, updated: HoldingLot, holding: PortfolioHolding, context: ModelContext) {
         guard let entry = ledgerEntry(for: previous, holding: holding, context: context) else { return }
         let portfolioID = holding.accountID
@@ -383,6 +412,7 @@ public enum HoldingMaintenance {
         return held + futureShares(through: day, holdings: holdings).unmatchedCents
     }
 
+    /// Returns the shares held at the end of a day, including future plan purchases.
     public static func quantity(of holding: PortfolioHolding, through day: Date, holdings: [PortfolioHolding]) -> Double {
         let dayKey = Calendar.current.startOfDay(for: day).dayKey
         var stamp = holdings.count
@@ -407,6 +437,7 @@ public enum HoldingMaintenance {
         return value
     }
 
+    /// Returns a holding's value at the end of a day.
     public static func marketValue(of holding: PortfolioHolding, through day: Date, holdings: [PortfolioHolding]) -> Int {
         valued(quantity(of: holding, through: day, holdings: holdings), of: holding, pricedOn: day)
     }
@@ -425,10 +456,12 @@ public enum HoldingMaintenance {
         saleEconomics(for: entry, holdings: holdings)?.differenceCents
     }
 
+    /// Returns the start of the following day.
     private static func dayCutoff(_ day: Date) -> Date {
         Calendar.current.date(byAdding: .day, value: 1, to: Calendar.current.startOfDay(for: day)) ?? day
     }
 
+    /// Counts the shares held before a cutoff.
     private static func heldQuantity(of holding: PortfolioHolding, before cutoff: Date) -> Double {
         let stored = HoldingLotStore.lots(for: holding.id)
         let lots = stored.filter { $0.date < cutoff }.sorted { $0.date < $1.date }
@@ -447,6 +480,7 @@ public enum HoldingMaintenance {
         return max(0, held)
     }
 
+    /// Values shares at that day's price.
     private static func valued(_ quantity: Double, of holding: PortfolioHolding, pricedOn day: Date) -> Int {
         guard quantity > 0.0000005 else { return 0 }
         return Int((quantity * Double(priceCents(for: holding, on: day))).rounded())
@@ -471,11 +505,13 @@ public enum HoldingMaintenance {
         return max(holding.currentPriceCents, 0)
     }
 
+    /// Shares that future savings plans will buy.
     private struct FutureShares {
         var quantity: [UUID: Double] = [:]
         var unmatchedCents = 0
     }
 
+    /// The inputs of the share count memo.
     private struct QuantityMemoKey: Equatable {
         var dayKey: String
         var lotRevision: Int
@@ -486,6 +522,7 @@ public enum HoldingMaintenance {
     private static var quantityMemoKey: QuantityMemoKey?
     private static var quantityMemo: [UUID: Double] = [:]
 
+    /// The inputs of the future share cache.
     private struct ShareCacheKey: Equatable {
         var dayKey: String
         var planRevision: Int
@@ -495,6 +532,7 @@ public enum HoldingMaintenance {
     private static var shareCacheKey: ShareCacheKey?
     private static var shareCache = FutureShares()
 
+    /// Drops the calculated values.
     public static func clearCache() {
         quantityMemoKey = nil
         quantityMemo = [:]
@@ -540,6 +578,7 @@ public enum HoldingMaintenance {
         return result
     }
 
+    /// Says whether a plan buys this holding.
     private static func matches(_ holding: PortfolioHolding, plan: SavingsPlanRecord) -> Bool {
         if let holdingID = plan.holdingID { return holding.id == holdingID }
         return holding.accountID == plan.portfolioAccountID
@@ -565,6 +604,7 @@ public enum HoldingMaintenance {
         ).count
     }
 
+    /// Calculates a sale's result from the average cost.
     private static func economics(in lots: [HoldingLot], entry: LedgerEntry, requireLedgerID: Bool) -> SaleEconomics? {
         let ordered = lots.sorted { $0.date < $1.date }
         guard let index = ordered.firstIndex(where: { lot in
@@ -602,6 +642,7 @@ public enum HoldingMaintenance {
         )
     }
 
+    /// Deletes the booking of a lot.
     public static func deleteLedger(_ lot: HoldingLot, holding: PortfolioHolding, context: ModelContext) {
         if let entry = ledgerEntry(for: lot, holding: holding, context: context) {
             context.delete(entry)
@@ -609,8 +650,10 @@ public enum HoldingMaintenance {
     }
 }
 
+/// Recognizes savings plans in imported rows.
 @MainActor
 public enum SavingsPlanBuilder {
+    /// Builds plans from repeated purchases.
     public static func build(
         rows: [ImportedTransaction],
         checkingID: UUID,
@@ -659,6 +702,7 @@ public enum SavingsPlanBuilder {
         .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }
 
+    /// Returns the next date of a cadence.
     public static func date(after date: Date, cadence: Cadence) -> Date? {
         let calendar = Calendar.current
         let nextDay = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: date)) ?? date
@@ -666,6 +710,7 @@ public enum SavingsPlanBuilder {
         return CalendarService.nextSavingsPlanDate(cadence: cadence, onOrAfter: nextDay, yearlyMonth: month)
     }
 
+    /// Derives the cadence from the gaps between purchases.
     private static func cadence(for gaps: [Int]) -> Cadence {
         guard !gaps.isEmpty else { return .monthly }
         let median = gaps.sorted()[gaps.count / 2]
@@ -677,6 +722,7 @@ public enum SavingsPlanBuilder {
         }
     }
 
+    /// The days between two executions.
     private static func intervalDays(_ cadence: Cadence) -> Int {
         switch cadence {
         case .weekly: return 7
@@ -687,6 +733,7 @@ public enum SavingsPlanBuilder {
     }
 }
 
+/// Books savings plan executions that are due.
 @MainActor
 public enum SavingsPlanRunner {
     /// Advances the last execution only when a real statement row or booking already covers it.
@@ -746,6 +793,7 @@ public enum SavingsPlanRunner {
         return true
     }
 
+    /// Says whether the execution is already booked.
     private static func alreadyBooked(_ plan: SavingsPlanRecord, on date: Date, entries: [LedgerEntry]) -> Bool {
         let calendar = Calendar.current
         return entries.contains { entry in
@@ -755,6 +803,7 @@ public enum SavingsPlanRunner {
     }
 }
 
+/// A fully sold position, kept for its sale result.
 public struct ClosedPositionRecord: Codable, Hashable {
     public var isin: String
     public var name: String
@@ -767,14 +816,17 @@ public struct ClosedPositionRecord: Codable, Hashable {
     }
 }
 
+/// Stores closed positions.
 @MainActor
 public enum ClosedPositionStore {
     private static var cached: [ClosedPositionRecord]?
 
+    /// Drops the in-memory copy.
     public static func clearCache() {
         cached = nil
     }
 
+    /// Returns all closed positions.
     public static func all() -> [ClosedPositionRecord] {
         if let cached { return cached }
         let rows = LififyDatabase.rows(FetchDescriptor<StoredClosedPosition>(sortBy: [SortDescriptor(\.position)]))
@@ -783,6 +835,7 @@ public enum ClosedPositionStore {
         return decoded
     }
 
+    /// Archives the lots of a closed position.
     public static func archive(isin: String, name: String, lots: [HoldingLot]) {
         let symbol = isin.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
         guard !symbol.isEmpty, !lots.isEmpty else { return }
@@ -791,16 +844,19 @@ public enum ClosedPositionStore {
         save(rows)
     }
 
+    /// Removes a closed position.
     public static func remove(isin: String) {
         let symbol = isin.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
         save(all().filter { $0.isin.uppercased() != symbol })
     }
 
+    /// Deletes all closed positions.
     public static func reset() {
         LififyDatabase.deleteAll(StoredClosedPosition.self)
         cached = []
     }
 
+    /// Writes the closed positions.
     private static func save(_ rows: [ClosedPositionRecord]) {
         if let context = LififyDatabase.sideContext {
             ((try? context.fetch(FetchDescriptor<StoredClosedPosition>())) ?? []).forEach(context.delete)
@@ -813,14 +869,17 @@ public enum ClosedPositionStore {
     }
 }
 
+/// Mirrors savings plans as fixed costs.
 @MainActor
 public enum SavingsPlanFixedCosts {
     public static var namePrefix: String { "\(L("Sparplan", "Savings plan")): " }
 
+    /// Says whether a fixed cost name belongs to a plan.
     public static func isManagedName(_ name: String) -> Bool {
         name.hasPrefix("Sparplan: ") || name.hasPrefix("Savings plan: ")
     }
 
+    /// Creates, updates, and removes the plans' fixed costs.
     public static func sync(context: ModelContext) {
         var plans = SavingsPlanStore.all().filter(\.active)
         var costs = (try? context.fetch(FetchDescriptor<FixedCost>())) ?? []
@@ -864,12 +923,14 @@ public enum SavingsPlanFixedCosts {
         try? context.save()
     }
 
+    /// Returns the plan name inside a fixed cost name.
     public static func planName(inFixedCostName name: String) -> String {
         if name.hasPrefix("Sparplan: ") { return String(name.dropFirst("Sparplan: ".count)) }
         if name.hasPrefix("Savings plan: ") { return String(name.dropFirst("Savings plan: ".count)) }
         return name
     }
 
+    /// Says whether a fixed cost is a savings plan.
     public static func isSavingsCost(_ cost: FixedCost) -> Bool {
         if isManagedName(cost.name) { return true }
         return SavingsPlanStore.all().contains { $0.fixedCostID == cost.id }
@@ -894,6 +955,7 @@ public enum SavingsPlanFixedCosts {
         SavingsPlanStore.save(plans)
     }
 
+    /// Removes the plan behind a fixed cost.
     public static func removePlan(for cost: FixedCost) {
         guard isManagedName(cost.name) else { return }
         let title = planName(inFixedCostName: cost.name)
@@ -905,10 +967,12 @@ public enum SavingsPlanFixedCosts {
         SavingsPlanStore.save(plans)
     }
 
+    /// Sums the plans' monthly cost.
     public static func monthlyCostCents(of plans: [SavingsPlanRecord]) -> Int {
         plans.filter(\.active).reduce(0) { $0 + $1.monthlyCostCents }
     }
 
+    /// Returns the weekly cost, counted as a quarter of the monthly cost.
     public static func weeklyCostCents(of plans: [SavingsPlanRecord]) -> Int {
         Int((Double(monthlyCostCents(of: plans)) / 4).rounded())
     }

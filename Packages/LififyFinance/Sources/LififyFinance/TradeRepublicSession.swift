@@ -2,6 +2,7 @@ import CryptoKit
 import LififyCore
 import Foundation
 
+/// The ways a Trade Republic sign-in can fail.
 public enum TradeRepublicFailure: Error, Equatable {
     case invalidPhone
     case invalidPin
@@ -58,6 +59,7 @@ public enum TradeRepublicFailure: Error, Equatable {
     }
 }
 
+/// Keeps a local text extract of the loaded Trade Republic data for diagnosing an import.
 public enum TradeRepublicSample {
     public static let revisionKey = "lifify.tradeRepublic.sampleRevision"
     public static let exportFilenamePrefix = "TradeRepublic-Auszug"
@@ -91,6 +93,7 @@ public enum TradeRepublicSample {
         return (try? String(contentsOf: fileURL, encoding: .utf8)) ?? ""
     }
 
+    /// Returns the start of the extract.
     public static func preview(limit: Int = previewCharacterLimit) -> String {
         purgeLegacyPreferences()
         guard let handle = try? FileHandle(forReadingFrom: fileURL) else { return "" }
@@ -101,35 +104,42 @@ public enum TradeRepublicSample {
         return snippet
     }
 
+    /// Returns the whole extract.
     public static func exportData() -> Data {
         purgeLegacyPreferences()
         return (try? Data(contentsOf: fileURL)) ?? Data()
     }
 
+    /// Starts a new extract.
     public static func begin() {
         replace("Trade Republic\n")
         bumpRevision()
     }
 
+    /// Adds a named section.
     public static func add(name: String, body: String) {
         append("\n===== \(name) =====\n\(body)\n")
     }
 
+    /// Signals that the extract is complete.
     public static func finish() {
         bumpRevision()
     }
 
+    /// Replaces the extract with an imported one.
     public static func replaceWithImported(_ value: String) {
         replace(value)
         bumpRevision()
     }
 
+    /// Deletes the extract.
     public static func clear() {
         try? FileManager.default.removeItem(at: fileURL)
         AppDefaults.store.removeObject(forKey: legacyKey)
         AppDefaults.store.set(0, forKey: revisionKey)
     }
 
+    /// Removes an older extract from the preferences.
     public static func purgeLegacyPreferences() {
         guard let leftover = AppDefaults.store.string(forKey: legacyKey) else { return }
         if fileByteCount() == 0, !leftover.isEmpty {
@@ -138,6 +148,7 @@ public enum TradeRepublicSample {
         AppDefaults.store.removeObject(forKey: legacyKey)
     }
 
+    /// Returns the size of the extract file.
     private static func fileByteCount() -> Int {
         guard FileManager.default.fileExists(atPath: fileURL.path),
               let size = try? FileManager.default.attributesOfItem(atPath: fileURL.path)[.size] as? NSNumber
@@ -145,11 +156,13 @@ public enum TradeRepublicSample {
         return size.intValue
     }
 
+    /// Writes the extract file.
     private static func replace(_ value: String) {
         try? value.write(to: fileURL, atomically: true, encoding: .utf8)
         AppDefaults.store.removeObject(forKey: legacyKey)
     }
 
+    /// Appends to the extract file.
     private static func append(_ value: String) {
         let data = Data(value.utf8)
         if FileManager.default.fileExists(atPath: fileURL.path),
@@ -163,6 +176,7 @@ public enum TradeRepublicSample {
         replace(((try? String(contentsOf: fileURL, encoding: .utf8)) ?? "") + value)
     }
 
+    /// Signals that the extract changed.
     private static func bumpRevision() {
         let revision = AppDefaults.store.integer(forKey: revisionKey) + 1
         AppDefaults.store.set(revision, forKey: revisionKey)
@@ -197,6 +211,7 @@ public enum TradeRepublicSample {
         return TradeRepublicSnapshot(positions: positions, activities: activities, plans: plans, cashCents: cashCents)
     }
 
+    /// Splits an extract into its named sections.
     private static func sections(in text: String) -> [(name: String, body: String)] {
         let pattern = try? NSRegularExpression(pattern: #"^===== (.+?) =====\s*$"#, options: .anchorsMatchLines)
         guard let pattern else { return [] }
@@ -215,6 +230,7 @@ public enum TradeRepublicSample {
         return result
     }
 
+    /// Merges detail sections into the activities.
     private static func merge(
         _ text: String,
         positions: inout [TradeRepublicPosition],
@@ -232,6 +248,7 @@ public enum TradeRepublicSample {
         if !found.isEmpty { plans = found }
     }
 
+    /// Applies one detail section.
     private static func applyDetail(_ body: String, name: String, to activities: inout [TradeRepublicActivity]) {
         let token = name.split(whereSeparator: \.isWhitespace).last.map(String.init) ?? ""
         guard token.count == 36, token.filter({ $0 == "-" }).count == 4 else { return }
@@ -240,6 +257,7 @@ public enum TradeRepublicSample {
     }
 }
 
+/// Texts of the Trade Republic flow.
 public enum TradeRepublicCopy {
     public static var signIn: String { L("Bei Trade Republic anmelden", "Sign in to Trade Republic") }
     public static var waiting: String {
@@ -270,6 +288,7 @@ public enum TradeRepublicCopy {
     }
     public static var close: String { L("Schließen", "Close") }
     public static var balanceSave: String { L("Kontostand speichern", "Save the balance") }
+    /// Asks for the balance on a date.
     public static func balancePrompt(_ date: String) -> String {
         L(
             "Kontostand auf Trade Republic am \(date). Das ist der Start des ersten Zeitraums, damit das Konto nicht ins Minus rutscht.",
@@ -287,6 +306,7 @@ public enum TradeRepublicCopy {
             "There is no extract yet. Sign in to Trade Republic first. The file is then here. Saving works like Export finance, into the Files app."
         )
     }
+    /// Reports the size of the prepared extract.
     public static func extractReady(_ bytes: Int) -> String {
         L(
             "\(bytes) Bytes. Auszug speichern schreibt die Datei in die Dateien-App, wie Finanzen exportieren. Der ganze Text liegt nicht auf diesem Bildschirm.",
@@ -305,9 +325,11 @@ public enum TradeRepublicCopy {
             "That is a Lifify backup, not a Trade Republic extract. After signing in, save the extract here and send that file."
         )
     }
+    /// Says whether a pasted text is a Lifify backup.
     public static func looksLikeBackup(_ text: String) -> Bool {
         text.contains("backupScope") || text.contains("\"type\" : \"account\"") || text.contains("\"type\":\"account\"")
     }
+    /// Reports the applied extract.
     public static func appliedExtract(_ count: Int) -> String {
         L(
             "\(count) Buchungen aus dem Auszug übernommen.",
@@ -349,6 +371,7 @@ public enum TradeRepublicCopy {
     }
 }
 
+/// The open sign-in process.
 public struct TradeRepublicChallenge: Equatable {
     public var processId: String
     public var countdownSeconds: Int
@@ -361,6 +384,7 @@ public struct TradeRepublicChallenge: Equatable {
     }
 }
 
+/// The result of polling a sign-in.
 public struct TradeRepublicPoll: Equatable {
     public var status: String
     public var needsCode: Bool
@@ -375,6 +399,7 @@ public struct TradeRepublicPoll: Equatable {
     }
 }
 
+/// One depot position from Trade Republic.
 public struct TradeRepublicPosition: Equatable, Sendable {
     public var isin: String
     public var name: String
@@ -389,12 +414,15 @@ public struct TradeRepublicPosition: Equatable, Sendable {
     }
 }
 
+/// The result of reading the portfolio.
 public enum PortfolioRead: Equatable {
     case positions([TradeRepublicPosition])
     case unreadable
 }
 
+/// Reads and merges session cookies.
 public enum TradeRepublicCookies {
+    /// Stores a cookie header in a cookie store.
     public static func store(_ header: String, url: URL, storage: HTTPCookieStorage?) {
         guard let storage else { return }
         let host = url.host ?? "api.traderepublic.com"
@@ -415,6 +443,7 @@ public enum TradeRepublicCookies {
         }
     }
 
+    /// Builds a header from a cookie store.
     public static func header(from storage: HTTPCookieStorage?) -> String {
         let cookies = (storage?.cookies ?? []).filter {
             $0.domain.isEmpty || $0.domain.localizedCaseInsensitiveContains("traderepublic.com")
@@ -428,6 +457,7 @@ public enum TradeRepublicCookies {
         return names.map { "\($0)=\(values[$0] ?? "")" }.joined(separator: "; ")
     }
 
+    /// Reads the cookies of a response.
     public static func header(from response: HTTPURLResponse, url: URL, storage: HTTPCookieStorage?) -> String {
         var fields: [String: String] = [:]
         for (key, value) in response.allHeaderFields {
@@ -440,15 +470,18 @@ public enum TradeRepublicCookies {
         return merging(previous: header(from: storage), fresh: parsed)
     }
 
+    /// Merges earlier cookies with a store.
     public static func merging(previous: String, storage: HTTPCookieStorage?) -> String {
         merging(previous: previous, fresh: header(from: storage))
     }
 
+    /// Merges two headers. Newer values win.
     public static func merging(previous: String, fresh: String) -> String {
         if fresh.isEmpty { return previous }
         if previous.isEmpty { return fresh }
         var order: [String] = []
         var values: [String: String] = [:]
+        /// Adds the parts of a header.
         func absorb(_ header: String) {
             for part in header.split(separator: ";") {
                 let piece = part.trimmingCharacters(in: .whitespaces)
@@ -465,6 +498,7 @@ public enum TradeRepublicCookies {
         return order.map { "\($0)=\(values[$0] ?? "")" }.joined(separator: "; ")
     }
 
+    /// Says whether the header holds a session cookie.
     public static func keepsSession(_ header: String) -> Bool {
         header.split(separator: ";").contains { part in
             let name = part.split(separator: "=").first?
@@ -475,12 +509,15 @@ public enum TradeRepublicCookies {
     }
 }
 
+/// The session store. By design it keeps no session.
 public enum TradeRepublicSessionStore {
+    /// Ignores the header, because sessions are not stored.
     public static func save(_ header: String) {
         _ = header
         clear()
     }
 
+    /// Reads a session left by an older version.
     public static func cookies() -> String? {
         KeychainStore.string(
             account: KeychainStore.tradeRepublicAccount,
@@ -493,6 +530,7 @@ public enum TradeRepublicSessionStore {
         return TradeRepublicCookies.keepsSession(value)
     }
 
+    /// Removes a session left by an older version.
     public static func clear() {
         KeychainStore.remove(
             account: KeychainStore.tradeRepublicAccount,
@@ -501,6 +539,7 @@ public enum TradeRepublicSessionStore {
     }
 }
 
+/// Builds and reads the sign-in requests.
 public enum TradeRepublicRequest {
     public static let host = "https://api.traderepublic.com"
     public static let appVersion = "2.2631.13"
@@ -509,16 +548,19 @@ public enum TradeRepublicRequest {
     public static let loginURL = URL(string: "\(host)/api/v2/auth/web/login")!
     public static let accountURL = URL(string: "\(host)/api/v2/auth/account")!
 
+    /// Returns the status URL of a process.
     public static func processURL(_ processId: String) -> URL? {
         guard isProcessID(processId) else { return nil }
         return URL(string: "\(host)/api/v2/auth/web/login/processes/\(processId)")
     }
 
+    /// Returns the code URL of a process.
     public static func codeURL(_ processId: String) -> URL? {
         guard isProcessID(processId) else { return nil }
         return URL(string: "\(host)/api/v2/auth/web/login/processes/\(processId)/authenticator-verification")
     }
 
+    /// Checks a process ID before it goes into a URL.
     public static func isProcessID(_ value: String) -> Bool {
         value.range(of: #"^[A-Za-z0-9-]{1,64}$"#, options: .regularExpression) != nil
     }
@@ -532,15 +574,18 @@ public enum TradeRepublicRequest {
         return compact
     }
 
+    /// Encodes phone number and PIN.
     public static func body(phone: String, pin: String) -> Data {
         let object = ["phoneNumber": phone, "pin": pin]
         return (try? JSONSerialization.data(withJSONObject: object)) ?? Data()
     }
 
+    /// Encodes the confirmation code.
     public static func codeBody(_ code: String) -> Data {
         (try? JSONSerialization.data(withJSONObject: ["code": code])) ?? Data()
     }
 
+    /// Returns the request headers.
     public static func headers() -> [String: String] {
         [
             "Content-Type": "application/json",
@@ -576,6 +621,7 @@ public enum TradeRepublicRequest {
         return data.base64EncodedString()
     }()
 
+    /// Reads the process ID and countdown.
     public static func challenge(from data: Data) -> (processId: String, countdown: Int)? {
         guard let object = jsonObject(data),
               let processId = object["processId"] as? String,
@@ -584,6 +630,7 @@ public enum TradeRepublicRequest {
         return (processId, intValue(object["countdownInSeconds"]) ?? 120)
     }
 
+    /// Reads the status of a sign-in.
     public static func poll(from data: Data, cookies: String) -> TradeRepublicPoll? {
         guard let object = jsonObject(data) else { return nil }
         let status = (object["status"] as? String) ?? ""
@@ -597,6 +644,7 @@ public enum TradeRepublicRequest {
         )
     }
 
+    /// Reads an error code.
     public static func errorCode(from data: Data) -> String? {
         guard let object = jsonObject(data),
               let errors = object["errors"] as? [[String: Any]],
@@ -605,6 +653,7 @@ public enum TradeRepublicRequest {
         return code
     }
 
+    /// Maps a failed response to a failure.
     public static func failure(
         statusCode: Int,
         errorCode: String?,
@@ -628,10 +677,12 @@ public enum TradeRepublicRequest {
         return statusCode >= 400 ? .rejected : nil
     }
 
+    /// Parses a JSON object.
     public static func jsonObject(_ data: Data) -> [String: Any]? {
         try? JSONSerialization.jsonObject(with: data) as? [String: Any]
     }
 
+    /// Reads an integer from JSON.
     public static func intValue(_ value: Any?) -> Int? {
         switch value {
         case let number as Int: return number
@@ -641,22 +692,27 @@ public enum TradeRepublicRequest {
     }
 }
 
+/// Reads depot positions from responses.
 public enum TradeRepublicPortfolio {
+    /// Reads positions from data.
     public static func read(_ data: Data) -> PortfolioRead {
         guard let object = try? JSONSerialization.jsonObject(with: data) else { return .unreadable }
         return read(object: object)
     }
 
+    /// Reads positions from text that may hold a prefix.
     public static func read(text: String) -> PortfolioRead {
         guard let start = text.firstIndex(where: { $0 == "{" || $0 == "[" }) else { return .unreadable }
         return read(Data(text[start...].utf8))
     }
 
+    /// Reads the securities account number from data.
     public static func securitiesAccountNumber(from data: Data) -> String? {
         guard let object = TradeRepublicRequest.jsonObject(data) else { return nil }
         return string(object["securitiesAccountNumber"]) ?? string(object["secAccNo"])
     }
 
+    /// Reads the securities account number from account pairs.
     public static func securitiesAccountNumber(fromAccountPairs text: String) -> String? {
         guard let start = text.firstIndex(of: "{"),
               let object = try? JSONSerialization.jsonObject(with: Data(text[start...].utf8)) as? [String: Any],
@@ -669,6 +725,7 @@ public enum TradeRepublicPortfolio {
         return numbered.first(where: \.1)?.0 ?? numbered.first?.0
     }
 
+    /// Reads positions from parsed JSON.
     private static func read(object: Any) -> PortfolioRead {
         if let list = object as? [Any] {
             return .positions(positions(in: list))
@@ -689,6 +746,7 @@ public enum TradeRepublicPortfolio {
         return .unreadable
     }
 
+    /// Converts list rows to positions.
     private static func positions(in list: [Any]) -> [TradeRepublicPosition] {
         list.compactMap { item in
             guard let row = item as? [String: Any] else { return nil }
@@ -706,12 +764,14 @@ public enum TradeRepublicPortfolio {
         }
     }
 
+    /// Reads a non-empty string.
     private static func string(_ value: Any?) -> String? {
         guard let text = value as? String else { return nil }
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? nil : trimmed
     }
 
+    /// Reads a number.
     private static func doubleValue(_ value: Any?) -> Double? {
         switch value {
         case let number as Double: return number
@@ -723,12 +783,14 @@ public enum TradeRepublicPortfolio {
         }
     }
 
+    /// Reads a non-negative amount in cents.
     private static func cents(_ value: Any?) -> Int? {
         guard let number = doubleValue(value), number >= 0 else { return nil }
         return Int((number * 100).rounded())
     }
 }
 
+/// The stored values of a holding, for planning edits.
 public struct HoldingSeed: Equatable {
     public var symbol: String
     public var name: String
@@ -743,6 +805,7 @@ public struct HoldingSeed: Equatable {
     }
 }
 
+/// A planned change to a holding.
 public struct HoldingEdit: Equatable {
     public var symbol: String
     public var name: String
@@ -759,7 +822,9 @@ public struct HoldingEdit: Equatable {
     }
 }
 
+/// Compares live positions with stored holdings.
 public enum TradeRepublicDepotPlan {
+    /// Lists the needed holding changes.
     public static func edits(positions: [TradeRepublicPosition], holdings: [HoldingSeed]) -> [HoldingEdit] {
         positions.compactMap { position in
             let isin = position.isin.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
@@ -785,6 +850,7 @@ public enum TradeRepublicDepotPlan {
     }
 }
 
+/// An account reduced to what target selection needs.
 public struct NamedAccount: Equatable {
     public var id: UUID
     public var name: String
@@ -799,13 +865,16 @@ public struct NamedAccount: Equatable {
     }
 }
 
+/// The depot an import writes to.
 public enum DepotChoice: Equatable {
     case existing(UUID)
     case create
     case ambiguous
 }
 
+/// Selects the depot for an import.
 public enum TradeRepublicDepotTarget {
+    /// Picks the linked or only depot, or asks for a new one.
     public static func choose(accounts: [NamedAccount], linkedPortfolioID: UUID?) -> DepotChoice {
         let portfolios = accounts.filter { $0.kind == .portfolio }
         if let linkedPortfolioID, portfolios.contains(where: { $0.id == linkedPortfolioID }) {

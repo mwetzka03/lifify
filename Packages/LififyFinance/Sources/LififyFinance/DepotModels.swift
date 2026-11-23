@@ -17,6 +17,7 @@ public final class StoredHoldingLot {
     public var ledgerEntryID: UUID?
     public var source: String
 
+    /// Stores a lot with its position in the holding.
     public init(_ lot: HoldingLot, holdingID: UUID, position: Int) {
         lotID = lot.id
         self.holdingID = holdingID
@@ -46,6 +47,7 @@ public final class StoredHoldingLot {
     }
 }
 
+/// The stored form of a savings plan.
 @Model
 public final class StoredSavingsPlan {
     public var planID: UUID
@@ -62,6 +64,7 @@ public final class StoredSavingsPlan {
     public var active: Bool
     public var fixedCostID: UUID?
 
+    /// Stores a plan with its list position.
     public init(_ plan: SavingsPlanRecord, position: Int) {
         planID = plan.id
         self.position = position
@@ -104,6 +107,7 @@ public final class StoredClosedPosition {
     public var name: String
     public var lotsData: Data
 
+    /// Stores a closed position with its list position.
     public init(_ record: ClosedPositionRecord, position: Int) {
         self.position = position
         isin = record.isin
@@ -136,6 +140,7 @@ public final class StoredHoldingMarket {
     }
 }
 
+/// Links a depot account to its checking account.
 @Model
 public final class StoredPortfolioLink {
     @Attribute(.unique) public var checkingID: UUID

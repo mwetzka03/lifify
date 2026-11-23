@@ -2,8 +2,10 @@ import Foundation
 import LififyCore
 import PDFKit
 
+/// Reads Trade Republic PDF account statements.
 @MainActor
 public enum TradeRepublicImporter {
+    /// Parses a statement with the available text readers.
     public static func parse(data: Data) throws -> TradeRepublicStatement {
         for pages in PDFContentText.candidateWordPages(in: data) {
             let placed = pages.map { page in
@@ -22,6 +24,7 @@ public enum TradeRepublicImporter {
         return statement
     }
 
+    /// Reads the statement's columns from positioned text.
     private static func columnStatement(in document: PDFDocument) -> TradeRepublicStatement? {
         var pages: [[PlacedWord]] = []
         for index in 0..<document.pageCount {
@@ -162,11 +165,13 @@ public enum TradeRepublicImporter {
         return parsed
     }
 
+    /// Limits a column band toward its neighbor.
     private static func bandLimit(from anchor: CGFloat, toward neighbor: CGFloat?) -> CGFloat {
         guard let neighbor else { return 18 }
         return min(18, max(6, abs(neighbor - anchor) / 2 - 0.4))
     }
 
+    /// Builds an imported row.
     private static func importedRow(
         date: Date,
         type: String,
@@ -199,6 +204,7 @@ public enum TradeRepublicImporter {
         )
     }
 
+    /// Builds the display title of an event.
     private static func eventTitle(trade: ImportedSecurityTrade?, fallback: String, type: String) -> String {
         guard let trade else { return fallback.isEmpty ? type : fallback }
         if trade.isSavingsPlan { return "\(L("Sparplan", "Savings plan")): \(trade.name)" }
@@ -206,6 +212,7 @@ public enum TradeRepublicImporter {
         return "\(action): \(trade.name)"
     }
 
+    /// Finds a German date in a text.
     private static func date(in text: String) -> Date? {
         let pattern = #"(\d{1,2})\.?\s+((?:Jan(?:uar)?|Feb(?:ruar)?|Mär(?:z)?|Maerz|Mar(?:z)?|Mrz|Apr(?:il)?|Mai|Juni?|Juli?|Aug(?:ust)?|Sept(?:ember)?|Sep|Okt(?:ober)?|Nov(?:ember)?|Dez(?:ember)?)\.?)\s+(20\d{2})"#
         guard let expression = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]),
@@ -221,24 +228,29 @@ public enum TradeRepublicImporter {
         return statementDate(day: day, month: month, year: year)
     }
 
+    /// Says whether the marker occurs in a text.
     nonisolated private static func containsMarker(_ marker: String, in text: String) -> Bool {
         text.range(of: marker, options: [.caseInsensitive, .diacriticInsensitive]) != nil
     }
 
+    /// Folds case and accents for comparison.
     nonisolated private static func folded(_ text: String) -> String {
         text.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "de_DE"))
     }
 
+    /// Says whether the text is an overview heading.
     nonisolated private static func isOverviewTitle(_ text: String) -> Bool {
         let value = folded(text)
         return value.contains("umsatz") && value.contains("bersicht") && !value.contains("konto")
     }
 
+    /// Maps a type text to its canonical name.
     private static func canonicalType(_ text: String) -> String? {
         let value = folded(text)
         return statementTypes.first { folded($0) == value }
     }
 
+    /// Says whether the text ends the transaction section.
     nonisolated private static func isSectionEnd(_ text: String) -> Bool {
         let value = folded(text)
         if value.contains("treuhandkonten") { return true }
@@ -247,6 +259,7 @@ public enum TradeRepublicImporter {
         return value.contains("hinweise zum")
     }
 
+    /// Groups words into lines by position.
     private static func groupedLines(_ words: [PlacedWord]) -> [TextLine] {
         let sorted = words.sorted { lhs, rhs in
             if lhs.midY != rhs.midY { return lhs.midY > rhs.midY }
@@ -268,6 +281,7 @@ public enum TradeRepublicImporter {
         }
     }
 
+    /// Builds lines from the page's glyphs.
     private static func textLines(on page: PDFPage) -> [TextLine] {
         guard let raw = page.string, !raw.isEmpty else { return [] }
         let ns = raw as NSString
@@ -304,12 +318,14 @@ public enum TradeRepublicImporter {
         }
     }
 
+    /// Joins glyphs into words.
     private static func words(from glyphs: [Glyph]) -> [PlacedWord] {
         var words: [PlacedWord] = []
         var buffer = ""
         var minX: CGFloat = 0
         var maxX: CGFloat = 0
         var midY: CGFloat = 0
+        /// Finishes the current word.
         func flush() {
             let text = buffer.trimmingCharacters(in: .whitespacesAndNewlines)
             if !text.isEmpty {
@@ -342,6 +358,7 @@ public enum TradeRepublicImporter {
         return words
     }
 
+    /// Finds the account IBAN in the header.
     private static func accountIBAN(in header: String) -> String {
         let source = header.replacingOccurrences(of: "\u{00a0}", with: " ").uppercased()
         guard let match = firstMatch(#"IBAN\s+([A-Z]{2}[0-9]{2}[A-Z0-9]{11,30})"#, in: source) else { return "" }
@@ -349,6 +366,7 @@ public enum TradeRepublicImporter {
         return isIBAN(candidate) ? candidate : ""
     }
 
+    /// Cleans a title for display.
     private static func displayTitle(_ text: String) -> String {
         var title = text.replacingOccurrences(of: "  ", with: " ").trimmingCharacters(in: .whitespacesAndNewlines)
         let cutoffs = ["exchange rate", ", quantity", " quantity:"]
@@ -360,6 +378,7 @@ public enum TradeRepublicImporter {
         return title.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines.union(CharacterSet(charactersIn: ",-")))
     }
 
+    /// Parses an amount in German format.
     private static func amountCents(_ token: String) -> Int? {
         let trimmed = token
             .replacingOccurrences(of: "€", with: "")
@@ -369,6 +388,7 @@ public enum TradeRepublicImporter {
         return Money.cents(from: trimmed)
     }
 
+    /// Reads a security trade from a description.
     private static func securityTrade(type: String, description: String, inflow: Int?) -> ImportedSecurityTrade? {
         guard type == "Handel" else { return nil }
         guard let isin = firstMatch(#"\b([A-Z]{2}[A-Z0-9]{10})\b"#, in: description),
@@ -400,6 +420,7 @@ public enum TradeRepublicImporter {
         )
     }
 
+    /// Extracts the instrument name.
     private static func instrumentName(description: String, isin: String) -> String {
         guard let range = description.range(of: isin) else { return "" }
         var name = String(description[range.upperBound...])
@@ -409,6 +430,7 @@ public enum TradeRepublicImporter {
         return name.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines.union(CharacterSet(charactersIn: "-,")))
     }
 
+    /// Builds a date from its parts.
     private static func statementDate(day: Int, month: Int, year: Int) -> Date? {
         var components = DateComponents()
         components.calendar = Calendar(identifier: .gregorian)
@@ -419,6 +441,7 @@ public enum TradeRepublicImporter {
         return components.date
     }
 
+    /// Maps a month name to its number.
     private static func monthNumber(_ token: String) -> Int? {
         let folded = token
             .trimmingCharacters(in: CharacterSet(charactersIn: "."))
@@ -427,6 +450,7 @@ public enum TradeRepublicImporter {
         return months[folded]
     }
 
+    /// Returns the first regular expression match.
     private static func firstMatch(_ pattern: String, in text: String, options: NSRegularExpression.Options = []) -> String? {
         guard let expression = try? NSRegularExpression(pattern: pattern, options: options),
               let match = expression.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
@@ -436,18 +460,21 @@ public enum TradeRepublicImporter {
         return String(text[range])
     }
 
+    /// Finds an IBAN in a text.
     private static func iban(in text: String) -> String {
         guard let match = firstMatch(#"\b([A-Z]{2}[0-9]{2}[A-Z0-9]{11,30})\b"#, in: text.uppercased()) else { return "" }
         let candidate = match.replacingOccurrences(of: " ", with: "")
         return isIBAN(candidate) ? candidate : ""
     }
 
+    /// Checks an IBAN's length and form.
     private static func isIBAN(_ value: String) -> Bool {
         (15...34).contains(value.count)
             && value.prefix(2).allSatisfy(\.isLetter)
             && value.dropFirst(2).allSatisfy { $0.isLetter || $0.isNumber }
     }
 
+    /// Formats a share count without trailing zeros.
     private static func quantityText(_ quantity: Double) -> String {
         var text = String(format: "%.6f", quantity)
         while text.contains("."), text.last == "0" { text.removeLast() }
@@ -455,6 +482,7 @@ public enum TradeRepublicImporter {
         return text
     }
 
+    /// One positioned character.
     private struct Glyph {
         var text: String
         var minX: CGFloat
@@ -462,6 +490,7 @@ public enum TradeRepublicImporter {
         var midY: CGFloat
     }
 
+    /// One positioned word.
     private struct PlacedWord {
         var text: String
         var minX: CGFloat
@@ -469,6 +498,7 @@ public enum TradeRepublicImporter {
         var midY: CGFloat
     }
 
+    /// One line of words.
     private struct TextLine {
         var midY: CGFloat
         var words: [PlacedWord]

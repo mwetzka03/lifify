@@ -2,6 +2,7 @@ import Foundation
 import LififyCore
 import SwiftData
 
+/// A security found by search.
 public struct StockSuggestion: Identifiable, Hashable {
     public let symbol: String
     public let name: String
@@ -16,8 +17,10 @@ public struct StockSuggestion: Identifiable, Hashable {
     }
 }
 
+/// Stores symbol, previous close, and purchase date per holding.
 @MainActor
 public enum HoldingMarketStore {
+    /// The stored market values of one holding.
     public struct Values: Equatable {
         public var symbol: String?
         public var previousCloseCents: Int?
@@ -34,15 +37,18 @@ public enum HoldingMarketStore {
     /// Changes whenever a stored value changes, so calculations know when to repeat.
     public private(set) static var cacheRevision = 0
 
+    /// Drops the in-memory copy.
     public static func clearCache() {
         cached = nil
         cacheRevision &+= 1
     }
 
+    /// Returns a holding's values.
     public static func values(for holdingID: UUID) -> Values {
         snapshot()[holdingID] ?? Values()
     }
 
+    /// Changes a holding's values and removes an empty row.
     public static func update(_ holdingID: UUID, _ change: (inout Values) -> Void) {
         var map = snapshot()
         var values = map[holdingID] ?? Values()
@@ -71,6 +77,7 @@ public enum HoldingMarketStore {
         LififyDatabase.saveSide()
     }
 
+    /// Reads all values.
     private static func snapshot() -> [UUID: Values] {
         if let cached { return cached }
         var map: [UUID: Values] = [:]
@@ -86,21 +93,26 @@ public enum HoldingMarketStore {
     }
 }
 
+/// The market symbol of a holding.
 @MainActor
 public enum MarketSymbolStore {
+    /// Returns the symbol.
     public static func symbol(for holdingID: UUID) -> String? {
         HoldingMarketStore.values(for: holdingID).symbol
     }
 
+    /// Stores the symbol.
     public static func set(_ symbol: String, for holdingID: UUID) {
         HoldingMarketStore.update(holdingID) { $0.symbol = symbol }
     }
 
+    /// Removes the symbol.
     public static func remove(for holdingID: UUID) {
         HoldingMarketStore.update(holdingID) { $0.symbol = nil }
     }
 }
 
+/// A current price with its previous close.
 public struct MarketQuote {
     public let priceCents: Int
     public let previousCloseCents: Int?
@@ -111,6 +123,7 @@ public struct MarketQuote {
     }
 }
 
+/// Caches daily closing prices.
 @MainActor
 public enum HistoricalPriceStore {
     private static let key = "lifify.historicalPrices"
@@ -118,16 +131,19 @@ public enum HistoricalPriceStore {
     private static var orderedPrices: [String: [(key: String, cents: Int)]] = [:]
     public private(set) static var cacheRevision = 0
 
+    /// Drops the in-memory copy.
     public static func clearCache() {
         cached = nil
         orderedPrices = [:]
         cacheRevision &+= 1
     }
 
+    /// Returns the price of a day.
     public static func cents(for holdingID: UUID, dayKey: String) -> Int? {
         snapshot()[holdingID.uuidString]?[dayKey]
     }
 
+    /// Returns the latest price on or before a day.
     public static func nearestCents(for holdingID: UUID, onOrBefore dayKey: String) -> Int? {
         let rows = orderedRows(for: holdingID)
         guard !rows.isEmpty else { return nil }
@@ -146,6 +162,7 @@ public enum HistoricalPriceStore {
         return found
     }
 
+    /// Replaces a holding's prices.
     public static func replace(_ prices: [String: Int], holdingID: UUID) {
         var map = snapshot()
         if prices.isEmpty {
@@ -156,12 +173,14 @@ public enum HistoricalPriceStore {
         save(map)
     }
 
+    /// Removes a holding's prices.
     public static func remove(for holdingID: UUID) {
         var map = snapshot()
         map.removeValue(forKey: holdingID.uuidString)
         save(map)
     }
 
+    /// Reads the cached prices.
     private static func snapshot() -> [String: [String: Int]] {
         if let cached { return cached }
         let decoded: [String: [String: Int]]
@@ -175,6 +194,7 @@ public enum HistoricalPriceStore {
         return decoded
     }
 
+    /// Returns a holding's prices sorted by day.
     private static func orderedRows(for holdingID: UUID) -> [(key: String, cents: Int)] {
         let id = holdingID.uuidString
         if let rows = orderedPrices[id] { return rows }
@@ -183,6 +203,7 @@ public enum HistoricalPriceStore {
         return rows
     }
 
+    /// Writes the prices and clears derived lookups.
     private static func save(_ map: [String: [String: Int]]) {
         guard let data = try? JSONEncoder().encode(map) else { return }
         AppDefaults.store.set(data, forKey: key)
@@ -192,38 +213,48 @@ public enum HistoricalPriceStore {
     }
 }
 
+/// The previous close of a holding.
 @MainActor
 public enum PreviousCloseStore {
+    /// Returns the previous close.
     public static func cents(for holdingID: UUID) -> Int? {
         HoldingMarketStore.values(for: holdingID).previousCloseCents
     }
 
+    /// Stores the previous close.
     public static func set(_ cents: Int, for holdingID: UUID) {
         HoldingMarketStore.update(holdingID) { $0.previousCloseCents = cents }
     }
 
+    /// Removes the previous close.
     public static func remove(for holdingID: UUID) {
         HoldingMarketStore.update(holdingID) { $0.previousCloseCents = nil }
     }
 }
 
+/// The first purchase date of a holding.
 @MainActor
 public enum HoldingPurchaseDateStore {
+    /// Returns the date.
     public static func date(for holdingID: UUID) -> Date? {
         HoldingMarketStore.values(for: holdingID).purchaseDate
     }
 
+    /// Stores the date.
     public static func set(_ date: Date, for holdingID: UUID) {
         HoldingMarketStore.update(holdingID) { $0.purchaseDate = date }
     }
 
+    /// Removes the date.
     public static func remove(for holdingID: UUID) {
         HoldingMarketStore.update(holdingID) { $0.purchaseDate = nil }
     }
 }
 
+/// Loads quotes and history from Yahoo Finance.
 @MainActor
 public enum MarketDataService {
+    /// Refreshes prices and history of the holdings.
     public static func refresh(holdings: [PortfolioHolding], context: ModelContext) async {
         var changed = false
         var fxRates: [String: [String: Double]] = [:]
@@ -251,20 +282,24 @@ public enum MarketDataService {
         if changed { try? context.save() }
     }
 
+    /// Returns the current euro price of an ISIN.
     public static func currentPriceCents(for isin: String) async throws -> Int {
         try await quote(for: isin).priceCents
     }
 
+    /// Returns the quote of an ISIN.
     public static func quote(for isin: String) async throws -> MarketQuote {
         let matches = try await suggestions(for: isin)
         guard let match = preferred(matches) else { throw MarketDataError.instrumentNotFound }
         return try await quote(for: match)
     }
 
+    /// Returns the quote of a found security.
     public static func quote(for suggestion: StockSuggestion) async throws -> MarketQuote {
         try await quote(forMarketSymbol: suggestion.symbol)
     }
 
+    /// Searches listings for an ISIN or crypto ticker.
     public static func suggestions(for isin: String) async throws -> [StockSuggestion] {
         let normalizedISIN = isin
             .trimmingCharacters(in: .whitespacesAndNewlines)
@@ -335,6 +370,7 @@ public enum MarketDataService {
         }.first
     }
 
+    /// Ranks a listing, so the most useful one comes first.
     private static func listingScore(_ item: StockSuggestion) -> Int {
         let symbol = item.symbol.uppercased()
         let exchange = item.exchange.uppercased()
@@ -350,10 +386,12 @@ public enum MarketDataService {
         return score
     }
 
+    /// Returns the current euro price of a found security.
     public static func currentPriceCents(for suggestion: StockSuggestion) async throws -> Int {
         try await quote(for: suggestion).priceCents
     }
 
+    /// Loads and converts a quote.
     private static func quote(forMarketSymbol symbol: String) async throws -> MarketQuote {
         let quote = try await chart(symbol: symbol)
         guard let price = quote.price, price > 0 else { throw MarketDataError.priceUnavailable }
@@ -367,6 +405,7 @@ public enum MarketDataService {
         return MarketQuote(priceCents: priceCents, previousCloseCents: previousCents)
     }
 
+    /// Converts a price to euro cents.
     private static func euroCents(for price: Double, sourceCurrency: String) async throws -> Int {
         let currency = sourceCurrency.uppercased()
         let euroPrice: Double
@@ -391,6 +430,7 @@ public enum MarketDataService {
         return Int((euroPrice * 100).rounded())
     }
 
+    /// Says whether a quote can be requested for the value.
     public static func isQuoteable(_ value: String) -> Bool {
         isValidISIN(value) || cryptoTicker(from: value) != nil
     }
@@ -403,6 +443,7 @@ public enum MarketDataService {
         return ticker.count >= 3 ? String(ticker) : nil
     }
 
+    /// Checks an ISIN's form and check digit.
     public static func isValidISIN(_ value: String) -> Bool {
         let value = value
             .trimmingCharacters(in: .whitespacesAndNewlines)
@@ -436,6 +477,7 @@ public enum MarketDataService {
         return checksum.isMultiple(of: 10)
     }
 
+    /// Loads the quote of a holding.
     private static func currentQuote(for holding: PortfolioHolding) async throws -> MarketQuote {
         if let stored = MarketSymbolStore.symbol(for: holding.id) {
             if let quote = try? await quote(forMarketSymbol: stored) {
@@ -450,6 +492,7 @@ public enum MarketDataService {
         return quote
     }
 
+    /// Loads a holding's price history in euros.
     private static func history(
         for holding: PortfolioHolding,
         fxRates: [String: [String: Double]]
@@ -459,6 +502,7 @@ public enum MarketDataService {
         return (converted.history, converted.priceCents, converted.previousCloseCents, converted.fxRates)
     }
 
+    /// Loads a holding's raw price series.
     private static func series(for holding: PortfolioHolding) async throws -> YahooSeries {
         if let stored = MarketSymbolStore.symbol(for: holding.id) {
             if let series = try? await chartSeries(symbol: stored, range: "5y") {
@@ -473,6 +517,7 @@ public enum MarketDataService {
         return series
     }
 
+    /// Converts a price series to euros.
     private static func euroHistory(
         _ series: YahooSeries,
         fxRates: [String: [String: Double]]
@@ -499,6 +544,7 @@ public enum MarketDataService {
         return (history, latestCents, previousCents, loadedRates.cache)
     }
 
+    /// Converts one price with that day's rate.
     private static func euroCents(price: Double, currency: String, dayKey: String, rates: [String: Double]) -> Int? {
         guard price > 0 else { return nil }
         let code = currency.uppercased()
@@ -519,6 +565,7 @@ public enum MarketDataService {
         return Int((value * rate * 100).rounded())
     }
 
+    /// Loads daily exchange rates.
     private static func fxDayRates(
         currency: String,
         cache: [String: [String: Double]]
@@ -540,6 +587,7 @@ public enum MarketDataService {
         return (rates, stored)
     }
 
+    /// Loads the current chart values.
     private static func chart(symbol: String) async throws -> YahooChartQuote {
         let series = try await chartSeries(symbol: symbol, range: "5d")
         return YahooChartQuote(
@@ -549,6 +597,7 @@ public enum MarketDataService {
         )
     }
 
+    /// Loads a chart series for a range.
     private static func chartSeries(symbol: String, range: String) async throws -> YahooSeries {
         var allowed = CharacterSet.urlPathAllowed
         allowed.insert(charactersIn: "=")
@@ -574,6 +623,7 @@ public enum MarketDataService {
         )
     }
 
+    /// Tries several URLs until one answers.
     private static func requestFirst<Response: Decodable>(_ urls: [URL]) async throws -> Response {
         var last: Error = MarketDataError.requestFailed
         for url in urls {
@@ -583,6 +633,7 @@ public enum MarketDataService {
         throw last
     }
 
+    /// Requests and decodes JSON.
     private static func request<Response: Decodable>(_ url: URL) async throws -> Response {
         var request = URLRequest(url: url)
         request.setValue("Mozilla/5.0 Lifify/\(AppVersion.current)", forHTTPHeaderField: "User-Agent")
@@ -595,10 +646,12 @@ public enum MarketDataService {
     }
 }
 
+/// Yahoo search response.
 private struct YahooSearchResponse: Decodable {
     let quotes: [YahooSearchQuote]
 }
 
+/// One Yahoo search hit.
 private struct YahooSearchQuote: Decodable {
     let symbol: String?
     let quoteType: String?
@@ -609,23 +662,28 @@ private struct YahooSearchQuote: Decodable {
     let exchDisp: String?
 }
 
+/// Yahoo chart response.
 private struct YahooChartResponse: Decodable {
     let chart: YahooChart
 }
 
+/// The chart container.
 private struct YahooChart: Decodable {
     let result: [YahooChartResult]?
 }
 
+/// One chart result.
 private struct YahooChartResult: Decodable {
     let meta: YahooChartMeta
     let timestamp: [Int]?
     let indicators: YahooIndicators?
 
+    /// The chart's field names.
     private enum CodingKeys: String, CodingKey {
         case meta, timestamp, indicators
     }
 
+    /// Decodes a result and tolerates missing series.
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         meta = try container.decode(YahooChartMeta.self, forKey: .meta)
@@ -640,14 +698,17 @@ private struct YahooChartResult: Decodable {
     }
 }
 
+/// The chart's indicators.
 private struct YahooIndicators: Decodable {
     let quote: [YahooIndicatorQuote]?
 }
 
+/// The chart's closing prices.
 private struct YahooIndicatorQuote: Decodable {
     let close: [Double?]?
 }
 
+/// A price series with its currency.
 private struct YahooSeries {
     let currency: String?
     let points: [(date: Date, price: Double)]
@@ -655,6 +716,7 @@ private struct YahooSeries {
     let previousClose: Double?
 }
 
+/// The chart's metadata.
 private struct YahooChartMeta: Decodable {
     let regularMarketPrice: Double?
     let previousClose: Double?
@@ -662,12 +724,14 @@ private struct YahooChartMeta: Decodable {
     let currency: String?
 }
 
+/// A price with currency and previous close.
 private struct YahooChartQuote {
     let price: Double?
     let previousClose: Double?
     let currency: String?
 }
 
+/// The reasons a quote is unavailable.
 private enum MarketDataError: Error {
     case invalidISIN
     case instrumentNotFound

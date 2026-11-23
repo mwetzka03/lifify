@@ -10,6 +10,7 @@ import Foundation
 /// statement is rejected. Core Graphics still reports each `Tj` with its `Tm` position, and the
 /// ToUnicode map turns those bytes back into the Umsatzübersicht columns.
 public enum PDFContentText {
+    /// A word with its position on the page.
     public struct Word {
         public var text: String
         public var minX: CGFloat
@@ -38,6 +39,7 @@ public enum PDFContentText {
         return sets
     }
 
+    /// Reads words straight from the PDF's content streams.
     private static func contentStreamWordPages(in data: Data) -> [[Word]]? {
         let reader = PDFContentReader(data: data)
         guard reader.open(), !reader.pages.isEmpty else { return nil }
@@ -46,6 +48,7 @@ public enum PDFContentText {
         return pages
     }
 
+    /// Says whether the pages contain the statement title.
     private static func containsStatementTitle(_ pages: [[Word]]) -> Bool {
         pages.contains { page in
             page.contains { word in
@@ -58,6 +61,7 @@ public enum PDFContentText {
         }
     }
 
+    /// Reads words through Core Graphics as a second way.
     private static func coreGraphicsWordPages(in data: Data) -> [[Word]]? {
         guard let provider = CGDataProvider(data: data as CFData),
               let document = CGPDFDocument(provider),
@@ -90,6 +94,7 @@ public enum PDFContentText {
     }
 }
 
+/// Collects positioned text while Core Graphics scans a page.
 private final class PDFTextCollector {
     var content: CGPDFContentStreamRef?
     var maps: [String: PDFCMap] = [:]
@@ -103,6 +108,7 @@ private final class PDFTextCollector {
     var f: CGFloat = 0
     var words: [PDFContentText.Word] = []
 
+    /// Resets the text position.
     func resetText() {
         a = 1
         b = 0
@@ -112,6 +118,7 @@ private final class PDFTextCollector {
         f = 0
     }
 
+    /// Selects the current font.
     func loadFont(_ name: String) {
         fontName = name
         guard maps[name] == nil, let content else { return }
@@ -146,6 +153,7 @@ private final class PDFTextCollector {
         maps[name] = map
     }
 
+    /// Decodes and stores shown text.
     func show(_ data: Data) {
         guard let map = maps[fontName] ?? maps.values.first else { return }
         let text = PDFContentReader.decode(data, map: map).trimmingCharacters(in: .whitespacesAndNewlines)
@@ -155,15 +163,18 @@ private final class PDFTextCollector {
     }
 }
 
+/// Recovers the collector from the scanner's context pointer.
 private func trCollector(_ info: UnsafeMutableRawPointer?) -> PDFTextCollector? {
     guard let info else { return nil }
     return Unmanaged<PDFTextCollector>.fromOpaque(info).takeUnretainedValue()
 }
 
+/// Handles the begin-text operator.
 private func trBeginText(_ scanner: CGPDFScannerRef, _ info: UnsafeMutableRawPointer?) {
     trCollector(info)?.resetText()
 }
 
+/// Handles the set-matrix operator.
 private func trSetMatrix(_ scanner: CGPDFScannerRef, _ info: UnsafeMutableRawPointer?) {
     guard let collector = trCollector(info) else { return }
     var values: [CGPDFReal] = []
@@ -180,6 +191,7 @@ private func trSetMatrix(_ scanner: CGPDFScannerRef, _ info: UnsafeMutableRawPoi
     collector.a = values[5]
 }
 
+/// Handles the move-text operator.
 private func trMoveText(_ scanner: CGPDFScannerRef, _ info: UnsafeMutableRawPointer?) {
     guard let collector = trCollector(info) else { return }
     var y: CGPDFReal = 0
@@ -189,6 +201,7 @@ private func trMoveText(_ scanner: CGPDFScannerRef, _ info: UnsafeMutableRawPoin
     collector.f += x * collector.b + y * collector.d
 }
 
+/// Handles the set-font operator.
 private func trSetFont(_ scanner: CGPDFScannerRef, _ info: UnsafeMutableRawPointer?) {
     guard let collector = trCollector(info) else { return }
     var size: CGPDFReal = 0
@@ -198,6 +211,7 @@ private func trSetFont(_ scanner: CGPDFScannerRef, _ info: UnsafeMutableRawPoint
     collector.loadFont(String(cString: name))
 }
 
+/// Handles the show-text operator.
 private func trShowText(_ scanner: CGPDFScannerRef, _ info: UnsafeMutableRawPointer?) {
     guard let collector = trCollector(info) else { return }
     var string: CGPDFStringRef?
@@ -205,11 +219,13 @@ private func trShowText(_ scanner: CGPDFScannerRef, _ info: UnsafeMutableRawPoin
     collector.show(Data(bytes: pointer, count: CGPDFStringGetLength(string)))
 }
 
+/// A font's table from character codes to Unicode.
 private struct PDFCMap {
     var width: Int
     var characters: [Int: String]
 }
 
+/// A parsed PDF value.
 private enum PDFValue {
     case null
     case number(Double)
@@ -231,6 +247,7 @@ private enum PDFValue {
     }
 }
 
+/// A small parser for PDF syntax.
 private struct PDFScanner {
     var bytes: [UInt8]
     var index: Int
@@ -239,6 +256,7 @@ private struct PDFScanner {
         index < bytes.count ? bytes[index] : nil
     }
 
+    /// Skips whitespace and comments.
     mutating func skip() {
         while index < bytes.count {
             let byte = bytes[index]
@@ -256,6 +274,7 @@ private struct PDFScanner {
         }
     }
 
+    /// Parses a number.
     mutating func parseNumber() -> Double? {
         let rollback = index
         skip()
@@ -288,6 +307,7 @@ private struct PDFScanner {
         return value
     }
 
+    /// Consumes a keyword if it comes next.
     mutating func consume(_ word: String) -> Bool {
         let rollback = index
         skip()
@@ -309,6 +329,7 @@ private struct PDFScanner {
         return true
     }
 
+    /// Parses the next value.
     mutating func parseValue() -> PDFValue? {
         skip()
         guard let byte = peek else { return nil }
@@ -341,6 +362,7 @@ private struct PDFScanner {
         return .number(number)
     }
 
+    /// Parses a dictionary.
     private mutating func parseDictionary() -> PDFValue {
         var items: [String: PDFValue] = [:]
         while index < bytes.count {
@@ -357,6 +379,7 @@ private struct PDFScanner {
         return .dict(items)
     }
 
+    /// Parses an array.
     private mutating func parseArray() -> PDFValue {
         var items: [PDFValue] = []
         while index < bytes.count {
@@ -371,6 +394,7 @@ private struct PDFScanner {
         return .array(items)
     }
 
+    /// Parses a name.
     mutating func parseName() -> String {
         index += 1
         var units: [UInt8] = []
@@ -386,6 +410,7 @@ private struct PDFScanner {
         return String(bytes: units, encoding: .isoLatin1) ?? ""
     }
 
+    /// Parses a literal string with its escapes.
     mutating func parseLiteral() -> Data {
         index += 1
         var buffer: [UInt8] = []
@@ -447,6 +472,7 @@ private struct PDFScanner {
         return Data(buffer)
     }
 
+    /// Parses a hex string.
     mutating func parseHex() -> Data {
         index += 1
         var hex: [UInt8] = []
@@ -470,6 +496,7 @@ private struct PDFScanner {
         return Data(data)
     }
 
+    /// Says whether the byte ends a token.
     func isDelimiter(_ byte: UInt8) -> Bool {
         byte == 32 || byte == 9 || byte == 10 || byte == 13 || byte == 12
             || byte == 40 || byte == 41 || byte == 60 || byte == 62
@@ -477,11 +504,13 @@ private struct PDFScanner {
             || byte == 47 || byte == 37
     }
 
+    /// Combines two hex digits.
     private func hexByte(_ high: UInt8, _ low: UInt8) -> UInt8? {
         guard let first = hexValue(high), let second = hexValue(low) else { return nil }
         return first * 16 + second
     }
 
+    /// Returns the value of a hex digit.
     private func hexValue(_ byte: UInt8) -> UInt8? {
         if byte >= 48 && byte <= 57 { return byte - 48 }
         if byte >= 65 && byte <= 70 { return byte - 55 }
@@ -490,6 +519,7 @@ private struct PDFScanner {
     }
 }
 
+/// Reads pages and text from a PDF's object structure.
 private final class PDFContentReader {
     private let bytes: [UInt8]
     private var table: [Int: Entry] = [:]
@@ -498,10 +528,12 @@ private final class PDFContentReader {
     private var loadingStreams: Set<Int> = []
     private(set) var pages: [[String: PDFValue]] = []
 
+    /// Creates a reader for the file.
     init(data: Data) {
         bytes = [UInt8](data)
     }
 
+    /// Opens the file through its cross-reference stream.
     func open() -> Bool {
         let file = Data(bytes)
         guard let marker = file.range(of: Data("startxref".utf8), options: .backwards) else { return false }
@@ -518,6 +550,7 @@ private final class PDFContentReader {
         return !self.pages.isEmpty
     }
 
+    /// Returns the words of a page.
     func words(on page: [String: PDFValue]) -> [PDFContentText.Word] {
         let fonts = fontMaps(on: page)
         guard !fonts.isEmpty else { return [] }
@@ -526,11 +559,13 @@ private final class PDFContentReader {
         return showText(in: content, fonts: fonts)
     }
 
+    /// Where an object is stored.
     private enum Entry {
         case offset(Int)
         case compressed(stream: Int, index: Int)
     }
 
+    /// Reads the cross-reference table.
     private func indexTable(_ payload: Data, dictionary: [String: PDFValue]) -> Bool {
         let widths = integers(dictionary["W"])
         guard widths.count == 3 else { return false }
@@ -566,6 +601,7 @@ private final class PDFContentReader {
         return !table.isEmpty
     }
 
+    /// Reads one field of a cross-reference row.
     private func readField(_ raw: [UInt8], at cursor: Int, width: Int) -> (Int?, Int?) {
         if width == 0 { return (0, cursor) }
         guard cursor + width <= raw.count else { return (nil, nil) }
@@ -576,6 +612,7 @@ private final class PDFContentReader {
         return (value, cursor + width)
     }
 
+    /// Loads an object by number.
     private func load(_ id: Int) -> PDFValue {
         if let cached = cache[id] { return cached }
         switch table[id] {
@@ -593,11 +630,13 @@ private final class PDFContentReader {
         }
     }
 
+    /// Follows a reference.
     private func resolve(_ value: PDFValue) -> PDFValue {
         if case .reference(let id) = value { return load(id) }
         return value
     }
 
+    /// Unpacks the objects of an object stream.
     private func objects(in streamID: Int) -> [PDFValue] {
         if let existing = streamObjects[streamID] { return existing }
         if loadingStreams.contains(streamID) { return [] }
@@ -630,6 +669,7 @@ private final class PDFContentReader {
         return values
     }
 
+    /// Reads an object at a file offset.
     private func readObject(at offset: Int, resolvingLengths: Bool) -> PDFValue? {
         guard offset >= 0, offset < bytes.count else { return nil }
         var scanner = PDFScanner(bytes: bytes, index: offset)
@@ -647,12 +687,14 @@ private final class PDFContentReader {
         return .stream(dictionary, decoded)
     }
 
+    /// Determines a stream's length.
     private func streamLength(_ dictionary: [String: PDFValue], resolving: Bool) -> Int? {
         if let direct = integer(dictionary["Length"]) { return direct }
         guard resolving, case .reference(let id) = dictionary["Length"] else { return nil }
         return integer(load(id))
     }
 
+    /// Collects the pages of the page tree.
     private func collectPages(_ value: PDFValue) {
         guard case .dict(let node) = resolve(value) else { return }
         if node["Type"]?.name == "Page" {
@@ -664,6 +706,7 @@ private final class PDFContentReader {
         }
     }
 
+    /// Joins and decodes a page's content.
     private func contentBytes(_ value: PDFValue?) -> Data {
         guard let value else { return Data() }
         switch resolve(value) {
@@ -681,6 +724,7 @@ private final class PDFContentReader {
         }
     }
 
+    /// Loads the character maps of a page's fonts.
     private func fontMaps(on page: [String: PDFValue]) -> [String: PDFCMap] {
         guard case .dict(let resources) = resolve(page["Resources"] ?? .null),
               case .dict(let fonts) = resolve(resources["Font"] ?? .null)
@@ -700,6 +744,7 @@ private final class PDFContentReader {
         return maps
     }
 
+    /// Runs the text operators of a content stream.
     private func showText(in data: Data, fonts: [String: PDFCMap]) -> [PDFContentText.Word] {
         let tokens = Self.contentTokens(in: [UInt8](data))
         var words: [PDFContentText.Word] = []
@@ -778,6 +823,7 @@ private final class PDFContentReader {
         return words
     }
 
+    /// Reads the numeric operands.
     private func operandNumbers(_ operands: [ContentToken], count: Int) -> [Double] {
         operands.suffix(count).compactMap { token in
             if case .number(let value) = token { return value }
@@ -785,6 +831,7 @@ private final class PDFContentReader {
         }
     }
 
+    /// Reads a list of integers.
     private func integers(_ value: PDFValue?) -> [Int] {
         switch value {
         case .some(.array(let items)):
@@ -796,11 +843,13 @@ private final class PDFContentReader {
         }
     }
 
+    /// Reads one integer.
     private func integer(_ value: PDFValue?) -> Int? {
         if case .some(.number(let number)) = value { return Int(number.rounded()) }
         return nil
     }
 
+    /// Lists a stream's filters.
     private func filterNames(_ dictionary: [String: PDFValue]) -> [String] {
         switch dictionary["Filter"] {
         case .some(.name(let name)):
@@ -812,12 +861,14 @@ private final class PDFContentReader {
         }
     }
 
+    /// Applies the stream filters.
     private static func decoded(_ data: Data, filters: [String]) -> Data? {
         if filters.isEmpty { return data }
         guard filters == ["FlateDecode"] else { return nil }
         return inflate(data)
     }
 
+    /// Parses a ToUnicode character map.
     fileprivate static func cmap(from data: Data) -> PDFCMap {
         let text = String(decoding: data, as: UTF8.self)
         var width = 0
@@ -878,6 +929,7 @@ private final class PDFContentReader {
         return PDFCMap(width: width, characters: characters)
     }
 
+    /// Decodes shown bytes with a character map.
     fileprivate static func decode(_ data: Data, map: PDFCMap) -> String {
         let width = max(map.width, 1)
         let raw = [UInt8](data)
@@ -896,6 +948,7 @@ private final class PDFContentReader {
         return text
     }
 
+    /// Splits a content stream into tokens.
     private static func contentTokens(in bytes: [UInt8]) -> [ContentToken] {
         var scanner = PDFScanner(bytes: bytes, index: 0)
         var tokens: [ContentToken] = []
@@ -937,6 +990,7 @@ private final class PDFContentReader {
         return tokens
     }
 
+    /// Inflates Flate-compressed data.
     private static func inflate(_ source: Data) -> Data? {
         guard !source.isEmpty else { return Data() }
         let scratchSize = max(compression_decode_scratch_buffer_size(COMPRESSION_ZLIB), 1)
@@ -971,6 +1025,7 @@ private final class PDFContentReader {
     }
 }
 
+/// One token of a content stream.
 private enum ContentToken {
     case number(Double)
     case name(String)

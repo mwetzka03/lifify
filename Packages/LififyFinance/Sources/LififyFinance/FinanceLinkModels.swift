@@ -2,6 +2,7 @@ import Foundation
 import LififyCore
 import SwiftData
 
+/// The stored form of a planned transfer.
 @Model
 public final class StoredTransferForecast {
     @Attribute(.unique) public var forecastID: UUID
@@ -17,6 +18,7 @@ public final class StoredTransferForecast {
     public var dayOfMonth: Int
     public var active: Bool
 
+    /// Stores a transfer with its list position.
     public init(_ record: TransferForecastRecord, position: Int) {
         forecastID = record.id
         self.position = position

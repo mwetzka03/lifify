@@ -1,6 +1,7 @@
 import Foundation
 import LififyCore
 
+/// One line of the home budget breakdown.
 public struct HomeBudgetLine: Identifiable {
     public var id: String
     public var title: String
@@ -17,6 +18,7 @@ public struct HomeBudgetLine: Identifiable {
     }
 }
 
+/// The calculated home budget.
 public struct HomeBudgetSnapshot {
     public var planned: Int
     public var spent: Int
@@ -51,8 +53,10 @@ public struct HomeBudgetSnapshot {
     }
 }
 
+/// Calculates the budget shown on Home.
 @MainActor
 public enum HomeBudget {
+    /// Builds the home budget for the current period.
     public static func make(
         entries: [LedgerEntry],
         accounts: [Account],
@@ -191,6 +195,7 @@ public enum HomeBudget {
         )
     }
 
+    /// Lists a forecast's due dates in a range.
     private static func occurrences(of forecast: IncomeForecast, from today: Date, through end: Date) -> [Date] {
         let calendar = Calendar.current
         let limit = calendar.startOfDay(for: end)
@@ -208,6 +213,7 @@ public enum HomeBudget {
         }
     }
 
+    /// Finds the next salary date.
     private static func nextSalaryDate(forecasts: [IncomeForecast], now: Date) -> Date? {
         guard let forecast = primaryForecast(in: forecasts),
               let limit = Calendar.current.date(byAdding: .year, value: 2, to: now)
@@ -224,6 +230,7 @@ public enum HomeBudget {
         .first { Calendar.current.startOfDay(for: $0) > today }
     }
 
+    /// Returns the primary income forecast.
     private static func primaryForecast(in forecasts: [IncomeForecast]) -> IncomeForecast? {
         guard let idString = IncomeAssignmentStore.primaryForecastID?.uuidString,
               let id = UUID(uuidString: idString)
@@ -233,6 +240,7 @@ public enum HomeBudget {
         return forecasts.first { $0.id == id } ?? forecasts.first(where: \.isActive)
     }
 
+    /// Finds the start of the current budget period.
     private static func budgetPeriodStart(
         now: Date,
         forecasts: [IncomeForecast],
@@ -276,6 +284,7 @@ public enum HomeBudget {
         )
     }
 
+    /// Finds the end of the current budget period.
     private static func budgetPeriodEnd(
         start: Date,
         forecasts: [IncomeForecast],

@@ -2,6 +2,7 @@ import Combine
 import LififyCore
 import Foundation
 
+/// The period and account selected across the finance screens.
 @MainActor
 public final class FinanceFilterStore: ObservableObject {
     public init() {}
@@ -18,21 +19,25 @@ public final class FinanceFilterStore: ObservableObject {
         }
     }
 
+    /// Shows all accounts.
     public func selectAllAccounts() {
         showsDepot = false
         accountID = nil
     }
 
+    /// Shows the depot.
     public func selectDepot() {
         accountID = nil
         showsDepot = true
     }
 
+    /// Shows one account.
     public func select(account id: UUID) {
         showsDepot = false
         accountID = id
     }
 
+    /// Returns the selected period, or the one containing today.
     public func period(in periods: [ForecastPeriod]) -> ForecastPeriod? {
         if let periodID, let match = periods.first(where: { $0.id == periodID }) {
             return match
@@ -40,11 +45,13 @@ public final class FinanceFilterStore: ObservableObject {
         return periods.first { $0.contains(.now) } ?? periods.last
     }
 
+    /// Returns the selected account.
     public func account(in accounts: [Account]) -> Account? {
         guard let accountID else { return nil }
         return accounts.first { $0.id == accountID }
     }
 
+    /// Moves the selection by a number of periods.
     public func shiftPeriod(in periods: [ForecastPeriod], by delta: Int) {
         guard let current = period(in: periods),
               let index = periods.firstIndex(of: current) else { return }
@@ -53,13 +60,16 @@ public final class FinanceFilterStore: ObservableObject {
         periodID = periods[next].id
     }
 
+    /// Selects the period containing today.
     public func jumpToToday(in periods: [ForecastPeriod]) {
         periodID = periods.first { $0.contains(.now) }?.id
     }
 }
 
+/// Builds the finance periods and decides what falls into them.
 @MainActor
 public enum FinancePeriods {
+    /// Everything the period list depends on.
     private struct MemoKey: Equatable {
         var generation: Int
         var day: Date
@@ -98,6 +108,7 @@ public enum FinancePeriods {
         return periods
     }
 
+    /// Calculates the periods from the main account's bookings.
     private static func computeAll(entries: [LedgerEntry], primary: IncomeForecast?, main: Account?) -> [ForecastPeriod] {
         let relevant = entries.filter { entry in
             guard let main else { return false }
@@ -114,6 +125,7 @@ public enum FinancePeriods {
         )
     }
 
+    /// Returns the primary income forecast.
     public static func primaryForecast(in forecasts: [IncomeForecast]) -> IncomeForecast? {
         guard let id = IncomeAssignmentStore.primaryForecastID else {
             return nil
@@ -121,6 +133,7 @@ public enum FinancePeriods {
         return forecasts.first { $0.id == id }
     }
 
+    /// Says whether a booking belongs to the period and account.
     public static func includes(
         _ entry: LedgerEntry,
         period: ForecastPeriod?,
@@ -142,6 +155,7 @@ public enum FinancePeriods {
 
 /// Cheap change token for finance screens. Full title/notes hashing on every frame made the tab hitch.
 public enum FinanceRenderToken {
+    /// Adds the bookings' values to a change hash.
     public static func mix(entries: [LedgerEntry], into hasher: inout Hasher) {
         hasher.combine(entries.count)
         var amounts = 0
@@ -155,6 +169,7 @@ public enum FinanceRenderToken {
         hasher.combine(entries.last?.date)
     }
 
+    /// Adds the holdings' values to a change hash.
     public static func mix(holdings: [PortfolioHolding], into hasher: inout Hasher) {
         hasher.combine(holdings.count)
         var mix = 0
@@ -167,18 +182,22 @@ public enum FinanceRenderToken {
     }
 }
 
+/// The default checking account for trades.
 public enum TradeAccountPreference {
     public static let storageKey = "defaultTradeCheckingAccountID"
 
+    /// Returns the stored account.
     public static func accountID() -> UUID? {
         AppDefaults.store.string(forKey: storageKey).flatMap(UUID.init(uuidString:))
     }
 }
 
+/// The default fee for trades.
 public enum TradeFeePreference {
     public static let storageKey = "defaultTradeFeeCents"
     public static let defaultCents = 100
 
+    /// Formats the fee for editing.
     public static func editString(cents: Int) -> String {
         let value = String(format: "%.2f", Double(max(cents, 0)) / 100)
         if AppDefaults.store.string(forKey: "appLanguage") == "en" {

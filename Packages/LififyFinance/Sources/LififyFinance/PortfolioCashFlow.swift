@@ -1,17 +1,21 @@
 import Foundation
 import LififyCore
 
+/// Decides which incoming money counts as real income.
 public enum ExternalIncome {
+    /// Says whether the booking counts as income across all accounts.
     public static func countsInCombinedFinance(_ entry: LedgerEntry, accounts: [Account]) -> Bool {
         if isDividendOrInterest(entry) || isPortfolioReceipt(entry) { return true }
         return !isFromOwnIBAN(entry, accounts: accounts)
     }
 
+    /// Says whether the booking counts toward the home budget.
     public static func countsInHomeBudget(_ entry: LedgerEntry, accounts: [Account]) -> Bool {
         if isDividendOrInterest(entry) || isPortfolioReceipt(entry) { return false }
         return !isFromOwnIBAN(entry, accounts: accounts)
     }
 
+    /// Says whether the booking is a dividend or interest.
     public static func isDividendOrInterest(_ entry: LedgerEntry) -> Bool {
         let notes = entry.notes.folding(
             options: [.caseInsensitive, .diacriticInsensitive],
@@ -25,6 +29,7 @@ public enum ExternalIncome {
             || notes.contains("type: interest")
     }
 
+    /// Says whether the booking is money received from a depot.
     private static func isPortfolioReceipt(_ entry: LedgerEntry) -> Bool {
         let notes = entry.notes.folding(
             options: [.caseInsensitive, .diacriticInsensitive],
@@ -36,6 +41,7 @@ public enum ExternalIncome {
             || notes.contains("type: portfolio gift")
     }
 
+    /// Says whether the money came from one of the person's own IBANs.
     public static func isFromOwnIBAN(_ entry: LedgerEntry, accounts: [Account]) -> Bool {
         let own = Set(
             accounts
@@ -48,8 +54,10 @@ public enum ExternalIncome {
     }
 }
 
+/// Shows security trades as income or expenses where they count.
 @MainActor
 public enum PortfolioCashFlow {
+    /// One listed cash flow.
     public struct Line: Identifiable {
         public var id: String
         public var entry: LedgerEntry
@@ -68,12 +76,14 @@ public enum PortfolioCashFlow {
         }
     }
 
+    /// Says whether the transfer buys securities.
     public static func isSecurityPurchase(_ entry: LedgerEntry, portfolioIDs: Set<UUID>) -> Bool {
         guard entry.kind == .transfer, let to = entry.toAccountID, portfolioIDs.contains(to) else { return false }
         if let from = entry.fromAccountID, portfolioIDs.contains(from) { return false }
         return true
     }
 
+    /// Lists the cash flows of a kind in a period.
     public static func lines(
         kind: LedgerKind,
         entries: [LedgerEntry],
@@ -112,6 +122,7 @@ public enum PortfolioCashFlow {
         return lines
     }
 
+    /// Sums the counted cash flows.
     public static func countedCents(
         kind: LedgerKind,
         entries: [LedgerEntry],
@@ -132,6 +143,7 @@ public enum PortfolioCashFlow {
         .reduce(0) { $0 + abs($1.signedCents) }
     }
 
+    /// Adds the line of a booking in a single-account view.
     private static func appendAccountLine(
         kind: LedgerKind,
         entry: LedgerEntry,
@@ -159,6 +171,7 @@ public enum PortfolioCashFlow {
         }
     }
 
+    /// Adds the line of a security trade in the combined view.
     private static func appendCombinedSecurityLine(
         kind: LedgerKind,
         entry: LedgerEntry,
@@ -188,6 +201,7 @@ public enum PortfolioCashFlow {
         }
     }
 
+    /// Builds a line straight from a booking.
     private static func plain(_ entry: LedgerEntry, signed: Int, counts: Bool) -> Line {
         Line(id: entry.id.uuidString, entry: entry, title: entry.title, signedCents: signed, counts: counts, caption: nil)
     }

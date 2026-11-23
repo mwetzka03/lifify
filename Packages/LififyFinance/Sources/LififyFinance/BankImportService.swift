@@ -2,6 +2,7 @@ import CryptoKit
 import LififyCore
 import Foundation
 
+/// One row read from a bank file.
 public struct ImportedTransaction: Identifiable {
     public let id: UUID
     public let date: Date
@@ -46,6 +47,7 @@ public struct ImportedTransaction: Identifiable {
     }
 }
 
+/// A security trade read from a statement.
 public struct ImportedSecurityTrade: Hashable {
     public var isin: String
     public var name: String
@@ -62,6 +64,7 @@ public struct ImportedSecurityTrade: Hashable {
     }
 }
 
+/// The content of a Trade Republic statement.
 public struct TradeRepublicStatement {
     public var iban: String
     public var openingBalanceCents: Int
@@ -76,6 +79,7 @@ public struct TradeRepublicStatement {
     }
 }
 
+/// A parsed bank file.
 public struct BankImportDocument {
     public var rows: [ImportedTransaction]
     public var tradeRepublic: TradeRepublicStatement?
@@ -86,11 +90,13 @@ public struct BankImportDocument {
     }
 }
 
+/// The account an import goes to.
 public enum BankImportDestination: Hashable {
     case separateChecking
     case account(UUID)
 }
 
+/// The reasons a bank file cannot be read.
 public enum BankImportError: LocalizedError {
     case unreadableFile
     case unsupportedCSV
@@ -114,7 +120,9 @@ public enum BankImportError: LocalizedError {
     }
 }
 
+/// Reads CSV, CAMT, and Trade Republic files.
 public enum BankImportService {
+    /// Parses a file by its extension.
     @MainActor
     public static func parseDocument(data: Data, fileExtension: String) throws -> BankImportDocument {
         let extensionName = fileExtension.lowercased()
@@ -130,17 +138,20 @@ public enum BankImportService {
         return BankImportDocument(rows: try parseCSV(text), tradeRepublic: nil)
     }
 
+    /// Parses a Trade Republic PDF statement.
     @MainActor
     public static func parseTradeRepublic(data: Data) throws -> BankImportDocument {
         let statement = try TradeRepublicImporter.parse(data: data)
         return BankImportDocument(rows: statement.rows, tradeRepublic: statement)
     }
 
+    /// Parses a file and returns its rows.
     @MainActor
     public static func parse(data: Data, fileExtension: String) throws -> [ImportedTransaction] {
         try parseDocument(data: data, fileExtension: fileExtension).rows
     }
 
+    /// Parses a bank CSV by recognizing its column headers.
     public static func parseCSV(_ text: String) throws -> [ImportedTransaction] {
         let lines = text.components(separatedBy: .newlines).filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
         guard let headerLine = lines.first else { return [] }
@@ -233,6 +244,7 @@ public enum BankImportService {
         }
     }
 
+    /// Parses a CAMT XML statement.
     public static func parseCAMT(data: Data) throws -> [ImportedTransaction] {
         let delegate = CAMTParserDelegate()
         let parser = XMLParser(data: data)
@@ -241,6 +253,7 @@ public enum BankImportService {
         return delegate.rows
     }
 
+    /// Builds an imported row with its fingerprint.
     public static func imported(
         date: Date,
         title: String,
@@ -282,6 +295,7 @@ public enum BankImportService {
         )
     }
 
+    /// Builds the fingerprint that recognizes a row in later imports.
     public static func makeFingerprint(date: Date, amount: Int, title: String, iban: String, distinct: String = "") -> String {
         var source = "\(date.dayKey)|\(amount)|\(title)|\(iban)"
         if !distinct.isEmpty { source += "|\(distinct)" }
@@ -296,6 +310,7 @@ public enum BankImportService {
         return folded.contains("vorgemerkt") || folded.contains("pending")
     }
 
+    /// Extracts the purpose line used to tell similar rows apart.
     public static func purposeMark(notes: String) -> String {
         for line in notes.components(separatedBy: .newlines) {
             let parts = line.split(separator: ":", maxSplits: 1).map { $0.trimmingCharacters(in: .whitespaces) }
@@ -306,10 +321,12 @@ public enum BankImportService {
         return ""
     }
 
+    /// Normalizes an IBAN for comparison.
     private static func normalizeIBAN(_ value: String) -> String {
         value.replacingOccurrences(of: " ", with: "").uppercased()
     }
 
+    /// Returns the IBAN when it has a valid form.
     private static func validIBAN(_ value: String) -> String? {
         let candidate = normalizeIBAN(value)
         guard (15...34).contains(candidate.count),
@@ -321,6 +338,7 @@ public enum BankImportService {
         return candidate
     }
 
+    /// Writes sender and recipient IBAN into the notes.
     public static func ibanNotes(sender: String, recipient: String) -> String {
         [
             sender.isEmpty ? nil : "\(L("Sender-IBAN", "Sender IBAN")): \(sender)",
@@ -330,6 +348,7 @@ public enum BankImportService {
         .joined(separator: "\n")
     }
 
+    /// Reads sender and recipient IBAN from the notes.
     public static func ibans(from notes: String, amountCents: Int? = nil) -> (sender: String, recipient: String) {
         var sender = ""
         var recipient = ""
@@ -356,6 +375,7 @@ public enum BankImportService {
         return (sender, recipient)
     }
 
+    /// Parses the date formats banks use.
     fileprivate static func parseDate(_ value: String) -> Date? {
         let value = value.trimmingCharacters(in: .whitespacesAndNewlines)
         let formats: [String]
@@ -378,11 +398,13 @@ public enum BankImportService {
         return ISO8601DateFormatter().date(from: value)
     }
 
+    /// Reads a CSV field by index.
     private static func field(at index: Int?, from fields: [String]) -> String {
         guard let index, fields.indices.contains(index) else { return "" }
         return fields[index].trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
+    /// Splits a CSV line and respects quotes.
     private static func csvFields(_ line: String, delimiter: Character) -> [String] {
         var fields: [String] = []
         var current = ""
@@ -410,17 +432,20 @@ public enum BankImportService {
         return fields
     }
 
+    /// Normalizes a column header.
     private static func normalizeHeader(_ value: String) -> String {
         value.lowercased()
             .folding(options: .diacriticInsensitive, locale: .current)
             .filter(\.isLetter)
     }
 
+    /// Finds the column for any of the header names.
     private static func index(of candidates: [String], in headers: [String]) -> Int? {
         candidates.lazy.compactMap { headers.firstIndex(of: $0) }.first
     }
 }
 
+/// Reads transactions from CAMT XML.
 private final class CAMTParserDelegate: NSObject, XMLParserDelegate {
     var rows: [ImportedTransaction] = []
     private var path: [String] = []
@@ -435,6 +460,7 @@ private final class CAMTParserDelegate: NSObject, XMLParserDelegate {
     private var genericIBAN = ""
     private var legacyIBAN = ""
 
+    /// Tracks the opened element.
     func parser(_ parser: XMLParser, didStartElement elementName: String, namespaceURI: String?, qualifiedName: String?, attributes attributeDict: [String: String]) {
         let name = elementName.components(separatedBy: ":").last ?? elementName
         path.append(name)
@@ -452,10 +478,12 @@ private final class CAMTParserDelegate: NSObject, XMLParserDelegate {
         }
     }
 
+    /// Collects element text.
     func parser(_ parser: XMLParser, foundCharacters string: String) {
         text += string
     }
 
+    /// Stores a finished value or transaction.
     func parser(_ parser: XMLParser, didEndElement elementName: String, namespaceURI: String?, qualifiedName qName: String?) {
         let name = elementName.components(separatedBy: ":").last ?? elementName
         let value = text.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -518,6 +546,7 @@ private final class CAMTParserDelegate: NSObject, XMLParserDelegate {
     }
 }
 
+/// Text decoding for bank files.
 private extension Data {
     var firstNonWhitespace: UInt8? {
         first { ![9, 10, 13, 32].contains($0) }

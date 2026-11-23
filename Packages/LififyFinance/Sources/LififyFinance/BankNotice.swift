@@ -2,6 +2,7 @@ import Foundation
 import LififyCore
 import SwiftData
 
+/// The banks with built-in notice handling.
 public enum BankNoticeBank: String, Equatable {
     case sparkasse
     case tradeRepublic
@@ -14,11 +15,13 @@ public enum BankNoticeBank: String, Equatable {
     }
 }
 
+/// Whether a notice is money in or out.
 public enum BankNoticeDirection: Equatable {
     case `in`
     case out
 }
 
+/// The values read from a bank notice.
 public struct ParsedNotice: Equatable {
     public var amountCents: Int
     public var title: String
@@ -31,6 +34,7 @@ public struct ParsedNotice: Equatable {
     }
 }
 
+/// A stored booking, reduced to what duplicate detection needs.
 public struct BookedNotice: Equatable {
     public var accountID: UUID
     public var amountCents: Int
@@ -47,6 +51,7 @@ public struct BookedNotice: Equatable {
     }
 }
 
+/// What a notice will book.
 public enum BankNoticePlan: Equatable {
     case book(accountID: UUID, title: String, amountCents: Int, kind: LedgerKind)
     case bookNoted(accountID: UUID, title: String, amountCents: Int, kind: LedgerKind, notes: String)
@@ -57,6 +62,7 @@ public enum BankNoticePlan: Equatable {
     case missingAccount
 }
 
+/// Texts for notice results.
 public enum BankNoticeCopy {
     public static var booked: String { L("Gebucht", "Booked") }
     public static var duplicate: String { L("Schon gebucht", "Already booked") }
@@ -72,6 +78,7 @@ public enum BankNoticeCopy {
     public static var shortcutTitle: String { L("Bankmitteilung buchen", "Record bank notice") }
 }
 
+/// Turns the text of a bank notice into a booking plan.
 @MainActor
 public enum BankNotice {
     /// Wallet and bank notices for one payment usually arrive within a few hours.
@@ -80,6 +87,7 @@ public enum BankNotice {
     public static let transferWindowDays = 3
     public static let transferWindow: TimeInterval = TimeInterval(transferWindowDays) * 24 * 60 * 60
 
+    /// Reads amount, direction, and title from a notice.
     public static func parse(_ text: String, fallbackTitle: String) -> ParsedNotice? {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let amount = firstAmount(in: trimmed) else { return nil }
@@ -95,6 +103,7 @@ public enum BankNotice {
         )
     }
 
+    /// Decides what a notice books on an account.
     public static func plan(
         text: String,
         bank: BankNoticeBank,
@@ -136,6 +145,7 @@ public enum BankNotice {
         )
     }
 
+    /// Plans a booking from a matching template.
     private static func planTemplate(
         _ template: NoticeTemplate,
         notice: ParsedNotice,
@@ -214,6 +224,7 @@ public enum BankNotice {
         }
     }
 
+    /// Finds the depot linked to an account.
     private static func depotID(for accountID: UUID, in accounts: [NamedAccount]) -> UUID? {
         if let linked = PortfolioLinkStore.portfolioID(for: accountID),
            accounts.contains(where: { $0.id == linked }) {
@@ -238,6 +249,7 @@ public enum BankNotice {
         }
     }
 
+    /// Says whether the notice is already booked.
     public static func isDuplicate(
         _ notice: ParsedNotice,
         accountID: UUID,
@@ -252,11 +264,13 @@ public enum BankNotice {
         }
     }
 
+    /// Reduces a booking for duplicate detection.
     public static func booked(_ entry: LedgerEntry) -> BookedNotice? {
         guard entry.kind == .income || entry.kind == .expense else { return nil }
         return records(entry).first
     }
 
+    /// Lists the records of a booking, one per affected account.
     public static func records(_ entry: LedgerEntry) -> [BookedNotice] {
         if entry.kind == .income || entry.kind == .expense, let accountID = entry.accountID {
             return [
@@ -281,12 +295,14 @@ public enum BankNotice {
         return rows
     }
 
+    /// An amount found in a text.
     private struct AmountHit {
         var cents: Int
         var sign: BankNoticeDirection?
         var range: Range<String.Index>
     }
 
+    /// Finds the first amount in a text.
     private static func firstAmount(in text: String) -> AmountHit? {
         let pattern = #"(?i)([+-])?\s*(€|eur|euro)?\s*(\d{1,3}(?:\.\d{3})+(?:,\d{2})|\d{1,3}(?:,\d{3})+(?:\.\d{2})|\d+(?:[.,]\d{2}))(?:\s*(€|eur|euro))?"#
         guard let regex = try? NSRegularExpression(pattern: pattern) else { return nil }
@@ -307,6 +323,7 @@ public enum BankNotice {
         return signedOnly
     }
 
+    /// Reads the direction from the amount's sign.
     private static func directionSign(_ match: NSTextCheckingResult, in text: String) -> BankNoticeDirection? {
         guard match.range(at: 1).location != NSNotFound,
               let range = Range(match.range(at: 1), in: text)
@@ -314,6 +331,7 @@ public enum BankNotice {
         return text[range] == "-" ? .out : .in
     }
 
+    /// Reads the direction from sign or wording.
     private static func direction(in text: String, sign: BankNoticeDirection?) -> BankNoticeDirection? {
         let folded = text.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "de_DE"))
         let outgoing = containsWord(outWords, in: folded)
@@ -335,12 +353,14 @@ public enum BankNotice {
         "verkauf", "sell", "credit", "gutgeschrieben", "incoming", "erstattung", "refund"
     ]
 
+    /// Says whether one of the words occurs.
     private static func containsWord(_ words: [String], in text: String) -> Bool {
         words.contains { word in
             text.range(of: "\\b\(NSRegularExpression.escapedPattern(for: word))\\b", options: .regularExpression) != nil
         }
     }
 
+    /// Says whether the text reports a received transfer.
     private static func isTransferReceived(_ text: String) -> Bool {
         let folded = text.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "de_DE"))
         if folded.contains("uberweisung erhalten") { return true }
@@ -348,6 +368,7 @@ public enum BankNotice {
         return folded.contains("uberweisung") && folded.contains("erhalten")
     }
 
+    /// Plans a transfer between two own accounts.
     private static func planTransfer(
         notice: ParsedNotice,
         toAccountID: UUID,
@@ -384,6 +405,7 @@ public enum BankNotice {
         )
     }
 
+    /// Reads the merchant from a card payment.
     private static func merchant(in text: String) -> String? {
         let pattern = #"(?i)(?:bei|at)\s+(.+?)\s+(?:ausgegeben|spent)"#
         guard let regex = try? NSRegularExpression(pattern: pattern) else { return nil }
@@ -395,6 +417,7 @@ public enum BankNotice {
         return name.isEmpty ? nil : name
     }
 
+    /// Builds a short title from a notice.
     private static func shortTitle(
         from text: String,
         removing amount: Range<String.Index>,
@@ -418,7 +441,9 @@ public enum BankNotice {
     }
 }
 
+/// Finds the account of a bank.
 public enum BankNoticeAccounts {
+    /// Returns the bank's checking account.
     public static func resolve(_ bank: BankNoticeBank, in accounts: [NamedAccount]) -> UUID? {
         let checking = accounts.filter { $0.kind == .checking }
         switch bank {
@@ -433,7 +458,9 @@ public enum BankNoticeAccounts {
     }
 }
 
+/// Reads the `lifify://notice` link.
 public enum BankNoticeURL {
+    /// Decodes bank and text from the link.
     public static func decode(_ url: URL) -> (bank: BankNoticeBank, text: String)? {
         guard url.scheme?.lowercased() == "lifify", url.host?.lowercased() == "notice" else { return nil }
         let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
@@ -450,8 +477,10 @@ public enum BankNoticeURL {
     }
 }
 
+/// Books notices from Shortcuts and links.
 @MainActor
 public enum BankNoticeIntake {
+    /// Plans and books a notice.
     @discardableResult
     public static func commit(
         text: String,
@@ -516,12 +545,14 @@ public enum BankNoticeIntake {
         }
     }
 
+    /// Books the notice from a link.
     @discardableResult
     public static func open(_ url: URL, context: ModelContext) -> String? {
         guard let call = BankNoticeURL.decode(url) else { return nil }
         return commit(text: call.text, bank: call.bank, context: context)
     }
 
+    /// Saves a booking and returns the result text.
     private static func save(_ entry: LedgerEntry, context: ModelContext) -> String {
         context.insert(entry)
         do {
@@ -534,6 +565,7 @@ public enum BankNoticeIntake {
     }
 }
 
+/// Converts ranges for regular expressions.
 private extension NSRange {
     var locationIsNotFound: Bool { location == NSNotFound }
 }

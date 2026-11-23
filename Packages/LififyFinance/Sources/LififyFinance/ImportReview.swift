@@ -1,6 +1,7 @@
 import Foundation
 import LififyCore
 
+/// A question about a possible transfer during an import.
 public struct ImportTransferChoice: Identifiable {
     public var id: UUID { entryID }
     public var entryID: UUID
@@ -36,6 +37,7 @@ public struct ImportTransferChoice: Identifiable {
     }
 }
 
+/// A question about a row that resembles a stored booking.
 public struct ImportSimilarChoice: Identifiable {
     public var id: UUID
     public var fingerprint: String
@@ -66,6 +68,7 @@ public struct ImportSimilarChoice: Identifiable {
     }
 }
 
+/// All open questions of an import.
 public struct ImportReview: Identifiable {
     public let id: UUID
     public var transfers: [ImportTransferChoice]

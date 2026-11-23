@@ -56,6 +56,7 @@ public enum NoticeFormat: String, Codable, CaseIterable, Sendable {
         }
     }
 
+    /// Says whether the text has this format.
     public func matches(_ text: String) -> Bool {
         if self == .cancelledOrder {
             return Self.groups(#"(?i)\bOrder von\b.*\bwurde storniert\b"#, in: Self.flat(text)) != nil
@@ -63,6 +64,7 @@ public enum NoticeFormat: String, Codable, CaseIterable, Sendable {
         return parse(text) != nil
     }
 
+    /// Reads amount, title, and direction from a notice.
     public func parse(_ text: String) -> ParsedNotice? {
         let flat = Self.flat(text)
         switch self {
@@ -98,10 +100,12 @@ public enum NoticeFormat: String, Codable, CaseIterable, Sendable {
 
     private static let amount = #"\d{1,3}(?:\.\d{3})+,\d{2}|\d+,\d{2}"#
 
+    /// Collapses all whitespace.
     private static func flat(_ text: String) -> String {
         text.split(whereSeparator: \.isWhitespace).joined(separator: " ")
     }
 
+    /// Builds a parsed notice from an amount text.
     private static func notice(_ amount: String, title: String, direction: BankNoticeDirection) -> ParsedNotice? {
         guard let cents = Money.cents(from: amount), cents > 0, !title.isEmpty else { return nil }
         return ParsedNotice(amountCents: direction == .out ? -cents : cents, title: title, direction: direction)
@@ -121,6 +125,7 @@ public enum NoticeFormat: String, Codable, CaseIterable, Sendable {
 /// Puts the known layouts into the normal template list. A deleted one stays deleted.
 @MainActor
 public enum NoticeTemplateDefaults {
+    /// Adds the built-in templates that are missing or not dismissed.
     @discardableResult
     public static func install(accounts: [NamedAccount]) -> [NoticeTemplate] {
         var templates = NoticeTemplateStore.all()
@@ -142,6 +147,7 @@ public enum NoticeTemplateDefaults {
         return templates
     }
 
+    /// Deletes templates and remembers dismissed built-in ones.
     public static func delete(_ ids: Set<UUID>, from templates: [NoticeTemplate]) -> [NoticeTemplate] {
         for template in templates where ids.contains(template.id) {
             if let format = template.format { dismiss(format) }
@@ -160,6 +166,7 @@ public enum NoticeTemplateDefaults {
         return own
     }
 
+    /// Remembers that a built-in template was removed.
     private static func dismiss(_ format: NoticeFormat) {
         LinkTable.set(.dismissedNoticeTemplates, key: format.rawValue, value: "true")
     }

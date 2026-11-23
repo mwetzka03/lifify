@@ -1,6 +1,7 @@
 import SwiftUI
 import LififyCore
 
+/// The categories a booking is shown under.
 public enum BookingCategory: String, CaseIterable, Identifiable {
     case income
     case interest
@@ -81,12 +82,14 @@ public enum BookingCategory: String, CaseIterable, Identifiable {
     }
 }
 
+/// The view a booking appears in, which decides its sign.
 public enum BookingScope {
     case combined
     case account
     case depot
 }
 
+/// The colors and difference line of a booking.
 public struct BookingPaint {
     public var iconColor: Color
     public var amountColor: Color
@@ -99,8 +102,10 @@ public struct BookingPaint {
     }
 }
 
+/// Classifies bookings and prepares how they are shown.
 @MainActor
 public enum BookingClassification {
+    /// Determines the category of a booking from its kind, accounts, and notes.
     public static func category(
         of entry: LedgerEntry,
         accounts: [Account],
@@ -131,6 +136,7 @@ public enum BookingClassification {
         }
     }
 
+    /// Returns the amount with the sign that fits the viewed account.
     public static func signedAmount(
         of entry: LedgerEntry,
         category: BookingCategory,
@@ -164,10 +170,12 @@ public enum BookingClassification {
         }
     }
 
+    /// Returns the amount color of a category.
     public static func amountColor(category: BookingCategory, signed: Int) -> Color {
         paint(category: category, signed: signed, scope: .combined).amountColor
     }
 
+    /// Returns the colors of a booking in a view.
     public static func paint(
         category: BookingCategory,
         signed: Int,
@@ -200,6 +208,7 @@ public enum BookingClassification {
         }
     }
 
+    /// Adjusts the shown amount for the depot view.
     public static func displayedAmount(_ signed: Int, category: BookingCategory, scope: BookingScope) -> Int {
         guard scope == .depot else { return signed }
         switch category {
@@ -212,16 +221,19 @@ public enum BookingClassification {
         }
     }
 
+    /// Returns the color of a difference.
     public static func differenceColor(_ cents: Int) -> Color {
         signedColor(cents)
     }
 
+    /// Green for gains, red for losses.
     private static func signedColor(_ cents: Int) -> Color {
         if cents > 0 { return .green }
         if cents < 0 { return .red }
         return .primary
     }
 
+    /// Says whether the booking is a refund.
     public static func isRefund(_ entry: LedgerEntry) -> Bool {
         if RefundLinkStore.isRefund(entry.id) { return true }
         let notes = folded(entry.notes)
@@ -232,6 +244,7 @@ public enum BookingClassification {
             || notes.contains("typ: refund")
     }
 
+    /// Says whether the transfer is a savings plan execution.
     public static func isSavingsPlan(_ entry: LedgerEntry) -> Bool {
         guard entry.kind == .transfer else { return false }
         if entry.title.hasPrefix("Sparplan:") || entry.title.hasPrefix("Savings plan:") { return true }
@@ -239,6 +252,7 @@ public enum BookingClassification {
         return notes.contains("typ: sparplan") || notes.contains("type: savings plan")
     }
 
+    /// Prepares a title for a chosen category.
     public static func preparedTitle(_ raw: String, for category: BookingCategory) -> String {
         let stripped = stripPrefixes(raw.trimmingCharacters(in: .whitespacesAndNewlines))
         switch category {
@@ -257,6 +271,7 @@ public enum BookingClassification {
         }
     }
 
+    /// Prepares the notes for a chosen category.
     public static func preparedNotes(_ notes: String, for category: BookingCategory) -> String {
         switch category {
         case .interest:
@@ -279,6 +294,7 @@ public enum BookingClassification {
         }
     }
 
+    /// Says whether the transfer buys securities.
     private static func isPortfolioBuy(_ entry: LedgerEntry, portfolios: Set<UUID>) -> Bool {
         guard entry.kind == .transfer, !isSavingsPlan(entry) else { return false }
         if let to = entry.toAccountID, portfolios.contains(to) {
@@ -288,6 +304,7 @@ public enum BookingClassification {
         return hasPrefix(entry.title, ["Kauf:", "Purchase:", "Buy:"])
     }
 
+    /// Says whether the transfer sells securities.
     private static func isPortfolioSale(_ entry: LedgerEntry, portfolios: Set<UUID>) -> Bool {
         guard entry.kind == .transfer, !isSavingsPlan(entry) else { return false }
         if let from = entry.fromAccountID, portfolios.contains(from) {
@@ -297,6 +314,7 @@ public enum BookingClassification {
         return hasPrefix(entry.title, ["Verkauf:", "Sale:", "Sell:"])
     }
 
+    /// Says whether the income is a dividend.
     private static func isDividend(_ entry: LedgerEntry) -> Bool {
         guard entry.kind == .income else { return false }
         let notes = folded(entry.notes)
@@ -305,6 +323,7 @@ public enum BookingClassification {
             || notes.contains("type: dividend")
     }
 
+    /// Says whether the income is interest.
     private static func isInterest(_ entry: LedgerEntry) -> Bool {
         guard entry.kind == .income else { return false }
         let notes = folded(entry.notes)
@@ -313,22 +332,26 @@ public enum BookingClassification {
             || notes.contains("type: interest")
     }
 
+    /// Says whether the income is a cashback.
     private static func isCashback(_ entry: LedgerEntry) -> Bool {
         guard entry.kind == .income else { return false }
         let notes = folded(entry.notes)
         return notes.contains("typ: cashback") || notes.contains("type: cashback")
     }
 
+    /// Says whether the income is a gift of shares.
     private static func isPortfolioGift(_ entry: LedgerEntry) -> Bool {
         guard entry.kind == .income else { return false }
         let notes = folded(entry.notes)
         return notes.contains("typ: depotgeschenk") || notes.contains("type: portfolio gift")
     }
 
+    /// Says whether the title starts with one of the prefixes.
     private static func hasPrefix(_ title: String, _ prefixes: [String]) -> Bool {
         prefixes.contains { title.hasPrefix($0) }
     }
 
+    /// Removes known category prefixes from a title.
     private static func stripPrefixes(_ title: String) -> String {
         let prefixes = [
             "Sparplan: ", "Savings plan: ",
@@ -342,12 +365,14 @@ public enum BookingClassification {
         return title
     }
 
+    /// Replaces the type line in the notes.
     private static func replacingType(_ notes: String, with value: String) -> String {
         var lines = notes.components(separatedBy: .newlines).filter { !isTypeLine($0) }
         lines.insert("Typ: \(value)", at: 0)
         return lines.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
+    /// Removes type lines with the given values.
     private static func removingTypeValues(_ notes: String, values: [String]) -> String {
         notes.components(separatedBy: .newlines)
             .filter { line in
@@ -358,6 +383,7 @@ public enum BookingClassification {
             .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
+    /// Says whether a notes line states the type.
     private static func isTypeLine(_ line: String) -> Bool {
         let label = line.split(separator: ":", maxSplits: 1).first?
             .trimmingCharacters(in: .whitespacesAndNewlines)
@@ -365,11 +391,13 @@ public enum BookingClassification {
         return label == "typ" || label == "type"
     }
 
+    /// Returns the value of a type line.
     private static func typeValue(_ line: String) -> String {
         let value = line.split(separator: ":", maxSplits: 1).dropFirst().first ?? ""
         return value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
     }
 
+    /// Folds case and accents for comparison.
     private static func folded(_ text: String) -> String {
         text.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "de_DE"))
     }

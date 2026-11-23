@@ -2,6 +2,7 @@ import Foundation
 import LififyCore
 import SwiftData
 
+/// Writes a Trade Republic snapshot into accounts, holdings, and bookings.
 @MainActor
 public enum TradeRepublicDepotApplier {
     /// Brings the depot and the Trade Republic checking account in line with one session.
@@ -173,11 +174,13 @@ public enum TradeRepublicDepotApplier {
         return count
     }
 
+    /// Says whether a date lies before the first period.
     private static func isBeforePeriod(_ date: Date, start: Date?) -> Bool {
         guard let start else { return false }
         return Calendar.current.startOfDay(for: date) < Calendar.current.startOfDay(for: start)
     }
 
+    /// Finds or creates the depot chosen for the import.
     private static func portfolio(
         _ choice: DepotChoice,
         tradeRepublic: inout Account?,
@@ -203,6 +206,7 @@ public enum TradeRepublicDepotApplier {
         }
     }
 
+    /// Finds or creates a holding.
     private static func ensureHolding(
         isin: String,
         name: String,
@@ -227,6 +231,7 @@ public enum TradeRepublicDepotApplier {
         return created
     }
 
+    /// Finds a holding by ISIN in the depot.
     private static func holding(isin: String, portfolio: Account, context: ModelContext) -> PortfolioHolding? {
         let stored = (try? context.fetch(FetchDescriptor<PortfolioHolding>())) ?? []
         return stored.first { $0.accountID == portfolio.id && $0.symbol.caseInsensitiveCompare(isin) == .orderedSame }
@@ -263,11 +268,13 @@ public enum TradeRepublicDepotApplier {
         return false
     }
 
+    /// Says whether a fingerprint comes from a live session.
     public static func isSessionFingerprint(_ fingerprint: String?) -> Bool {
         guard let fingerprint, fingerprint.hasPrefix("tr-") else { return false }
         return fingerprint != TradeRepublicTimeline.openingBalanceFingerprint
     }
 
+    /// Removes the bookings of the previous live import.
     private static func replacePreviousImport(checking: Account, portfolio: Account, context: ModelContext) {
         let entries = (try? context.fetch(FetchDescriptor<LedgerEntry>())) ?? []
         let doomed = entries.filter { shouldReplace($0, checkingID: checking.id, portfolioID: portfolio.id) }
@@ -291,6 +298,7 @@ public enum TradeRepublicDepotApplier {
         SavingsPlanStore.removeAll(portfolioID: portfolio.id)
     }
 
+    /// Books one cash movement.
     private static func insertCash(
         id: String,
         date: Date,
@@ -394,6 +402,7 @@ public enum TradeRepublicDepotApplier {
         }
     }
 
+    /// Books one trade with its lot.
     private static func insertTrade(
         id: String,
         date: Date,
@@ -541,6 +550,7 @@ public enum TradeRepublicDepotApplier {
         return shown > 0 || quantity > 0.0000005 || gift
     }
 
+    /// Turns a reserved IPO amount into the real purchase.
     private static func adoptIPOReservation(
         cash: Int,
         holding: PortfolioHolding,
@@ -629,6 +639,7 @@ public enum TradeRepublicDepotApplier {
         return lines.joined(separator: "\n")
     }
 
+    /// Returns the event type of an activity.
     private static func eventType(id: String, isin: String = "", activities: [TradeRepublicActivity]) -> String {
         if let item = activities.first(where: { $0.id == id }) { return item.eventType }
         if id.hasPrefix("gift-") {
@@ -645,6 +656,7 @@ public enum TradeRepublicDepotApplier {
         return ""
     }
 
+    /// Says whether two dates lie within a number of days.
     private static func withinDays(_ date: Date, of other: Date, days: Int) -> Bool {
         let calendar = Calendar.current
         let delta = abs(calendar.dateComponents(
@@ -655,6 +667,7 @@ public enum TradeRepublicDepotApplier {
         return delta <= days
     }
 
+    /// Formats a share count without trailing zeros.
     private static func quantityText(_ quantity: Double) -> String {
         var text = String(format: "%.6f", quantity)
         while text.contains("."), text.last == "0" { text.removeLast() }
@@ -993,6 +1006,7 @@ public enum TradeRepublicDepotApplier {
         }
     }
 
+    /// Creates savings plans from the live plans and past executions.
     private static func adoptSavingsPlans(
         from activities: [TradeRepublicActivity],
         plans livePlans: [TradeRepublicPlan],
@@ -1114,6 +1128,7 @@ public enum TradeRepublicDepotApplier {
         }
     }
 
+    /// Counts the shares of the lots.
     private static func shareCount(_ lots: [HoldingLot]) -> Double {
         var held = 0.0
         for lot in lots.sorted(by: { $0.date < $1.date }) {
@@ -1122,6 +1137,7 @@ public enum TradeRepublicDepotApplier {
         return max(0, held)
     }
 
+    /// Creates the Trade Republic checking account.
     private static func makeChecking(context: ModelContext) -> Account {
         let account = Account(name: "Trade Republic", kind: .checking, isLiquid: true, isMain: false)
         context.insert(account)
@@ -1171,6 +1187,7 @@ public enum TradeRepublicDepotApplier {
         try? context.save()
     }
 
+    /// Returns a booking's effect on the checking balance.
     private static func checkingEffect(_ entry: LedgerEntry, account: Account) -> Int {
         switch entry.kind {
         case .income, .expense:
@@ -1186,6 +1203,7 @@ public enum TradeRepublicDepotApplier {
     }
 }
 
+/// Asks for the balance before the first imported booking.
 @MainActor
 public enum TradeRepublicOpeningBalance {
     /// The cash balance is missing for the start of the main account's first period.
@@ -1199,6 +1217,7 @@ public enum TradeRepublicOpeningBalance {
         return BankImportApplier.firstMainAccountPeriod(entries: entries, accounts: accounts, context: context)?.start
     }
 
+    /// Stores the entered opening balance.
     public static func store(_ cents: Int, context: ModelContext) {
         guard let date = missingDate(context: context) else { return }
         let accounts = (try? context.fetch(FetchDescriptor<Account>())) ?? []

@@ -14,10 +14,12 @@ public struct TradeRepublicClient: Sendable {
         session = URLSession(configuration: configuration)
     }
 
+    /// Ends the session and its requests.
     public func invalidate() {
         session.invalidateAndCancel()
     }
 
+    /// Starts the sign-in with phone number and PIN.
     public func begin(phone: String, pin: String) async throws -> TradeRepublicChallenge {
         var request = URLRequest(url: TradeRepublicRequest.loginURL)
         request.httpMethod = "POST"
@@ -40,6 +42,7 @@ public struct TradeRepublicClient: Sendable {
         )
     }
 
+    /// Asks whether the sign-in was confirmed in the app.
     public func poll(processId: String, cookies: String) async throws -> TradeRepublicPoll {
         guard let url = TradeRepublicRequest.processURL(processId) else {
             throw TradeRepublicFailure.unreadable
@@ -47,6 +50,7 @@ public struct TradeRepublicClient: Sendable {
         return try await get(url, cookies: cookies)
     }
 
+    /// Submits the confirmation code.
     public func submit(code: String, processId: String, cookies: String) async throws -> String {
         guard let url = TradeRepublicRequest.codeURL(processId) else {
             throw TradeRepublicFailure.unreadable
@@ -69,12 +73,14 @@ public struct TradeRepublicClient: Sendable {
         return kept
     }
 
+    /// Loads the account data, limited by a timeout.
     public func snapshot(cookies: String) async throws -> TradeRepublicSnapshot {
         try await Self.withTimeout(seconds: 300) {
             try await Self.loadSnapshot(cookies: cookies)
         }
     }
 
+    /// Requests a status and reads its cookies.
     private func get(_ url: URL, cookies: String) async throws -> TradeRepublicPoll {
         install(cookies, url: url)
         var request = URLRequest(url: url)
@@ -116,6 +122,7 @@ public struct TradeRepublicClient: Sendable {
         return TradeRepublicCookies.merging(previous: previous, fresh: fromResponse)
     }
 
+    /// Loads portfolio, cash, plans, and history over the web socket.
     private static func loadSnapshot(cookies: String) async throws -> TradeRepublicSnapshot {
         let session = makeSession()
         defer { session.invalidateAndCancel() }
@@ -168,12 +175,14 @@ public struct TradeRepublicClient: Sendable {
         private var nextID = 1
         private var payloads: [Int: String] = [:]
 
+        /// Hands out the next subscription ID.
         func take() -> Int {
             let id = nextID
             nextID += 1
             return id
         }
 
+        /// Waits for the next message of a subscription.
         func next(on socket: URLSessionWebSocketTask, id: Int) async throws -> (ok: Bool, body: String) {
             if let ready = payloads.removeValue(forKey: id) { return (true, ready) }
             while true {
@@ -196,6 +205,7 @@ public struct TradeRepublicClient: Sendable {
         }
     }
 
+    /// Splits a socket frame into ID, code, and payload.
     private static func frame(_ text: String) -> (id: Int?, code: String, payload: String) {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let space = trimmed.firstIndex(of: " ") else { return (nil, "", trimmed) }
@@ -210,6 +220,7 @@ public struct TradeRepublicClient: Sendable {
         return (id, String(rest), "")
     }
 
+    /// Loads all pages of the timeline with their details.
     private static func timeline(
         on socket: URLSessionWebSocketTask,
         inbox: SocketInbox,
@@ -309,6 +320,7 @@ public struct TradeRepublicClient: Sendable {
         return (all, plans, cashCents)
     }
 
+    /// Loads all pages of one list.
     private static func fetchPages(
         type: String,
         on socket: URLSessionWebSocketTask,
@@ -343,6 +355,7 @@ public struct TradeRepublicClient: Sendable {
         return (all, pages, indexLines)
     }
 
+    /// Finds the securities account, or reports a dead session.
     private static func accountLookup(cookies: String, session: URLSession) async throws -> (dead: Bool, number: String?) {
         var request = URLRequest(url: TradeRepublicRequest.accountURL)
         request.timeoutInterval = 20
@@ -357,6 +370,7 @@ public struct TradeRepublicClient: Sendable {
         return (false, nil)
     }
 
+    /// Sends a request and checks for an HTTP response.
     private static func response(for request: URLRequest, session: URLSession) async throws -> (Data, HTTPURLResponse) {
         do {
             let (data, response) = try await session.data(for: request)
@@ -371,6 +385,7 @@ public struct TradeRepublicClient: Sendable {
         }
     }
 
+    /// Receives one text message.
     private static func text(from task: URLSessionWebSocketTask) async throws -> String {
         do {
             switch try await task.receive() {
@@ -388,6 +403,7 @@ public struct TradeRepublicClient: Sendable {
         }
     }
 
+    /// Builds the web socket request.
     private static func websocketRequest(cookies: String) -> URLRequest {
         var request = URLRequest(url: URL(string: "wss://api.traderepublic.com")!)
         request.timeoutInterval = 20
@@ -401,12 +417,14 @@ public struct TradeRepublicClient: Sendable {
         return "connect 31 \(payload)"
     }
 
+    /// Builds a subscription message.
     private static func subscribe(_ id: Int, _ payload: [String: String]) -> String {
         let data = (try? JSONSerialization.data(withJSONObject: payload)) ?? Data()
         let json = String(decoding: data, as: UTF8.self)
         return "sub \(id) \(json)"
     }
 
+    /// Creates a session that stores nothing on disk.
     private static func makeSession() -> URLSession {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.httpCookieAcceptPolicy = .always
@@ -414,6 +432,7 @@ public struct TradeRepublicClient: Sendable {
         return URLSession(configuration: configuration)
     }
 
+    /// Runs an operation with a time limit.
     private static func withTimeout<T: Sendable>(
         seconds: Double,
         operation: @Sendable @escaping () async throws -> T

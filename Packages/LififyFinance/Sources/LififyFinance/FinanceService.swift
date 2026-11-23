@@ -1,8 +1,10 @@
 import Foundation
 import LififyCore
 
+/// The core finance calculations.
 @MainActor
 public enum FinanceService {
+    /// Calculates an account's balance.
     public static func balance(
         for account: Account,
         entries: [LedgerEntry],
@@ -36,6 +38,7 @@ public enum FinanceService {
         return value
     }
 
+    /// Sums the balances of the accounts.
     public static func totalBalance(
         accounts: [Account],
         entries: [LedgerEntry],
@@ -47,6 +50,7 @@ public enum FinanceService {
             .reduce(0) { $0 + balance(for: $1, entries: entries, holdings: holdings) }
     }
 
+    /// Sums what was spent from a budget in a period.
     public static func variableSpent(
         budgetID: UUID,
         from: Date,
@@ -84,6 +88,7 @@ public enum FinanceService {
         return direct + split
     }
 
+    /// Sums what was spent from a budget, based on stored bookings.
     public static func variableSpent(
         budgetID: UUID,
         monthKey: String,
@@ -103,6 +108,7 @@ public enum FinanceService {
         return directWithoutSplit + split
     }
 
+    /// Sums what was spent from a pool in a period.
     public static func poolSpent(
         pool: BudgetPool,
         periodKey: String,
@@ -117,6 +123,7 @@ public enum FinanceService {
             .reduce(0) { $0 + $1.amountCents }
     }
 
+    /// Calculates what a pool carries into a period.
     public static func poolCarry(
         pool: BudgetPool,
         currentPeriodKey: String,
@@ -132,12 +139,14 @@ public enum FinanceService {
         return carry
     }
 
+    /// Says whether a booking comes after the opening anchor.
     private static func isAfter(_ entry: LedgerEntry, anchor: LedgerEntry?) -> Bool {
         guard let anchor else { return entry.kind != .adjustment }
         if entry.date != anchor.date { return entry.date > anchor.date }
         return entry.createdAt > anchor.createdAt
     }
 
+    /// Calculates the liquid cash of the accounts.
     public static func cashBalance(
         accounts: [Account],
         entries: [LedgerEntry],
@@ -173,6 +182,7 @@ public enum FinanceService {
         return cashBalance(accounts: accounts, entries: kept, through: endOfDay(day))
     }
 
+    /// Sums the savings plan executions in a range.
     public static func savingsPlanBookedCents(
         entries: [LedgerEntry],
         from: Date,
@@ -192,6 +202,7 @@ public enum FinanceService {
         }
     }
 
+    /// Builds the finance periods from the primary income or calendar months.
     public static func forecastPeriods(
         primary: IncomeForecast?,
         earliest: Date,
@@ -231,6 +242,7 @@ public enum FinanceService {
         return periods.isEmpty ? monthPeriods(from: floor, through: horizon) : periods
     }
 
+    /// Calculates all figures of one period.
     public static func periodForecast(
         period: ForecastPeriod,
         periods: [ForecastPeriod],
@@ -400,6 +412,7 @@ public enum FinanceService {
         )
     }
 
+    /// Builds calendar month periods.
     private static func monthPeriods(from floor: Date, through horizon: Date) -> [ForecastPeriod] {
         let calendar = Calendar.current
         var periods: [ForecastPeriod] = []
@@ -427,6 +440,7 @@ public enum FinanceService {
         return ForecastPeriod(start: start, end: end)
     }
 
+    /// Projects the cash balance on a future day.
     private static func projectedCash(
         on day: Date,
         chargeVariableThroughEnd: Bool,
@@ -511,6 +525,7 @@ public enum FinanceService {
         return actual + income - fixed - shoppingCost - variable - otherFutureExpenses + futureRefunds + transfers
     }
 
+    /// Sums income still expected before a day.
     private static func incomeStillToReceive(
         forecasts: [IncomeForecast],
         entries: [LedgerEntry],
@@ -534,6 +549,7 @@ public enum FinanceService {
         return max(0, max(forecast, bookedThroughTarget) - bookedInCash)
     }
 
+    /// Sums fixed costs still to pay before a day.
     private static func fixedStillToPay(
         costs: [FixedCost],
         entries: [LedgerEntry],
@@ -553,6 +569,7 @@ public enum FinanceService {
         }
     }
 
+    /// Sums shopping items still to pay before a day.
     private static func shoppingStillToPay(
         shopping: [ShoppingItem],
         entries: [LedgerEntry],
@@ -573,6 +590,7 @@ public enum FinanceService {
         }
     }
 
+    /// Says whether a forecast is skipped or already covered.
     private static func forecastHidden(
         _ kind: ForecastRefKind,
         id: UUID,
@@ -585,6 +603,7 @@ public enum FinanceService {
         return ForecastPeriodLinkStore.covers(kind, id: id, entries: entries, period: period)
     }
 
+    /// Sums variable budget still to spend before a day.
     private static func variableStillToPay(
         through target: Date,
         chargeThroughEnd: Bool,
@@ -613,6 +632,7 @@ public enum FinanceService {
         }
     }
 
+    /// Lists income due dates in a period.
     private static func incomeOccurrences(
         forecasts: [IncomeForecast],
         from: Date,
@@ -646,6 +666,7 @@ public enum FinanceService {
         return result
     }
 
+    /// Lists charges of fixed costs with their paid state.
     public static func scheduledCharges(
         costs: [FixedCost],
         entries: [LedgerEntry],
@@ -707,6 +728,7 @@ public enum FinanceService {
         )
     }
 
+    /// Returns the next open charge of a cost.
     public static func nextChargeDate(for cost: FixedCost, entries: [LedgerEntry]) -> Date? {
         guard cost.isActive else { return nil }
         let calendar = Calendar.current
@@ -717,6 +739,7 @@ public enum FinanceService {
             .date
     }
 
+    /// Counts the open charges of a cost.
     public static func openChargeCount(
         for cost: FixedCost,
         entries: [LedgerEntry],
@@ -729,6 +752,7 @@ public enum FinanceService {
             .count
     }
 
+    /// Lists fixed cost due dates in a period.
     private static func fixedOccurrences(
         costs: [FixedCost],
         from: Date,
@@ -754,6 +778,7 @@ public enum FinanceService {
         return result
     }
 
+    /// Lists the due dates of one cost.
     private static func occurrenceDates(for cost: FixedCost, from: Date, through: Date) -> [Date] {
         let calendar = Calendar.current
         if SavingsPlanFixedCosts.isSavingsCost(cost) {
@@ -778,6 +803,7 @@ public enum FinanceService {
         )
     }
 
+    /// Finds the booking that pays a charge.
     private static func matchingExpense(
         _ occurrence: (date: Date, amount: Int, title: String, costID: UUID),
         entries: [LedgerEntry]
@@ -800,6 +826,7 @@ public enum FinanceService {
         }
     }
 
+    /// Sums bookings of a kind in a range.
     private static func signedSum(entries: [LedgerEntry], kind: LedgerKind, from: Date, through: Date) -> Int {
         let start = Calendar.current.startOfDay(for: from)
         let end = endOfDay(through)
@@ -872,6 +899,7 @@ public enum FinanceService {
         return net
     }
 
+    /// Says whether a real booking replaced a planned transfer.
     private static func transferForecastIsReplaced(
         _ forecastID: UUID,
         on day: Date,
@@ -895,6 +923,7 @@ public enum FinanceService {
         }
     }
 
+    /// Returns a transfer's net effect on the accounts in scope.
     private static func scopedTransferCents(amount: Int, from: UUID?, to: UUID?, scope: Set<UUID>) -> Int {
         var net = 0
         if let from, scope.contains(from) { net -= amount }
@@ -902,6 +931,7 @@ public enum FinanceService {
         return net
     }
 
+    /// Says whether the booking moves money into or out of a depot.
     private static func isPortfolioMovement(_ entry: LedgerEntry) -> Bool {
         if BookingClassification.isSavingsPlan(entry) { return true }
         let prefixes = [
@@ -912,6 +942,7 @@ public enum FinanceService {
         return prefixes.contains { entry.title.hasPrefix($0) }
     }
 
+    /// Sums the booked amounts of fixed cost occurrences.
     private static func bookedFixedAmount(
         occurrences: [(date: Date, amount: Int, title: String, costID: UUID)],
         entries: [LedgerEntry],
@@ -938,6 +969,7 @@ public enum FinanceService {
         return total
     }
 
+    /// Builds the forecast lines of a period.
     private static func eventLines(
         period: ForecastPeriod,
         entries: [LedgerEntry],
@@ -1017,6 +1049,7 @@ public enum FinanceService {
         }
     }
 
+    /// Sums spending of budgets in a period.
     private static func variableSpent(
         in period: ForecastPeriod,
         budgets: [VariableBudget],
@@ -1072,6 +1105,7 @@ public enum FinanceService {
         return (applied, planned)
     }
 
+    /// Lists the bookings of a shopping item.
     public static func shoppingBookings(for itemID: UUID, entries: [LedgerEntry], period: ForecastPeriod? = nil) -> [LedgerEntry] {
         entries.filter { entry in
             if let period, !period.contains(entry.date) { return false }
@@ -1082,17 +1116,20 @@ public enum FinanceService {
         .sorted { $0.date > $1.date }
     }
 
+    /// Says whether a booking counts toward a budget.
     private static func countsTowardVariable(_ entry: LedgerEntry, budgetID: UUID) -> Bool {
         if entry.variableBudgetID == budgetID { return true }
         guard let link = ForecastPeriodLinkStore.link(for: entry.id) else { return false }
         return link.kind == .variable && link.id == budgetID
     }
 
+    /// Says whether a booking touches the account.
     private static func entryTouches(_ entry: LedgerEntry, accountID: UUID?) -> Bool {
         guard let accountID else { return true }
         return entry.accountID == accountID || entry.fromAccountID == accountID || entry.toAccountID == accountID
     }
 
+    /// Returns the start of the next day.
     private static func endOfDay(_ date: Date) -> Date {
         Calendar.current.date(byAdding: .day, value: 1, to: Calendar.current.startOfDay(for: date))?.addingTimeInterval(-1) ?? date
     }
@@ -1106,6 +1143,7 @@ public enum ExpenseDayIndex {
     private static var generation = -1
     private static var byDay: [Date: [LedgerEntry]] = [:]
 
+    /// Returns the bookings of a day from an index.
     public static func candidates(on date: Date, in entries: [LedgerEntry]) -> [LedgerEntry] {
         let calendar = Calendar.current
         if entries.first?.modelContext?.hasChanges == true {
@@ -1125,6 +1163,7 @@ public enum ExpenseDayIndex {
         return byDay[calendar.startOfDay(for: date)] ?? []
     }
 
+    /// Compares two booking lists by identity.
     private static func sameArray(_ lhs: [LedgerEntry], _ rhs: [LedgerEntry]) -> Bool {
         guard lhs.count == rhs.count else { return false }
         return lhs.withUnsafeBufferPointer { left in
@@ -1133,11 +1172,13 @@ public enum ExpenseDayIndex {
     }
 }
 
+/// One finance period.
 public struct ForecastPeriod: Equatable, Identifiable {
     public var start: Date
     public var end: Date
     public var id: String { "\(start.dayKey)|\(end.dayKey)" }
 
+    /// Says whether the date lies in the period.
     public func contains(_ date: Date) -> Bool {
         let day = Calendar.current.startOfDay(for: date)
         return day >= Calendar.current.startOfDay(for: start) && day <= Calendar.current.startOfDay(for: end)
@@ -1149,6 +1190,7 @@ public struct ForecastPeriod: Equatable, Identifiable {
     }
 }
 
+/// All calculated figures of one period.
 public struct PeriodForecast {
     public var netWorth: Int
     public var income: Int
@@ -1189,6 +1231,7 @@ public struct PeriodForecast {
     }
 }
 
+/// One planned or booked line of a period.
 public struct ForecastLine: Identifiable {
     public var id: String
     public var date: Date
@@ -1203,6 +1246,7 @@ public struct ForecastLine: Identifiable {
     }
 }
 
+/// One due charge of a fixed cost.
 public struct ScheduledCharge: Identifiable {
     public var id: String
     public var date: Date
@@ -1221,7 +1265,9 @@ public struct ScheduledCharge: Identifiable {
     }
 }
 
+/// One entry of a forecast list.
 public struct ForecastListItem: Identifiable {
+    /// The source of a forecast entry.
     public enum Kind {
         case income(IncomeForecast)
         case expense(UUID)
@@ -1274,6 +1320,7 @@ public struct ForecastListItem: Identifiable {
 /// Open income, expense, and transfer forecasts for the selected account and period.
 @MainActor
 public enum ForecastSchedule {
+    /// Lists income forecasts for the income view.
     public static func incomeView(
         forecasts: [IncomeForecast],
         entries: [LedgerEntry],
@@ -1288,6 +1335,7 @@ public enum ForecastSchedule {
         .sorted { $0.date < $1.date }
     }
 
+    /// Lists expense forecasts for the expense view.
     public static func expenseView(
         costs: [FixedCost],
         entries: [LedgerEntry],
@@ -1316,6 +1364,7 @@ public enum ForecastSchedule {
         .sorted { $0.date < $1.date }
     }
 
+    /// Lists all forecasts for the finance view.
     public static func financeView(
         forecasts: [IncomeForecast],
         costs: [FixedCost],
@@ -1346,12 +1395,14 @@ public enum ForecastSchedule {
         .sorted { $0.date < $1.date }
     }
 
+    /// Whether a transfer comes in or goes out.
     private enum TransferDirection {
         case incoming
         case outgoing
         case both
     }
 
+    /// Builds the income entries.
     private static func incomeItems(
         forecasts: [IncomeForecast],
         entries: [LedgerEntry],
@@ -1397,6 +1448,7 @@ public enum ForecastSchedule {
         return items.sorted { $0.date < $1.date }
     }
 
+    /// Builds the fixed cost entries.
     private static func expenseItems(
         costs: [FixedCost],
         entries: [LedgerEntry],
@@ -1435,6 +1487,7 @@ public enum ForecastSchedule {
         }
     }
 
+    /// Builds the variable budget entries.
     private static func variableItems(
         budgets: [VariableBudget],
         entries: [LedgerEntry],
@@ -1479,6 +1532,7 @@ public enum ForecastSchedule {
         }
     }
 
+    /// Builds the shopping entries.
     private static func shoppingItems(
         shopping: [ShoppingItem],
         entries: [LedgerEntry],
@@ -1511,6 +1565,7 @@ public enum ForecastSchedule {
         }
     }
 
+    /// Builds the planned transfer entries.
     private static func transferItems(
         entries: [LedgerEntry],
         period: ForecastPeriod,
@@ -1568,6 +1623,7 @@ public enum ForecastSchedule {
         return items.sorted { $0.date < $1.date }
     }
 
+    /// Says whether the income is already booked.
     private static func incomeIsBooked(_ forecast: IncomeForecast, entries: [LedgerEntry], period: ForecastPeriod) -> Bool {
         let ibans = IncomeAssignmentStore.ibans(for: forecast.id)
         return entries.contains { entry in
@@ -1579,6 +1635,7 @@ public enum ForecastSchedule {
         }
     }
 
+    /// Says whether the planned transfer is booked.
     private static func transferIsBooked(_ forecastID: UUID, entries: [LedgerEntry], period: ForecastPeriod) -> Bool {
         if ForecastPeriodLinkStore.covers(.transfer, id: forecastID, entries: entries, period: period) { return true }
         return entries.contains { entry in
@@ -1587,8 +1644,10 @@ public enum ForecastSchedule {
     }
 }
 
+/// Decides which fixed costs apply to a view.
 @MainActor
 public enum FixedCostScope {
+    /// Filters fixed costs by account and view.
     public static func applicable(
         costs: [FixedCost],
         account: Account?,
@@ -1605,14 +1664,17 @@ public enum FixedCostScope {
     }
 }
 
+/// Assigns variable budgets to accounts.
 @MainActor
 public enum VariableBudgetAccounts {
+    /// Returns the stored accounts of a budget.
     public static func storedIDs(for budgetID: UUID) -> [UUID]? {
         let map = all()
         guard map.keys.contains(budgetID.uuidString) else { return nil }
         return map[budgetID.uuidString]
     }
 
+    /// Stores the accounts of a budget.
     public static func set(_ ids: [UUID], for budgetID: UUID) {
         var map = all()
         if ids.isEmpty {
@@ -1623,6 +1685,7 @@ public enum VariableBudgetAccounts {
         save(map)
     }
 
+    /// Removes the assignment of a budget.
     public static func remove(for budgetID: UUID) {
         var map = all()
         map.removeValue(forKey: budgetID.uuidString)
@@ -1641,6 +1704,7 @@ public enum VariableBudgetAccounts {
         return cashAccountIDs
     }
 
+    /// Sums the budgets' plan for an account.
     public static func planCents(
         budgets: [VariableBudget],
         scopedAccountIDs: Set<UUID>?,
@@ -1651,6 +1715,7 @@ public enum VariableBudgetAccounts {
         }
     }
 
+    /// Returns one budget's plan for an account.
     public static func planCents(
         budget: VariableBudget,
         scopedAccountIDs: Set<UUID>?,
@@ -1664,6 +1729,7 @@ public enum VariableBudgetAccounts {
         }
     }
 
+    /// Splits a total evenly, and gives the remainder to the first accounts.
     public static func share(total: Int, accountID: UUID, targets: [UUID]) -> Int {
         guard let index = targets.firstIndex(of: accountID), !targets.isEmpty else { return 0 }
         let base = total / targets.count
@@ -1671,6 +1737,7 @@ public enum VariableBudgetAccounts {
         return base + (index < remainder ? 1 : 0)
     }
 
+    /// Hashes the assignments, so views notice a change.
     public static func fingerprint() -> Int {
         var hasher = Hasher()
         for pair in all().sorted(by: { $0.key < $1.key }) {
@@ -1682,16 +1749,19 @@ public enum VariableBudgetAccounts {
         return hasher.finalize()
     }
 
+    /// Removes all assignments.
     public static func reset() {
         LinkTable.clear(.budgetAccounts)
     }
 
+    /// Reads the assignments.
     private static func all() -> [String: [UUID]] {
         LinkTable.map(.budgetAccounts).mapValues { raw in
             raw.split(separator: ",").compactMap { UUID(uuidString: String($0)) }
         }
     }
 
+    /// Writes the assignments.
     private static func save(_ map: [String: [UUID]]) {
         LinkTable.replace(.budgetAccounts, with: map.mapValues { ids in
             ids.map(\.uuidString).joined(separator: ",")
