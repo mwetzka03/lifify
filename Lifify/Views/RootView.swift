@@ -74,7 +74,13 @@ struct RootView: View {
             NutritionLedger.settle(context: context, sessions: workouts.sessions)
             await MarketDataService.refresh(holdings: holdings, context: context)
         }
-        .onAppear { BirthdayBonusService.settle(context: context) }
+        .onAppear {
+            BirthdayBonusService.settle(context: context)
+            openNotificationRoute()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NotificationRoute.didChange)) { _ in
+            openNotificationRoute()
+        }
         .onChange(of: developerMode) { BirthdayBonusService.settle(context: context) }
         .onChange(of: developerDay) { BirthdayBonusService.settle(context: context) }
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name.NSSystemTimeZoneDidChange)) { _ in
@@ -129,8 +135,31 @@ struct RootView: View {
         }
     }
 
+    /// Opens the screen of a tapped notification. Finance stays behind its lock.
+    private func openNotificationRoute() {
+        guard NotificationRoute.take() == PeriodReviewNotifier.route else { return }
+        selectedTab = 1
+        financePath.append(FinanceRoute.periodReview)
+    }
+
+    /// Announces a newly finished period, when that is turned on.
+    private func announcePeriodReview() async {
+        let entries = (try? context.fetch(FetchDescriptor<LedgerEntry>())) ?? []
+        let inputs = PeriodReviewBuilder.Inputs(entries: entries, splits: [], costs: [], budgets: [], pools: [])
+        let periods = PeriodReviewBuilder.periods(
+            mode: AppDefaults.store.string(forKey: "dashboardPeriodMode") ?? DashboardPeriodMode.calendarMonth.rawValue,
+            entries: entries,
+            forecasts: (try? context.fetch(FetchDescriptor<IncomeForecast>())) ?? [],
+            accounts: (try? context.fetch(FetchDescriptor<Account>())) ?? []
+        )
+        if let period = PeriodReviewNotifier.periodToAnnounce(PeriodReviewBuilder.make(inputs, periods: periods)?.period) {
+            await PeriodReviewNotifier.announce(period)
+        }
+    }
+
     /// Refreshes calendar, bonuses, and notifications on return.
     private func resumeForegroundWork() async {
+        await announcePeriodReview()
         await EventKitSyncService().sync(
             context: context,
             existingEvents: calendarEvents,

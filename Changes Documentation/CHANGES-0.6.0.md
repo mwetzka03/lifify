@@ -136,6 +136,21 @@ Version 0.6.0 first improves the code base (part A) and then adds new features
   repeated fast-food meal is charged again like any new one. Favorites are part
   of full and Health backups.
 
+### 0.6.0: Monthly review and subscription detection (B4, B5)
+
+- **What:** Finance, More now has a monthly review and subscription suggestions.
+  The review compares the last finished period with up to six earlier ones per
+  category, largest deviation first. It follows the chosen period mode. An
+  optional notification opens it when a period ends.
+- **Subscriptions:** Repeated payments to the same payee, within 10 % of the
+  usual amount, at a weekly, biweekly, monthly, or yearly rhythm, with at least
+  three payments, are suggested as fixed costs. Dismissed suggestions stay
+  dismissed and are part of the backup.
+- **Why:** Unusual spending and forgotten subscriptions should be easy to spot.
+- **Effect:** Adding a suggestion creates the fixed cost and links its past
+  payments. A subscription whose payments have stopped is not suggested.
+- **Tests changed:** The navigation test now expects the two new links.
+
 ## Deutsch
 
 ### Überblick
@@ -280,3 +295,19 @@ Funktionen (Teil B). Diese Datei wächst mit jedem abgeschlossenen Schritt.
 - **Auswirkung:** Ein neuer Eintrag übernimmt Name, Nährwerte und Art, aber kein
   Foto. Eine wiederholte Fast-Food-Mahlzeit wird wie jede neue abgebucht.
   Favoriten sind Teil des Gesamt- und Gesundheits-Backups.
+
+### 0.6.0: Monatsrückblick und Abo-Erkennung (B4, B5)
+
+- **Was:** Unter Finanzen, Weitere Bereiche gibt es jetzt den Monatsrückblick und
+  Abo-Vorschläge. Der Rückblick vergleicht den letzten abgeschlossenen Zeitraum
+  je Kategorie mit bis zu sechs früheren, die größte Abweichung zuerst. Er folgt
+  dem gewählten Zeitraum. Eine optionale Mitteilung öffnet ihn zum Zeitraumende.
+- **Abos:** Wiederkehrende Zahlungen an denselben Empfänger, höchstens 10 % vom
+  üblichen Betrag entfernt, wöchentlich, zweiwöchentlich, monatlich oder
+  jährlich, mit mindestens drei Zahlungen, werden als Fixkosten vorgeschlagen.
+  Abgelehnte Vorschläge bleiben weg und sind Teil des Backups.
+- **Warum:** Ungewöhnliche Ausgaben und vergessene Abos sollen leicht auffallen.
+- **Auswirkung:** Ein angenommener Vorschlag legt die Fixkosten an und verknüpft
+  die bisherigen Zahlungen. Ein Abo, dessen Zahlungen aufgehört haben, wird nicht
+  vorgeschlagen.
+- **Geänderte Tests:** Der Navigationstest erwartet die zwei neuen Links.

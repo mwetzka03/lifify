@@ -433,10 +433,17 @@ private struct FinanceSettingsView: View {
     @StateObject private var importModel = DataImportViewModel()
     @State private var importingBank = false
     @State private var importingTradeRepublic = false
+    @AppStorage(PeriodReviewNotifier.enabledKey) private var reviewNotice = false
 
     var body: some View {
         Form {
             FinanceLockSection()
+            Section {
+                Toggle(L("Mitteilung zum Monatsrückblick", "Notify about the monthly review"), isOn: $reviewNotice)
+            } footer: {
+                Text(L("Meldet sich einmal, wenn ein Zeitraum abgeschlossen ist.", "Notifies you once when a period has ended."))
+            }
+            .appGlassRow()
             Section {
                 NavigationLink {
                     AccountsSettingsView()

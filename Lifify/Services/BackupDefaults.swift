@@ -34,6 +34,7 @@ enum BackupDefaults {
         "lifify.briefingMinute",
         "restChimeSoundID",
         ProgressiveOverload.stepKey,
+        PeriodReviewNotifier.enabledKey,
         "portfolioSort",
         "portfolioPerformanceBasis",
         "portfolioPerformanceUnit"

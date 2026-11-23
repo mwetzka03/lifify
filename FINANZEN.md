@@ -641,6 +641,23 @@ full to be right, the statement has to be imported again after a rule change.
 - A refresh runs only from the button in Finance.
 - Other holdings stay when the session does not mention them.
 
+### Monthly review
+
+- The review shows the last finished period of the chosen period mode.
+- Expenses count after refunds. A split counts for its budget or pool.
+- A booking without a plan counts as Other.
+- The average uses up to six earlier periods. A period without spending in a
+  category counts as zero for that category.
+
+### Subscription detection
+
+- A suggestion needs at least three expenses to the same payee.
+- Amounts may differ by up to 10 % from the median payment.
+- Every gap must fit one rhythm: 6 to 8 days, 13 to 15 days, 27 to 34 days, or
+  358 to 372 days.
+- A pattern is dropped when its last payment is more than one and a half
+  rhythms old, or when a fixed cost with that payee exists.
+
 ## Deutsch
 
 - Diese Datei beschreibt, wie Lifify Konten, Zeiträume, Einnahmen, Ausgaben,
@@ -1299,3 +1316,21 @@ Auszug nach einer Regeländerung neu importiert werden.
 - Der PDF-Import bleibt.
 - Eine Aktualisierung läuft nur über den Knopf unter Finanzen.
 - Andere Positionen bleiben stehen, wenn die Sitzung sie nicht nennt.
+
+### Monatsrückblick
+
+- Der Rückblick zeigt den letzten abgeschlossenen Zeitraum des gewählten Modus.
+- Ausgaben zählen nach Erstattungen. Ein Split zählt für sein Budget oder seinen
+  Pool.
+- Eine Buchung ohne Plan zählt als Sonstiges.
+- Der Durchschnitt nutzt bis zu sechs frühere Zeiträume. Ein Zeitraum ohne
+  Ausgaben in einer Kategorie zählt dort als null.
+
+### Abo-Erkennung
+
+- Ein Vorschlag braucht mindestens drei Ausgaben an denselben Empfänger.
+- Beträge dürfen bis zu 10 % vom mittleren Betrag abweichen.
+- Jeder Abstand muss zu einem Rhythmus passen: 6 bis 8, 13 bis 15, 27 bis 34 oder
+  358 bis 372 Tage.
+- Ein Muster entfällt, wenn die letzte Zahlung älter als anderthalb Rhythmen ist
+  oder Fixkosten mit diesem Empfänger bestehen.

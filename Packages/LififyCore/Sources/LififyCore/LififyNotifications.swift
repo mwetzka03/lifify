@@ -28,6 +28,37 @@ public final class NotificationCenterDelegate: NSObject, UNUserNotificationCente
     ) async -> UNNotificationPresentationOptions {
         [.banner, .list, .sound]
     }
+
+    /// Passes the screen a tapped notification should open to the app.
+    public func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse
+    ) async {
+        guard let route = response.notification.request.content.userInfo[NotificationRoute.key] as? String else { return }
+        await MainActor.run { NotificationRoute.open(route) }
+    }
+}
+
+/// The screen a tapped notification opens, also when the tap launched the app.
+@MainActor
+public enum NotificationRoute {
+    /// The notification's field that names the screen.
+    public nonisolated static let key = "lifify.route"
+    /// Posted when a route is waiting.
+    public static let didChange = Notification.Name("lifify.notificationRoute")
+    private static var pending: String?
+
+    /// Remembers the route and tells the running app.
+    public static func open(_ route: String) {
+        pending = route
+        NotificationCenter.default.post(name: didChange, object: nil)
+    }
+
+    /// Hands out the waiting route once.
+    public static func take() -> String? {
+        defer { pending = nil }
+        return pending
+    }
 }
 
 /// Local pushes for abstinence bonuses and the daily briefing.
@@ -189,6 +220,16 @@ public enum LififyNotifications {
     ) {
         guard date > Date() else { return }
         deliver(id: id, title: title, body: body, at: date, followsDeviceTimeZone: followsDeviceTimeZone)
+    }
+
+    /// Sends a notification now. A tap opens the given route.
+    public static func send(id: String, title: String, body: String, route: String) {
+        let content = UNMutableNotificationContent()
+        content.title = title
+        content.body = body
+        content.sound = .default
+        content.userInfo = [NotificationRoute.key: route]
+        UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: id, content: content, trigger: nil), withCompletionHandler: nil)
     }
 
     /// Replaces all scheduled briefings.
