@@ -23,6 +23,7 @@ public enum StreakSettings {
         1000: 3
     ]
 
+    /// The streak switch, freezes, and used periods of a challenge.
     public struct State: Codable, Equatable {
         public var enabled: Bool
         public var enabledAt: Date
@@ -41,15 +42,18 @@ public enum StreakSettings {
     private static var cachedStates: [String: State]?
     private static var cachedMultipliers: [Int: Double]?
 
+    /// Drops the in-memory copies.
     public static func clearCache() {
         cachedStates = nil
         cachedMultipliers = nil
     }
 
+    /// Says whether the streak is on.
     public static func isEnabled(for challengeID: UUID) -> Bool {
         states()[challengeID.uuidString]?.enabled == true
     }
 
+    /// Turns the streak on or off. Turning it on starts counting now.
     public static func setEnabled(_ enabled: Bool, for challengeID: UUID) {
         var map = states()
         var state = map[challengeID.uuidString] ?? State(enabled: false, enabledAt: .now, purchased: 0, usedPeriodKeys: [])
@@ -61,6 +65,7 @@ public enum StreakSettings {
         saveStates(map)
     }
 
+    /// Returns the freezes left.
     public static func balance(for challengeID: UUID) -> Int {
         guard let state = states()[challengeID.uuidString], state.enabled else { return 0 }
         return max(0, StreakFreeze.startingCount + state.purchased - state.usedPeriodKeys.count)
@@ -71,16 +76,19 @@ public enum StreakSettings {
         return max(stored, 1)
     }
 
+    /// Stores the freeze price factor.
     public static func setFreezeFactor(_ value: Int) {
         AppDefaults.store.set(max(value, 1), forKey: freezeFactorKey)
         bump()
     }
 
+    /// Restores the default factor.
     public static func resetFreezeFactor() {
         AppDefaults.store.removeObject(forKey: freezeFactorKey)
         bump()
     }
 
+    /// Calculates a freeze's price.
     public static func price(rewardCoins: Int, factor: Int) -> Int {
         max(rewardCoins, 0) * max(factor, 1)
     }
@@ -92,10 +100,12 @@ public enum StreakSettings {
         return value
     }
 
+    /// Returns a challenge's freeze price.
     public static func price(for challenge: ChallengeItem) -> Int {
         price(rewardCoins: challenge.rewardCoins, factor: freezeFactor)
     }
 
+    /// Adds a bought freeze.
     public static func addPurchasedFreeze(for challengeID: UUID) {
         var map = states()
         var state = map[challengeID.uuidString] ?? State(enabled: true, enabledAt: .now, purchased: 0, usedPeriodKeys: [])
@@ -113,6 +123,7 @@ public enum StreakSettings {
         saveStates(map)
     }
 
+    /// Stores the periods covered by freezes.
     public static func setUsedPeriodKeys(_ keys: [String], for challengeID: UUID) {
         var map = states()
         guard var state = map[challengeID.uuidString] else { return }
@@ -123,14 +134,17 @@ public enum StreakSettings {
         saveStates(map)
     }
 
+    /// Returns a challenge's state.
     public static func state(for challengeID: UUID) -> State? {
         states()[challengeID.uuidString]
     }
 
+    /// Returns the coin multiplier of a streak.
     public static func multiplier(forStreak streak: Int) -> Double {
         factor(forStreak: streak, configured: effectiveMultipliers())
     }
 
+    /// Applies stored multipliers over the defaults.
     public static func merging(_ stored: [Int: Double]) -> [Int: Double] {
         var map = defaultMultipliers
         for (key, value) in stored where thresholds.contains(key) {
@@ -139,21 +153,25 @@ public enum StreakSettings {
         return map
     }
 
+    /// Returns all multipliers in effect.
     public static func effectiveMultipliers() -> [Int: Double] {
         merging(multipliers())
     }
 
+    /// Finds the multiplier of the highest reached threshold.
     public static func factor(forStreak streak: Int, configured: [Int: Double]) -> Double {
         guard let threshold = thresholds.last(where: { $0 <= streak && configured[$0] != nil }) else { return 1 }
         let value = configured[threshold] ?? 1
         return value >= 0 ? value : 1
     }
 
+    /// Returns one threshold's multiplier.
     public static func storedMultiplier(for threshold: Int) -> Double {
         let value = effectiveMultipliers()[threshold] ?? 1
         return value >= 0 ? value : 1
     }
 
+    /// Stores one multiplier.
     public static func setMultiplier(_ value: Double, for threshold: Int) {
         guard thresholds.contains(threshold) else { return }
         var map = multipliers()
@@ -161,6 +179,7 @@ public enum StreakSettings {
         saveMultipliers(map)
     }
 
+    /// Formats a multiplier for editing.
     public static func editString(for threshold: Int) -> String {
         let value = storedMultiplier(for: threshold)
         let formatter = NumberFormatter()
@@ -171,6 +190,7 @@ public enum StreakSettings {
         return formatter.string(from: NSNumber(value: value)) ?? "1"
     }
 
+    /// Parses a typed multiplier.
     public static func parseMultiplier(_ text: String) -> Double? {
         let formatter = NumberFormatter()
         formatter.locale = Locale(identifier: AppDefaults.store.string(forKey: "appLanguage") == "en" ? "en_US" : "de_DE")
@@ -182,20 +202,24 @@ public enum StreakSettings {
         return Double(normalized).map { max($0, 0) }
     }
 
+    /// Removes a challenge's state.
     public static func remove(for challengeID: UUID) {
         var map = states()
         guard map.removeValue(forKey: challengeID.uuidString) != nil else { return }
         saveStates(map)
     }
 
+    /// Removes all challenge states.
     public static func removeAllChallenges() {
         saveStates([:])
     }
 
+    /// Restores the default multipliers.
     public static func resetMultipliers() {
         saveMultipliers([:])
     }
 
+    /// Clears all streak settings.
     public static func reset() {
         cachedStates = [:]
         cachedMultipliers = [:]
@@ -205,6 +229,7 @@ public enum StreakSettings {
         bump()
     }
 
+    /// Exports the states for a backup.
     public static func exportStateRecords() -> [BackupRecord] {
         states().compactMap { key, state in
             guard let id = UUID(uuidString: key) else { return nil }
@@ -219,14 +244,17 @@ public enum StreakSettings {
         }
     }
 
+    /// Exports the freeze factor.
     public static func exportFreezeFactorRecord() -> BackupRecord {
         BackupRecord(type: "streakFreezeFactor", id: UUID(), integers: [freezeFactor])
     }
 
+    /// Restores the freeze factor.
     public static func restoreFreezeFactor(_ record: BackupRecord) {
         setFreezeFactor(record.integers.first ?? 10)
     }
 
+    /// Exports the multipliers.
     public static func exportMultiplierRecords() -> [BackupRecord] {
         effectiveMultipliers().map { threshold, value in
             BackupRecord(
@@ -238,6 +266,7 @@ public enum StreakSettings {
         }
     }
 
+    /// Restores a state.
     public static func restoreState(_ record: BackupRecord) {
         var map = states()
         map[record.id.uuidString] = State(
@@ -249,11 +278,13 @@ public enum StreakSettings {
         saveStates(map)
     }
 
+    /// Restores a multiplier.
     public static func restoreMultiplier(_ record: BackupRecord) {
         guard let threshold = record.integers.first, let value = record.doubles.first else { return }
         setMultiplier(value, for: threshold)
     }
 
+    /// Reads the states.
     private static func states() -> [String: State] {
         if let cachedStates { return cachedStates }
         var decoded: [String: State] = [:]
@@ -264,6 +295,7 @@ public enum StreakSettings {
         return decoded
     }
 
+    /// Reads the multipliers.
     private static func multipliers() -> [Int: Double] {
         if let cachedMultipliers { return cachedMultipliers }
         let decoded: [Int: Double]
@@ -279,6 +311,7 @@ public enum StreakSettings {
         return decoded
     }
 
+    /// Writes the states.
     private static func saveStates(_ map: [String: State]) {
         if let context = LififyDatabase.sideContext {
             let rows = (try? context.fetch(FetchDescriptor<StoredStreakState>())) ?? []
@@ -303,6 +336,7 @@ public enum StreakSettings {
         bump()
     }
 
+    /// Writes the multipliers.
     private static func saveMultipliers(_ map: [Int: Double]) {
         let raw = Dictionary(uniqueKeysWithValues: map.map { (String($0.key), $0.value) })
         guard let data = try? JSONEncoder().encode(raw) else { return }
@@ -311,6 +345,7 @@ public enum StreakSettings {
         bump()
     }
 
+    /// Signals that the settings changed.
     private static func bump() {
         AppDefaults.store.set(AppDefaults.store.integer(forKey: revisionKey) + 1, forKey: revisionKey)
     }

@@ -6,14 +6,17 @@ public enum CalendarSyncWindow {
     public static let pastDays = 30
     public static let futureDays = 365
 
+    /// The first day of the sync window.
     public static func start(around date: Date, calendar: Calendar = .current) -> Date {
         calendar.date(byAdding: .day, value: -pastDays, to: date) ?? date
     }
 
+    /// The last day of the sync window.
     public static func end(around date: Date, calendar: Calendar = .current) -> Date {
         calendar.date(byAdding: .day, value: futureDays, to: date) ?? date
     }
 
+    /// Says whether a date lies in the window.
     public static func contains(_ date: Date, around now: Date, calendar: Calendar = .current) -> Bool {
         date >= start(around: now, calendar: calendar) && date < end(around: now, calendar: calendar)
     }
@@ -38,6 +41,7 @@ public enum AgendaScroll {
     public static let pastDays = 30
     public static let futureDays = 45
 
+    /// Lists the days shown around today.
     public static func days(around today: Date, calendar: Calendar = .current) -> [Date] {
         let start = calendar.startOfDay(for: today)
         let first = calendar.date(byAdding: .day, value: -pastDays, to: start) ?? start
@@ -46,6 +50,7 @@ public enum AgendaScroll {
         }
     }
 
+    /// Finds today in the list.
     public static func todayIndex(in days: [Date], today: Date, calendar: Calendar = .current) -> Int? {
         days.firstIndex { calendar.isDate($0, inSameDayAs: today) }
     }
@@ -53,6 +58,7 @@ public enum AgendaScroll {
 
 /// A new occurrence of a series keeps the challenge already linked to that series.
 public enum CalendarSeriesLink {
+    /// An event's links, reduced for series matching.
     public struct Event {
         public var externalIdentifier: String?
         public var challengeID: UUID?
@@ -67,6 +73,7 @@ public enum CalendarSeriesLink {
         }
     }
 
+    /// The links a new occurrence inherits.
     public struct Links: Equatable {
         public var challengeID: UUID?
         public var groupID: UUID?
@@ -79,6 +86,7 @@ public enum CalendarSeriesLink {
         }
     }
 
+    /// Returns the links shared by a series.
     public static func links(externalIdentifier: String, events: [Event]) -> Links {
         let siblings = events.filter { $0.externalIdentifier == externalIdentifier }
         return Links(

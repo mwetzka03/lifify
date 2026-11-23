@@ -10,11 +10,13 @@ public enum ChallengeActivity {
         return true
     }
 
+    /// Says whether a repeating challenge done today appears dimmed.
     public static func dimsActiveRow(recurrence: ChallengeRecurrence, completedToday: Bool) -> Bool {
         recurrence != .none && completedToday
     }
 }
 
+/// One finished challenge in the history.
 public struct ChallengeHistoryEntry: Identifiable, Equatable {
     public var challengeID: UUID
     public var title: String
@@ -28,6 +30,7 @@ public struct ChallengeHistoryEntry: Identifiable, Equatable {
     }
 }
 
+/// One day of the history.
 public struct ChallengeHistoryDay: Identifiable, Equatable {
     public var day: Date
     public var entries: [ChallengeHistoryEntry]
@@ -39,6 +42,7 @@ public struct ChallengeHistoryDay: Identifiable, Equatable {
     }
 }
 
+/// A completion, reduced for the history.
 public struct ChallengeHistoryCompletion {
     public var challengeID: UUID
     public var title: String
@@ -51,7 +55,9 @@ public struct ChallengeHistoryCompletion {
     }
 }
 
+/// Groups completions for the history.
 public enum ChallengeHistory {
+    /// Groups completions by day, newest first.
     public static func grouped(completions: [ChallengeHistoryCompletion], calendar: Calendar = .current) -> [ChallengeHistoryDay] {
         let buckets = Dictionary(grouping: completions) { calendar.startOfDay(for: $0.date) }
         return buckets.keys.sorted(by: >).map { day in
@@ -95,6 +101,7 @@ public enum ChallengeHistory {
     }
 }
 
+/// One continuous abstinence run.
 public struct AbstinenceHistorySpan: Equatable, Identifiable {
     public var challengeID: UUID
     public var title: String

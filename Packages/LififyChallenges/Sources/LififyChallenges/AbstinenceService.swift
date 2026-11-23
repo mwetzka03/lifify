@@ -5,6 +5,11 @@ import SwiftData
 /// Pays the daily base coins and each reached bonus once for the current run.
 @MainActor
 public enum AbstinenceService {
+    /// Pays all open days and reached bonuses of the abstinence challenges.
+    ///
+    /// - Parameters:
+    ///   - context: The database context.
+    ///   - now: The time to settle up to, which may be simulated.
     public static func settle(context: ModelContext, now: Date = AppClock.now) {
         let challenges = (try? context.fetch(FetchDescriptor<ChallengeItem>())) ?? []
         let completions = (try? context.fetch(FetchDescriptor<ChallengeCompletion>())) ?? []
@@ -103,6 +108,7 @@ public enum AbstinenceService {
         }
     }
 
+    /// Lists the notification IDs of one run.
     public static func notificationIDs(challengeID: UUID, start: Date) -> Set<String> {
         Set(AbstinenceMilestone.allCases.map {
             "\(challengeID.uuidString)|\($0.rawValue)|\(start.timeIntervalSince1970)"

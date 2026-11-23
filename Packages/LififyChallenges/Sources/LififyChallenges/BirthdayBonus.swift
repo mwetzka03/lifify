@@ -2,6 +2,7 @@ import Foundation
 import LififyCore
 import SwiftData
 
+/// A birthday as a plain calendar date.
 public struct Birthday: Equatable {
     public var year: Int
     public var month: Int
@@ -27,6 +28,7 @@ public enum BirthdayBonus {
         return exactDay(year: year, month: 2, day: 28, calendar: calendar)
     }
 
+    /// Says whether the day is the birthday.
     public static func isBirthday(_ birth: Birthday, on day: Date, calendar: Calendar = .current) -> Bool {
         isDue(birth: birth, on: day, awardedYear: nil, calendar: calendar)
     }
@@ -58,29 +60,35 @@ public enum BirthdayBonus {
         return calendar.startOfDay(for: date)
     }
 
+    /// A stable reference that keeps one bonus per year.
     public static func referenceID(year: Int) -> UUID {
         UUID(uuidString: String(format: "00000000-0000-4000-8000-%012d", year)) ?? UUID()
     }
 }
 
+/// The stored birthday and the last year it paid a bonus.
 public enum UserProfile {
     public static let birthKey = "userBirthDate"
     public static let awardedYearKey = "lifify.birthdayAwardedYear"
 
+    /// Returns the stored birthday.
     public static func birth(defaults: UserDefaults = AppDefaults.store) -> Birthday? {
         parse(defaults.string(forKey: birthKey) ?? "")
     }
 
+    /// Returns the birthday as a date.
     public static func birthDate(calendar: Calendar = .current, defaults: UserDefaults = AppDefaults.store) -> Date? {
         guard let birth = birth(defaults: defaults) else { return nil }
         return calendar.date(from: DateComponents(year: birth.year, month: birth.month, day: birth.day))
     }
 
+    /// Suggests a starting date for the birthday picker.
     public static func suggestedDate(calendar: Calendar = .current) -> Date {
         let year = calendar.component(.year, from: Date()) - 25
         return calendar.date(from: DateComponents(year: year, month: 1, day: 1)) ?? Date()
     }
 
+    /// Stores the birthday. A future date is limited to today.
     public static func setBirthDate(_ date: Date, calendar: Calendar = .current, defaults: UserDefaults = AppDefaults.store) {
         let today = calendar.startOfDay(for: Date())
         let chosen = min(calendar.startOfDay(for: date), today)
@@ -89,20 +97,24 @@ public enum UserProfile {
         defaults.set(raw(Birthday(year: year, month: month, day: day)), forKey: birthKey)
     }
 
+    /// Returns the stored text.
     public static func birthRaw(defaults: UserDefaults = AppDefaults.store) -> String {
         defaults.string(forKey: birthKey) ?? ""
     }
 
+    /// Returns the last paid year.
     public static func awardedYear(defaults: UserDefaults = AppDefaults.store) -> Int? {
         let year = defaults.integer(forKey: awardedYearKey)
         return year > 0 ? year : nil
     }
 
+    /// Returns the last paid year as text.
     public static func awardedYearRaw(defaults: UserDefaults = AppDefaults.store) -> String {
         guard let year = awardedYear(defaults: defaults) else { return "" }
         return String(year)
     }
 
+    /// Stores the last paid year.
     public static func setAwardedYear(_ year: Int, defaults: UserDefaults = AppDefaults.store) {
         defaults.set(year, forKey: awardedYearKey)
     }
@@ -116,6 +128,7 @@ public enum UserProfile {
         }
     }
 
+    /// Restores both values from a backup.
     public static func restore(birthRaw: String, awardedYearRaw: String, defaults: UserDefaults = AppDefaults.store) {
         if let birth = parse(birthRaw) {
             defaults.set(raw(birth), forKey: birthKey)
@@ -129,11 +142,13 @@ public enum UserProfile {
         }
     }
 
+    /// Removes both values.
     public static func reset(defaults: UserDefaults = AppDefaults.store) {
         defaults.removeObject(forKey: birthKey)
         defaults.removeObject(forKey: awardedYearKey)
     }
 
+    /// Parses a stored birthday.
     private static func parse(_ raw: String) -> Birthday? {
         let parts = raw.split(separator: "-")
         guard parts.count == 3,
@@ -149,13 +164,16 @@ public enum UserProfile {
         return Birthday(year: year, month: month, day: day)
     }
 
+    /// Formats a birthday for storage.
     private static func raw(_ birth: Birthday) -> String {
         String(format: "%04d-%02d-%02d", birth.year, birth.month, birth.day)
     }
 }
 
+/// Pays the yearly birthday bonus.
 @MainActor
 public enum BirthdayBonusService {
+    /// Pays the bonus once when it is due and announces it.
     public static func settle(context: ModelContext, now: Date = AppClock.now, calendar: Calendar = .current) {
         guard let birth = UserProfile.birth() else { return }
         guard BirthdayBonus.isDue(birth: birth, on: now, awardedYear: UserProfile.awardedYear(), calendar: calendar) else { return }

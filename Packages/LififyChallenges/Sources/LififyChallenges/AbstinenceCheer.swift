@@ -3,6 +3,7 @@ import LififyCore
 
 /// The abstinence push. The title is the cheer. The body still names the challenge, the step, and the coins.
 public enum AbstinenceCheer {
+    /// The notification title of a milestone.
     public static func title(for milestone: AbstinenceMilestone) -> String {
         switch milestone {
         case .hour1: L("Los geht's!", "Here we go!")
@@ -18,6 +19,7 @@ public enum AbstinenceCheer {
         }
     }
 
+    /// The encouraging line of a milestone.
     public static func line(for milestone: AbstinenceMilestone) -> String {
         switch milestone {
         case .hour1: L("Die erste Stunde sitzt.", "The first hour is yours.")
@@ -33,6 +35,7 @@ public enum AbstinenceCheer {
         }
     }
 
+    /// The notification text with the challenge and its coins.
     public static func body(challenge: String, milestone: AbstinenceMilestone, coins: Int) -> String {
         let fact = "\(challenge) · \(milestone.label). \(line(for: milestone))"
         guard coins > 0 else { return fact }

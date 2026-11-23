@@ -48,6 +48,7 @@ public enum AbstinenceMilestone: String, CaseIterable, Identifiable, Equatable {
         }
     }
 
+    /// The moment this milestone is reached.
     public func due(from start: Date, calendar: Calendar = .current) -> Date {
         switch self {
         case .hour1: return start.addingTimeInterval(3_600)
@@ -64,6 +65,7 @@ public enum AbstinenceMilestone: String, CaseIterable, Identifiable, Equatable {
     }
 }
 
+/// An elapsed time split for display.
 public struct AbstinenceClock: Equatable {
     public var days: Int
     public var hours: Int
@@ -78,6 +80,7 @@ public struct AbstinenceClock: Equatable {
     }
 }
 
+/// The days and bonuses still to pay.
 public struct AbstinenceAwardPlan: Equatable {
     public var days: [Date]
     public var milestones: [AbstinenceMilestone]
@@ -105,10 +108,12 @@ public enum AbstinenceRules {
         ]
     ]
 
+    /// The time since the start, never negative.
     public static func elapsed(from start: Date, to now: Date) -> TimeInterval {
         max(0, now.timeIntervalSince(start))
     }
 
+    /// Splits a time span for the clock.
     public static func clock(_ interval: TimeInterval) -> AbstinenceClock {
         let total = max(0, Int(interval.rounded(.down)))
         return AbstinenceClock(
@@ -119,11 +124,13 @@ public enum AbstinenceRules {
         )
     }
 
+    /// The bonus coins of a milestone.
     public static func bonusCoins(base: Int, multiplier: Double) -> Int {
         guard base > 0, multiplier > 0 else { return 0 }
         return Int((Double(base) * multiplier).rounded())
     }
 
+    /// Applies stored multipliers over the defaults.
     public static func merging(_ stored: [String: Double], defaults: [String: Double]) -> [String: Double] {
         var map = defaults
         for (key, value) in stored where defaults[key] != nil && value >= 0 {
@@ -132,11 +139,13 @@ public enum AbstinenceRules {
         return map
     }
 
+    /// Lists the milestones reached so far.
     public static func reached(start: Date, now: Date, calendar: Calendar = .current) -> [AbstinenceMilestone] {
         guard now >= start else { return [] }
         return AbstinenceMilestone.allCases.filter { now >= $0.due(from: start, calendar: calendar) }
     }
 
+    /// Lists the start of each full day since the start.
     public static func dayStarts(from start: Date, through now: Date, calendar: Calendar = .current) -> [Date] {
         guard now >= start else { return [] }
         let last = calendar.startOfDay(for: now)

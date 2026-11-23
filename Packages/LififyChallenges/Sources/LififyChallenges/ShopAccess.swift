@@ -9,10 +9,12 @@ public enum ShopAccess: Equatable, Sendable {
     case notEnoughCoins
     case locked
 
+    /// A negative wallet locks the shop.
     public static func isLocked(balance: Int) -> Bool {
         balance < 0
     }
 
+    /// Checks whether a purchase is possible.
     public static func check(balance: Int, price: Int) -> ShopAccess {
         if isLocked(balance: balance) { return .locked }
         return balance >= price ? .open : .notEnoughCoins

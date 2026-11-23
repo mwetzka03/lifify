@@ -25,10 +25,12 @@ public enum ChallengeTimeRules {
     /// A challenge created from an event carries this prefix. That link is exclusive.
     public static let adoptedMark = "event-challenge:"
 
+    /// Sport and abstinence have no minutes.
     public static func allowsTime(_ category: ChallengeCategory) -> Bool {
         category != .sport && category != .abstinence
     }
 
+    /// Says whether a duration fits the filter.
     public static func matches(_ filter: ChallengeTimeFilter, minutes: Int?) -> Bool {
         let hasTime = (minutes ?? 0) > 0
         switch filter {
@@ -38,6 +40,7 @@ public enum ChallengeTimeRules {
         }
     }
 
+    /// Says whether a challenge came from a calendar event.
     public static func isAdopted(_ identifier: String?) -> Bool {
         identifier?.hasPrefix(adoptedMark) == true
     }
@@ -74,6 +77,7 @@ public enum ChallengeTimeRules {
         return eventStarts.filter { calendar.startOfDay(for: $0) < start }.count
     }
 
+    /// Returns the whole minutes between two dates.
     public static func minutes(from start: Date, to end: Date) -> Int {
         max(0, Int((end.timeIntervalSince(start) / 60).rounded()))
     }
@@ -91,6 +95,7 @@ public enum ChallengeTimeRules {
         return count
     }
 
+    /// Returns the minutes left in a slot.
     public static func remaining(slotMinutes: Int, linkedMinutes: [Int]) -> Int {
         max(0, slotMinutes - linkedMinutes.filter { $0 > 0 }.reduce(0, +))
     }
@@ -106,11 +111,13 @@ public enum ChallengeTimeRules {
         completing && hasEstimate && linkedToEvent
     }
 
+    /// Splits minutes into hours and minutes.
     public static func durationParts(_ minutes: Int) -> (hours: Int, minutes: Int) {
         let safe = max(minutes, 0)
         return (safe / 60, safe % 60)
     }
 
+    /// Formats a duration.
     public static func durationText(_ minutes: Int) -> String {
         let parts = durationParts(minutes)
         if parts.hours > 0, parts.minutes > 0 {
@@ -153,6 +160,7 @@ public enum ChallengeTimeRules {
             .map(\.id)
     }
 
+    /// Suggests challenges that fit a slot.
     public static func suggestions(
         candidates: [(id: UUID, minutes: Int?, createdAt: Date)],
         now: Date,
@@ -171,6 +179,7 @@ public enum ChallengeTimeRules {
 
 /// Linking a challenge to an event puts it on that event's day and into the shared group.
 public enum EventChallengeLink {
+    /// The result of placing challenges on a slot.
     public struct Placement: Equatable {
         public var start: Date
         public var weekdays: Set<Int>
@@ -211,6 +220,7 @@ public enum EventChallengeLink {
         return ids
     }
 
+    /// Two or more challenges on an event form a group.
     public static func makesGroup(count: Int) -> Bool { count >= 2 }
 
     /// A timed event writes the clock into the reminder. An all-day event keeps the date only.
@@ -225,6 +235,7 @@ public enum EventChallengeLink {
 /// Several challenges share one event only when each of them happens once.
 /// The calendar event is replaced after every one of them is checked off.
 public enum EventRewrite {
+    /// The moved time of a finished event.
     public struct Window: Equatable {
         public var start: Date
         public var end: Date
@@ -235,6 +246,7 @@ public enum EventRewrite {
         }
     }
 
+    /// Only one-time challenges can share an event.
     public static func acceptsSharedEvent(_ recurrence: ChallengeRecurrence) -> Bool {
         recurrence == .none
     }
@@ -245,6 +257,7 @@ public enum EventRewrite {
         return others.allSatisfy(acceptsSharedEvent)
     }
 
+    /// Says whether all members are done.
     public static func ready(memberIDs: [UUID], completedIDs: Set<UUID>) -> Bool {
         let ids = ChallengeGroups.unique(memberIDs)
         guard !ids.isEmpty else { return false }
@@ -261,6 +274,7 @@ public enum EventRewrite {
 
 /// A normal group takes every challenge. A group tied to an event takes one-time challenges until the slot is full.
 public enum GroupJoin {
+    /// Says whether a challenge can join an event.
     public static func canJoin(linkedToEvent: Bool, oneTime: Bool, minutes: Int?, remaining: Int) -> Bool {
         guard linkedToEvent else { return true }
         guard oneTime else { return false }
@@ -270,6 +284,7 @@ public enum GroupJoin {
 
 /// The calendar line sits on an event's group, not on each member. Its color follows the style.
 public enum GroupCalendarLine {
+    /// Says whether the event line belongs on the group instead.
     public static func belongsOnGroup(eventGroupID: UUID?, membership: [UUID]) -> Bool {
         guard let eventGroupID else { return false }
         return membership.contains(eventGroupID)
@@ -278,10 +293,12 @@ public enum GroupCalendarLine {
 
 /// Deleting a group can keep its challenges. A calendar group always drops the link.
 public enum GroupRemoval {
+    /// Removes a group from a list.
     public static func remaining(_ groups: [UUID], removing: UUID) -> [UUID] {
         groups.filter { $0 != removing }
     }
 
+    /// An event-made group clears its calendar link.
     public static func clearsCalendarLink(generatedFromEvent: Bool) -> Bool {
         generatedFromEvent
     }
@@ -291,13 +308,16 @@ public enum GroupRemoval {
 public enum StreakFreeze {
     public static let startingCount = 2
 
+    /// Says whether a day counts for the streak.
     public static func countsDay(followsNutrition: Bool, confirmedMeals: Int) -> Bool {
         if followsNutrition { return confirmedMeals > 0 }
         return true
     }
 }
 
+/// Names event groups.
 public enum EventGroupName {
+    /// Builds the name of an event group.
     public static func title(event: String, day: String) -> String {
         "\(event) – \(day)"
     }
@@ -306,12 +326,15 @@ public enum EventGroupName {
 /// The challenge switch that offers it when an event is looking for work. Missing means on.
 @MainActor
 public enum EventOffer {
+    /// The offer is on unless it was turned off.
     public nonisolated static func enabled(stored: Bool?) -> Bool { stored ?? true }
 
+    /// Says whether the offer is on for an event.
     public static func isEnabled(for id: UUID) -> Bool {
         enabled(stored: LinkTable.map(.eventOffer)[id.uuidString].map { $0 == "true" })
     }
 
+    /// Stores the choice for an event.
     public static func set(_ value: Bool, for id: UUID) {
         LinkTable.set(.eventOffer, key: id.uuidString, value: value ? "true" : "false")
     }

@@ -2,6 +2,7 @@ import Foundation
 import LififyCore
 import SwiftData
 
+/// The stored streak state of a challenge.
 @Model
 public final class StoredStreakState {
     @Attribute(.unique) public var challengeID: UUID
@@ -10,6 +11,7 @@ public final class StoredStreakState {
     public var purchased: Int
     public var usedPeriodKeysData: Data
 
+    /// Stores a streak state.
     public init(challengeID: UUID, state: StreakSettings.State) {
         self.challengeID = challengeID
         enabled = state.enabled

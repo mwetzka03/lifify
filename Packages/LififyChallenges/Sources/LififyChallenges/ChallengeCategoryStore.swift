@@ -1,6 +1,7 @@
 import Foundation
 import LififyCore
 
+/// A category a person created.
 public struct CustomChallengeCategory: Codable, Equatable, Hashable, Identifiable {
     public var id: UUID
     public var name: String
@@ -17,6 +18,7 @@ public struct CustomChallengeCategory: Codable, Equatable, Hashable, Identifiabl
 /// Sport and abstinence always stand alone. A custom category does too when it is marked separate.
 /// Everything else shares one section.
 public enum ChallengeSections {
+    /// A challenge, reduced for sectioning.
     public struct Challenge: Equatable {
         public var id: UUID
         public var categoryRaw: String
@@ -27,6 +29,7 @@ public enum ChallengeSections {
         }
     }
 
+    /// A custom category, reduced for sectioning.
     public struct Custom: Equatable {
         public var id: UUID
         public var name: String
@@ -39,6 +42,7 @@ public enum ChallengeSections {
         }
     }
 
+    /// One section of the challenge board.
     public struct Section: Equatable, Identifiable {
         public var id: String
         public var showsTitle: Bool
@@ -51,12 +55,14 @@ public enum ChallengeSections {
         }
     }
 
+    /// Reads a custom category's ID.
     public static func customID(from raw: String) -> UUID? {
         let prefix = "custom:"
         guard raw.hasPrefix(prefix) else { return nil }
         return UUID(uuidString: String(raw.dropFirst(prefix.count)))
     }
 
+    /// Sorts challenges into their sections.
     public static func make(challenges: [Challenge], customs: [Custom]) -> [Section] {
         var abstinence: [UUID] = []
         var sport: [UUID] = []
@@ -101,14 +107,17 @@ public enum ChallengeCategoryStore {
     public static let revisionKey = "lifify.customCategoryRevision"
     private static var cache: [CustomChallengeCategory]?
 
+    /// Drops the in-memory copy.
     public static func clearCache() {
         cache = nil
     }
 
+    /// Builds the stored value of a custom category.
     public static func raw(_ id: UUID) -> String {
         "custom:\(id.uuidString)"
     }
 
+    /// Returns the display name of a category.
     public static func label(for raw: String) -> String {
         if let id = ChallengeSections.customID(from: raw), let match = all().first(where: { $0.id == id }) {
             return match.name
@@ -119,6 +128,7 @@ public enum ChallengeCategoryStore {
         return ChallengeCategory.other.label
     }
 
+    /// Maps a stored category to its picker value.
     public static func selectionKey(for raw: String) -> String {
         if raw == ChallengeCategory.sport.rawValue
             || raw == ChallengeCategory.abstinence.rawValue
@@ -131,6 +141,7 @@ public enum ChallengeCategoryStore {
         return ChallengeCategory.other.rawValue
     }
 
+    /// Returns all custom categories.
     public static func all() -> [CustomChallengeCategory] {
         if let cache { return cache }
         let decoded = LinkTable.decoded(.customCategories, as: [CustomChallengeCategory].self)["all"] ?? []
@@ -138,6 +149,7 @@ public enum ChallengeCategoryStore {
         return decoded
     }
 
+    /// Adds a category with a non-empty name.
     @discardableResult
     public static func add(name: String, separate: Bool) -> CustomChallengeCategory? {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -149,6 +161,7 @@ public enum ChallengeCategoryStore {
         return created
     }
 
+    /// Updates a category.
     public static func update(id: UUID, name: String, separate: Bool) {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
@@ -159,24 +172,28 @@ public enum ChallengeCategoryStore {
         save(items)
     }
 
+    /// Removes a category.
     public static func remove(_ id: UUID) {
         var items = all()
         items.removeAll { $0.id == id }
         save(items)
     }
 
+    /// Removes all categories.
     public static func reset() {
         cache = []
         LinkTable.clear(.customCategories)
         bump()
     }
 
+    /// Exports the categories for a backup.
     public static func exportRecords() -> [BackupRecord] {
         all().map {
             BackupRecord(type: "customCategory", id: $0.id, strings: [$0.name], booleans: [$0.separate])
         }
     }
 
+    /// Restores a category.
     public static func restore(_ record: BackupRecord) {
         let name = record.strings.first?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         guard !name.isEmpty else { return }
@@ -191,12 +208,14 @@ public enum ChallengeCategoryStore {
         save(items)
     }
 
+    /// Writes the categories.
     private static func save(_ items: [CustomChallengeCategory]) {
         cache = items
         LinkTable.replaceEncoded(.customCategories, with: items.isEmpty ? [:] : ["all": items])
         bump()
     }
 
+    /// Signals that the categories changed.
     private static func bump() {
         let revision = AppDefaults.store.integer(forKey: revisionKey)
         AppDefaults.store.set(revision + 1, forKey: revisionKey)

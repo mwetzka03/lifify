@@ -1,6 +1,7 @@
 import Foundation
 import LififyCore
 
+/// One relapse with how long the run lasted.
 public struct AbstinenceRelapse: Codable, Equatable, Identifiable {
     public var id: UUID
     public var date: Date
@@ -13,6 +14,7 @@ public struct AbstinenceRelapse: Codable, Equatable, Identifiable {
     }
 }
 
+/// A bought reward recorded on an abstinence challenge.
 public struct AbstinenceException: Codable, Equatable, Identifiable {
     public var id: UUID
     public var date: Date
@@ -27,6 +29,7 @@ public struct AbstinenceException: Codable, Equatable, Identifiable {
     }
 }
 
+/// An in-app notice about a reached bonus.
 public struct AbstinenceNotice: Codable, Equatable, Identifiable {
     public var id: String
     public var challengeID: UUID
@@ -60,6 +63,7 @@ public enum AbstinenceSettings {
     private static var cachedExceptions: [String: [AbstinenceException]]?
     private static var cachedRewardLinks: [String: String]?
 
+    /// Drops the in-memory copies.
     public static func clearCache() {
         cachedDifficulty = nil
         cachedAwarded = nil
@@ -70,21 +74,25 @@ public enum AbstinenceSettings {
         cachedRewardLinks = nil
     }
 
+    /// Returns a challenge's difficulty.
     public static func difficulty(for challengeID: UUID) -> AbstinenceDifficulty {
         let raw = difficulties()[challengeID.uuidString] ?? ""
         return AbstinenceDifficulty(rawValue: raw) ?? .medium
     }
 
+    /// Stores a challenge's difficulty.
     public static func setDifficulty(_ difficulty: AbstinenceDifficulty, for challengeID: UUID) {
         var map = difficulties()
         map[challengeID.uuidString] = difficulty.rawValue
         saveDifficulties(map)
     }
 
+    /// Returns the bonuses already paid in this run.
     public static func awarded(for challengeID: UUID) -> Set<String> {
         Set(awardedMap()[challengeID.uuidString] ?? [])
     }
 
+    /// Stores the bonuses paid in this run.
     public static func setAwarded(_ milestones: Set<String>, for challengeID: UUID) {
         var map = awardedMap()
         let sorted = milestones.sorted()
@@ -93,22 +101,26 @@ public enum AbstinenceSettings {
         saveAwarded(map)
     }
 
+    /// Forgets the bonuses paid, so a new run can earn them.
     public static func clearAwarded(for challengeID: UUID) {
         var map = awardedMap()
         guard map.removeValue(forKey: challengeID.uuidString) != nil else { return }
         saveAwarded(map)
     }
 
+    /// Returns the bonus multiplier of a milestone.
     public static func multiplier(for difficulty: AbstinenceDifficulty, milestone: AbstinenceMilestone) -> Double {
         let value = effective(difficulty)[milestone.rawValue] ?? 0
         return value >= 0 ? value : 0
     }
 
+    /// Returns all multipliers of a difficulty.
     public static func effective(_ difficulty: AbstinenceDifficulty) -> [String: Double] {
         let stored = multipliers()[difficulty.rawValue] ?? [:]
         return AbstinenceRules.merging(stored, defaults: AbstinenceRules.defaultMultipliers[difficulty] ?? [:])
     }
 
+    /// Stores one multiplier.
     public static func setMultiplier(_ value: Double, difficulty: AbstinenceDifficulty, milestone: AbstinenceMilestone) {
         var map = multipliers()
         var row = map[difficulty.rawValue] ?? [:]
@@ -117,14 +129,17 @@ public enum AbstinenceSettings {
         saveMultipliers(map)
     }
 
+    /// Formats a multiplier for editing.
     public static func editString(difficulty: AbstinenceDifficulty, milestone: AbstinenceMilestone) -> String {
         format(multiplier(for: difficulty, milestone: milestone))
     }
 
+    /// Lists a challenge's relapses, newest first.
     public static func relapses(for challengeID: UUID) -> [AbstinenceRelapse] {
         (relapseMap()[challengeID.uuidString] ?? []).sorted { $0.date > $1.date }
     }
 
+    /// Records a relapse.
     public static func recordRelapse(_ relapse: AbstinenceRelapse, for challengeID: UUID) {
         var map = relapseMap()
         var list = map[challengeID.uuidString] ?? []
@@ -133,10 +148,12 @@ public enum AbstinenceSettings {
         saveRelapses(map)
     }
 
+    /// Lists the notices, newest first.
     public static func notices() -> [AbstinenceNotice] {
         storedNotices().sorted { $0.date > $1.date }
     }
 
+    /// Adds a notice once.
     public static func postNotice(_ notice: AbstinenceNotice) {
         var list = storedNotices()
         guard !list.contains(where: { $0.id == notice.id }) else { return }
@@ -144,6 +161,7 @@ public enum AbstinenceSettings {
         saveNotices(list)
     }
 
+    /// Lists a challenge's reward exceptions, newest first.
     public static func exceptions(for challengeID: UUID) -> [AbstinenceException] {
         (exceptionMap()[challengeID.uuidString] ?? []).sorted { $0.date > $1.date }
     }
@@ -166,10 +184,12 @@ public enum AbstinenceSettings {
         saveExceptions(map)
     }
 
+    /// Returns the challenge linked to a reward.
     public static func rewardLink(for rewardID: UUID) -> UUID? {
         rewardLinks()[rewardID.uuidString].flatMap(UUID.init(uuidString:))
     }
 
+    /// Links a reward to a challenge, or removes the link.
     public static func setRewardLink(_ challengeID: UUID?, for rewardID: UUID) {
         var map = rewardLinks()
         if let challengeID {
@@ -180,6 +200,7 @@ public enum AbstinenceSettings {
         saveRewardLinks(map)
     }
 
+    /// Removes a notice.
     public static func dismissNotice(_ id: String) {
         var list = storedNotices()
         let count = list.count
@@ -188,6 +209,7 @@ public enum AbstinenceSettings {
         saveNotices(list)
     }
 
+    /// Removes everything stored for a challenge.
     public static func remove(for challengeID: UUID) {
         var storedDifficulties = difficulties()
         var storedAwarded = awardedMap()
@@ -210,10 +232,12 @@ public enum AbstinenceSettings {
         }
     }
 
+    /// Restores the default multipliers.
     public static func resetMultipliers() {
         saveMultipliers([:])
     }
 
+    /// Clears all abstinence data.
     public static func reset() {
         cachedDifficulty = [:]
         cachedAwarded = [:]
@@ -228,6 +252,7 @@ public enum AbstinenceSettings {
         bump()
     }
 
+    /// Exports the abstinence data for a backup.
     public static func exportRecords() -> [BackupRecord] {
         var records: [BackupRecord] = []
         records += difficulties().compactMap { key, value in
@@ -289,6 +314,7 @@ public enum AbstinenceSettings {
         return records
     }
 
+    /// Restores a difficulty.
     public static func restoreDifficulty(_ record: BackupRecord) {
         guard let raw = record.strings.first, AbstinenceDifficulty(rawValue: raw) != nil else { return }
         var map = difficulties()
@@ -296,12 +322,14 @@ public enum AbstinenceSettings {
         saveDifficulties(map)
     }
 
+    /// Restores paid bonuses.
     public static func restoreAwarded(_ record: BackupRecord) {
         var map = awardedMap()
         map[record.id.uuidString] = record.strings.sorted()
         saveAwarded(map)
     }
 
+    /// Restores a multiplier.
     public static func restoreMultiplier(_ record: BackupRecord) {
         guard record.strings.count >= 2,
               let difficulty = AbstinenceDifficulty(rawValue: record.strings[0]),
@@ -311,6 +339,7 @@ public enum AbstinenceSettings {
         setMultiplier(value, difficulty: difficulty, milestone: milestone)
     }
 
+    /// Restores a relapse.
     public static func restoreRelapse(_ record: BackupRecord) {
         guard let challengeID = record.uuids.first ?? nil,
               let date = record.dates.first ?? nil
@@ -324,6 +353,7 @@ public enum AbstinenceSettings {
         saveRelapses(map)
     }
 
+    /// Restores a reward exception.
     public static func restoreException(_ record: BackupRecord) {
         guard let challengeID = record.uuids.first ?? nil,
               let rewardID = record.uuids.dropFirst().first ?? nil,
@@ -343,11 +373,13 @@ public enum AbstinenceSettings {
         saveExceptions(map)
     }
 
+    /// Restores a reward link.
     public static func restoreRewardLink(_ record: BackupRecord) {
         guard let challengeID = record.uuids.first ?? nil else { return }
         setRewardLink(challengeID, for: record.id)
     }
 
+    /// Restores a notice.
     public static func restoreNotice(_ record: BackupRecord) {
         guard record.strings.count >= 3,
               let challengeID = record.uuids.first ?? nil,
@@ -363,6 +395,7 @@ public enum AbstinenceSettings {
         ))
     }
 
+    /// Formats a multiplier.
     private static func format(_ value: Double) -> String {
         let formatter = NumberFormatter()
         formatter.locale = Locale(identifier: AppDefaults.store.string(forKey: "appLanguage") == "en" ? "en_US" : "de_DE")
@@ -372,6 +405,7 @@ public enum AbstinenceSettings {
         return formatter.string(from: NSNumber(value: value)) ?? "0"
     }
 
+    /// Reads the difficulties.
     private static func difficulties() -> [String: String] {
         if let cachedDifficulty { return cachedDifficulty }
         let decoded = LinkTable.map(.abstinenceDifficulty)
@@ -379,6 +413,7 @@ public enum AbstinenceSettings {
         return decoded
     }
 
+    /// Reads the paid bonuses.
     private static func awardedMap() -> [String: [String]] {
         if let cachedAwarded { return cachedAwarded }
         let decoded = LinkTable.decoded(.abstinenceAwarded, as: [String].self)
@@ -386,6 +421,7 @@ public enum AbstinenceSettings {
         return decoded
     }
 
+    /// Reads the multipliers.
     private static func multipliers() -> [String: [String: Double]] {
         if let cachedMultipliers { return cachedMultipliers }
         let decoded = dictionary(multiplierKey, as: [String: [String: Double]].self) ?? [:]
@@ -393,28 +429,33 @@ public enum AbstinenceSettings {
         return decoded
     }
 
+    /// Decodes a stored dictionary.
     private static func dictionary<T: Decodable>(_ key: String, as type: T.Type) -> T? {
         guard let data = AppDefaults.store.data(forKey: key) else { return nil }
         return try? JSONDecoder().decode(type, from: data)
     }
 
+    /// Writes the difficulties.
     private static func saveDifficulties(_ map: [String: String]) {
         LinkTable.replace(.abstinenceDifficulty, with: map)
         bump()
         cachedDifficulty = map
     }
 
+    /// Writes the paid bonuses.
     private static func saveAwarded(_ map: [String: [String]]) {
         LinkTable.replaceEncoded(.abstinenceAwarded, with: map)
         bump()
         cachedAwarded = map
     }
 
+    /// Writes the multipliers.
     private static func saveMultipliers(_ map: [String: [String: Double]]) {
         save(map, key: multiplierKey)
         cachedMultipliers = map
     }
 
+    /// Reads the relapses.
     private static func relapseMap() -> [String: [AbstinenceRelapse]] {
         if let cachedRelapses { return cachedRelapses }
         let decoded = LinkTable.decoded(.abstinenceRelapses, as: [AbstinenceRelapse].self)
@@ -422,6 +463,7 @@ public enum AbstinenceSettings {
         return decoded
     }
 
+    /// Reads the notices.
     private static func storedNotices() -> [AbstinenceNotice] {
         if let cachedNotices { return cachedNotices }
         let decoded = LinkTable.decoded(.abstinenceNotices, as: [AbstinenceNotice].self)["all"] ?? []
@@ -429,18 +471,21 @@ public enum AbstinenceSettings {
         return decoded
     }
 
+    /// Writes the relapses.
     private static func saveRelapses(_ map: [String: [AbstinenceRelapse]]) {
         LinkTable.replaceEncoded(.abstinenceRelapses, with: map)
         bump()
         cachedRelapses = map
     }
 
+    /// Writes the notices.
     private static func saveNotices(_ list: [AbstinenceNotice]) {
         LinkTable.replaceEncoded(.abstinenceNotices, with: list.isEmpty ? [:] : ["all": list])
         bump()
         cachedNotices = list
     }
 
+    /// Reads the reward exceptions.
     private static func exceptionMap() -> [String: [AbstinenceException]] {
         if let cachedExceptions { return cachedExceptions }
         let decoded = LinkTable.decoded(.abstinenceExceptions, as: [AbstinenceException].self)
@@ -448,6 +493,7 @@ public enum AbstinenceSettings {
         return decoded
     }
 
+    /// Reads the reward links.
     private static func rewardLinks() -> [String: String] {
         if let cachedRewardLinks { return cachedRewardLinks }
         let decoded = LinkTable.map(.abstinenceRewardLink)
@@ -455,24 +501,28 @@ public enum AbstinenceSettings {
         return decoded
     }
 
+    /// Writes the reward exceptions.
     private static func saveExceptions(_ map: [String: [AbstinenceException]]) {
         LinkTable.replaceEncoded(.abstinenceExceptions, with: map)
         bump()
         cachedExceptions = map
     }
 
+    /// Writes the reward links.
     private static func saveRewardLinks(_ map: [String: String]) {
         LinkTable.replace(.abstinenceRewardLink, with: map)
         bump()
         cachedRewardLinks = map
     }
 
+    /// Encodes and stores a value.
     private static func save<T: Encodable>(_ value: T, key: String) {
         guard let data = try? JSONEncoder().encode(value) else { return }
         AppDefaults.store.set(data, forKey: key)
         bump()
     }
 
+    /// Signals that the settings changed.
     private static func bump() {
         AppDefaults.store.set(AppDefaults.store.integer(forKey: revisionKey) + 1, forKey: revisionKey)
     }

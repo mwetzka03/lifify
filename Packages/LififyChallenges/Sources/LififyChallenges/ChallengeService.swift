@@ -2,8 +2,10 @@ import Foundation
 import LififyCore
 import SwiftData
 
+/// The rules for due days, streaks, coins, and purchases.
 @MainActor
 public enum ChallengeService {
+    /// Says whether a challenge is due on a day.
     public static func isDue(_ challenge: ChallengeItem, on date: Date) -> Bool {
         guard !challenge.isArchived else { return false }
         let calendar = Calendar.current
@@ -69,10 +71,12 @@ public enum ChallengeService {
         }
     }
 
+    /// Says whether the challenge was done on that day.
     public static func isCompleted(_ challenge: ChallengeItem, on date: Date, completions: [ChallengeCompletion]) -> Bool {
         completions.contains { $0.challengeID == challenge.id && Calendar.current.isDate($0.date, inSameDayAs: date) }
     }
 
+    /// A streak with the current period's progress.
     public struct StreakStatus: Equatable {
         public var count: Int
         public var required: Int
@@ -195,6 +199,7 @@ public enum ChallengeService {
         )
     }
 
+    /// Returns the coins a check-off would pay, including the streak multiplier.
     public static func projectedCoins(
         challenge: ChallengeItem,
         on date: Date,
@@ -214,6 +219,7 @@ public enum ChallengeService {
         return Int((Double(base) * StreakSettings.multiplier(forStreak: count)).rounded())
     }
 
+    /// Returns the streak freezes left.
     public static func freezeBalance(
         for challenge: ChallengeItem,
         completions: [ChallengeCompletion],
@@ -225,6 +231,7 @@ public enum ChallengeService {
         return max(0, StreakFreeze.startingCount + state.purchased - used)
     }
 
+    /// Stores the periods that used a freeze.
     public static func commitFreezes(
         for challenges: [ChallengeItem],
         completions: [ChallengeCompletion],
@@ -237,6 +244,7 @@ public enum ChallengeService {
         }
     }
 
+    /// Buys a streak freeze, unless the shop is locked.
     public static func purchaseFreeze(
         challenge: ChallengeItem,
         transactions: [CoinTransaction],
@@ -256,6 +264,7 @@ public enum ChallengeService {
         return true
     }
 
+    /// Checks a challenge off, or takes the check back with its coins.
     public static func toggleCompletion(
         challenge: ChallengeItem,
         date: Date,
@@ -341,21 +350,25 @@ public enum ChallengeService {
         return true
     }
 
+    /// One streak period.
     private struct StreakPeriod {
         let key: String
         let start: Date
         let end: Date
     }
 
+    /// The length of a streak period.
     private enum PeriodKind {
         case day, week, month, year
     }
 
+    /// The calendar events that schedule a challenge.
     private struct EventSchedule {
         var usesCalendar: Bool
         var events: [ChallengeCalendarEvent]
     }
 
+    /// Maps a recurrence to its period length.
     private static func periodKind(for recurrence: ChallengeRecurrence) -> PeriodKind? {
         switch recurrence {
         case .daily: return .day
@@ -366,6 +379,7 @@ public enum ChallengeService {
         }
     }
 
+    /// Finds the events that schedule a challenge.
     private static func scheduleEvents(for challenge: ChallengeItem, events: [ChallengeCalendarEvent]) -> EventSchedule {
         let own = events.filter { !$0.isReminderSuggestion && $0.linkedChallengeID == challenge.id }
         if !own.isEmpty { return EventSchedule(usesCalendar: true, events: own) }
@@ -382,6 +396,7 @@ public enum ChallengeService {
         return EventSchedule(usesCalendar: false, events: [])
     }
 
+    /// Lists the periods between two dates.
     private static func periods(from origin: Date, through horizon: Date, kind: PeriodKind, calendar: Calendar) -> [StreakPeriod] {
         var start = periodStart(origin, kind: kind, calendar: calendar)
         let last = periodStart(horizon, kind: kind, calendar: calendar)
@@ -397,6 +412,7 @@ public enum ChallengeService {
         return result
     }
 
+    /// Returns how many completions a period requires.
     private static func quota(
         challenge: ChallengeItem,
         period: StreakPeriod,
@@ -436,6 +452,7 @@ public enum ChallengeService {
         }
     }
 
+    /// Says whether the interval includes this week.
     private static func weekIsScheduled(_ weekStart: Date, rangeStart: Date, interval: Int, calendar: Calendar) -> Bool {
         let origin = periodStart(rangeStart, kind: .week, calendar: calendar)
         let days = calendar.dateComponents([.day], from: origin, to: weekStart).day ?? 0
@@ -443,6 +460,7 @@ public enum ChallengeService {
         return weeks >= 0 && weeks.isMultiple(of: interval)
     }
 
+    /// Says whether the interval includes this month.
     private static func monthIsScheduled(_ monthStart: Date, rangeStart: Date, interval: Int, calendar: Calendar) -> Bool {
         let start = calendar.dateComponents([.year, .month], from: rangeStart)
         let month = calendar.dateComponents([.year, .month], from: monthStart)
@@ -450,11 +468,13 @@ public enum ChallengeService {
         return delta >= 0 && delta.isMultiple(of: interval)
     }
 
+    /// Says whether the interval includes this year.
     private static func yearIsScheduled(_ yearStart: Date, rangeStart: Date, interval: Int, calendar: Calendar) -> Bool {
         let delta = calendar.component(.year, from: yearStart) - calendar.component(.year, from: rangeStart)
         return delta >= 0 && delta.isMultiple(of: interval)
     }
 
+    /// Returns the start of a period.
     private static func periodStart(_ date: Date, kind: PeriodKind, calendar: Calendar) -> Date {
         let day = calendar.startOfDay(for: date)
         switch kind {
@@ -473,6 +493,7 @@ public enum ChallengeService {
         }
     }
 
+    /// Returns the end of a period.
     private static func periodEnd(_ start: Date, kind: PeriodKind, calendar: Calendar) -> Date {
         switch kind {
         case .day:
@@ -486,6 +507,7 @@ public enum ChallengeService {
         }
     }
 
+    /// Builds the key of a period.
     private static func periodKey(_ start: Date, kind: PeriodKind, calendar: Calendar) -> String {
         let components = calendar.dateComponents([.year, .month, .day], from: start)
         let year = components.year ?? 0
@@ -501,10 +523,12 @@ public enum ChallengeService {
         }
     }
 
+    /// Sums the wallet.
     public static func walletBalance(transactions: [CoinTransaction]) -> Int {
         transactions.reduce(0) { $0 + $1.amount }
     }
 
+    /// Buys a reward, unless the shop is locked.
     public static func purchase(
         reward: RewardItem,
         transactions: [CoinTransaction],
@@ -527,6 +551,7 @@ public enum ChallengeService {
         return true
     }
 
+    /// Lists the days of a calendar view.
     public static func days(for mode: ChallengeCalendarViewMode, around selectedDate: Date) -> [Date] {
         let calendar = Calendar.current
         switch mode {
@@ -551,6 +576,7 @@ public enum ChallengeService {
 /// A timed challenge on an event asks for the real minutes before it is marked done.
 @MainActor
 public enum ChallengeFinish {
+    /// Suggests the actual minutes when a time slot finishes.
     public static func suggestedMinutes(
         challenge: ChallengeItem,
         on date: Date,
@@ -571,6 +597,7 @@ public enum ChallengeFinish {
         return minutes
     }
 
+    /// Stores the actual minutes and checks the challenge off.
     public static func commit(
         challenge: ChallengeItem,
         date: Date,
@@ -598,6 +625,7 @@ public enum ChallengeFinish {
 /// Two or more challenges on one event share its group. A later link joins the same group.
 @MainActor
 public enum EventGroupSync {
+    /// Places challenges on an event and forms its group.
     public static func join(
         event: ChallengeCalendarEvent,
         challengeIDs: [UUID],
@@ -624,6 +652,7 @@ public enum EventGroupSync {
         return group.id
     }
 
+    /// Links a challenge to an event, if its category allows that.
     public static func place(_ challenge: ChallengeItem, on event: ChallengeCalendarEvent) {
         guard challenge.category != .abstinence else { return }
         let placed = EventChallengeLink.placement(

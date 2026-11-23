@@ -4,6 +4,7 @@ import LififyCore
 /// Keeps workout, challenge, and calendar links closed.
 /// Linking a challenge also links its calendar entries, and the other way around.
 public enum WorkoutLinkRules {
+    /// An event with its direct challenge.
     public struct CalendarLink: Hashable {
         public var eventID: UUID
         public var challengeID: UUID?
@@ -14,6 +15,7 @@ public enum WorkoutLinkRules {
         }
     }
 
+    /// The links of one plan.
     public struct Snapshot: Equatable {
         public var challenges: Set<UUID>
         public var events: Set<UUID>
@@ -24,6 +26,7 @@ public enum WorkoutLinkRules {
         }
     }
 
+    /// Applies a new challenge selection.
     public static func applyChallenges(
         _ challenges: Set<UUID>,
         previous: Snapshot,
@@ -35,6 +38,7 @@ public enum WorkoutLinkRules {
         return close(challenges: challenges, events: events, calendar: calendar)
     }
 
+    /// Applies a new event selection.
     public static func applyEvents(
         _ events: Set<UUID>,
         previous: Snapshot,
@@ -52,6 +56,7 @@ public enum WorkoutLinkRules {
         return close(challenges: challenges, events: kept, calendar: calendar)
     }
 
+    /// Adds the links that follow from the calendar.
     public static func close(challenges: Set<UUID>, events: Set<UUID>, calendar: [CalendarLink]) -> Snapshot {
         var challenges = challenges
         var events = events
@@ -73,6 +78,7 @@ public enum WorkoutLinkRules {
         return Snapshot(challenges: challenges, events: events)
     }
 
+    /// Lists the events of the challenges.
     private static func eventIDs(in calendar: [CalendarLink], challenges: Set<UUID>) -> Set<UUID> {
         Set(calendar.compactMap { link in
             guard let challengeID = link.challengeID, challenges.contains(challengeID) else { return nil }

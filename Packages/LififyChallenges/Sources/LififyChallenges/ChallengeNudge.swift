@@ -1,6 +1,7 @@
 import Foundation
 import LififyCore
 
+/// A time of day for a reminder.
 public struct NudgeClock: Equatable, Hashable, Sendable {
     public var hour: Int
     public var minute: Int
@@ -11,6 +12,7 @@ public struct NudgeClock: Equatable, Hashable, Sendable {
     }
 }
 
+/// One reminder to schedule.
 public struct ChallengeNudgeRequest: Equatable, Identifiable {
     public var id: String
     public var title: String
@@ -25,6 +27,7 @@ public struct ChallengeNudgeRequest: Equatable, Identifiable {
     }
 }
 
+/// The challenges of one day.
 public struct ChallengeNudgeDay: Equatable {
     public var day: Date
     public var items: [ChallengeNudgeItem]
@@ -35,6 +38,7 @@ public struct ChallengeNudgeDay: Equatable {
     }
 }
 
+/// A challenge, reduced for planning reminders.
 public struct ChallengeNudgeItem: Equatable, Identifiable {
     public var id: UUID
     public var title: String
@@ -55,6 +59,7 @@ public enum ChallengeNudgePlan {
     public static let evening = NudgeClock(hour: 20, minute: 0)
     public static let streakHour = 18
 
+    /// Lists the distinct times of the given starts.
     public static func clocks(from starts: [Date], calendar: Calendar) -> [NudgeClock] {
         var seen: [NudgeClock] = []
         for start in starts {
@@ -122,6 +127,7 @@ public enum ChallengeNudgePlan {
         }
     }
 
+    /// Builds the warning before a streak breaks.
     public static func streakWarning(
         id: UUID,
         title: String,
@@ -146,22 +152,27 @@ public enum ChallengeNudgePlan {
         )
     }
 
+    /// Combines a day with a time.
     private static func fire(on day: Date, clock: NudgeClock, calendar: Calendar) -> Date? {
         calendar.date(bySettingHour: clock.hour, minute: clock.minute, second: 0, of: day)
     }
 
+    /// Formats a day for reminder IDs.
     private static func dayStamp(_ day: Date, calendar: Calendar) -> String {
         let parts = calendar.dateComponents([.year, .month, .day], from: day)
         return String(format: "%04d-%02d-%02d", parts.year ?? 0, parts.month ?? 0, parts.day ?? 0)
     }
 }
 
+/// The birthday notification.
 public enum BirthdayCheer {
     public static let fireHour = 9
     public static let fireMinute = 0
 
+    /// The notification title.
     public static func title() -> String { L("Alles Gute!", "Happy birthday!") }
 
+    /// The notification text.
     public static func body() -> String {
         L("500 Coins liegen für dich bereit.", "500 coins are waiting for you.")
     }
