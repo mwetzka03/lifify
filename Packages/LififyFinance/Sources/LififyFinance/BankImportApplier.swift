@@ -1011,7 +1011,18 @@ public enum BankImportApplier {
     }
 
     /// Books one cash row, or queues a question about it.
-    @discardableResult
+    ///
+    /// - Parameters:
+    ///   - row: The imported row.
+    ///   - checking: The account being imported into.
+    ///   - accounts: All accounts, used to recognize own transfers.
+    ///   - entries: The ledger, updated with the result.
+    ///   - known: The fingerprints already handled.
+    ///   - review: Collects open questions.
+    ///   - detectDuplicates: Whether known and similar rows are recognized.
+    ///   - duplicates: The prepared decisions of the import, if any.
+    ///   - context: The database context.
+    /// - Returns: The new booking, or `nil` when the row was skipped or queued.
     public static func ingestCashRow(
         _ row: ImportedTransaction,
         checking: Account,
@@ -1023,72 +1034,19 @@ public enum BankImportApplier {
         duplicates: BankImportDuplicates.Plan? = nil,
         context: ModelContext
     ) -> LedgerEntry? {
-        if known.contains(row.fingerprint) {
+        if known.contains(row.fingerprint) { return nil }
+        if detectDuplicates, isAlreadyBooked(row, entries: entries) {
+            known.insert(row.fingerprint)
             return nil
         }
-        if detectDuplicates {
-            if entries.contains(where: { $0.importFingerprint == row.fingerprint }) {
-                known.insert(row.fingerprint)
-                return nil
-            }
-            if let legacy = row.legacyFingerprint,
-               let existing = entries.first(where: { $0.importFingerprint == legacy }) {
-                let purpose = BankImportService.purposeMark(notes: row.notes)
-                if purpose.isEmpty || existing.notes.contains(purpose) {
-                    existing.importFingerprint = row.fingerprint
-                    known.insert(row.fingerprint)
-                    return nil
-                }
-            }
-        }
-
         if let other = counterpartyAccount(for: row, checking: checking, accounts: accounts) {
-            if transferExists(on: row.date, amount: row.amountCents, first: checking.id, second: other.id, entries: entries)
-                || existingTransfer(
-                    on: row.date,
-                    amount: row.amountCents,
-                    first: checking.id,
-                    second: other.id,
-                    entries: entries,
-                    windowDays: 3
-                ) != nil {
-                known.insert(row.fingerprint)
-                return nil
-            }
-            let entry = ledgerEntry(for: row, checkingID: checking.id, portfolioID: nil)
-            context.insert(entry)
-            entries.append(entry)
-            known.insert(row.fingerprint)
-            bookTransfer(entry, row: row, checkingID: checking.id, otherID: other.id, entries: &entries)
-            if let mirrorDate = removeMirror(of: row, on: other.id, checking: checking, entries: &entries, context: context, windowDays: 3),
-               mirrorDate < entry.date {
-                entry.date = mirrorDate
-            }
-            return entry
+            return ingestOwnTransfer(row, checking: checking, other: other, entries: &entries, known: &known, context: context)
         }
-
-        if detectDuplicates, let duplicates {
-            if duplicates.shouldSkip(row.fingerprint) {
-                known.insert(row.fingerprint)
-                return nil
-            }
-            if let choice = duplicates.reviewChoice(for: row.fingerprint) {
-                review.similar.append(choice)
-                known.insert(row.fingerprint)
-                return nil
-            }
-        } else if detectDuplicates, let existing = similarMatch(row: row, entries: entries, accountID: checking.id) {
-            let rowPurpose = BankImportService.purposeMark(notes: row.notes)
-            if !rowPurpose.isEmpty, existing.notes.contains(rowPurpose) {
-                existing.importFingerprint = row.fingerprint
-                known.insert(row.fingerprint)
-                return nil
-            }
-            review.similar.append(similarChoice(row: row, existing: existing, accountID: checking.id))
+        if detectDuplicates,
+           holdsBack(row, accountID: checking.id, duplicates: duplicates, entries: entries, review: &review) {
             known.insert(row.fingerprint)
             return nil
         }
-
         let entry = ledgerEntry(for: row, checkingID: checking.id, portfolioID: nil)
         context.insert(entry)
         entries.append(entry)
@@ -1096,62 +1054,77 @@ public enum BankImportApplier {
         return entry
     }
 
+    /// Says whether the row is booked. A booking with the older fingerprint gets the current one.
+    private static func isAlreadyBooked(_ row: ImportedTransaction, entries: [LedgerEntry]) -> Bool {
+        if entries.contains(where: { $0.importFingerprint == row.fingerprint }) { return true }
+        guard let legacy = row.legacyFingerprint,
+              let existing = entries.first(where: { $0.importFingerprint == legacy })
+        else { return false }
+        let purpose = BankImportService.purposeMark(notes: row.notes)
+        guard purpose.isEmpty || existing.notes.contains(purpose) else { return false }
+        existing.importFingerprint = row.fingerprint
+        return true
+    }
+
+    /// Books a row between two own accounts once and removes its mirrored booking.
+    private static func ingestOwnTransfer(
+        _ row: ImportedTransaction,
+        checking: Account,
+        other: Account,
+        entries: inout [LedgerEntry],
+        known: inout Set<String>,
+        context: ModelContext
+    ) -> LedgerEntry? {
+        known.insert(row.fingerprint)
+        let exists = transferExists(on: row.date, amount: row.amountCents, first: checking.id, second: other.id, entries: entries)
+            || existingTransfer(on: row.date, amount: row.amountCents, first: checking.id, second: other.id, entries: entries, windowDays: 3) != nil
+        guard !exists else { return nil }
+        let entry = ledgerEntry(for: row, checkingID: checking.id, portfolioID: nil)
+        context.insert(entry)
+        entries.append(entry)
+        bookTransfer(entry, row: row, checkingID: checking.id, otherID: other.id, entries: &entries)
+        if let mirrorDate = removeMirror(of: row, on: other.id, checking: checking, entries: &entries, context: context, windowDays: 3),
+           mirrorDate < entry.date {
+            entry.date = mirrorDate
+        }
+        return entry
+    }
+
+    /// Says whether a row is skipped or waits for an answer instead of being booked.
+    private static func holdsBack(
+        _ row: ImportedTransaction,
+        accountID: UUID,
+        duplicates: BankImportDuplicates.Plan?,
+        entries: [LedgerEntry],
+        review: inout ImportReview
+    ) -> Bool {
+        if let duplicates {
+            if duplicates.shouldSkip(row.fingerprint) { return true }
+            guard let choice = duplicates.reviewChoice(for: row.fingerprint) else { return false }
+            review.similar.append(choice)
+            return true
+        }
+        guard let existing = similarMatch(row: row, entries: entries, accountID: accountID) else { return false }
+        let purpose = BankImportService.purposeMark(notes: row.notes)
+        if !purpose.isEmpty, existing.notes.contains(purpose) {
+            existing.importFingerprint = row.fingerprint
+        } else {
+            review.similar.append(similarChoice(row: row, existing: existing, accountID: accountID))
+        }
+        return true
+    }
+
     /// Books the answers from the import review.
+    ///
+    /// - Parameters:
+    ///   - review: The questions with their answers.
+    ///   - context: The database context.
+    /// - Throws: An error when the result cannot be saved.
     public static func commitReview(_ review: ImportReview, context: ModelContext) throws {
         var entries = try context.fetch(FetchDescriptor<LedgerEntry>())
         let accounts = try context.fetch(FetchDescriptor<Account>())
         for choice in review.transfers where choice.accept {
-            guard let entry = entries.first(where: { $0.id == choice.entryID }),
-                  let checking = accounts.first(where: { $0.id == choice.checkingAccountID })
-            else { continue }
-            let inbound = choice.signedAmountCents >= 0
-            let row = ImportedTransaction(
-                date: choice.date,
-                title: choice.title,
-                notes: choice.notes,
-                amountCents: choice.signedAmountCents,
-                iban: choice.iban,
-                senderIBAN: inbound ? choice.iban : "",
-                recipientIBAN: inbound ? "" : choice.iban,
-                fingerprint: entry.importFingerprint ?? choice.entryID.uuidString
-            )
-            if transferExists(
-                on: choice.date,
-                amount: choice.signedAmountCents,
-                first: choice.checkingAccountID,
-                second: choice.otherAccountID,
-                entries: entries
-            ) {
-                context.delete(entry)
-                entries.removeAll { $0.id == entry.id }
-                continue
-            }
-            bookTransfer(
-                entry,
-                row: row,
-                checkingID: choice.checkingAccountID,
-                otherID: choice.otherAccountID,
-                entries: &entries
-            )
-            var earliest = choice.date
-            if let mirror = entries.first(where: { $0.id == choice.matchedEntryID }),
-               mirror.id != entry.id,
-               mirror.kind == .income || mirror.kind == .expense {
-                earliest = min(earliest, mirror.date)
-                context.delete(mirror)
-                entries.removeAll { $0.id == mirror.id }
-            }
-            if let mirrorDate = removeMirror(
-                of: row,
-                on: choice.otherAccountID,
-                checking: checking,
-                entries: &entries,
-                context: context,
-                windowDays: 3
-            ) {
-                earliest = min(earliest, mirrorDate)
-            }
-            entry.date = earliest
+            applyTransferAnswer(choice, accounts: accounts, entries: &entries, context: context)
         }
         for choice in review.similar where choice.include {
             let entry = LedgerEntry(
@@ -1169,18 +1142,60 @@ public enum BankImportApplier {
         if let accountID = review.accountID,
            let cents = review.currentCents,
            let account = accounts.first(where: { $0.id == accountID }) {
-            _ = ImportBalance.fitToCurrent(
-                account: account,
-                entries: &entries,
-                currentCents: cents,
-                context: context
-            )
+            _ = ImportBalance.fitToCurrent(account: account, entries: &entries, currentCents: cents, context: context)
         }
         try context.save()
         relinkOwnAccounts(context: context)
         if let accountID = review.accountID, let cents = review.currentCents {
             BankImportCursor.mark(accountID, currentCents: cents)
         }
+    }
+
+    /// Turns an accepted booking into a transfer, or removes it when the transfer already exists.
+    private static func applyTransferAnswer(
+        _ choice: ImportTransferChoice,
+        accounts: [Account],
+        entries: inout [LedgerEntry],
+        context: ModelContext
+    ) {
+        guard let entry = entries.first(where: { $0.id == choice.entryID }),
+              let checking = accounts.first(where: { $0.id == choice.checkingAccountID })
+        else { return }
+        guard !transferExists(
+            on: choice.date,
+            amount: choice.signedAmountCents,
+            first: choice.checkingAccountID,
+            second: choice.otherAccountID,
+            entries: entries
+        ) else {
+            context.delete(entry)
+            entries.removeAll { $0.id == entry.id }
+            return
+        }
+        let inbound = choice.signedAmountCents >= 0
+        let row = ImportedTransaction(
+            date: choice.date,
+            title: choice.title,
+            notes: choice.notes,
+            amountCents: choice.signedAmountCents,
+            iban: choice.iban,
+            senderIBAN: inbound ? choice.iban : "",
+            recipientIBAN: inbound ? "" : choice.iban,
+            fingerprint: entry.importFingerprint ?? choice.entryID.uuidString
+        )
+        bookTransfer(entry, row: row, checkingID: choice.checkingAccountID, otherID: choice.otherAccountID, entries: &entries)
+        var earliest = choice.date
+        if let mirror = entries.first(where: { $0.id == choice.matchedEntryID }),
+           mirror.id != entry.id,
+           mirror.kind == .income || mirror.kind == .expense {
+            earliest = min(earliest, mirror.date)
+            context.delete(mirror)
+            entries.removeAll { $0.id == mirror.id }
+        }
+        if let mirrorDate = removeMirror(of: row, on: choice.otherAccountID, checking: checking, entries: &entries, context: context, windowDays: 3) {
+            earliest = min(earliest, mirrorDate)
+        }
+        entry.date = earliest
     }
 
     /// Own-account transfers can land a banking day or two later than they left.
@@ -1194,53 +1209,8 @@ public enum BankImportApplier {
         let accounts = (try? context.fetch(FetchDescriptor<Account>())) ?? []
         rememberTradeRepublicIBAN(entries: entries, accounts: accounts)
         let checking = accounts.filter { $0.kind != .portfolio && $0.kind != .savingsGroup }
-        let checkingIDs = Set(checking.map(\.id))
-        let withIBAN = checking.filter { !normalizedIBAN($0.iban).isEmpty }
-        var changed = false
-        if withIBAN.count > 1 {
-            for entry in entries where entry.kind == .income || entry.kind == .expense {
-                guard let accountID = entry.accountID else { continue }
-                let parsed = BankImportService.ibans(from: entry.notes, amountCents: entry.amountCents)
-                let counterparty = normalizedIBAN(entry.amountCents >= 0 ? parsed.sender : parsed.recipient)
-                guard !counterparty.isEmpty,
-                      let other = withIBAN.first(where: { $0.id != accountID && normalizedIBAN($0.iban) == counterparty })
-                else { continue }
-                if let existing = existingTransfer(
-                    on: entry.date,
-                    amount: entry.amountCents,
-                    first: accountID,
-                    second: other.id,
-                    entries: entries,
-                    windowDays: ownAccountWindowDays
-                ) {
-                    if entry.date < existing.date { existing.date = entry.date }
-                    context.delete(entry)
-                    entries.removeAll { $0.id == entry.id }
-                    changed = true
-                    continue
-                }
-                let inbound = entry.amountCents >= 0
-                let row = ImportedTransaction(
-                    date: entry.date,
-                    title: entry.title,
-                    notes: entry.notes,
-                    amountCents: entry.amountCents,
-                    iban: counterparty,
-                    senderIBAN: inbound ? counterparty : "",
-                    recipientIBAN: inbound ? "" : counterparty,
-                    fingerprint: entry.importFingerprint ?? entry.id.uuidString
-                )
-                bookTransfer(entry, row: row, checkingID: accountID, otherID: other.id, entries: &entries)
-                if let source = accounts.first(where: { $0.id == accountID }) {
-                    if let mirrorDate = removeMirror(of: row, on: other.id, checking: source, entries: &entries, context: context, windowDays: 3),
-                       mirrorDate < entry.date {
-                        entry.date = mirrorDate
-                    }
-                }
-                changed = true
-            }
-        }
-        if collapseTransferMirrors(entries: &entries, checkingIDs: checkingIDs, context: context) {
+        var changed = linkByIBAN(accounts: accounts, checking: checking, entries: &entries, context: context)
+        if collapseTransferMirrors(entries: &entries, checkingIDs: Set(checking.map(\.id)), context: context) {
             changed = true
         }
         if mergeNamedTradeRepublicMoves(entries: &entries, accounts: checking, context: context) {
@@ -1248,6 +1218,73 @@ public enum BankImportApplier {
         }
         guard changed else { return }
         try? context.save()
+    }
+
+    /// Turns bookings whose counterparty IBAN is an own account into transfers.
+    ///
+    /// - Returns: `true` when a booking changed.
+    private static func linkByIBAN(
+        accounts: [Account],
+        checking: [Account],
+        entries: inout [LedgerEntry],
+        context: ModelContext
+    ) -> Bool {
+        let withIBAN = checking.filter { !normalizedIBAN($0.iban).isEmpty }
+        guard withIBAN.count > 1 else { return false }
+        var changed = false
+        for entry in entries where entry.kind == .income || entry.kind == .expense {
+            guard let accountID = entry.accountID else { continue }
+            let parsed = BankImportService.ibans(from: entry.notes, amountCents: entry.amountCents)
+            let counterparty = normalizedIBAN(entry.amountCents >= 0 ? parsed.sender : parsed.recipient)
+            guard !counterparty.isEmpty,
+                  let other = withIBAN.first(where: { $0.id != accountID && normalizedIBAN($0.iban) == counterparty })
+            else { continue }
+            linkEntry(entry, accountID: accountID, other: other, counterparty: counterparty, accounts: accounts, entries: &entries, context: context)
+            changed = true
+        }
+        return changed
+    }
+
+    /// Merges a booking into its existing transfer, or turns it into one.
+    private static func linkEntry(
+        _ entry: LedgerEntry,
+        accountID: UUID,
+        other: Account,
+        counterparty: String,
+        accounts: [Account],
+        entries: inout [LedgerEntry],
+        context: ModelContext
+    ) {
+        if let existing = existingTransfer(
+            on: entry.date,
+            amount: entry.amountCents,
+            first: accountID,
+            second: other.id,
+            entries: entries,
+            windowDays: ownAccountWindowDays
+        ) {
+            if entry.date < existing.date { existing.date = entry.date }
+            context.delete(entry)
+            entries.removeAll { $0.id == entry.id }
+            return
+        }
+        let inbound = entry.amountCents >= 0
+        let row = ImportedTransaction(
+            date: entry.date,
+            title: entry.title,
+            notes: entry.notes,
+            amountCents: entry.amountCents,
+            iban: counterparty,
+            senderIBAN: inbound ? counterparty : "",
+            recipientIBAN: inbound ? "" : counterparty,
+            fingerprint: entry.importFingerprint ?? entry.id.uuidString
+        )
+        bookTransfer(entry, row: row, checkingID: accountID, otherID: other.id, entries: &entries)
+        if let source = accounts.first(where: { $0.id == accountID }),
+           let mirrorDate = removeMirror(of: row, on: other.id, checking: source, entries: &entries, context: context, windowDays: 3),
+           mirrorDate < entry.date {
+            entry.date = mirrorDate
+        }
     }
 
     /// An income or expense that already has a matching own-account transfer is the same payment twice.
@@ -1290,35 +1327,41 @@ public enum BankImportApplier {
         }) else { return false }
         var changed = false
         for entry in entries where entry.kind == .income || entry.kind == .expense {
-            guard let accountID = entry.accountID, accountID != tradeRepublic.id else { continue }
-            guard mentionsTradeRepublic(entry) else { continue }
-            let matches = entries.filter { other in
-                guard other.id != entry.id else { return false }
-                guard other.accountID == tradeRepublic.id, other.kind == .income || other.kind == .expense else {
-                    return false
-                }
-                guard abs(other.amountCents) == abs(entry.amountCents) else { return false }
-                return withinDays(other.date, of: entry.date, days: ownAccountWindowDays)
-            }
-            if let existing = existingTransfer(
-                on: entry.date,
-                amount: entry.amountCents,
-                first: accountID,
-                second: tradeRepublic.id,
-                entries: entries,
-                windowDays: ownAccountWindowDays
-            ) {
-                let earliest = ([entry.date, existing.date] + matches.map(\.date)).min() ?? entry.date
-                existing.date = earliest
-                context.delete(entry)
-                entries.removeAll { $0.id == entry.id }
-                for match in matches {
-                    context.delete(match)
-                    entries.removeAll { $0.id == match.id }
-                }
-                changed = true
-                continue
-            }
+            guard let accountID = entry.accountID, accountID != tradeRepublic.id, mentionsTradeRepublic(entry) else { continue }
+            mergeNamedMove(entry, accountID: accountID, tradeRepublic: tradeRepublic, entries: &entries, context: context)
+            changed = true
+        }
+        return changed
+    }
+
+    /// Replaces a payment and its cash arrival on Trade Republic with one transfer.
+    private static func mergeNamedMove(
+        _ entry: LedgerEntry,
+        accountID: UUID,
+        tradeRepublic: Account,
+        entries: inout [LedgerEntry],
+        context: ModelContext
+    ) {
+        let matches = entries.filter { other in
+            other.id != entry.id
+                && other.accountID == tradeRepublic.id
+                && (other.kind == .income || other.kind == .expense)
+                && abs(other.amountCents) == abs(entry.amountCents)
+                && withinDays(other.date, of: entry.date, days: ownAccountWindowDays)
+        }
+        let existing = existingTransfer(
+            on: entry.date,
+            amount: entry.amountCents,
+            first: accountID,
+            second: tradeRepublic.id,
+            entries: entries,
+            windowDays: ownAccountWindowDays
+        )
+        if let existing {
+            existing.date = ([entry.date, existing.date] + matches.map(\.date)).min() ?? entry.date
+            context.delete(entry)
+            entries.removeAll { $0.id == entry.id }
+        } else {
             let earliest = ([entry.date] + matches.map(\.date)).min() ?? entry.date
             let row = ImportedTransaction(
                 date: earliest,
@@ -1332,13 +1375,11 @@ public enum BankImportApplier {
             )
             bookTransfer(entry, row: row, checkingID: accountID, otherID: tradeRepublic.id, entries: &entries)
             entry.date = earliest
-            for match in matches {
-                context.delete(match)
-                entries.removeAll { $0.id == match.id }
-            }
-            changed = true
         }
-        return changed
+        for match in matches {
+            context.delete(match)
+            entries.removeAll { $0.id == match.id }
+        }
     }
 
     /// Says whether a booking mentions Trade Republic.
