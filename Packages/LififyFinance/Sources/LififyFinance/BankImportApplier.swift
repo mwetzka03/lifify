@@ -420,6 +420,15 @@ public enum PortfolioConsolidation {
 @MainActor
 public enum BankImportApplier {
     /// Applies a parsed statement to the chosen account.
+    ///
+    /// - Parameters:
+    ///   - document: The parsed statement.
+    ///   - destination: The account to import into.
+    ///   - currentBalanceCents: The balance the person entered, if any.
+    ///   - detectDuplicates: Whether known and similar rows are recognized.
+    ///   - context: The database context.
+    /// - Returns: What was imported and which questions remain.
+    /// - Throws: An error when the import cannot be saved. Inserted rows are then removed again.
     public static func apply(
         document: BankImportDocument,
         to destination: BankImportDestination,
@@ -431,208 +440,241 @@ public enum BankImportApplier {
             PortfolioConsolidation.consolidate(context: context)
         }
         let accounts = try context.fetch(FetchDescriptor<Account>())
-        var entries = try context.fetch(FetchDescriptor<LedgerEntry>())
-        var holdings = try context.fetch(FetchDescriptor<PortfolioHolding>())
+        var run = ImportRun(
+            entries: try context.fetch(FetchDescriptor<LedgerEntry>()),
+            holdings: try context.fetch(FetchDescriptor<PortfolioHolding>())
+        )
         let checking = try checkingAccount(for: document, destination: destination, accounts: accounts, context: context)
         let portfolio = portfolioAccount(for: checking.account, document: document, context: context)
-        var insertedEntries: [LedgerEntry] = []
-        var insertedHoldings: [PortfolioHolding] = []
-        let insertedAccounts = checking.created + (portfolio?.created ?? [])
         if document.tradeRepublic != nil {
             replacePreviousStatement(
                 on: checking.account.id,
                 portfolioID: portfolio?.account.id,
-                entries: &entries,
-                holdings: &holdings,
+                entries: &run.entries,
+                holdings: &run.holdings,
                 context: context
             )
         }
         let period = document.tradeRepublic == nil
             ? nil
-            : firstMainAccountPeriod(entries: entries, accounts: accounts, context: context)
-
-        if document.tradeRepublic == nil, let currentBalanceCents,
-           !entries.contains(where: {
-               $0.kind == .adjustment
-                   && $0.accountID == checking.account.id
-                   && !ImportBalance.isCurrentPin($0, accountID: checking.account.id)
-           }),
-           let firstDate = document.rows.map(\.date).min() {
-            let opening = ImportBalance.openingCents(
-                current: currentBalanceCents,
-                rowAmounts: document.rows.map(\.amountCents)
-            )
-            let day = Calendar.current.startOfDay(for: firstDate)
-            let adjustment = LedgerEntry(
-                date: day,
-                title: L("Eröffnungssaldo", "Opening balance"),
-                amountCents: opening,
-                kind: .adjustment,
-                accountID: checking.account.id,
-                createdAt: day
-            )
-            context.insert(adjustment)
-            insertedEntries.append(adjustment)
-            entries.append(adjustment)
-        } else if let statement = document.tradeRepublic, let period {
-            let saldo = statementBalance(
-                before: period.start,
-                rows: document.rows,
-                opening: statement.openingBalanceCents
-            )
-            let adjustment = LedgerEntry(
-                date: Calendar.current.startOfDay(for: period.start),
-                title: L("Startsaldo", "Opening balance"),
-                notes: "Typ: Startsaldo",
-                amountCents: saldo,
-                kind: .adjustment,
-                accountID: checking.account.id,
-                importFingerprint: "tr-startsaldo"
-            )
-            context.insert(adjustment)
-            insertedEntries.append(adjustment)
-            entries.append(adjustment)
-        } else if let statement = document.tradeRepublic, statement.openingBalanceCents != 0,
-                  !entries.contains(where: { entryTouches($0, accountID: checking.account.id) }),
-                  let firstDate = document.rows.map(\.date).min() {
-            let adjustment = LedgerEntry(
-                date: Calendar.current.date(byAdding: .day, value: -1, to: firstDate) ?? firstDate,
-                title: L("Eröffnungssaldo", "Opening balance"),
-                amountCents: statement.openingBalanceCents,
-                kind: .adjustment,
-                accountID: checking.account.id
-            )
-            context.insert(adjustment)
-            insertedEntries.append(adjustment)
-        }
-
-        var known = Set(entries.compactMap(\.importFingerprint))
-        var entryIDs: [String: UUID] = [:]
-        var selectable: [ImportedTransaction] = []
-        var imported = 0
-        var review = ImportReview()
-        let duplicates: BankImportDuplicates.Plan? =
-            detectDuplicates && document.tradeRepublic == nil
-            ? BankImportDuplicates.plan(rows: document.rows, entries: entries, accountID: checking.account.id)
+            : firstMainAccountPeriod(entries: run.entries, accounts: accounts, context: context)
+        insertOpeningBalance(document, accountID: checking.account.id, current: currentBalanceCents, period: period, run: &run, context: context)
+        run.known = Set(run.entries.compactMap(\.importFingerprint))
+        let duplicates: BankImportDuplicates.Plan? = detectDuplicates && document.tradeRepublic == nil
+            ? BankImportDuplicates.plan(rows: document.rows, entries: run.entries, accountID: checking.account.id)
             : nil
-        let directory = accounts + checking.created
         for row in document.rows {
             if row.trade != nil {
-                let fingerprints = [row.fingerprint, row.legacyFingerprint].compactMap { $0 }
-                if entries.contains(where: { entry in
-                    guard let fingerprint = entry.importFingerprint else { return false }
-                    return fingerprints.contains(fingerprint)
-                }) || !known.isDisjoint(with: fingerprints) {
-                    known.formUnion(fingerprints)
-                    continue
-                }
-                let entry = ledgerEntry(for: row, checkingID: checking.account.id, portfolioID: portfolio?.account.id)
-                context.insert(entry)
-                insertedEntries.append(entry)
-                entries.append(entry)
-                if let trade = row.trade, let portfolio {
-                    apply(
-                        trade,
-                        cashCents: row.amountCents,
-                        date: row.date,
-                        portfolio: portfolio.account,
-                        context: context,
-                        holdings: &holdings,
-                        insertedHoldings: &insertedHoldings,
-                        ledgerEntryID: entry.id
-                    )
-                }
-                known.formUnion(fingerprints)
-                imported += 1
-                continue
-            }
-            if let entry = ingestCashRow(
+                ingestTradeRow(row, checkingID: checking.account.id, portfolio: portfolio?.account, run: &run, context: context)
+            } else if let entry = ingestCashRow(
                 row,
                 checking: checking.account,
-                accounts: directory,
-                entries: &entries,
-                known: &known,
-                review: &review,
+                accounts: accounts + checking.created,
+                entries: &run.entries,
+                known: &run.known,
+                review: &run.review,
                 detectDuplicates: detectDuplicates,
                 duplicates: duplicates,
                 context: context
             ) {
-                insertedEntries.append(entry)
-                selectable.append(row)
-                entryIDs[row.fingerprint] = entry.id
-                imported += 1
+                run.insertedEntries.append(entry)
+                run.selectable.append(row)
+                run.entryIDs[row.fingerprint] = entry.id
+                run.imported += 1
             }
         }
         if checking.account.iban.isEmpty, let iban = document.tradeRepublic?.iban, !iban.isEmpty {
             checking.account.iban = iban
         }
         if let portfolio {
-            let closed = holdings.filter { $0.accountID == portfolio.account.id && $0.quantity < 0.0000005 }
-            for holding in closed {
-                HoldingMaintenance.retire(holding, context: context)
-            }
-            let closedIDs = Set(closed.map(\.id))
-            holdings.removeAll { closedIDs.contains($0.id) }
-            insertedHoldings.removeAll { closedIDs.contains($0.id) }
-            for holding in holdings where holding.accountID == portfolio.account.id {
-                if let position = HoldingMaintenance.averagePurchaseCents(for: HoldingLotStore.lots(for: holding.id)) {
-                    holding.purchasePriceCents = position.priceCents
-                }
-            }
-            let plans = SavingsPlanBuilder.build(
-                rows: document.rows,
-                checkingID: checking.account.id,
-                portfolioID: portfolio.account.id,
-                holdings: holdings
-            )
-            SavingsPlanStore.replace(plans, portfolioID: portfolio.account.id)
-            SavingsPlanFixedCosts.sync(context: context)
+            finishPortfolio(portfolio.account, checkingID: checking.account.id, rows: document.rows, run: &run, context: context)
         }
-        let portfolioID = portfolio?.account.id
-        let holdingCount = holdings.filter { holding in
-            holding.accountID == portfolioID && holding.quantity > 0.0000005
+        let holdingCount = run.holdings.filter { holding in
+            holding.accountID == portfolio?.account.id && holding.quantity > 0.0000005
         }.count
-        var fittedAccountID: UUID?
-        if document.tradeRepublic == nil, let currentBalanceCents {
-            if review.isEmpty {
-                let knownIDs = Set(insertedEntries.map(\.id))
-                if let extra = ImportBalance.fitToCurrent(
-                    account: checking.account,
-                    entries: &entries,
-                    currentCents: currentBalanceCents,
-                    context: context
-                ), !knownIDs.contains(extra.id) {
-                    insertedEntries.append(extra)
-                }
-                fittedAccountID = checking.account.id
-            } else {
-                review.accountID = checking.account.id
-                review.currentCents = currentBalanceCents
-            }
-        }
+        let fitted = document.tradeRepublic == nil
+            ? fitBalance(of: checking.account, current: currentBalanceCents, run: &run, context: context)
+            : false
         do {
             try context.save()
-            if let fittedAccountID, let currentBalanceCents {
-                BankImportCursor.mark(fittedAccountID, currentCents: currentBalanceCents)
+            if fitted, let currentBalanceCents {
+                BankImportCursor.mark(checking.account.id, currentCents: currentBalanceCents)
             }
         } catch {
-            insertedEntries.forEach(context.delete)
-            insertedHoldings.forEach(context.delete)
-            insertedAccounts.forEach(context.delete)
+            run.insertedEntries.forEach(context.delete)
+            run.insertedHoldings.forEach(context.delete)
+            (checking.created + (portfolio?.created ?? [])).forEach(context.delete)
             throw error
         }
         relinkOwnAccounts(context: context)
         return BankImportResult(
-            importedCount: imported,
+            importedCount: run.imported,
             holdingCount: holdingCount,
             accountName: checking.account.name,
             checkingAccountID: checking.account.id,
             createdSeparateChecking: checking.createdSeparate,
-            entryIDs: entryIDs,
-            selectableRows: selectable,
+            entryIDs: run.entryIDs,
+            selectableRows: run.selectable,
             skippedBeforeStart: 0,
-            review: review
+            review: run.review
         )
+    }
+
+    /// The working state of one import.
+    private struct ImportRun {
+        var entries: [LedgerEntry]
+        var holdings: [PortfolioHolding]
+        var insertedEntries: [LedgerEntry] = []
+        var insertedHoldings: [PortfolioHolding] = []
+        var known = Set<String>()
+        var entryIDs: [String: UUID] = [:]
+        var selectable: [ImportedTransaction] = []
+        var imported = 0
+        var review = ImportReview()
+    }
+
+    /// Adds the opening balance that fits the statement, when the account still needs one.
+    ///
+    /// - Parameters:
+    ///   - document: The parsed statement.
+    ///   - accountID: The checking account.
+    ///   - current: The balance the person entered, if any.
+    ///   - period: The first period of a Trade Republic statement.
+    ///   - run: The import's working state.
+    ///   - context: The database context.
+    private static func insertOpeningBalance(
+        _ document: BankImportDocument,
+        accountID: UUID,
+        current: Int?,
+        period: ForecastPeriod?,
+        run: inout ImportRun,
+        context: ModelContext
+    ) {
+        if document.tradeRepublic == nil, let current,
+           !run.entries.contains(where: {
+               $0.kind == .adjustment && $0.accountID == accountID && !ImportBalance.isCurrentPin($0, accountID: accountID)
+           }),
+           let firstDate = document.rows.map(\.date).min() {
+            let day = Calendar.current.startOfDay(for: firstDate)
+            let adjustment = LedgerEntry(
+                date: day,
+                title: L("Eröffnungssaldo", "Opening balance"),
+                amountCents: ImportBalance.openingCents(current: current, rowAmounts: document.rows.map(\.amountCents)),
+                kind: .adjustment,
+                accountID: accountID,
+                createdAt: day
+            )
+            context.insert(adjustment)
+            run.insertedEntries.append(adjustment)
+            run.entries.append(adjustment)
+        } else if let statement = document.tradeRepublic, let period {
+            let adjustment = LedgerEntry(
+                date: Calendar.current.startOfDay(for: period.start),
+                title: L("Startsaldo", "Opening balance"),
+                notes: "Typ: Startsaldo",
+                amountCents: statementBalance(before: period.start, rows: document.rows, opening: statement.openingBalanceCents),
+                kind: .adjustment,
+                accountID: accountID,
+                importFingerprint: "tr-startsaldo"
+            )
+            context.insert(adjustment)
+            run.insertedEntries.append(adjustment)
+            run.entries.append(adjustment)
+        } else if let statement = document.tradeRepublic, statement.openingBalanceCents != 0,
+                  !run.entries.contains(where: { entryTouches($0, accountID: accountID) }),
+                  let firstDate = document.rows.map(\.date).min() {
+            let adjustment = LedgerEntry(
+                date: Calendar.current.date(byAdding: .day, value: -1, to: firstDate) ?? firstDate,
+                title: L("Eröffnungssaldo", "Opening balance"),
+                amountCents: statement.openingBalanceCents,
+                kind: .adjustment,
+                accountID: accountID
+            )
+            context.insert(adjustment)
+            run.insertedEntries.append(adjustment)
+        }
+    }
+
+    /// Books one security trade unless its fingerprint is already known.
+    private static func ingestTradeRow(
+        _ row: ImportedTransaction,
+        checkingID: UUID,
+        portfolio: Account?,
+        run: inout ImportRun,
+        context: ModelContext
+    ) {
+        let fingerprints = [row.fingerprint, row.legacyFingerprint].compactMap { $0 }
+        let booked = run.entries.contains { entry in
+            entry.importFingerprint.map(fingerprints.contains) ?? false
+        }
+        guard !booked, run.known.isDisjoint(with: fingerprints) else {
+            run.known.formUnion(fingerprints)
+            return
+        }
+        let entry = ledgerEntry(for: row, checkingID: checkingID, portfolioID: portfolio?.id)
+        context.insert(entry)
+        run.insertedEntries.append(entry)
+        run.entries.append(entry)
+        if let trade = row.trade, let portfolio {
+            apply(
+                trade,
+                cashCents: row.amountCents,
+                date: row.date,
+                portfolio: portfolio,
+                context: context,
+                holdings: &run.holdings,
+                insertedHoldings: &run.insertedHoldings,
+                ledgerEntryID: entry.id
+            )
+        }
+        run.known.formUnion(fingerprints)
+        run.imported += 1
+    }
+
+    /// Retires sold-out positions, refreshes average prices, and rebuilds the savings plans.
+    private static func finishPortfolio(
+        _ portfolio: Account,
+        checkingID: UUID,
+        rows: [ImportedTransaction],
+        run: inout ImportRun,
+        context: ModelContext
+    ) {
+        let closed = run.holdings.filter { $0.accountID == portfolio.id && $0.quantity < 0.0000005 }
+        closed.forEach { HoldingMaintenance.retire($0, context: context) }
+        let closedIDs = Set(closed.map(\.id))
+        run.holdings.removeAll { closedIDs.contains($0.id) }
+        run.insertedHoldings.removeAll { closedIDs.contains($0.id) }
+        for holding in run.holdings where holding.accountID == portfolio.id {
+            if let position = HoldingMaintenance.averagePurchaseCents(for: HoldingLotStore.lots(for: holding.id)) {
+                holding.purchasePriceCents = position.priceCents
+            }
+        }
+        let plans = SavingsPlanBuilder.build(rows: rows, checkingID: checkingID, portfolioID: portfolio.id, holdings: run.holdings)
+        SavingsPlanStore.replace(plans, portfolioID: portfolio.id)
+        SavingsPlanFixedCosts.sync(context: context)
+    }
+
+    /// Fits the account to the entered balance, or keeps it for after the open questions.
+    ///
+    /// - Returns: `true` when the balance was fitted now.
+    private static func fitBalance(
+        of account: Account,
+        current: Int?,
+        run: inout ImportRun,
+        context: ModelContext
+    ) -> Bool {
+        guard let current else { return false }
+        guard run.review.isEmpty else {
+            run.review.accountID = account.id
+            run.review.currentCents = current
+            return false
+        }
+        let knownIDs = Set(run.insertedEntries.map(\.id))
+        if let extra = ImportBalance.fitToCurrent(account: account, entries: &run.entries, currentCents: current, context: context),
+           !knownIDs.contains(extra.id) {
+            run.insertedEntries.append(extra)
+        }
+        return true
     }
 
     /// Finds the first period of the main account.
