@@ -602,6 +602,14 @@ public enum TradeRepublicSync {
     }
 
     /// Calculates the depot changes.
+    ///
+    /// - Parameters:
+    ///   - positions: The live positions.
+    ///   - holdings: The stored positions.
+    ///   - activities: The whole timeline.
+    ///   - known: The fingerprints already booked.
+    ///   - now: The current time.
+    /// - Returns: The changes in the order they must be applied.
     public static func changes(
         positions: [TradeRepublicPosition],
         holdings: [HeldPosition],
@@ -613,144 +621,139 @@ public enum TradeRepublicSync {
         let live = Dictionary(grouping: positions.filter { $0.quantity > 0.0000005 }, by: { $0.isin.uppercased() })
             .compactMapValues(\.first)
         let leaving = holdings.filter { holding in
-            let symbol = holding.symbol.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+            let symbol = normalizedSymbol(holding.symbol)
             return !symbol.isEmpty && live[symbol] == nil && holding.quantity > 0.0000005
         }
+        var moves = cashMoves(fresh, leaving: leaving)
+        let inputs = ChangeInputs(
+            fresh: fresh,
+            history: activities,
+            known: known,
+            giftDates: giftDates(positions: Array(live.values), activities: activities),
+            now: now
+        )
+        var seen = Set<String>()
+        for holding in holdings {
+            let symbol = normalizedSymbol(holding.symbol)
+            guard !symbol.isEmpty else { continue }
+            seen.insert(symbol)
+            appendStoredHolding(holding, symbol: symbol, position: live[symbol], inputs: inputs, into: &moves)
+        }
+        for (symbol, position) in live where !seen.contains(symbol) {
+            seen.insert(symbol)
+            appendNewPosition(position, symbol: symbol, inputs: inputs, into: &moves)
+        }
+        let extra = Set(fresh.compactMap { item -> String? in
+            let symbol = normalizedSymbol(item.isin)
+            return item.trade && !symbol.isEmpty && !seen.contains(symbol) ? symbol : nil
+        })
+        for symbol in extra.sorted() {
+            appendClosedInstrument(symbol, inputs: inputs, into: &moves)
+        }
+        return moves
+    }
+
+    /// The timeline values every position's comparison needs.
+    private struct ChangeInputs {
+        let fresh: [TradeRepublicActivity]
+        let history: [TradeRepublicActivity]
+        let known: Set<String>
+        let giftDates: [String: Date]
+        let now: Date
+    }
+
+    /// Trims and uppercases an ISIN.
+    private static func normalizedSymbol(_ value: String) -> String {
+        value.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+    }
+
+    /// Lists the cash movements. Money from a sale that closes a position is booked with that sale.
+    private static func cashMoves(_ fresh: [TradeRepublicActivity], leaving: [HeldPosition]) -> [TradeRepublicMove] {
         var moves: [TradeRepublicMove] = []
         for item in fresh where !item.trade {
+            let title = item.title.isEmpty ? "Trade Republic" : item.title
             if item.isGrant {
                 if (item.quantity ?? 0) > 0.0000005 { continue }
                 if item.statementType == "Depotgeschenk" { continue }
                 let value = abs(item.amountCents)
                 guard value > 0 else { continue }
-                moves.append(.grant(
-                    id: item.id,
-                    date: item.date,
-                    title: item.title.isEmpty ? "Trade Republic" : item.title,
-                    isin: item.isin,
-                    name: item.title,
-                    quantity: 0,
-                    amountCents: value,
-                    statementType: item.statementType
-                ))
+                moves.append(.grant(id: item.id, date: item.date, title: title, isin: item.isin, name: item.title, quantity: 0, amountCents: value, statementType: item.statementType))
                 continue
             }
             if item.amountCents == 0 { continue }
             if item.amountCents > 0 && leaving.contains(where: { claimsSale($0, item: item) }) { continue }
-            let title = item.title.isEmpty ? "Trade Republic" : item.title
             moves.append(.cash(id: item.id, date: item.date, title: title, amountCents: item.amountCents, statementType: item.statementType))
         }
-        let giftDates = giftDates(positions: Array(live.values), activities: activities)
-        var seen = Set<String>()
-        for holding in holdings {
-            let symbol = holding.symbol.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
-            guard !symbol.isEmpty else { continue }
-            seen.insert(symbol)
-            guard let position = live[symbol] else {
-                appendExit(holding, symbol: symbol, activities: activities, known: known, now: now, into: &moves)
-                continue
-            }
-            let added = appendBuys(
-                position: position,
-                holding: holding,
-                activities: fresh,
-                history: activities,
-                giftDates: giftDates,
-                now: now,
-                into: &moves
-            )
-            let have = holding.quantity + added
-            if have - position.quantity > 0.001 {
-                appendSales(
-                    quantity: have - position.quantity,
-                    position: position,
-                    holding: holding,
-                    activities: fresh,
-                    now: now,
-                    into: &moves
-                )
-            }
-        }
-        for (symbol, position) in live where !seen.contains(symbol) {
-            seen.insert(symbol)
-            let added = appendBuys(
-                position: position,
-                holding: nil,
-                activities: fresh,
-                history: activities,
-                giftDates: giftDates,
-                now: now,
-                into: &moves
-            )
-            if added - position.quantity > 0.001 {
-                appendSales(
-                    quantity: added - position.quantity,
-                    position: position,
-                    holding: HeldPosition(
-                        symbol: symbol,
-                        name: position.name,
-                        quantity: added,
-                        purchasePriceCents: position.averageBuyInCents ?? 0,
-                        latestLotDate: nil
-                    ),
-                    activities: fresh,
-                    now: now,
-                    into: &moves
-                )
-            }
-        }
-        let extra = Set(
-            fresh.compactMap { item -> String? in
-                let symbol = item.isin.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
-                guard item.trade, !symbol.isEmpty, seen.contains(symbol) == false else { return nil }
-                return symbol
-            }
-        )
-        for symbol in extra.sorted() {
-            let name = fresh.first { $0.isin.caseInsensitiveCompare(symbol) == .orderedSame }?.title ?? symbol
-            let phantom = TradeRepublicPosition(isin: symbol, name: name, quantity: 0, averageBuyInCents: nil)
-            let added = appendBuys(
-                position: phantom,
-                holding: nil,
-                activities: fresh,
-                history: activities,
-                giftDates: giftDates,
-                now: now,
-                into: &moves
-            )
-            let sales = trades(isin: symbol, activities: fresh, buying: false, after: nil)
-            if !sales.isEmpty {
-                if added > 0.001 {
-                    appendSales(
-                        quantity: added,
-                        position: phantom,
-                        holding: HeldPosition(
-                            symbol: symbol,
-                            name: name,
-                            quantity: added,
-                            purchasePriceCents: 0,
-                            latestLotDate: nil
-                        ),
-                        activities: fresh,
-                        now: now,
-                        into: &moves
-                    )
-                } else {
-                    appendLots(
-                        delta: sales.reduce(0) { $0 + ($1.quantity ?? 0) },
-                        events: sales,
-                        buying: false,
-                        isin: symbol,
-                        name: name,
-                        cost: 0,
-                        now: now,
-                        into: &moves
-                    )
-                }
-                moves.append(.drop(isin: symbol))
-            }
-        }
         return moves
+    }
+
+    /// Adds the buys of a position from the fresh timeline and returns the added shares.
+    private static func appendBuys(_ position: TradeRepublicPosition, holding: HeldPosition?, inputs: ChangeInputs, into moves: inout [TradeRepublicMove]) -> Double {
+        appendBuys(
+            position: position,
+            holding: holding,
+            activities: inputs.fresh,
+            history: inputs.history,
+            giftDates: inputs.giftDates,
+            now: inputs.now,
+            into: &moves
+        )
+    }
+
+    /// Compares one stored holding with its live position.
+    private static func appendStoredHolding(
+        _ holding: HeldPosition,
+        symbol: String,
+        position: TradeRepublicPosition?,
+        inputs: ChangeInputs,
+        into moves: inout [TradeRepublicMove]
+    ) {
+        guard let position else {
+            appendExit(holding, symbol: symbol, activities: inputs.history, known: inputs.known, now: inputs.now, into: &moves)
+            return
+        }
+        let have = holding.quantity + appendBuys(position, holding: holding, inputs: inputs, into: &moves)
+        if have - position.quantity > 0.001 {
+            appendSales(quantity: have - position.quantity, position: position, holding: holding, activities: inputs.fresh, now: inputs.now, into: &moves)
+        }
+    }
+
+    /// Adds a live position that has no stored holding yet.
+    private static func appendNewPosition(
+        _ position: TradeRepublicPosition,
+        symbol: String,
+        inputs: ChangeInputs,
+        into moves: inout [TradeRepublicMove]
+    ) {
+        let added = appendBuys(position, holding: nil, inputs: inputs, into: &moves)
+        guard added - position.quantity > 0.001 else { return }
+        let held = HeldPosition(symbol: symbol, name: position.name, quantity: added, purchasePriceCents: position.averageBuyInCents ?? 0, latestLotDate: nil)
+        appendSales(quantity: added - position.quantity, position: position, holding: held, activities: inputs.fresh, now: inputs.now, into: &moves)
+    }
+
+    /// Books an instrument that was bought and sold entirely between two sessions.
+    private static func appendClosedInstrument(_ symbol: String, inputs: ChangeInputs, into moves: inout [TradeRepublicMove]) {
+        let name = inputs.fresh.first { $0.isin.caseInsensitiveCompare(symbol) == .orderedSame }?.title ?? symbol
+        let phantom = TradeRepublicPosition(isin: symbol, name: name, quantity: 0, averageBuyInCents: nil)
+        let added = appendBuys(phantom, holding: nil, inputs: inputs, into: &moves)
+        let sales = trades(isin: symbol, activities: inputs.fresh, buying: false, after: nil)
+        guard !sales.isEmpty else { return }
+        if added > 0.001 {
+            let held = HeldPosition(symbol: symbol, name: name, quantity: added, purchasePriceCents: 0, latestLotDate: nil)
+            appendSales(quantity: added, position: phantom, holding: held, activities: inputs.fresh, now: inputs.now, into: &moves)
+        } else {
+            appendLots(
+                delta: sales.reduce(0) { $0 + ($1.quantity ?? 0) },
+                events: sales,
+                buying: false,
+                isin: symbol,
+                name: name,
+                cost: 0,
+                now: inputs.now,
+                into: &moves
+            )
+        }
+        moves.append(.drop(isin: symbol))
     }
 
     /// A position the session no longer returns is dropped only when the history has a matching sale.

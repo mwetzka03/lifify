@@ -8,13 +8,68 @@ public enum TradeRepublicDepotApplier {
     /// Brings the depot and the Trade Republic checking account in line with one session.
     /// A later sign-in replaces the previous Trade Republic lots, holdings, and session bookings.
     /// Own-account transfers that did not come from that session stay.
+    ///
+    /// - Parameters:
+    ///   - snapshot: The data loaded in the session.
+    ///   - context: The database context.
+    /// - Returns: The number of applied changes.
+    /// - Throws: ``TradeRepublicFailure`` when no single depot can be chosen, or a save error.
     @discardableResult
     public static func apply(snapshot: TradeRepublicSnapshot, context: ModelContext) async throws -> Int {
         if snapshot.positions.isEmpty && snapshot.activities.isEmpty { return 0 }
         let accounts = try context.fetch(FetchDescriptor<Account>())
-        let named = accounts.map {
-            NamedAccount(id: $0.id, name: $0.name, kind: $0.kind, isMain: $0.isMain)
+        let (checking, portfolio) = try targetAccounts(snapshot, accounts: accounts, context: context)
+        replacePreviousImport(checking: checking, portfolio: portfolio, context: context)
+        let stored = try context.fetch(FetchDescriptor<PortfolioHolding>()).filter { $0.accountID == portfolio.id }
+        let entries = (try? context.fetch(FetchDescriptor<LedgerEntry>())) ?? []
+        var known = Set(entries.compactMap(\.importFingerprint))
+        purgeFalseBuys(holdings: stored, positions: snapshot.positions, activities: snapshot.activities, checking: checking, portfolio: portfolio, known: &known, context: context)
+        let periodStart = BankImportApplier.firstMainAccountPeriod(entries: entries, accounts: accounts, context: context)?.start
+        let moves = TradeRepublicSync.changes(
+            positions: snapshot.positions,
+            holdings: heldPositions(stored),
+            activities: snapshot.activities,
+            known: known
+        )
+        replaceLumpBuys(holdings: stored, positions: snapshot.positions, activities: snapshot.activities, checking: checking, portfolio: portfolio, known: &known, context: context)
+        repairMergedBuys(holdings: stored, activities: snapshot.activities, known: &known, context: context)
+        let run = DepotRun(snapshot: snapshot, checking: checking, portfolio: portfolio, stored: stored, periodStart: periodStart, context: context)
+        var dropping = Set(moves.compactMap { move -> String? in
+            if case .drop(let isin) = move { return isin }
+            return nil
+        })
+        var count = 0
+        for move in moves {
+            if try applyMove(move, run: run, known: &known, dropping: &dropping) { count += 1 }
         }
+        try context.save()
+        let fresh = try context.fetch(FetchDescriptor<PortfolioHolding>()).filter { $0.accountID == portfolio.id }
+        relabelUnboughtOpenings(holdings: fresh, positions: snapshot.positions, activities: snapshot.activities, portfolio: portfolio, known: &known, context: context)
+        scaleWholeLotsToLive(holdings: fresh, positions: snapshot.positions, activities: snapshot.activities, context: context)
+        adoptSavingsPlans(from: snapshot.activities, plans: snapshot.plans, checking: checking, portfolio: portfolio, holdings: fresh, context: context)
+        await MarketDataService.refresh(holdings: fresh, context: context)
+        BankImportApplier.relinkOwnAccounts(context: context)
+        reconcileChecking(checking, liveCents: snapshot.cashCents, context: context)
+        return count
+    }
+
+    /// What every change of one session needs.
+    private struct DepotRun {
+        let snapshot: TradeRepublicSnapshot
+        let checking: Account
+        let portfolio: Account
+        let stored: [PortfolioHolding]
+        let periodStart: Date?
+        let context: ModelContext
+    }
+
+    /// Finds or creates the Trade Republic checking account and its depot.
+    private static func targetAccounts(
+        _ snapshot: TradeRepublicSnapshot,
+        accounts: [Account],
+        context: ModelContext
+    ) throws -> (checking: Account, portfolio: Account) {
+        let named = accounts.map { NamedAccount(id: $0.id, name: $0.name, kind: $0.kind, isMain: $0.isMain) }
         var tradeRepublic = accounts.first {
             $0.kind == .checking && $0.name.caseInsensitiveCompare("Trade Republic") == .orderedSame
         }
@@ -27,12 +82,12 @@ public enum TradeRepublicDepotApplier {
             PortfolioLinkStore.link(portfolio: portfolio.id, to: tradeRepublic!.id)
         }
         guard let checking = tradeRepublic else { throw TradeRepublicFailure.unreadable }
-        replacePreviousImport(checking: checking, portfolio: portfolio, context: context)
-        let stored = try context.fetch(FetchDescriptor<PortfolioHolding>()).filter { $0.accountID == portfolio.id }
-        let entries = (try? context.fetch(FetchDescriptor<LedgerEntry>())) ?? []
-        var known = Set(entries.compactMap(\.importFingerprint))
-        purgeFalseBuys(holdings: stored, positions: snapshot.positions, activities: snapshot.activities, checking: checking, portfolio: portfolio, known: &known, context: context)
-        let held = stored.map { holding in
+        return (checking, portfolio)
+    }
+
+    /// Describes the stored holdings for the comparison with the live depot.
+    private static func heldPositions(_ stored: [PortfolioHolding]) -> [HeldPosition] {
+        stored.map { holding in
             let lots = HoldingLotStore.lots(for: holding.id)
             return HeldPosition(
                 symbol: holding.symbol,
@@ -42,136 +97,125 @@ public enum TradeRepublicDepotApplier {
                 latestLotDate: lots.map(\.date).max()
             )
         }
-        let periodStart = BankImportApplier.firstMainAccountPeriod(
-            entries: entries,
-            accounts: accounts,
-            context: context
-        )?.start
-        let moves = TradeRepublicSync.changes(
-            positions: snapshot.positions,
-            holdings: held,
-            activities: snapshot.activities,
-            known: known
-        )
-        replaceLumpBuys(holdings: stored, positions: snapshot.positions, activities: snapshot.activities, checking: checking, portfolio: portfolio, known: &known, context: context)
-        repairMergedBuys(holdings: stored, activities: snapshot.activities, known: &known, context: context)
-        var count = 0
-        var dropping = Set(moves.compactMap { move -> String? in
-            if case .drop(let isin) = move { return isin }
-            return nil
-        })
-        for move in moves {
-            switch move {
-            case .cash(let id, let date, let title, let amountCents, let statementType):
-                guard !isBeforePeriod(date, start: periodStart) else { continue }
-                guard insertCash(
-                    id: id,
-                    date: date,
-                    title: title,
-                    amountCents: amountCents,
-                    statementType: statementType,
-                    eventType: eventType(id: id, activities: snapshot.activities),
-                    checking: checking,
-                    portfolio: portfolio,
-                    known: known,
-                    context: context
-                ) else { continue }
-                count += 1
-            case .grant(let id, let date, let title, let isin, let name, let quantity, let amountCents, let statementType):
-                let holding = try ensureHolding(isin: isin, name: name, portfolio: portfolio, stored: stored, context: context)
-                openExistingSharesIfNeeded(holding)
-                guard insertGrant(
-                    id: id,
-                    date: date,
-                    title: title,
-                    quantity: quantity,
-                    amountCents: amountCents,
-                    statementType: statementType,
-                    eventType: eventType(id: id, isin: isin, activities: snapshot.activities),
-                    holding: holding,
-                    portfolio: portfolio,
-                    known: &known,
-                    context: context
-                ) else { continue }
-                if !dropping.contains(isin) { _ = HoldingMaintenance.sync(holding, context: context) }
-                count += 1
-            case .shares(let _, let date, let isin, let name, let quantity, let unitCents):
-                let holding = try ensureHolding(isin: isin, name: name, portfolio: portfolio, stored: stored, context: context)
-                openExistingSharesIfNeeded(holding)
-                guard insertShares(date: date, quantity: quantity, unitCents: unitCents, holding: holding) else { continue }
-                if !dropping.contains(isin) { _ = HoldingMaintenance.sync(holding, context: context) }
-                count += 1
-            case .buy(let id, let date, let title, let isin, let name, let quantity, let amountCents, let savingsPlan):
-                let holding = try ensureHolding(isin: isin, name: name, portfolio: portfolio, stored: stored, context: context)
-                openExistingSharesIfNeeded(holding)
-                guard insertTrade(
-                    id: id,
-                    date: date,
-                    title: title,
-                    quantity: quantity,
-                    amountCents: amountCents,
-                    sale: false,
-                    savingsPlan: savingsPlan,
-                    eventType: eventType(id: id, isin: isin, activities: snapshot.activities),
-                    holding: holding,
-                    checking: checking,
-                    portfolio: portfolio,
-                    known: &known,
-                    context: context,
-                    bookCash: !isBeforePeriod(date, start: periodStart)
-                ) else { continue }
-                if !dropping.contains(isin) { _ = HoldingMaintenance.sync(holding, context: context) }
-                count += 1
-            case .sale(let id, let date, let title, let isin, let name, let quantity, let amountCents):
-                let holding = try ensureHolding(isin: isin, name: name, portfolio: portfolio, stored: stored, context: context)
-                openExistingSharesIfNeeded(holding)
-                guard insertTrade(
-                    id: id,
-                    date: date,
-                    title: title,
-                    quantity: quantity,
-                    amountCents: amountCents,
-                    sale: true,
-                    savingsPlan: false,
-                    eventType: eventType(id: id, isin: isin, activities: snapshot.activities),
-                    holding: holding,
-                    checking: checking,
-                    portfolio: portfolio,
-                    known: &known,
-                    context: context,
-                    bookCash: !isBeforePeriod(date, start: periodStart)
-                ) else { continue }
-                if !dropping.contains(isin) { _ = HoldingMaintenance.sync(holding, context: context) }
-                count += 1
-            case .drop(let isin):
-                guard let holding = stored.first(where: { $0.symbol.caseInsensitiveCompare(isin) == .orderedSame })
-                    ?? holding(isin: isin, portfolio: portfolio, context: context) else { continue }
-                HoldingMaintenance.retire(holding, context: context)
-                dropping.remove(isin)
-                count += 1
-            }
+    }
+
+    /// Applies one change.
+    ///
+    /// - Parameters:
+    ///   - move: The change.
+    ///   - run: The session's shared values.
+    ///   - known: The fingerprints already booked.
+    ///   - dropping: The ISINs that this session removes.
+    /// - Returns: `true` when the change was applied.
+    private static func applyMove(
+        _ move: TradeRepublicMove,
+        run: DepotRun,
+        known: inout Set<String>,
+        dropping: inout Set<String>
+    ) throws -> Bool {
+        switch move {
+        case .cash(let id, let date, let title, let amountCents, let statementType):
+            guard !isBeforePeriod(date, start: run.periodStart) else { return false }
+            return insertCash(
+                id: id,
+                date: date,
+                title: title,
+                amountCents: amountCents,
+                statementType: statementType,
+                eventType: eventType(id: id, activities: run.snapshot.activities),
+                checking: run.checking,
+                portfolio: run.portfolio,
+                known: known,
+                context: run.context
+            )
+        case .grant(let id, let date, let title, let isin, let name, let quantity, let amountCents, let statementType):
+            let holding = try openedHolding(isin: isin, name: name, run: run)
+            guard insertGrant(
+                id: id,
+                date: date,
+                title: title,
+                quantity: quantity,
+                amountCents: amountCents,
+                statementType: statementType,
+                eventType: eventType(id: id, isin: isin, activities: run.snapshot.activities),
+                holding: holding,
+                portfolio: run.portfolio,
+                known: &known,
+                context: run.context
+            ) else { return false }
+            syncUnlessDropping(holding, isin: isin, dropping: dropping, context: run.context)
+            return true
+        case .shares(_, let date, let isin, let name, let quantity, let unitCents):
+            let holding = try openedHolding(isin: isin, name: name, run: run)
+            guard insertShares(date: date, quantity: quantity, unitCents: unitCents, holding: holding) else { return false }
+            syncUnlessDropping(holding, isin: isin, dropping: dropping, context: run.context)
+            return true
+        case .buy(let id, let date, let title, let isin, let name, let quantity, let amountCents, let savingsPlan):
+            let trade = SessionTrade(id: id, date: date, title: title, isin: isin, name: name, quantity: quantity, amountCents: amountCents, sale: false, savingsPlan: savingsPlan)
+            return try applyTrade(trade, run: run, known: &known, dropping: dropping)
+        case .sale(let id, let date, let title, let isin, let name, let quantity, let amountCents):
+            let trade = SessionTrade(id: id, date: date, title: title, isin: isin, name: name, quantity: quantity, amountCents: amountCents, sale: true, savingsPlan: false)
+            return try applyTrade(trade, run: run, known: &known, dropping: dropping)
+        case .drop(let isin):
+            guard let holding = run.stored.first(where: { $0.symbol.caseInsensitiveCompare(isin) == .orderedSame })
+                ?? holding(isin: isin, portfolio: run.portfolio, context: run.context) else { return false }
+            HoldingMaintenance.retire(holding, context: run.context)
+            dropping.remove(isin)
+            return true
         }
-        try context.save()
-        let fresh = try context.fetch(FetchDescriptor<PortfolioHolding>()).filter { $0.accountID == portfolio.id }
-        relabelUnboughtOpenings(
-            holdings: fresh,
-            positions: snapshot.positions,
-            activities: snapshot.activities,
-            portfolio: portfolio,
+    }
+
+    /// A buy or sale from the session.
+    private struct SessionTrade {
+        let id: String
+        let date: Date
+        let title: String
+        let isin: String
+        let name: String
+        let quantity: Double
+        let amountCents: Int
+        let sale: Bool
+        let savingsPlan: Bool
+    }
+
+    /// Books a buy or sale on its holding.
+    private static func applyTrade(
+        _ trade: SessionTrade,
+        run: DepotRun,
+        known: inout Set<String>,
+        dropping: Set<String>
+    ) throws -> Bool {
+        let holding = try openedHolding(isin: trade.isin, name: trade.name, run: run)
+        guard insertTrade(
+            id: trade.id,
+            date: trade.date,
+            title: trade.title,
+            quantity: trade.quantity,
+            amountCents: trade.amountCents,
+            sale: trade.sale,
+            savingsPlan: trade.savingsPlan,
+            eventType: eventType(id: trade.id, isin: trade.isin, activities: run.snapshot.activities),
+            holding: holding,
+            checking: run.checking,
+            portfolio: run.portfolio,
             known: &known,
-            context: context
-        )
-        scaleWholeLotsToLive(
-            holdings: fresh,
-            positions: snapshot.positions,
-            activities: snapshot.activities,
-            context: context
-        )
-        adoptSavingsPlans(from: snapshot.activities, plans: snapshot.plans, checking: checking, portfolio: portfolio, holdings: fresh, context: context)
-        await MarketDataService.refresh(holdings: fresh, context: context)
-        BankImportApplier.relinkOwnAccounts(context: context)
-        reconcileChecking(checking, liveCents: snapshot.cashCents, context: context)
-        return count
+            context: run.context,
+            bookCash: !isBeforePeriod(trade.date, start: run.periodStart)
+        ) else { return false }
+        syncUnlessDropping(holding, isin: trade.isin, dropping: dropping, context: run.context)
+        return true
+    }
+
+    /// Finds or creates a holding and records shares it held before this session.
+    private static func openedHolding(isin: String, name: String, run: DepotRun) throws -> PortfolioHolding {
+        let holding = try ensureHolding(isin: isin, name: name, portfolio: run.portfolio, stored: run.stored, context: run.context)
+        openExistingSharesIfNeeded(holding)
+        return holding
+    }
+
+    /// Rebuilds a holding from its lots, unless this session removes it anyway.
+    private static func syncUnlessDropping(_ holding: PortfolioHolding, isin: String, dropping: Set<String>, context: ModelContext) {
+        if !dropping.contains(isin) { _ = HoldingMaintenance.sync(holding, context: context) }
     }
 
     /// Says whether a date lies before the first period.
