@@ -62,6 +62,15 @@ Version 0.6.0 first improves the code base (part A) and then adds new features
   normalization test was replaced by the migration tests, because a record
   with only the old column can no longer exist after the migration.
 
+### 0.6.0: Readable documents (A5)
+
+- **What:** Long passages in `FINANZEN.md` are now lists. The setup screen says
+  Health (workouts and meals) instead of Training for a partial restore.
+- **Why:** The rules were hard to scan, and the area has been called Health
+  since 0.5.5.
+- **Effect:** The wording of every finance rule is unchanged. A script compared
+  all words before and after the reformatting.
+
 ## Deutsch
 
 ### Überblick
@@ -125,3 +134,13 @@ Funktionen (Teil B). Diese Datei wächst mit jedem abgeschlossenen Schritt.
 - **Geänderte Tests:** Der Test zur Einzelgruppe prüft jetzt `groupIDs`. Der
   alte Normalisierungstest wurde durch die Migrationstests ersetzt, weil es
   nach der Migration keinen Eintrag mehr gibt, der nur die alte Spalte kennt.
+
+### 0.6.0: Lesbare Dokumente (A5)
+
+- **Was:** Lange Passagen in `FINANZEN.md` sind jetzt Listen. Die Einrichtung
+  nennt beim teilweisen Wiederherstellen Gesundheit (Trainings und Mahlzeiten)
+  statt Training.
+- **Warum:** Die Regeln waren schwer zu überblicken, und der Bereich heißt seit
+  0.5.5 Gesundheit.
+- **Auswirkung:** Der Wortlaut aller Finanzregeln bleibt gleich. Ein Skript hat
+  alle Wörter vor und nach der Umformatierung verglichen.

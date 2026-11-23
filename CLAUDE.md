@@ -453,7 +453,6 @@ automatischer Testlauf (CI).
 - `MealRecognition.send(thinking: true)` setzt `thinkingBudget: 0`, schaltet
   das Nachdenken also gerade aus. Die Benennung ist irreführend und wird in
   A2 oder bei passender Gelegenheit bereinigt.
-- `OnboardingView`: „nur Training“ statt Gesundheit (siehe A5).
 
 ## 6. Technische Leitplanken
 

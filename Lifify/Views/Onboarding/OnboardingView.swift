@@ -33,8 +33,8 @@ enum OnboardingSteps {
     static var restore: String { L("JSON-Sicherung oder Teile laden", "Restore a JSON backup or parts") }
     static var restoreNote: String {
         L(
-            "Die ganze App, oder nur einzelne Bereiche: nur Finanzen, nur Challenges oder nur Training. Mehrere Dateien auf einmal gehen.",
-            "The entire app, or only one area: Finance only, Challenges only, or Training only. You can pick several files at once."
+            "Die ganze App, oder nur einzelne Bereiche: nur Finanzen, nur Challenges oder nur Gesundheit (Trainings und Mahlzeiten). Mehrere Dateien auf einmal gehen.",
+            "The entire app, or only one area: Finance only, Challenges only, or Health only (workouts and meals). You can pick several files at once."
         )
     }
     static var welcome: String { L("Willkommen", "Welcome") }
