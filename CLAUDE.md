@@ -119,7 +119,7 @@ raten.
 - Die Prognose existiert (`PortfolioActivity.futureShares`). Jede künftige
   Sparplan-Ausführung kauft Betrag ÷ **aktueller Kurs** Stücke. Ohne
   Renditeszenario gibt es keine Kursentwicklung. Das bleibt die
-  Standardansicht. Das Renditeszenario (Abschnitt 4, F7) ist ein
+  Standardansicht. Das Renditeszenario (Abschnitt 4, B7) ist ein
   zusätzlicher Schalter.
 
 ### Trade Republic
