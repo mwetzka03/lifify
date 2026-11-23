@@ -1,6 +1,7 @@
 import Foundation
 import SwiftData
 
+/// An item on the shopping list.
 @Model
 public final class ShoppingItem {
     @Attribute(.unique) public var id: UUID
@@ -36,6 +37,7 @@ public final class ShoppingItem {
     }
 }
 
+/// Money owed to or by a contact.
 @Model
 public final class DebtEntry {
     @Attribute(.unique) public var id: UUID
@@ -70,6 +72,7 @@ public final class DebtEntry {
     }
 }
 
+/// A named group of related expenses.
 @Model
 public final class ExpenseGroup {
     @Attribute(.unique) public var id: UUID
@@ -85,6 +88,7 @@ public final class ExpenseGroup {
     }
 }
 
+/// One line of an expense group.
 @Model
 public final class ExpenseGroupLine {
     @Attribute(.unique) public var id: UUID
@@ -108,6 +112,7 @@ public final class ExpenseGroupLine {
     }
 }
 
+/// One position in a depot.
 @Model
 public final class PortfolioHolding {
     @Attribute(.unique) public var id: UUID
@@ -141,6 +146,7 @@ public final class PortfolioHolding {
 }
 
 // Kept only so existing SwiftData stores remain readable; no article feature uses it.
+/// An unused placeholder model.
 @Model
 public final class SavedArticle {
     @Attribute(.unique) public var id: UUID

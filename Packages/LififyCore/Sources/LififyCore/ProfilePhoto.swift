@@ -4,11 +4,13 @@ import Foundation
 public enum ProfilePhotoStore {
     public static let revisionKey = "lifify.profilePhotoRevision"
 
+    /// Loads the stored photo.
     public static func load() -> Data? {
         guard let data = try? Data(contentsOf: file), !data.isEmpty else { return nil }
         return data
     }
 
+    /// Stores a shrunken copy of the photo.
     public static func save(_ data: Data) {
         let stored = MealPhotoFit.jpeg(data, maxEdge: 512) ?? data
         guard !stored.isEmpty else { return }
@@ -21,6 +23,7 @@ public enum ProfilePhotoStore {
         }
     }
 
+    /// Deletes the stored photo.
     public static func remove() {
         try? FileManager.default.removeItem(at: file)
         bump()
@@ -32,6 +35,7 @@ public enum ProfilePhotoStore {
             .appendingPathComponent("profile.jpg")
     }
 
+    /// Signals that the photo changed.
     private static func bump() {
         AppDefaults.store.set(AppDefaults.store.integer(forKey: revisionKey) + 1, forKey: revisionKey)
     }

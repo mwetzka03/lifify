@@ -9,6 +9,7 @@ public final class StoredLink {
     public var key: String
     public var value: String
 
+    /// Creates a row. Its identifier combines kind and key.
     public init(kind: LinkKind, key: String, value: String) {
         rowID = "\(kind.rawValue)|\(key)"
         kindRaw = kind.rawValue
@@ -17,6 +18,7 @@ public final class StoredLink {
     }
 }
 
+/// The kinds of relations stored in the link table.
 public enum LinkKind: String, CaseIterable, Codable, Sendable {
     case refund
     case transferAssignment
@@ -72,11 +74,13 @@ public enum LinkTable {
     /// Changes with every write, so derived lookups know when to rebuild.
     public private(set) static var revision = 0
 
+    /// Drops the in-memory copy.
     public static func clearCache() {
         cached = [:]
         revision &+= 1
     }
 
+    /// Returns all entries of a kind.
     public static func map(_ kind: LinkKind) -> [String: String] {
         if let values = cached[kind] { return values }
         let raw = kind.rawValue
@@ -86,6 +90,7 @@ public enum LinkTable {
         return values
     }
 
+    /// Replaces all entries of a kind and writes only what changed.
     public static func replace(_ kind: LinkKind, with values: [String: String]) {
         let current = map(kind)
         guard current != values else { return }
@@ -109,20 +114,24 @@ public enum LinkTable {
         LififyDatabase.saveSide()
     }
 
+    /// Sets or removes one entry.
     public static func set(_ kind: LinkKind, key: String, value: String?) {
         var values = map(kind)
         values[key] = value
         replace(kind, with: values)
     }
 
+    /// Removes all entries of a kind.
     public static func clear(_ kind: LinkKind) {
         replace(kind, with: [:])
     }
 
+    /// Exports the entries that belong in a backup.
     public static func exportRecords() -> [BackupRecord] {
         records(LinkKind.financeRecords, type: backupType) + records(LinkKind.challengeRecords, type: challengeBackupType)
     }
 
+    /// Builds backup records for the given kinds.
     private static func records(_ kinds: [LinkKind], type: String) -> [BackupRecord] {
         kinds.flatMap { kind in
             map(kind).map { key, value in
@@ -131,20 +140,24 @@ public enum LinkTable {
         }
     }
 
+    /// Decodes all entries of a kind from JSON.
     public static func decoded<T: Decodable>(_ kind: LinkKind, as type: T.Type) -> [String: T] {
         map(kind).compactMapValues { try? JSONDecoder().decode(T.self, from: Data($0.utf8)) }
     }
 
+    /// Encodes values as JSON text.
     public static func encoded<T: Encodable>(_ values: [String: T]) -> [String: String] {
         values.compactMapValues { value in
             (try? JSONEncoder().encode(value)).map { String(decoding: $0, as: UTF8.self) }
         }
     }
 
+    /// Encodes and stores all entries of a kind.
     public static func replaceEncoded<T: Encodable>(_ kind: LinkKind, with values: [String: T]) {
         replace(kind, with: encoded(values))
     }
 
+    /// Restores one entry from a backup.
     public static func restore(_ record: BackupRecord) {
         guard record.strings.count == 3, let kind = LinkKind(rawValue: record.strings[0]) else { return }
         set(kind, key: record.strings[1], value: record.strings[2])

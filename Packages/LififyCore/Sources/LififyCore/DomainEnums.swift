@@ -1,5 +1,6 @@
 import Foundation
 
+/// The kinds of accounts.
 public enum AccountKind: String, Codable, CaseIterable, Identifiable {
     case checking
     case savings
@@ -17,6 +18,7 @@ public enum AccountKind: String, Codable, CaseIterable, Identifiable {
     }
 }
 
+/// The kinds of ledger bookings.
 public enum LedgerKind: String, Codable, CaseIterable, Identifiable {
     case income
     case expense
@@ -34,11 +36,13 @@ public enum LedgerKind: String, Codable, CaseIterable, Identifiable {
     }
 }
 
+/// What part of a booking is assigned to.
 public enum SplitKind: String, Codable {
     case variableBudget
     case budgetPool
 }
 
+/// How often a planned amount repeats.
 public enum Cadence: String, Codable, CaseIterable, Identifiable {
     case weekly
     case biweekly
@@ -56,6 +60,7 @@ public enum Cadence: String, Codable, CaseIterable, Identifiable {
     }
 }
 
+/// Which day of the month a planned amount falls due.
 public enum DueRule: String, Codable, CaseIterable, Identifiable {
     case calendarDay
     case firstBusinessDay
@@ -71,6 +76,7 @@ public enum DueRule: String, Codable, CaseIterable, Identifiable {
     }
 }
 
+/// The length of a budget pool's period.
 public enum BudgetPeriodMode: String, Codable, CaseIterable, Identifiable {
     case salaryPeriod
     case calendarYear
@@ -84,6 +90,7 @@ public enum BudgetPeriodMode: String, Codable, CaseIterable, Identifiable {
     }
 }
 
+/// Who owes whom in a debt entry.
 public enum DebtDirection: String, Codable, CaseIterable, Identifiable {
     case owedToMe
     case iOwe
@@ -97,6 +104,7 @@ public enum DebtDirection: String, Codable, CaseIterable, Identifiable {
     }
 }
 
+/// The light or dark appearance.
 public enum AppTheme: String, CaseIterable, Identifiable {
     case system
     case light

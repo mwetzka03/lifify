@@ -1,14 +1,18 @@
 import Foundation
 
+/// Short captions that name what an entry is linked to.
 public enum LinkCaption {
+    /// The caption for a linked challenge.
     public static func challenge(_ title: String) -> String {
         L("Mit Challenge \(title) verknüpft", "Linked to challenge \(title)")
     }
 
+    /// The caption for a linked group.
     public static func group(_ title: String) -> String {
         L("Mit Gruppe \(title) verknüpft", "Linked to group \(title)")
     }
 
+    /// The caption for a linked reward.
     public static func reward(_ title: String) -> String {
         L("Mit Belohnung \(title) verknüpft", "Linked to reward \(title)")
     }
@@ -27,6 +31,7 @@ public enum LinkCaption {
         return nil
     }
 
+    /// The caption for linked calendar events, or `nil` without a title.
     public static func calendar(titles: [String], count: Int, singleDate: Date?) -> String? {
         let unique = Array(Set(titles.filter { !$0.isEmpty })).sorted()
         guard let first = unique.first else { return nil }

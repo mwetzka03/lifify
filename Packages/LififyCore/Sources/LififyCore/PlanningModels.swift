@@ -1,6 +1,7 @@
 import Foundation
 import SwiftData
 
+/// A recurring fixed cost.
 @Model
 public final class FixedCost {
     @Attribute(.unique) public var id: UUID
@@ -48,6 +49,7 @@ public final class FixedCost {
     }
 }
 
+/// A budget for variable costs.
 @Model
 public final class VariableBudget {
     @Attribute(.unique) public var id: UUID
@@ -74,6 +76,7 @@ public final class VariableBudget {
     }
 }
 
+/// A shared budget across several variable costs.
 @Model
 public final class BudgetPool {
     @Attribute(.unique) public var id: UUID
@@ -114,6 +117,7 @@ public final class BudgetPool {
     }
 }
 
+/// A forecast of recurring income.
 @Model
 public final class IncomeForecast {
     @Attribute(.unique) public var id: UUID

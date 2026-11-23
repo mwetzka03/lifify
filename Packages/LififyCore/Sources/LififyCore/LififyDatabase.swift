@@ -20,17 +20,20 @@ public enum LififyDatabase {
 
     public private(set) static var sideContext: ModelContext?
 
+    /// Fetches rows from the side context. Returns nothing before the store is open.
     public static func rows<T: PersistentModel>(_ descriptor: FetchDescriptor<T>) -> [T] {
         guard let sideContext else { return [] }
         return (try? sideContext.fetch(descriptor)) ?? []
     }
 
+    /// Deletes all rows of a type from the side context.
     public static func deleteAll<T: PersistentModel>(_ type: T.Type) {
         guard let sideContext else { return }
         rows(FetchDescriptor<T>()).forEach(sideContext.delete)
         saveSide()
     }
 
+    /// Saves the side context.
     public static func saveSide() {
         guard let sideContext else { return }
         do {

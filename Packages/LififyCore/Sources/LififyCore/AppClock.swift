@@ -24,6 +24,7 @@ public enum AppClock {
         return combining(day: Date(timeIntervalSince1970: stored), time: clock, calendar: zone)
     }
 
+    /// Formats a calendar day as `yyyy-MM-dd`.
     public static func stamp(year: Int, month: Int, day: Int) -> String {
         String(format: "%04d-%02d-%02d", year, month, day)
     }
@@ -49,6 +50,7 @@ public enum AppClock {
         return calendar.date(from: parts)
     }
 
+    /// Returns the `yyyy-MM-dd` stamp of a date in the given calendar.
     public static func stamp(for date: Date, calendar: Calendar = .autoupdatingCurrent) -> String {
         let parts = calendar.dateComponents([.year, .month, .day], from: date)
         return stamp(year: parts.year ?? 0, month: parts.month ?? 1, day: parts.day ?? 1)
@@ -64,6 +66,7 @@ public enum AppClock {
         return calendar.date(from: parts) ?? time
     }
 
+    /// Says whether the date falls on the app's current day, which may be simulated.
     public static func isToday(_ date: Date, calendar: Calendar = .current) -> Bool {
         calendar.isDate(date, inSameDayAs: now)
     }
@@ -100,6 +103,7 @@ public enum AppClock {
         AppDefaults.store.set(zone.startOfDay(for: date).timeIntervalSince1970, forKey: dayKey)
     }
 
+    /// Reads the stored day stamp, or derives it from an older stored instant.
     private static func storedStamp() -> String? {
         if let stamp = AppDefaults.store.string(forKey: dayStampKey), !stamp.isEmpty {
             return stamp

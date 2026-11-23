@@ -1,6 +1,7 @@
 import Foundation
 import Security
 
+/// Stores secrets in the iOS Keychain.
 public enum KeychainStore {
     public static let nutritionService = "lifify.nutrition"
     /// Session cookie for a manual Trade Republic sign-in. Not the nutrition key.
@@ -9,6 +10,7 @@ public enum KeychainStore {
     /// This device only, so the item is left out of backups. Same rule as the Gemini key.
     public static var deviceOnly: String { kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly as String }
 
+    /// Replaces the stored secret.
     public static func set(_ value: String, account: String, service: String = nutritionService) {
         remove(account: account, service: service)
         let query: [String: Any] = [
@@ -21,6 +23,7 @@ public enum KeychainStore {
         SecItemAdd(query as CFDictionary, nil)
     }
 
+    /// Reads a stored secret.
     public static func string(account: String, service: String = nutritionService) -> String? {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
@@ -37,6 +40,7 @@ public enum KeychainStore {
         return text
     }
 
+    /// Deletes a stored secret.
     public static func remove(account: String, service: String = nutritionService) {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,

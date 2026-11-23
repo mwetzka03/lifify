@@ -1,5 +1,6 @@
 import Foundation
 
+/// Date rules for due days, banking days, budget periods, and savings plans.
 @MainActor
 public enum CalendarService {
     /// The device time zone, including a change while the app is open. Matches Calendar and Clock.
@@ -11,6 +12,14 @@ public enum CalendarService {
         return value
     }
 
+    /// Returns the due date of a month for a rule.
+    ///
+    /// - Parameters:
+    ///   - year: The year.
+    ///   - month: The month.
+    ///   - day: The wanted day, clamped to the month's length for a calendar-day rule.
+    ///   - rule: Calendar day, first banking day, or last banking day.
+    /// - Returns: The due date.
     public static func dueDate(year: Int, month: Int, day: Int, rule: DueRule) -> Date {
         let range = calendar.range(of: .day, in: .month, for: calendar.date(from: DateComponents(year: year, month: month))!)!
         switch rule {
@@ -27,6 +36,7 @@ public enum CalendarService {
         }
     }
 
+    /// Says whether banks work on that day: not on weekends or nationwide German holidays.
     public static func isBankingDay(_ date: Date) -> Bool {
         let weekday = calendar.component(.weekday, from: date)
         guard weekday != 1, weekday != 7 else { return false }
@@ -42,6 +52,7 @@ public enum CalendarService {
             .contains { calendar.isDate($0, inSameDayAs: date) }
     }
 
+    /// Returns the budget period key of a date for a pool.
     public static func periodKey(for date: Date, pool: BudgetPool) -> String {
         periodKey(for: date, mode: pool.periodMode, startDay: 1)
     }
@@ -75,6 +86,7 @@ public enum CalendarService {
         return periodKey(for: start, pool: pool) == canonicalKey
     }
 
+    /// Parses a `yyyy-MM-dd` key.
     private static func dayKeyDate(_ key: String) -> Date? {
         let formatter = DateFormatter()
         formatter.calendar = Calendar(identifier: .gregorian)
@@ -84,6 +96,7 @@ public enum CalendarService {
         return formatter.date(from: key)
     }
 
+    /// Lists the pool's period keys between two dates.
     public static func periodKeys(from startDate: Date, through endDate: Date, pool: BudgetPool) -> [String] {
         var result: [String] = []
         var cursor = startDate
@@ -99,6 +112,16 @@ public enum CalendarService {
         return result
     }
 
+    /// Lists the due dates of a recurring item up to a limit.
+    ///
+    /// - Parameters:
+    ///   - firstDate: The first due date.
+    ///   - cadence: How often it repeats.
+    ///   - rule: Which day of the month counts.
+    ///   - day: The day of the month for a calendar-day rule.
+    ///   - endDate: The last allowed date, if any.
+    ///   - limit: The latest date to return.
+    /// - Returns: The due dates in ascending order.
     public static func nextOccurrences(
         firstDate: Date,
         cadence: Cadence,
@@ -137,6 +160,7 @@ public enum CalendarService {
         }
     }
 
+    /// Returns the first banking day on or after a date.
     public static func nextBankingDay(onOrAfter date: Date) -> Date {
         var cursor = calendar.startOfDay(for: date)
         for _ in 0..<14 {
@@ -147,6 +171,15 @@ public enum CalendarService {
         return cursor
     }
 
+    /// Lists the execution days of a savings plan in a date range.
+    ///
+    /// - Parameters:
+    ///   - cadence: How often the plan runs.
+    ///   - from: The first day of the range.
+    ///   - through: The last day of the range.
+    ///   - endDate: The day the plan ends, if any.
+    ///   - yearlyMonth: The month of a yearly plan.
+    /// - Returns: The execution days in ascending order.
     public static func savingsPlanDates(
         cadence: Cadence,
         from: Date,
@@ -180,6 +213,7 @@ public enum CalendarService {
         return result.sorted()
     }
 
+    /// Returns the next execution day of a savings plan.
     public static func nextSavingsPlanDate(cadence: Cadence, onOrAfter date: Date, yearlyMonth: Int? = nil) -> Date? {
         let horizon = calendar.date(byAdding: .year, value: 2, to: date) ?? date
         return savingsPlanDates(
@@ -190,6 +224,7 @@ public enum CalendarService {
         ).first
     }
 
+    /// Describes a savings plan's schedule for display.
     public static func savingsPlanScheduleText(cadence: Cadence) -> String {
         switch cadence {
         case .weekly:
@@ -215,6 +250,7 @@ public enum CalendarService {
         }
     }
 
+    /// Calculates Easter Sunday of a year with the Gregorian computus.
     private static func easterSunday(year: Int) -> Date {
         let a = year % 19
         let b = year / 100

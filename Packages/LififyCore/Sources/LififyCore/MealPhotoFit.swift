@@ -1,7 +1,9 @@
 import Foundation
 import UIKit
 
+/// Shrinks photos before they are stored or sent.
 public enum MealPhotoFit {
+    /// Returns a JPEG whose longest edge fits the limit.
     public static func jpeg(_ data: Data, maxEdge: CGFloat = 768) -> Data? {
         guard let image = UIImage(data: data) else { return nil }
         let longest = max(image.size.width, image.size.height)

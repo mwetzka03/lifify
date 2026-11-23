@@ -1,6 +1,7 @@
 import Foundation
 import SwiftData
 
+/// The range the challenge calendar shows.
 public enum ChallengeCalendarViewMode: String, CaseIterable, Identifiable {
     case day
     case week
@@ -16,6 +17,7 @@ public enum ChallengeCalendarViewMode: String, CaseIterable, Identifiable {
     }
 }
 
+/// How often a challenge repeats.
 public enum ChallengeRecurrence: String, Codable, CaseIterable, Identifiable, Sendable {
     case none
     case irregular
@@ -36,6 +38,7 @@ public enum ChallengeRecurrence: String, Codable, CaseIterable, Identifiable, Se
         }
     }
 }
+/// The kind of challenge, which decides how it is checked off.
 public enum ChallengeCategory: String, Codable, CaseIterable, Identifiable, Sendable {
     case health
     case abstinence
@@ -60,6 +63,7 @@ public enum ChallengeCategory: String, Codable, CaseIterable, Identifiable, Send
         }
     }
 }
+/// A calendar event, imported or created in Lifify, that serves as a time slot.
 @Model
 public final class ChallengeCalendarEvent {
     @Attribute(.unique) public var id: UUID
@@ -107,17 +111,20 @@ public final class ChallengeCalendarEvent {
     }
 }
 
+/// Texts for challenge suggestions from reminders.
 public enum RecommendationCopy {
     public static var empty: String { L("Keine importierten Empfehlungen", "No imported recommendations") }
     public static var heading: String { L("Empfehlungen", "Recommendations") }
 }
 
+/// Recognizes an event that only suggests a reminder as a challenge.
 extension ChallengeCalendarEvent {
     public var isReminderSuggestion: Bool {
         externalIdentifier?.hasPrefix("reminder:") == true
     }
 }
 
+/// A challenge with schedule, reward, and group membership.
 @Model
 public final class ChallengeItem {
     @Attribute(.unique) public var id: UUID
@@ -155,6 +162,7 @@ public final class ChallengeItem {
         set { groupIDsRaw = ChallengeGroups.stored(newValue) }
     }
 
+    /// Says whether the challenge belongs to the group.
     public func belongs(to group: UUID) -> Bool {
         ChallengeGroups.contains(groupIDs, group)
     }
@@ -193,6 +201,7 @@ public final class ChallengeItem {
         self.createdAt = createdAt
     }
 }
+/// One day a challenge was done, with the coins it earned.
 @Model
 public final class ChallengeCompletion {
     @Attribute(.unique) public var id: UUID
@@ -207,6 +216,7 @@ public final class ChallengeCompletion {
         self.earnedCoins = earnedCoins
     }
 }
+/// A named group of challenges.
 @Model
 public final class ChallengeGroup {
     @Attribute(.unique) public var id: UUID
@@ -224,6 +234,7 @@ public final class ChallengeGroup {
     }
 }
 
+/// One booking in the coin wallet. Spending is negative.
 @Model
 public final class CoinTransaction {
     @Attribute(.unique) public var id: UUID
@@ -241,6 +252,7 @@ public final class CoinTransaction {
     }
 }
 
+/// A reward that can be bought in the shop.
 @Model
 public final class RewardItem {
     @Attribute(.unique) public var id: UUID
@@ -276,6 +288,7 @@ public final class RewardItem {
     }
 }
 
+/// One bought reward.
 @Model
 public final class RewardPurchase {
     @Attribute(.unique) public var id: UUID
@@ -293,6 +306,7 @@ public final class RewardPurchase {
     }
 }
 
+/// A bucket list entry. The feature is hidden, and stored data stays readable.
 @Model
 public final class BucketListItem {
     @Attribute(.unique) public var id: UUID

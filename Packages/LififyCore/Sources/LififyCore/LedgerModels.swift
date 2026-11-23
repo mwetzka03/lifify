@@ -1,6 +1,7 @@
 import Foundation
 import SwiftData
 
+/// A bank account, savings pot, or depot.
 @Model
 public final class Account {
     @Attribute(.unique) public var id: UUID
@@ -38,6 +39,7 @@ public final class Account {
     }
 }
 
+/// One booking in the ledger.
 @Model
 public final class LedgerEntry {
     @Attribute(.unique) public var id: UUID
@@ -93,6 +95,7 @@ public final class LedgerEntry {
     }
 }
 
+/// The part of a booking assigned to a budget, pool, or other target.
 @Model
 public final class TransactionSplit {
     @Attribute(.unique) public var id: UUID

@@ -1,5 +1,6 @@
 import Foundation
 
+/// The repeat rule of a reminder or calendar event.
 public struct ReminderRecurrenceMetadata: Codable, Sendable {
     public let recurrence: ChallengeRecurrence
     public let interval: Int
@@ -14,52 +15,59 @@ public struct ReminderRecurrenceMetadata: Codable, Sendable {
     }
 }
 
+/// A link-table section that stores repeat rules by system identifier.
 @MainActor
-public enum ReminderLinkStore {
-    public static func metadata(for externalIdentifier: String?) -> ReminderRecurrenceMetadata? {
-        guard let externalIdentifier, let raw = LinkTable.map(.reminderRecurrence)[externalIdentifier] else { return nil }
+public protocol RecurrenceLinkTable {
+    /// The section holding the rules.
+    static var linkKind: LinkKind { get }
+}
+
+public extension RecurrenceLinkTable {
+    /// Returns the stored rule of an identifier.
+    static func metadata(for identifier: String?) -> ReminderRecurrenceMetadata? {
+        guard let identifier, let raw = LinkTable.map(linkKind)[identifier] else { return nil }
         return try? JSONDecoder().decode(ReminderRecurrenceMetadata.self, from: Data(raw.utf8))
     }
 
-    public static func set(_ metadata: ReminderRecurrenceMetadata, for externalIdentifier: String) {
+    /// Stores the rule of an identifier.
+    static func set(_ metadata: ReminderRecurrenceMetadata, for identifier: String) {
         guard let data = try? JSONEncoder().encode(metadata) else { return }
-        LinkTable.set(.reminderRecurrence, key: externalIdentifier, value: String(decoding: data, as: UTF8.self))
+        LinkTable.set(linkKind, key: identifier, value: String(decoding: data, as: UTF8.self))
     }
 
-    public static func remove(for externalIdentifier: String?) {
-        guard let externalIdentifier else { return }
-        LinkTable.set(.reminderRecurrence, key: externalIdentifier, value: nil)
+    /// Removes the rule of an identifier.
+    static func remove(for identifier: String?) {
+        guard let identifier else { return }
+        LinkTable.set(linkKind, key: identifier, value: nil)
     }
 }
 
+/// The repeat rules of linked reminders.
 @MainActor
-public enum EventRecurrenceStore {
-    public static func metadata(for eventIdentifier: String?) -> ReminderRecurrenceMetadata? {
-        guard let eventIdentifier, let raw = LinkTable.map(.eventRecurrence)[eventIdentifier] else { return nil }
-        return try? JSONDecoder().decode(ReminderRecurrenceMetadata.self, from: Data(raw.utf8))
-    }
-
-    public static func set(_ metadata: ReminderRecurrenceMetadata, for eventIdentifier: String) {
-        guard let data = try? JSONEncoder().encode(metadata) else { return }
-        LinkTable.set(.eventRecurrence, key: eventIdentifier, value: String(decoding: data, as: UTF8.self))
-    }
-
-    public static func remove(for eventIdentifier: String?) {
-        guard let eventIdentifier else { return }
-        LinkTable.set(.eventRecurrence, key: eventIdentifier, value: nil)
-    }
+public enum ReminderLinkStore: RecurrenceLinkTable {
+    public static let linkKind = LinkKind.reminderRecurrence
 }
 
+/// The repeat rules of calendar events.
+@MainActor
+public enum EventRecurrenceStore: RecurrenceLinkTable {
+    public static let linkKind = LinkKind.eventRecurrence
+}
+
+/// Whether a challenge mirrors its completion to its reminder.
 @MainActor
 public enum ReminderSyncPreference {
+    /// Says whether the sync is on. It is on unless a person turned it off.
     public static func isEnabled(for challengeID: UUID) -> Bool {
         LinkTable.map(.reminderSync)[challengeID.uuidString].map { $0 == "true" } ?? true
     }
 
+    /// Turns the sync on or off.
     public static func set(_ enabled: Bool, for challengeID: UUID) {
         LinkTable.set(.reminderSync, key: challengeID.uuidString, value: enabled ? "true" : "false")
     }
 
+    /// Removes the stored choice.
     public static func remove(for challengeID: UUID) {
         LinkTable.set(.reminderSync, key: challengeID.uuidString, value: nil)
     }

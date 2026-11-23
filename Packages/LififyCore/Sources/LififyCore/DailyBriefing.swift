@@ -1,5 +1,6 @@
 import Foundation
 
+/// One entry of the morning briefing.
 public struct DailyBriefingLine: Equatable {
     public var title: String
     public var detail: String
@@ -12,6 +13,15 @@ public struct DailyBriefingLine: Equatable {
 
 /// The text of the daily push. It only formats values it is given.
 public enum DailyBriefing {
+    /// Builds the briefing text from the day's items.
+    ///
+    /// - Parameters:
+    ///   - events: Today's events.
+    ///   - challenges: Today's open challenges.
+    ///   - rewards: Rewards to mention.
+    ///   - salary: A salary note, if one is due.
+    ///   - expenses: Today's expected expenses.
+    /// - Returns: The notification text.
     public static func text(
         events: [DailyBriefingLine],
         challenges: [DailyBriefingLine],
@@ -49,6 +59,7 @@ public enum DailyBriefing {
         return !alreadyQueued
     }
 
+    /// Formats one titled block with at most four lines.
     private static func labeled(_ title: String, _ lines: [DailyBriefingLine]) -> String {
         let body = lines.prefix(4).map { line in
             line.detail.isEmpty ? line.title : "\(line.title) \(line.detail)"
@@ -57,6 +68,7 @@ public enum DailyBriefing {
     }
 }
 
+/// A time of day for the briefing.
 public struct BriefingClock: Equatable {
     public var hour: Int
     public var minute: Int
@@ -71,6 +83,7 @@ public struct BriefingClock: Equatable {
 public enum BriefingSchedule {
     public static let weekdays = [2, 3, 4, 5, 6, 7, 1]
 
+    /// Returns the weekday's time, or the general one.
     public static func clock(weekday: Int, overrides: [Int: BriefingClock], fallback: BriefingClock) -> BriefingClock {
         let clock = overrides[weekday] ?? fallback
         return BriefingClock(
@@ -79,6 +92,7 @@ public enum BriefingSchedule {
         )
     }
 
+    /// The full name of a weekday, where 1 is Sunday.
     public static func weekdayLabel(_ weekday: Int) -> String {
         switch weekday {
         case 2: L("Montag", "Monday")
@@ -93,6 +107,7 @@ public enum BriefingSchedule {
     }
 }
 
+/// The stored time and switch of one weekday.
 public struct StoredBriefingDay: Equatable {
     public var hour: Int
     public var minute: Int
@@ -107,6 +122,7 @@ public struct StoredBriefingDay: Equatable {
 
 /// One column per day: a short name, then that day's clock.
 public enum BriefingWeek {
+    /// The short name of a weekday, where 1 is Sunday.
     public static func abbreviation(_ weekday: Int) -> String {
         switch weekday {
         case 2: L("Mo", "Mo")
@@ -125,6 +141,7 @@ public enum BriefingWeek {
         flags[weekday] ?? true
     }
 
+    /// Says whether a briefing is sent on that weekday.
     public static func delivers(master: Bool, weekday: Int, flags: [Int: Bool]) -> Bool {
         master && isSelected(weekday: weekday, flags: flags)
     }

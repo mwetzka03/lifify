@@ -1,5 +1,6 @@
 import Foundation
 
+/// An exercise from the catalog.
 public struct WorkoutExerciseInfo: Identifiable, Hashable {
     public var id: String
     public var code: String
@@ -16,6 +17,7 @@ public struct WorkoutExerciseInfo: Identifiable, Hashable {
     }
 }
 
+/// A training plan.
 public struct WorkoutPlan: Codable, Identifiable, Hashable {
     public var id: UUID
     public var name: String
@@ -30,6 +32,7 @@ public struct WorkoutPlan: Codable, Identifiable, Hashable {
     }
 }
 
+/// An exercise inside a plan.
 public struct WorkoutPlanExercise: Codable, Identifiable, Hashable {
     public var id: UUID
     public var code: String
@@ -46,6 +49,7 @@ public struct WorkoutPlanExercise: Codable, Identifiable, Hashable {
     }
 }
 
+/// A planned set.
 public struct WorkoutPlanSet: Codable, Identifiable, Hashable {
     public var id: UUID
     public var weightKg: Double
@@ -58,6 +62,7 @@ public struct WorkoutPlanSet: Codable, Identifiable, Hashable {
     }
 }
 
+/// One performed training session.
 public struct WorkoutSession: Codable, Identifiable, Hashable {
     public var id: UUID
     public var planID: UUID
@@ -66,6 +71,7 @@ public struct WorkoutSession: Codable, Identifiable, Hashable {
     public var finishedAt: Date
     public var exercises: [WorkoutSessionExercise]
 
+    /// Starts a session from a plan, with all sets not yet completed.
     public init(plan: WorkoutPlan, now: Date = .now) {
         id = UUID()
         planID = plan.id
@@ -104,6 +110,7 @@ public struct WorkoutSession: Codable, Identifiable, Hashable {
     }
 }
 
+/// An exercise inside a session.
 public struct WorkoutSessionExercise: Codable, Identifiable, Hashable {
     public var id: UUID
     public var code: String
@@ -120,6 +127,7 @@ public struct WorkoutSessionExercise: Codable, Identifiable, Hashable {
     }
 }
 
+/// A performed set.
 public struct WorkoutSessionSet: Codable, Identifiable, Hashable {
     public var id: UUID
     public var weightKg: Double
@@ -145,6 +153,7 @@ public struct WorkoutSessionSet: Codable, Identifiable, Hashable {
     }
 }
 
+/// A simple meal entry stored in the training file.
 public struct MealEntry: Codable, Identifiable, Hashable {
     public var id: UUID
     public var name: String
@@ -159,11 +168,14 @@ public struct MealEntry: Codable, Identifiable, Hashable {
     }
 }
 
+/// Formats and parses training values.
 public enum WorkoutFormat {
+    /// Rounds to one decimal.
     public static func rounded(_ value: Double) -> Double {
         (value * 10).rounded() / 10
     }
 
+    /// Formats a weight the German way.
     public static func weight(_ value: Double) -> String {
         let formatter = NumberFormatter()
         formatter.locale = Locale(identifier: "de_DE")
@@ -172,6 +184,7 @@ public enum WorkoutFormat {
         return formatter.string(from: NSNumber(value: rounded(value))) ?? "\(rounded(value))"
     }
 
+    /// Parses a typed weight.
     public static func weight(from text: String) -> Double? {
         let normalized = text
             .replacingOccurrences(of: "kg", with: "")
@@ -181,11 +194,13 @@ public enum WorkoutFormat {
         return rounded(value)
     }
 
+    /// Formats a rest time as minutes and seconds.
     public static func rest(_ seconds: Int) -> String {
         let clamped = max(0, seconds)
         return String(format: "%d:%02d", clamped / 60, clamped % 60)
     }
 
+    /// Formats a duration.
     public static func duration(seconds: Int) -> String {
         let clamped = max(0, seconds)
         let hours = clamped / 3600
@@ -197,6 +212,7 @@ public enum WorkoutFormat {
         return String(format: "%02d:%02d", minutes, secs)
     }
 
+    /// Formats the previous weight and repetitions.
     public static func previous(weight weightKg: Double, reps: Int) -> String {
         "\(weight(weightKg)) kg × \(reps)"
     }

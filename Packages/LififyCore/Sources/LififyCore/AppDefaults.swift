@@ -31,6 +31,7 @@ public enum AppDefaults {
         cacheClearers.append(clear)
     }
 
+    /// Drops all in-memory copies, so the next read comes from storage.
     @MainActor
     public static func clearCaches() {
         LinkTable.clearCache()
@@ -49,6 +50,7 @@ public enum AppFiles {
         return replacement ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
     }
 
+    /// Replaces the file directory, or restores the real one when passed `nil`.
     public static func use(_ directory: URL?) {
         lock.lock()
         replacement = directory
@@ -68,12 +70,14 @@ public enum ModelChangeCounter {
         return count
     }
 
+    /// Counts one saved database change.
     public static func bump() {
         lock.lock()
         count &+= 1
         lock.unlock()
     }
 
+    /// Starts counting database saves. Calling it again has no effect.
     public static func startObserving() {
         lock.lock()
         let needsObserver = observer == nil

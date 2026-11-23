@@ -2,6 +2,7 @@ import Foundation
 
 /// A challenge can sit in the group it picked and in the group of its event.
 public enum ChallengeGroups {
+    /// Removes repeated IDs and keeps the first order.
     public static func unique(_ ids: [UUID]) -> [UUID] {
         ids.reduce(into: [UUID]()) { result, id in
             if !result.contains(id) { result.append(id) }
@@ -16,6 +17,7 @@ public enum ChallengeGroups {
         return []
     }
 
+    /// Encodes group IDs as comma-separated text.
     public static func stored(_ ids: [UUID]) -> String {
         unique(ids).map(\.uuidString).joined(separator: ",")
     }
@@ -25,6 +27,7 @@ public enum ChallengeGroups {
         unique([chosen, eventGroup].compactMap { $0 })
     }
 
+    /// Says whether the list holds the group.
     public static func contains(_ ids: [UUID], _ group: UUID) -> Bool {
         ids.contains(group)
     }

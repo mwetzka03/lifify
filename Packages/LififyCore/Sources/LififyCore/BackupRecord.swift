@@ -1,5 +1,6 @@
 import Foundation
 
+/// The content of a backup file.
 public struct LififyBackup: Codable {
     public let version: Int
     public let exportedAt: Date
@@ -12,6 +13,7 @@ public struct LififyBackup: Codable {
     }
 }
 
+/// One backed-up row in a generic form that older and newer versions can read.
 public struct BackupRecord: Codable {
     public let type: String
     public let id: UUID
@@ -42,6 +44,7 @@ public struct BackupRecord: Codable {
         self.uuids = uuids
     }
 
+    /// Decodes a record. Fields missing from older backups fall back to empty values.
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         type = try container.decode(String.self, forKey: .type)
