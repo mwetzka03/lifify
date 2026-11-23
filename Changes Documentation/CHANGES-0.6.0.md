@@ -161,6 +161,16 @@ Version 0.6.0 first improves the code base (part A) and then adds new features
   imports. Each threshold notifies once per period. Only the running period
   counts, and several warnings arrive as one notification.
 
+### 0.6.0: Dividend overview and forecast (B6)
+
+- **What:** Finance, More now lists received dividends per position, month, and
+  year, plus a forecast of the next twelve months.
+- **Why:** Dividend income was only visible as single bookings.
+- **Effect:** The forecast repeats each payment of the last twelve months one
+  year later, using its dividend per share and the shares held then, including
+  future savings plan shares. Accumulating ETFs pay nothing and do not appear.
+- **Tests changed:** The navigation test expects the new link.
+
 ## Deutsch
 
 ### Überblick
@@ -332,3 +342,15 @@ Funktionen (Teil B). Diese Datei wächst mit jedem abgeschlossenen Schritt.
 - **Auswirkung:** Die Prüfung läuft nach jeder gespeicherten Buchung, auch aus
   Kurzbefehlen und Importen. Jede Schwelle meldet sich einmal pro Zeitraum. Nur
   der laufende Zeitraum zählt, mehrere Warnungen kommen als eine Mitteilung.
+
+### 0.6.0: Dividenden-Übersicht und Prognose (B6)
+
+- **Was:** Unter Finanzen, Weitere Bereiche stehen jetzt die erhaltenen
+  Dividenden je Position, Monat und Jahr, dazu eine Prognose der nächsten zwölf
+  Monate.
+- **Warum:** Dividenden waren bisher nur als einzelne Buchungen sichtbar.
+- **Auswirkung:** Die Prognose wiederholt jede Zahlung der letzten zwölf Monate
+  ein Jahr später, mit ihrer Dividende je Stück und dem dann gehaltenen Bestand,
+  inklusive künftiger Sparplan-Stücke. Thesaurierende ETFs zahlen nichts und
+  erscheinen nicht.
+- **Geänderte Tests:** Der Navigationstest erwartet den neuen Link.

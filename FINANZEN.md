@@ -658,6 +658,15 @@ full to be right, the statement has to be imported again after a rule change.
 - A pattern is dropped when its last payment is more than one and a half
   rhythms old, or when a fixed cost with that payee exists.
 
+### Dividends
+
+- Income bookings of type Ertrag count as dividends.
+- A dividend belongs to a position by its ISIN, otherwise by its name.
+- The forecast takes each payment of the last twelve months and repeats it one
+  year later: payment ÷ shares held then × shares held on the new date.
+- Shares on the new date include future savings plan executions.
+- A position that is no longer held has no forecast.
+
 ## Deutsch
 
 - Diese Datei beschreibt, wie Lifify Konten, Zeiträume, Einnahmen, Ausgaben,
@@ -1334,3 +1343,12 @@ Auszug nach einer Regeländerung neu importiert werden.
   358 bis 372 Tage.
 - Ein Muster entfällt, wenn die letzte Zahlung älter als anderthalb Rhythmen ist
   oder Fixkosten mit diesem Empfänger bestehen.
+
+### Dividenden
+
+- Einnahmen vom Typ Ertrag zählen als Dividenden.
+- Eine Dividende gehört über ihre ISIN zu einer Position, sonst über den Namen.
+- Die Prognose wiederholt jede Zahlung der letzten zwölf Monate ein Jahr später:
+  Zahlung ÷ damaliger Bestand × Bestand am neuen Datum.
+- Der Bestand am neuen Datum enthält künftige Sparplan-Ausführungen.
+- Eine nicht mehr gehaltene Position hat keine Prognose.
