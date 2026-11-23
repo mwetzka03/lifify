@@ -130,8 +130,6 @@ public final class ChallengeItem {
     public var weeklyDays: String
     public var rewardCoins: Int
     public var streakTarget: Int
-    /// The first group, kept in step by `groupIDs`. It stays as a column so version 2 stores still open.
-    public private(set) var groupID: UUID?
     /// The one source for group membership, including the group from its event. Write through `groupIDs`.
     public var groupIDsRaw: String = ""
     public var isArchived: Bool
@@ -153,12 +151,8 @@ public final class ChallengeItem {
     }
 
     public var groupIDs: [UUID] {
-        get { ChallengeGroups.ids(primary: groupID, stored: groupIDsRaw) }
-        set {
-            let unique = ChallengeGroups.unique(newValue)
-            groupIDsRaw = ChallengeGroups.stored(unique)
-            groupID = unique.first
-        }
+        get { ChallengeGroups.ids(primary: nil, stored: groupIDsRaw) }
+        set { groupIDsRaw = ChallengeGroups.stored(newValue) }
     }
 
     public func belongs(to group: UUID) -> Bool {
@@ -192,7 +186,6 @@ public final class ChallengeItem {
         self.weeklyDays = weeklyDays.sorted().map(String.init).joined(separator: ",")
         self.rewardCoins = rewardCoins
         self.streakTarget = streakTarget
-        self.groupID = groupID
         self.groupIDsRaw = groupID?.uuidString ?? ""
         self.isArchived = isArchived
         self.externalIdentifier = externalIdentifier

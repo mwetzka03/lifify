@@ -47,6 +47,21 @@ Version 0.6.0 first improves the code base (part A) and then adds new features
 - **Measuring:** `ScreenPerformanceTests` is skipped in normal test runs and
   starts with `TEST_RUNNER_LIFIFY_MEASURE=1`.
 
+### 0.6.0: Old group column removed (A3)
+
+- **What:** Database schema V4 removes `ChallengeItem.groupID`. Before the
+  column is dropped, the migration copies a group that exists only there into
+  `groupIDsRaw`.
+- **Why:** Group membership was stored twice.
+- **Deviation from the plan:** `groupIDsRaw` stays, because it is the current
+  source of all group memberships. Removing it would lose them. No other
+  column turned out to be unused and safe to remove.
+- **Effect:** No visible change. A database written by the real 0.5.5 code is
+  now a test fixture with invented data. It opens with all data and groups.
+- **Tests changed:** The single-group test now checks `groupIDs`. The old
+  normalization test was replaced by the migration tests, because a record
+  with only the old column can no longer exist after the migration.
+
 ## Deutsch
 
 ### Überblick
@@ -94,3 +109,19 @@ Funktionen (Teil B). Diese Datei wächst mit jedem abgeschlossenen Schritt.
   Übersicht brachte nichts und wurde wieder entfernt.
 - **Messen:** `ScreenPerformanceTests` wird in normalen Testläufen übersprungen
   und startet mit `TEST_RUNNER_LIFIFY_MEASURE=1`.
+
+### 0.6.0: Alte Gruppenspalte entfernt (A3)
+
+- **Was:** Das Datenbankschema V4 entfernt `ChallengeItem.groupID`. Bevor die
+  Spalte wegfällt, kopiert die Migration eine Gruppe, die nur dort steht, nach
+  `groupIDsRaw`.
+- **Warum:** Die Gruppenzugehörigkeit lag doppelt vor.
+- **Abweichung vom Plan:** `groupIDsRaw` bleibt, weil diese Spalte die aktuelle
+  Quelle aller Gruppenzugehörigkeiten ist. Ohne sie gingen sie verloren. Keine
+  weitere Spalte erwies sich als ungenutzt und sicher entfernbar.
+- **Auswirkung:** Sichtbar ändert sich nichts. Eine mit dem echten 0.5.5-Code
+  geschriebene Datenbank mit erfundenen Daten ist jetzt Testbestand. Sie öffnet
+  mit allen Daten und Gruppen.
+- **Geänderte Tests:** Der Test zur Einzelgruppe prüft jetzt `groupIDs`. Der
+  alte Normalisierungstest wurde durch die Migrationstests ersetzt, weil es
+  nach der Migration keinen Eintrag mehr gibt, der nur die alte Spalte kennt.

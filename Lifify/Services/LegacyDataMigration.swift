@@ -61,12 +61,12 @@ enum LegacyDataMigration {
         AppDefaults.store.dictionaryRepresentation().keys.filter { $0.hasPrefix(prefix) }
     }
 
-    /// Older records may hold only the single group. Afterward `groupIDsRaw` is the one source.
+    /// Brings the stored group list into its normal form. `groupIDsRaw` is the one source.
     private static func normalizeGroupMembership(_ context: ModelContext) {
         move(area: "challengeGroups", context: context, oldKeys: { [] }, insert: {
             for challenge in try context.fetch(FetchDescriptor<ChallengeItem>()) {
                 let ids = challenge.groupIDs
-                if challenge.groupIDsRaw != ChallengeGroups.stored(ids) || challenge.groupID != ids.first {
+                if challenge.groupIDsRaw != ChallengeGroups.stored(ids) {
                     challenge.groupIDs = ids
                 }
             }

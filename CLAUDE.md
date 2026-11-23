@@ -185,6 +185,8 @@ Eigentümer darf umsortieren.
   V3-Modellkopien und ein neues Schema V4 entfernen.
 - Migrationstest: Ein Store aus 0.5.5 öffnet mit 0.6.0 und behält alle
   Daten.
+- Erledigt: Nur `groupID` wurde entfernt. `groupIDsRaw` ist die aktuelle
+  Quelle der Gruppenzugehörigkeit und bleibt.
 
 **A4 – entfällt** (Entscheidung des Eigentümers, 23.11.2026): kein
 automatischer Testlauf (CI).

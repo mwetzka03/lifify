@@ -32,7 +32,7 @@ enum StoreRecoveryService {
     }
 
     static func makeContainer(url: URL? = nil) throws -> ModelContainer {
-        let schema = Schema(versionedSchema: LififySchemaV3.self)
+        let schema = Schema(versionedSchema: LififySchemaV4.self)
         let configuration = url.map { ModelConfiguration(schema: schema, url: $0) }
             ?? ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
         return try ModelContainer(

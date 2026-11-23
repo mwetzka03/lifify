@@ -25,7 +25,7 @@ extension LififyRuleTests {
             let schema = Schema(LififySchemaV2.models)
             let container = try ModelContainer(for: schema, configurations: [ModelConfiguration(schema: schema, url: url)])
             container.mainContext.insert(Account(id: accountID, name: "Giro", isMain: true))
-            container.mainContext.insert(ChallengeItem(title: "Lesen"))
+            container.mainContext.insert(LififySchemaV3.ChallengeItem(title: "Lesen"))
             try container.mainContext.save()
         }
 

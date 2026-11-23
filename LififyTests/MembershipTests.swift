@@ -20,24 +20,10 @@ extension LififyRuleTests {
             #expect(challenge.groupIDs == [first])
             challenge.groupIDs = [second, first, second]
             #expect(challenge.groupIDs == [second, first])
-            #expect(challenge.groupID == second)
+            #expect(challenge.groupIDs.first == second)
             challenge.groupIDs = []
-            #expect(challenge.groupID == nil)
+            #expect(challenge.groupIDs.isEmpty)
             #expect(challenge.groupIDsRaw.isEmpty)
-        }
-
-        @Test func olderRecordWithOnlyOneGroupIsNormalized() async throws {
-            try await withTestStore { store in
-                let group = UUID()
-                let challenge = ChallengeItem(title: "A", groupID: group)
-                challenge.groupIDsRaw = ""
-                store.context.insert(challenge)
-                try store.context.save()
-                LegacyDataMigration.run()
-                let stored = try #require(LififyDatabase.sideContext?.fetch(FetchDescriptor<ChallengeItem>()).first)
-                #expect(stored.groupIDsRaw == group.uuidString)
-                #expect(stored.groupIDs == [group])
-            }
         }
 
         @Test func eventShowsItsMembersAndItsDirectLink() async throws {
@@ -103,7 +89,7 @@ extension LififyRuleTests {
         private let notBackedUp: Set<String> = ["DataMigrationRecord", "SavedArticle"]
 
         @Test func everyModelIsCoveredOrExcludedOnPurpose() {
-            let models = Set(LififySchemaV3.models.map { String(describing: $0) })
+            let models = Set(LififySchemaV4.models.map { String(describing: $0) })
             #expect(models == covered.union(notBackedUp))
         }
 
