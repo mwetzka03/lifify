@@ -243,6 +243,25 @@ public enum FinanceService {
     }
 
     /// Calculates all figures of one period.
+    ///
+    /// - Parameters:
+    ///   - period: The period to calculate.
+    ///   - periods: All periods, used to project future balances.
+    ///   - accounts: The accounts in scope.
+    ///   - entries: The bookings in scope.
+    ///   - holdings: The depot positions in scope.
+    ///   - fixedCosts: The fixed costs in scope.
+    ///   - variableBudgets: The variable budgets in scope.
+    ///   - splits: The booking splits.
+    ///   - forecasts: The income forecasts in scope.
+    ///   - shopping: The shopping items in scope.
+    ///   - now: The current time.
+    ///   - incomePredicate: Limits which income bookings count, if set.
+    ///   - includePortfolioValue: Whether balances contain the depot's market value.
+    ///   - countSavingsPlansInCash: Whether savings plans reduce projected cash.
+    ///   - scopedCashAccountIDs: The cash accounts a view is limited to.
+    ///   - householdCashAccountIDs: All cash accounts of the household.
+    /// - Returns: Booked, open, and projected figures with the period's events.
     public static func periodForecast(
         period: ForecastPeriod,
         periods: [ForecastPeriod],
@@ -261,38 +280,36 @@ public enum FinanceService {
         scopedCashAccountIDs: Set<UUID>? = nil,
         householdCashAccountIDs: [UUID] = []
     ) -> PeriodForecast {
-        let calendar = Calendar.current
-        let today = calendar.startOfDay(for: now)
-        let holdingsValue = holdings.reduce(0) {
-            $0 + Int(($1.quantity * Double($1.currentPriceCents)).rounded())
-        }
         let cashIDs = householdCashAccountIDs.isEmpty
             ? accounts.filter { $0.kind != .portfolio && $0.kind != .savingsGroup }.map(\.id)
             : householdCashAccountIDs
-        let variablePlan = VariableBudgetAccounts.planCents(
-            budgets: variableBudgets,
-            scopedAccountIDs: scopedCashAccountIDs,
-            cashAccountIDs: cashIDs
-        )
         let activeFixed = fixedCosts.filter(\.isActive)
-        let cashFixed = countSavingsPlansInCash
-            ? activeFixed
-            : activeFixed.filter { !SavingsPlanFixedCosts.isSavingsCost($0) }
-        let incomeDates = incomeOccurrences(forecasts: forecasts, from: period.start, through: period.end)
-            .filter { item in
-                if ForecastSkipStore.isSkipped(.income, id: item.forecastID, on: item.date) { return false }
-                return !ForecastPeriodLinkStore.covers(.income, id: item.forecastID, entries: entries, period: period)
-            }
-        let plannedIncome = incomeDates.reduce(0) { $0 + $1.amount }
-        let incomeSource = incomePredicate.map { predicate in
-            entries.filter { $0.kind != .income || predicate($0) }
-        } ?? entries
-        let bookedIncome = signedSum(entries: incomeSource, kind: .income, from: period.start, through: period.end)
-        let income = max(plannedIncome, bookedIncome)
-        let openIncome = max(0, plannedIncome - bookedIncome)
+        let scope = ForecastScope(
+            period: period,
+            periods: periods,
+            accounts: accounts,
+            entries: entries,
+            holdings: holdings,
+            activeFixed: activeFixed,
+            cashFixed: countSavingsPlansInCash ? activeFixed : activeFixed.filter { !SavingsPlanFixedCosts.isSavingsCost($0) },
+            budgets: variableBudgets,
+            splits: splits,
+            forecasts: forecasts,
+            shopping: shopping,
+            now: now,
+            today: Calendar.current.startOfDay(for: now),
+            includePortfolioValue: includePortfolioValue,
+            scopedCashAccountIDs: scopedCashAccountIDs,
+            cashIDs: cashIDs,
+            variablePlan: VariableBudgetAccounts.planCents(
+                budgets: variableBudgets,
+                scopedAccountIDs: scopedCashAccountIDs,
+                cashAccountIDs: cashIDs
+            )
+        )
+        let income = incomeFigures(scope, predicate: incomePredicate)
         let bookedExpenses = signedSum(entries: entries, kind: .expense, from: period.start, through: period.end)
         let fixedDates = fixedOccurrences(costs: activeFixed, from: period.start, through: period.end)
-        let bookedFixed = bookedFixedAmount(occurrences: fixedDates, entries: entries, from: period.start, through: period.end)
         let bookedVariable = variableSpent(
             in: period,
             budgets: variableBudgets,
@@ -300,116 +317,165 @@ public enum FinanceService {
             splits: splits,
             through: min(now, period.end)
         )
-        let remainingFixed = fixedDates
-            .filter { occurrence in
-                if ForecastSkipStore.isSkipped(.fixed, id: occurrence.costID, on: occurrence.date) { return false }
-                if ForecastPeriodLinkStore.covers(.fixed, id: occurrence.costID, entries: entries, period: period) { return false }
-                guard let match = matchingExpense(occurrence, entries: entries) else { return true }
-                return match.date > now
-            }
-            .reduce(0) { $0 + $1.amount }
-        let suppressedVariable = variableBudgets.reduce(0) { partial, budget in
-            let skipped = ForecastSkipStore.isSkipped(.variable, id: budget.id, on: period.end)
-            guard skipped else { return partial }
-            let plan = VariableBudgetAccounts.planCents(
-                budget: budget,
-                scopedAccountIDs: scopedCashAccountIDs,
-                cashAccountIDs: cashIDs
-            )
-            let spent = variableSpent(
-                budgetID: budget.id,
-                from: period.start,
-                through: min(now, period.end),
-                entries: entries,
-                splits: splits
-            )
-            return partial + max(plan - spent, 0)
-        }
-        let remainingVariable = period.end < today ? 0 : max(variablePlan - bookedVariable - suppressedVariable, 0)
+        let remainingFixed = remainingFixedCents(fixedDates, scope: scope)
+        let remainingVariable = remainingVariableCents(scope, booked: bookedVariable)
         let bias = shoppingBias(shopping: shopping, entries: entries, period: period)
-        let outstandingBias = period.end < today ? 0 : bias.planned
-        let periodStart = calendar.startOfDay(for: period.start)
-        let dayBefore = calendar.date(byAdding: .day, value: -1, to: periodStart) ?? periodStart
-        let openingHoldings = includePortfolioValue
-            ? HoldingMaintenance.marketValue(of: holdings, through: dayBefore)
-            : 0
-        let closingHoldings = includePortfolioValue
-            ? HoldingMaintenance.marketValue(of: holdings, through: period.end)
-            : 0
-        let startCash: Int
-        if periodStart <= today {
-            startCash = cashBalanceBeforePeriod(accounts: accounts, entries: entries, start: periodStart)
-        } else {
-            startCash = projectedCash(
-                on: dayBefore,
-                chargeVariableThroughEnd: true,
-                today: today,
-                now: now,
-                periods: periods,
-                accounts: accounts,
-                entries: entries,
-                fixedCosts: cashFixed,
-                forecasts: forecasts,
-                shopping: shopping,
-                variablePlan: variablePlan,
-                budgets: variableBudgets,
-                splits: splits
-            )
-        }
-        let startBalance = startCash + openingHoldings
-        let endBalance = projectedCash(
-            on: period.end,
-            chargeVariableThroughEnd: true,
-            today: today,
-            now: now,
-            periods: periods,
-            accounts: accounts,
-            entries: entries,
-            fixedCosts: cashFixed,
-            forecasts: forecasts,
-            shopping: shopping,
-            variablePlan: variablePlan,
-            budgets: variableBudgets,
-            splits: splits
-        ) + closingHoldings
-        let portfolioNow = includePortfolioValue
-            ? HoldingMaintenance.marketValue(of: holdings, through: now)
-            : holdingsValue
-        let netWorth: Int
-        if period.contains(today) {
-            netWorth = cashBalance(accounts: accounts, entries: entries, through: endOfDay(now)) + portfolioNow
-        } else if period.end < today {
-            netWorth = cashBalance(accounts: accounts, entries: entries, through: endOfDay(period.end)) + closingHoldings
-        } else {
-            netWorth = endBalance + (includePortfolioValue ? 0 : holdingsValue)
-        }
-        let openExpenses = period.end < today ? 0 : remainingFixed + remainingVariable + outstandingBias
-        let events = eventLines(
-            period: period,
-            entries: entries,
-            accounts: accounts,
-            fixedCosts: activeFixed,
-            forecasts: forecasts,
-            shopping: shopping
-        )
+        let balances = periodBalances(scope)
+        let isPast = period.end < scope.today
         return PeriodForecast(
-            netWorth: netWorth,
-            income: income,
+            netWorth: netWorth(scope, balances: balances),
+            income: income.total,
             expenses: bookedExpenses,
-            startBalance: startBalance,
-            endBalance: endBalance,
+            startBalance: balances.start,
+            endBalance: balances.end,
             remainingFixed: remainingFixed,
             remainingVariable: remainingVariable,
             biasApplied: bias.applied,
             biasPlanned: bias.planned,
-            bookedIncome: bookedIncome,
+            bookedIncome: income.booked,
             bookedExpenses: bookedExpenses,
-            bookedFixed: bookedFixed,
+            bookedFixed: bookedFixedAmount(occurrences: fixedDates, entries: entries, from: period.start, through: period.end),
             bookedVariable: bookedVariable,
-            openIncome: openIncome,
-            openExpenses: openExpenses,
-            events: events
+            openIncome: income.open,
+            openExpenses: isPast ? 0 : remainingFixed + remainingVariable + bias.planned,
+            events: eventLines(
+                period: period,
+                entries: entries,
+                accounts: accounts,
+                fixedCosts: activeFixed,
+                forecasts: forecasts,
+                shopping: shopping
+            )
         )
+    }
+
+    /// The prepared inputs of one period's calculation.
+    private struct ForecastScope {
+        let period: ForecastPeriod
+        let periods: [ForecastPeriod]
+        let accounts: [Account]
+        let entries: [LedgerEntry]
+        let holdings: [PortfolioHolding]
+        let activeFixed: [FixedCost]
+        let cashFixed: [FixedCost]
+        let budgets: [VariableBudget]
+        let splits: [TransactionSplit]
+        let forecasts: [IncomeForecast]
+        let shopping: [ShoppingItem]
+        let now: Date
+        let today: Date
+        let includePortfolioValue: Bool
+        let scopedCashAccountIDs: Set<UUID>?
+        let cashIDs: [UUID]
+        let variablePlan: Int
+
+        /// The depot at its current prices.
+        var holdingsValue: Int {
+            holdings.reduce(0) { $0 + Int(($1.quantity * Double($1.currentPriceCents)).rounded()) }
+        }
+    }
+
+    /// Compares planned and booked income. Skipped and already covered forecasts do not count.
+    private static func incomeFigures(
+        _ scope: ForecastScope,
+        predicate: ((LedgerEntry) -> Bool)?
+    ) -> (total: Int, booked: Int, open: Int) {
+        let period = scope.period
+        let planned = incomeOccurrences(forecasts: scope.forecasts, from: period.start, through: period.end)
+            .filter { item in
+                if ForecastSkipStore.isSkipped(.income, id: item.forecastID, on: item.date) { return false }
+                return !ForecastPeriodLinkStore.covers(.income, id: item.forecastID, entries: scope.entries, period: period)
+            }
+            .reduce(0) { $0 + $1.amount }
+        let source = predicate.map { test in scope.entries.filter { $0.kind != .income || test($0) } } ?? scope.entries
+        let booked = signedSum(entries: source, kind: .income, from: period.start, through: period.end)
+        return (max(planned, booked), booked, max(0, planned - booked))
+    }
+
+    /// Sums the fixed costs not yet paid, skipped, or covered.
+    private static func remainingFixedCents(
+        _ occurrences: [(date: Date, amount: Int, title: String, costID: UUID)],
+        scope: ForecastScope
+    ) -> Int {
+        occurrences
+            .filter { occurrence in
+                if ForecastSkipStore.isSkipped(.fixed, id: occurrence.costID, on: occurrence.date) { return false }
+                if ForecastPeriodLinkStore.covers(.fixed, id: occurrence.costID, entries: scope.entries, period: scope.period) {
+                    return false
+                }
+                guard let match = matchingExpense(occurrence, entries: scope.entries) else { return true }
+                return match.date > scope.now
+            }
+            .reduce(0) { $0 + $1.amount }
+    }
+
+    /// Returns the variable budget still open. A finished period has none.
+    private static func remainingVariableCents(_ scope: ForecastScope, booked: Int) -> Int {
+        guard scope.period.end >= scope.today else { return 0 }
+        let suppressed = scope.budgets.reduce(0) { partial, budget in
+            guard ForecastSkipStore.isSkipped(.variable, id: budget.id, on: scope.period.end) else { return partial }
+            let plan = VariableBudgetAccounts.planCents(
+                budget: budget,
+                scopedAccountIDs: scope.scopedCashAccountIDs,
+                cashAccountIDs: scope.cashIDs
+            )
+            let spent = variableSpent(
+                budgetID: budget.id,
+                from: scope.period.start,
+                through: min(scope.now, scope.period.end),
+                entries: scope.entries,
+                splits: scope.splits
+            )
+            return partial + max(plan - spent, 0)
+        }
+        return max(scope.variablePlan - booked - suppressed, 0)
+    }
+
+    /// Calculates the opening and closing balance of the period.
+    private static func periodBalances(_ scope: ForecastScope) -> (start: Int, end: Int, closingHoldings: Int) {
+        let calendar = Calendar.current
+        let periodStart = calendar.startOfDay(for: scope.period.start)
+        let dayBefore = calendar.date(byAdding: .day, value: -1, to: periodStart) ?? periodStart
+        let opening = scope.includePortfolioValue ? HoldingMaintenance.marketValue(of: scope.holdings, through: dayBefore) : 0
+        let closing = scope.includePortfolioValue ? HoldingMaintenance.marketValue(of: scope.holdings, through: scope.period.end) : 0
+        let startCash = periodStart <= scope.today
+            ? cashBalanceBeforePeriod(accounts: scope.accounts, entries: scope.entries, start: periodStart)
+            : projectedCash(on: dayBefore, scope: scope)
+        return (startCash + opening, projectedCash(on: scope.period.end, scope: scope) + closing, closing)
+    }
+
+    /// Projects cash with the scope's plans.
+    private static func projectedCash(on day: Date, scope: ForecastScope) -> Int {
+        projectedCash(
+            on: day,
+            chargeVariableThroughEnd: true,
+            today: scope.today,
+            now: scope.now,
+            periods: scope.periods,
+            accounts: scope.accounts,
+            entries: scope.entries,
+            fixedCosts: scope.cashFixed,
+            forecasts: scope.forecasts,
+            shopping: scope.shopping,
+            variablePlan: scope.variablePlan,
+            budgets: scope.budgets,
+            splits: scope.splits
+        )
+    }
+
+    /// Returns live net worth now, the closing value of a past period, or the forecast of a future one.
+    private static func netWorth(_ scope: ForecastScope, balances: (start: Int, end: Int, closingHoldings: Int)) -> Int {
+        if scope.period.contains(scope.today) {
+            let depot = scope.includePortfolioValue
+                ? HoldingMaintenance.marketValue(of: scope.holdings, through: scope.now)
+                : scope.holdingsValue
+            return cashBalance(accounts: scope.accounts, entries: scope.entries, through: endOfDay(scope.now)) + depot
+        }
+        if scope.period.end < scope.today {
+            return cashBalance(accounts: scope.accounts, entries: scope.entries, through: endOfDay(scope.period.end))
+                + balances.closingHoldings
+        }
+        return balances.end + (scope.includePortfolioValue ? 0 : scope.holdingsValue)
     }
 
     /// Builds calendar month periods.
