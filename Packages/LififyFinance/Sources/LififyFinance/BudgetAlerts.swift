@@ -46,6 +46,22 @@ public struct BudgetAlert: Equatable {
     }
 }
 
+public extension HomeBudget {
+    /// Calculates the home budget from the store with the chosen period mode.
+    static func current(context: ModelContext, now: Date = FinanceClock.now) -> HomeBudgetSnapshot {
+        make(
+            entries: (try? context.fetch(FetchDescriptor<LedgerEntry>())) ?? [],
+            accounts: (try? context.fetch(FetchDescriptor<Account>())) ?? [],
+            forecasts: (try? context.fetch(FetchDescriptor<IncomeForecast>())) ?? [],
+            variableBudgets: (try? context.fetch(FetchDescriptor<VariableBudget>())) ?? [],
+            pools: (try? context.fetch(FetchDescriptor<BudgetPool>())) ?? [],
+            splits: (try? context.fetch(FetchDescriptor<TransactionSplit>())) ?? [],
+            dashboardPeriod: AppDefaults.store.string(forKey: "dashboardPeriodMode") ?? DashboardPeriodMode.calendarMonth.rawValue,
+            now: now
+        )
+    }
+}
+
 public extension HomeBudgetSnapshot {
     /// The whole days until the next salary.
     func daysUntilSalary(now: Date = FinanceClock.now) -> Int? {
@@ -205,16 +221,7 @@ public enum BudgetAlertService {
         let splits = (try? context.fetch(FetchDescriptor<TransactionSplit>())) ?? []
         let budgets = (try? context.fetch(FetchDescriptor<VariableBudget>())) ?? []
         let pools = (try? context.fetch(FetchDescriptor<BudgetPool>())) ?? []
-        let home = HomeBudget.make(
-            entries: entries,
-            accounts: (try? context.fetch(FetchDescriptor<Account>())) ?? [],
-            forecasts: (try? context.fetch(FetchDescriptor<IncomeForecast>())) ?? [],
-            variableBudgets: budgets,
-            pools: pools,
-            splits: splits,
-            dashboardPeriod: AppDefaults.store.string(forKey: "dashboardPeriodMode") ?? DashboardPeriodMode.calendarMonth.rawValue,
-            now: now
-        )
+        let home = HomeBudget.current(context: context, now: now)
         return BudgetAlerts.Inputs(budgets: budgets, pools: pools, entries: entries, splits: splits, home: home)
     }
 

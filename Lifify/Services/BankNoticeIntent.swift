@@ -75,5 +75,34 @@ struct LififyShortcuts: AppShortcutsProvider {
             shortTitle: "Bankmitteilung",
             systemImageName: "building.columns"
         )
+        AppShortcut(
+            intent: CheckOffChallengeIntent(),
+            phrases: [
+                "Challenge in \(.applicationName) abhaken",
+                "\(\.$challenge) in \(.applicationName) abhaken",
+                "Check off a challenge in \(.applicationName)"
+            ],
+            shortTitle: "Challenge abhaken",
+            systemImageName: "checkmark.circle"
+        )
+        AppShortcut(
+            intent: LogMealIntent(),
+            phrases: [
+                "Mahlzeit in \(.applicationName) eintragen",
+                "Log a meal in \(.applicationName)"
+            ],
+            shortTitle: "Mahlzeit",
+            systemImageName: "fork.knife"
+        )
+        AppShortcut(
+            intent: RemainingBudgetIntent(),
+            phrases: [
+                "Restbudget in \(.applicationName)",
+                "Wie viel Budget habe ich noch in \(.applicationName)",
+                "Remaining budget in \(.applicationName)"
+            ],
+            shortTitle: "Restbudget",
+            systemImageName: "eurosign.circle"
+        )
     }
 }

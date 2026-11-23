@@ -199,6 +199,15 @@ Version 0.6.0 first improves the code base (part A) and then adds new features
 - **Effect:** Entries below 0.1 % are combined into Other. Leveraged ETFs count
   with their leverage, which is explained under the list.
 
+### 0.6.0: Siri and Shortcuts (B2)
+
+- **What:** New actions check off a challenge, log a meal, and read the remaining
+  budget. They work by voice and in the Shortcuts app.
+- **Why:** Small daily entries should not need the app to be opened.
+- **Effect:** Sport with a linked training and abstinence cannot be checked off
+  this way. A check-off never removes an existing one. A meal with a favorite's
+  name takes its nutrients. The budget answer needs an unlocked device.
+
 ## Deutsch
 
 ### Überblick
@@ -412,3 +421,13 @@ Funktionen (Teil B). Diese Datei wächst mit jedem abgeschlossenen Schritt.
   keine automatische Quelle und brauchen einen manuellen Import.
 - **Auswirkung:** Einträge unter 0,1 % stehen zusammen unter Sonstige. Hebel-ETFs
   zählen mit ihrem Hebel, das wird unter der Liste erklärt.
+
+### 0.6.0: Siri und Kurzbefehle (B2)
+
+- **Was:** Neue Aktionen haken eine Challenge ab, tragen eine Mahlzeit ein und
+  nennen das Restbudget. Sie funktionieren per Sprache und in der Kurzbefehle-App.
+- **Warum:** Kleine tägliche Einträge sollen ohne Öffnen der App gehen.
+- **Auswirkung:** Sport mit verknüpftem Training und Abstinenz lassen sich so
+  nicht abhaken. Ein Abhaken entfernt nie einen vorhandenen Haken. Eine Mahlzeit
+  mit dem Namen eines Favoriten übernimmt dessen Nährwerte. Die Budget-Antwort
+  braucht ein entsperrtes Gerät.
