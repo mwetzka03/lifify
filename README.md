@@ -127,8 +127,9 @@ prices**. A German listing is preferred. If the request fails, the manual
 price stays. For this, the ISIN is sent to those public endpoints. A meal photo
 is sent to Gemini only when a key is saved under Health. The key stays in the
 keychain and is not part of a backup. Without a key, no photo leaves the device.
-The Trade Republic session is stored the same way: in the keychain, on this
-device only, and out of backups. The PIN is not stored.
+With a key, the photo is sent together with height, weight, age, sex, training
+state, and body goal, so the estimate fits you. Neither the Trade Republic
+session nor the PIN is stored; you sign in each time.
 
 Lifify reads calendars and reminders only after you explicitly allow it,
 through the system. It does not store passwords for that.
@@ -295,9 +296,10 @@ Eine deutsche Notierung wird bevorzugt. Schlägt der Abruf fehl, bleibt der
 manuelle Kurs. Dafür wird die ISIN an diese öffentlichen Endpunkte geschickt.
 Ein Essensfoto geht nur dann an Gemini, wenn unter Gesundheit ein Schlüssel
 steht. Der Schlüssel bleibt im Schlüsselbund und gehört nicht zur Sicherung.
-Ohne Schlüssel verlässt kein Foto das Gerät. Die Trade-Republic-Sitzung liegt
-genauso: im Schlüsselbund, nur auf diesem Gerät, und nicht in der Sicherung.
-Die PIN wird nicht gespeichert.
+Ohne Schlüssel verlässt kein Foto das Gerät. Mit Schlüssel gehen zusammen mit
+dem Foto Größe, Gewicht, Alter, Geschlecht, Trainingsstand und Körperziel mit,
+damit die Schätzung zu dir passt. Weder die Trade-Republic-Sitzung noch die PIN
+werden gespeichert; du meldest dich jedes Mal neu an.
 
 Kalender und Erinnerungen liest Lifify nur nach ausdrücklicher Freigabe über
 das System. Dafür werden keine Passwörter gespeichert.

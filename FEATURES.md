@@ -4,7 +4,7 @@
 
 Lifify is version **0.5.5**. Finance, portfolio, and budget calculations are in
 [FINANZEN.md](FINANZEN.md) and are unchanged. The German list below is the
-feature set. In 0.5.0, setup can sign in to Trade Republic by hand and import
+feature set. In 0.5.5, setup can sign in to Trade Republic by hand and import
 the depot from that session, and a Shortcut can book a Sparkasse or Trade
 Republic notice. In 0.4.0, Home, Challenges, Health, Settings, and setup sit on
 a mint wash in light mode and a deep green wash in dark mode, with cards

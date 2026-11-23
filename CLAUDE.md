@@ -1,11 +1,15 @@
 # CLAUDE.md – Arbeitsanweisung für Lifify
 
 Diese Datei liest Claude Code bei jedem Start. Sie hält fest, was mit dem
-Eigentümer (mwetzka03) vereinbart wurde. Stand: 22.11.2026, Branch
-`version0.5.5`, abgezweigt von `version0.5.0` (Commit c8973d2).
+Eigentümer (mwetzka03) vereinbart wurde.
 
-Die ausführliche Code-Analyse liegt als Claude Doc im Projekt „Lifify“:
-„Lifify 0.5.0 – Code-Analyse und Rückfragen“.
+Stand: 23.11.2026. Version 0.5.5 ist fertig und in `main` gemergt. Als
+Nächstes kommt **Version 0.6.0** auf dem Branch `version0.6.0`. Er wird von
+`main` abgezweigt.
+
+Die erste Code-Analyse liegt als Claude Doc im Projekt „Lifify“:
+„Lifify 0.5.0 – Code-Analyse und Rückfragen“. Was in 0.5.5 umgesetzt wurde,
+steht in `Changes Documentation/CHANGES-0.5.5.md`.
 
 ---
 
@@ -14,7 +18,9 @@ Die ausführliche Code-Analyse liegt als Claude Doc im Projekt „Lifify“:
 - Ideen, Annahmen und Anweisungen kritisch prüfen. Nichts beschönigen,
   Schwachstellen, Trade-offs und Risiken klar benennen.
 - Bei Unklarheiten vor der Umsetzung gezielt nachfragen. Zentrale
-  Anforderungen nicht raten.
+  Anforderungen nicht raten. **Alle Punkte, die in Abschnitt 4 mit „Vorher
+  klären“ markiert sind, werden vor der Umsetzung mit dem Eigentümer
+  geklärt.**
 - Eigene Ideen sind erwünscht, werden aber **erst vorgeschlagen** (Nutzen,
   Aufwand) und nur nach Zustimmung umgesetzt.
 - Jede Änderung nachvollziehbar dokumentieren: was, warum, Auswirkungen und
@@ -25,23 +31,24 @@ Die ausführliche Code-Analyse liegt als Claude Doc im Projekt „Lifify“:
 
 ## 2. Arbeitsweise im Repo
 
-- Branch: `version0.5.5`. **Ein Commit pro abgeschlossenem Schritt**, mit
-  aussagekräftiger Commit-Message.
+- Branch: `version0.6.0`, abgezweigt von `main`. **Ein Commit pro
+  abgeschlossenem Schritt**, mit aussagekräftiger Commit-Message.
 - Vor jedem Commit: bauen und testen (siehe unten). Ein Schritt ist erst
   fertig, wenn Build und Tests grün sind.
 - Pushen und Löschen von Dateien außerhalb des vereinbarten Umbaus nur nach
   Rückfrage.
-- Version überall auf **0.5.5** setzen (`MARKETING_VERSION` im Projekt,
+- Version überall auf **0.6.0** setzen (`MARKETING_VERSION` im Projekt,
   angezeigte Version in den Einstellungen, README, FEATURES).
-- Changelog: `Changes Documentation/CHANGES-0.5.0.md` wird zu
-  `CHANGES-0.5.5.md` umbenannt und **direkt bearbeitet**. Informationen, die
-  noch stimmen, bleiben. Was nicht mehr stimmt, wird korrigiert oder
-  entfernt. Neue Änderungen kommen dazu. Englisch zuerst, dann Deutsch
-  (RULES.md).
+- Changelog: neue Datei `Changes Documentation/CHANGES-0.6.0.md`, gegliedert
+  wie `CHANGES-0.5.5.md`: Überblick, dann ein Abschnitt pro Bereich, kurze
+  Aufzählungen statt langer Absätze. Englisch zuerst, dann Deutsch
+  (RULES.md). Pro Änderung: was, warum, Auswirkung.
 - README, FEATURES, FINANZEN, ERNAEHRUNG und RULES bei jeder betroffenen
-  Änderung anpassen. Bekannte Widersprüche zwischen Doku und Code
-  (Abschnitt 5) dabei mit beheben.
-- Modular bauen: klare Zuständigkeiten, keine Fachlogik in Views.
+  Änderung anpassen. Neue Rechenregeln (Renditeszenario, Tiefenanalyse,
+  Dividendenprognose) gehören nach FINANZEN.md.
+- Modular bauen: Fachlogik in die Packages (`LififyCore`, `LififyFinance`,
+  `LififyChallenges`, `LififyHealth`), keine Fachlogik in Views. Neue Targets
+  (Widget-Extension) nutzen dieselben Packages.
 
 ### Bauen und testen (macOS, Xcode)
 
@@ -59,7 +66,10 @@ xcodebuild -project Lifify.xcodeproj -scheme Lifify \
 ```
 
 Für den Simulator ist keine Signatur nötig. Für das echte iPhone wählt der
-Eigentümer sein Team selbst in Xcode.
+Eigentümer sein Team selbst in Xcode. Widgets, App Groups, HealthKit und
+Live Activities brauchen Entitlements. Die dafür nötigen Schritte im
+Apple-Developer-Konto beschreibt Claude dem Eigentümer, statt sie zu
+raten.
 
 ## 3. Bestätigte Fachregeln (nicht ändern)
 
@@ -80,12 +90,14 @@ Eigentümer sein Team selbst in Xcode.
   Ist-Minuten). Im iOS-Kalender wird der alte Termin gelöscht und neu
   angelegt (`ChallengeTimeService.resize`).
 - Vergangene Tage sind nachträglich abhakbar.
+- Die direkte Terminverknüpfung und die Mitgliederliste des Termins bleiben
+  getrennt: Nur die direkte Verknüpfung bestimmt das Streak-Soll.
 
 ### Training ↔ Challenge ↔ Termin
 
-- Die Verknüpfung ist **n:m und gewollt** (`WorkoutLinkStore`). An einem
-  wiederkehrenden Apple-Termin (z. B. Sport) können mehrere Trainingspläne
-  hängen. Wird **einer** davon absolviert, gilt die Challenge als abgehakt.
+- Die Verknüpfung ist **n:m und gewollt**. An einem wiederkehrenden
+  Apple-Termin (z. B. Sport) können mehrere Trainingspläne hängen. Wird
+  **einer** davon absolviert, gilt die Challenge als abgehakt.
 - Nach dem Training wird der Termin auf die echte Trainingszeit gesetzt
   (auf 5 Minuten gerundet, `WorkoutCalendarSync`).
 - **Vergangene Trainingstermine ohne passendes Training werden gelöscht**,
@@ -97,26 +109,23 @@ Eigentümer sein Team selbst in Xcode.
 ### Coins und Shop
 
 - Coins sind reine Gamification.
-- **Das Wallet darf ins Minus gehen** (z. B. durch Entfernen eines Hakens
-  nach einem Kauf oder durch die Ernährungs-Challenge).
-- **Bei negativem Guthaben ist der Shop gesperrt**, bis das Guthaben wieder
-  bei 0 oder darüber liegt. Das gilt für alle Käufe: Belohnungen,
-  Streak-Freezes und den automatischen Fast-Food-Kauf. Zu prüfen ist, ob
-  der automatische Fast-Food-Kauf bei Minus trotzdem buchen soll; vorher
-  fragen.
-- Neu umzusetzen: Die Sperre muss klar in der Oberfläche sichtbar sein.
+- **Das Wallet darf ins Minus gehen.** Bei negativem Guthaben ist der Shop
+  gesperrt, bis das Guthaben wieder bei 0 oder darüber liegt (umgesetzt in
+  0.5.5).
+- Der automatische Fast-Food-Kauf bucht auch bei gesperrtem Shop.
 
 ### Depot und Sparplan-Prognose
 
-- Die Prognose existiert bereits (`PortfolioActivity.futureShares`). Jede
-  künftige Sparplan-Ausführung kauft Betrag ÷ **aktueller Kurs** Stücke.
-  Es gibt keine Kursentwicklung in der Prognose. So bleibt es.
+- Die Prognose existiert (`PortfolioActivity.futureShares`). Jede künftige
+  Sparplan-Ausführung kauft Betrag ÷ **aktueller Kurs** Stücke. Ohne
+  Renditeszenario gibt es keine Kursentwicklung. Das bleibt die
+  Standardansicht. Das Renditeszenario (Abschnitt 4, F7) ist ein
+  zusätzlicher Schalter.
 
 ### Trade Republic
 
-- Der Live-Login über die inoffizielle Web-API **bleibt**. Er funktioniert
-  beim Eigentümer. Die Risiken (Bruch bei API-Änderungen,
-  Nutzungsbedingungen) sind bekannt und akzeptiert.
+- Der Live-Login über die inoffizielle Web-API **bleibt**. Die Risiken sind
+  bekannt und akzeptiert.
 - PIN wird nicht gespeichert, Sitzung wird nicht gespeichert, kein
   automatischer Abruf. Der PDF-Import bleibt.
 
@@ -132,140 +141,224 @@ Eigentümer sein Team selbst in Xcode.
   Einrichtung von vorn. Dabei gehen die Teildaten verloren. Gewollt.
 - Nach abgeschlossener Einrichtung bleiben alle Daten erhalten.
 
-## 4. Plan (in dieser Reihenfolge)
+## 4. Plan für 0.6.0
 
-Jeder Schritt: umsetzen → bauen → testen → Doku anpassen → committen.
+Jeder Schritt: (falls markiert) vorher klären → umsetzen → bauen → testen →
+Doku anpassen → committen. Teil A zuerst, weil er die Grundlage für Teil B
+verbessert. Innerhalb von Teil B ist die Reihenfolge ein Vorschlag; der
+Eigentümer darf umsortieren.
 
-### Schritt 1 – Echtes Testgerüst
+### Teil A – Verbesserungen am Code (alle freigegeben)
 
-- Swift Testing (`import Testing`, `@Test`, `#expect`) im vorhandenen Target
-  `LififyTests`.
-- Eine Hilfsfunktion für einen In-Memory-`ModelContainer`
-  (`ModelConfiguration(isStoredInMemoryOnly: true)`). Tests schreiben nie
-  echte Nutzerdaten.
-- UserDefaults in Tests über eine eigene Suite (`UserDefaults(suiteName:)`)
-  isolieren. Wo Services fest `UserDefaults.standard` nutzen, die
-  Abhängigkeit injizierbar machen. Das ist Vorarbeit für Schritt 3.
-- Zuerst Tests für die Kernregeln: Coins und Wallet, Streaks und Freezes,
-  Multiplikator, Abstinenz-Auszahlung, Zeit-Slots und Gruppen,
-  Training-Verknüpfung, Fälligkeit (`ChallengeService.isDue`), Finanzsalden,
-  Prognosen, Sparplan-Prognose, Backup-Rundlauf.
+**A1 – EventKit testbar machen**
+- EventKit-Zugriffe (`EventKitSyncService`) hinter ein Protokoll legen. Die
+  App nutzt die echte Implementierung, Tests eine Attrappe, die Aufrufe
+  aufzeichnet.
+- Tests für die Pfade, die heute ungetestet sind und echte Kalenderdaten
+  löschen: Termin-Umschreiben nach dem Abhaken (`ChallengeTimeService`),
+  `WorkoutCalendarSync.apply` und `cleanup`, Abstinenz-Boni über `settle`
+  und Rückfall. Dazu die Wiederherstellung von Gesamt- und
+  Gesundheits-Backup.
+- Verhalten unverändert.
 
-### Schritt 2 – In-App-Prüfseite entfernen
+**A2 – Views verschlanken**
+- Ein `@Observable`-Modell pro großem Screen, das Abfragen und Berechnungen
+  hält. Zuerst `PortfolioView` (≈1.700 Zeilen), `ChallengesView` (≈1.700),
+  `DashboardView` (≈1.300), `TransactionsView` (22 `@Query`) und
+  `DataManagementView` (22 `@Query`).
+- Ungefilterte `@Query` durch gefilterte Abfragen oder das Screen-Modell
+  ersetzen.
+- Verhalten und Aussehen unverändert. Performance vorher und nachher messen,
+  wie in 0.5.5.
 
-- `LififyChecks.swift`, `LififyCoverageChecks.swift`,
-  `LififyFeatureChecks.swift`, `LififySessionChecks.swift`,
-  `CheckStories.swift`, `CheckGuides.swift` sowie die Prüfseite in
-  `SettingsView` entfernen. Freigabe des Eigentümers liegt vor.
-- **Achtung:** Die Checks enthalten Regeln, die echte Tests abdecken müssen.
-  Vor dem Löschen jede Check-Gruppe durchgehen. Was eine echte Regel prüft,
-  wird als Test in Schritt 1 übernommen. Was nur Konstanten oder UI-Texte
-  gegen sich selbst prüft, entfällt. Dazu zählen Konstanten-Enums wie
-  `TradeRepublicRefresh`, `TradeRepublicGap` und `TradeRepublicSample`, die
-  nur als „Dokumentation“ für die Checks existieren. Sie werden nur dann
-  entfernt, wenn der Code sie nicht fachlich nutzt.
-- `RULES.md`, Abschnitt „Checks“, auf echte Tests umschreiben.
-- Laut Eigentümer schlagen derzeit einige In-App-Checks fehl. Vor dem
-  Entfernen einmal alle ausführen und die Fehlschläge notieren. Jeder
-  Fehlschlag wird untersucht: echter Fehler im Code oder nur ein veralteter
-  Check?
+**A3 – V2-Altspalten entfernen**
+- `ChallengeItem.groupID`, `groupIDsRaw` und andere Spalten, die nach dem
+  Umzug in 0.5.5 nicht mehr gelesen werden, über eingefrorene V2- und
+  V3-Modellkopien und ein neues Schema V4 entfernen.
+- Migrationstest: Ein Store aus 0.5.5 öffnet mit 0.6.0 und behält alle
+  Daten.
 
-### Schritt 3 – Wallet-Regel
+**A4 – Automatischer Testlauf (CI)**
+- GitHub Actions: Build und Tests auf einem macOS-Runner bei jedem Push auf
+  `main` und `version*`-Branches sowie bei Pull Requests.
+- Das App-Icon liegt im `.icon`-Format; prüfen, welche Xcode-Version der
+  Runner braucht. Den Workflow-Stand im README erwähnen.
 
-- Shop-Sperre bei negativem Guthaben (Abschnitt 3) mit Tests umsetzen.
+**A5 – Doku lesbar halten**
+- Der Changelog 0.5.5 ist aufgeräumt. In FINANZEN.md lange Fließtext-Absätze
+  ebenso in Aufzählungen gliedern, ohne Regeln zu verlieren.
+- Einrichtungstext angleichen: `OnboardingView` spricht beim Wiederherstellen
+  noch von „nur Training“. Der Bereich heißt seit 0.5.5 Gesundheit
+  (Trainings und Mahlzeiten).
 
-### Schritt 4 – Backup vollständig
+**A6 – Entwicklermodus: Coins aus simulierten Tagen**
+- Heute zahlt `AbstinenceService` Coins für simulierte Tage dauerhaft aus.
+- Lösung: Jede Coin-Buchung, die entsteht, während ein simulierter Tag aktiv
+  ist, wird markiert. Beim Zurücksetzen auf den echten Tag (und beim Start,
+  wo `AppClock.resetSimulatedDay()` schon läuft) werden markierte Buchungen
+  und die zugehörigen Auszahlungs-Merker entfernt. So bleibt der
+  Entwicklermodus zum Testen nutzbar, ohne echte Coins zu verfälschen.
+- Gemischte Nutzung von `Date.now` und `AppClock.now` prüfen und
+  vereinheitlichen, wo es fachlich um „heute“ geht.
 
-Diese Daten werden beim Löschen zurückgesetzt, aber **nicht exportiert**.
-Nach einem Restore fehlen sie:
+**A7 – Face ID nur für Finanzen**
+- Beim Wechsel in den Finanzen-Tab wird mit Face ID (Fallback: Gerätecode)
+  entsperrt. Der Rest der App bleibt ohne Sperre.
+- Schalter in Einstellungen, Finanzen (Standard: an).
+- Entsperrt bleibt Finanzen, bis die App in den Hintergrund geht.
+- Widgets (B1) zeigen Finanzwerte nur, wenn der Eigentümer das in den
+  Widget-Einstellungen zulässt. Vorher klären, siehe B1.
 
-- `TransferForecastStore` (Umbuchungsprognosen)
-- `RefundLinkStore`
-- `ForecastSkipStore`, `ForecastPeriodLinkStore`,
-  `ForecastMatchRejectionStore`
-- `NoticeTemplateStore` (Kurzbefehl-Vorlagen)
-- `ChallengePinStore` (angepinnte Challenges und Gruppen)
-- `VariableBudgetAccounts`
-- `EventOffer` (`lifify.eventOffer.<id>`)
-- Alle übrigen `lifify.*`-Schlüssel systematisch prüfen. Reine Caches wie
-  `HistoricalPriceStore` gehören nicht ins Backup.
+### Teil B – Neue Features (freigegeben)
 
-Ein Test exportiert einen vollständigen Datenbestand, setzt alles zurück,
-stellt wieder her und vergleicht.
+**B1 – Widgets (Home- und Sperrbildschirm)**
+- Kandidaten: Tagesbudget bzw. Restbudget, Coins-Stand, Challenges von heute
+  (interaktiv abhakbar über AppIntent, iOS 17).
+- Voraussetzung: Der SwiftData-Store zieht in einen App-Group-Container um,
+  damit App und Widget dieselben Daten lesen. Das ist eine Migration des
+  Speicherorts. Sie muss mit Test und Rückfallweg gebaut werden und darf
+  keine Daten verlieren.
+- **Vorher klären:** welche Widgets genau und in welchen Größen; ob
+  Finanzwerte trotz Face ID (A7) im Widget erscheinen dürfen.
 
-### Schritt 5 – Persistenz zusammenführen
+**B2 – Siri und Kurzbefehle**
+- Neue AppIntents neben `RecordBankNoticeIntent`: Challenge abhaken,
+  Mahlzeit eintragen, Restbudget abfragen.
+- Sport-Challenges mit verknüpftem Training sind über den Intent nicht
+  abhakbar (Regel aus Abschnitt 3).
 
-Heute liegt Fachdatenbestand an drei Orten: SwiftData (Schema V2, seit
-langem unverändert), rund 70 UserDefaults-Schlüssel (JSON-Blobs) und
-JSON-Dateien (Trainings, Mahlzeiten-Fotos).
+**B3 – Budget-Warnungen**
+- Lokale Mitteilung, wenn eine variable Kostenposition bzw. ein Budgetpool
+  80 % und 100 % erreicht, und wenn das Tagesbudget überschritten ist.
+- Prüfung bei jeder neuen Buchung, auch aus Kurzbefehlen und Importen. Pro
+  Schwelle und Zeitraum nur eine Mitteilung.
+- Schwellen und Schalter in Einstellungen, Finanzen.
+- Ein Bankimport mit vielen Altbuchungen löst keine Flut aus: Warnungen nur
+  für den laufenden Zeitraum, gebündelt.
 
-- Neues `LififySchemaV3` mit eigenen `@Model`-Typen für die Daten aus
-  UserDefaults: Depot-Lots, Sparpläne, geschlossene Positionen,
-  Prognose-Verknüpfungen, Streak-Zustände, Abstinenz, Mahlzeiten,
-  Challenge-Dauern und Termin-Mitglieder, Workout-Links, Pins und so weiter.
-- **Gruppen- und Terminzugehörigkeit steht heute an vier Stellen:**
-  `ChallengeItem.groupID`, `ChallengeItem.groupIDsRaw` (Komma-Text),
-  `ChallengeCalendarEvent.linkedChallengeID` bzw. `linkedChallengeGroupID`
-  und `ChallengeTimeStore.memberIDs`. Das wird eine einzige Quelle. Das
-  Verhalten aus Abschnitt 3 muss identisch bleiben; vorher Tests schreiben.
-- Einmalige Übernahme der UserDefaults-Daten beim ersten Start von 0.5.5.
-  Sie muss idempotent sein, und die alten Schlüssel werden erst nach
-  erfolgreicher Übernahme gelöscht.
-- `ModelContainer` mit `migrationPlan: LififyMigrationPlan` erzeugen. Heute
-  fehlt das.
-- `StoreRecoveryService`: **Kein stilles Wegschieben des Stores** mehr bei
-  einer fertig eingerichteten App. Stattdessen eine klare Fehlermeldung mit
-  der Möglichkeit, ein Backup wiederherzustellen. Das Onboarding-Verhalten
-  aus Abschnitt 3 bleibt.
-- Danach wird das Backup aus den Modellen erzeugt statt aus einer
-  handgepflegten Liste. Schritt 4 bleibt als Test bestehen.
-- Kein iCloud-Sync geplant. `@Attribute(.unique)` darf bleiben.
-- Bereich für Bereich vorgehen, jeweils mit eigenem Commit.
+**B4 – Monatsrückblick**
+- Ausgaben je Kategorie im abgelaufenen Zeitraum, verglichen mit dem
+  Durchschnitt der letzten 3 bis 6 Zeiträume; die größten Abweichungen
+  zuerst.
+- Optional als Mitteilung zum Zeitraumwechsel.
+- **Vorher klären:** Gehaltszeitraum (wie der Rest der App) oder
+  Kalendermonat; wo er in der Oberfläche erscheint (unter Weitere Bereiche
+  oder im Briefing).
 
-### Schritt 6 – Performance
+**B5 – Abo-Erkennung**
+- Wiederkehrende Buchungen finden, die noch keine Fixkosten sind: derselbe
+  Empfänger, ähnlicher Betrag (Toleranz z. B. ±10 %), regelmäßiger Abstand
+  (wöchentlich, monatlich, jährlich), mindestens drei Vorkommen.
+- Als Vorschlag anzeigen; mit einem Tipp als Fixkosten anlegen. Abgelehnte
+  Vorschläge werden gemerkt und kommen nicht wieder. Die Ablehnungen kommen
+  ins Backup.
 
-Am schlimmsten laut Eigentümer: **der erste Aufruf der Finanzen und alles
-rund um Aktien und Depot.**
+**B6 – Dividenden-Übersicht und -Prognose**
+- Übersicht der erhaltenen Dividenden je Position und je Monat bzw. Jahr,
+  aus den bestehenden Ertrag-Buchungen.
+- Prognose der nächsten 12 Monate: Dividende je Stück der letzten 12 Monate
+  × heutige Stückzahl, inklusive künftiger Sparplan-Stücke, mit den
+  bisherigen Zahlmonaten.
+- Thesaurierende ETFs zahlen nichts und erscheinen nicht.
 
-- Erst messen (Instruments: Time Profiler, SwiftUI), dann ändern. Messwerte
-  vorher und nachher im Changelog festhalten.
-- Bekannte Verdachtsfälle:
-  - viele ungefilterte `@Query`, allein 22 in `TransactionsView`
-  - Berechnungen im `body` (`FinanceService`, `PortfolioActivity`,
-    Streak-Status über alle Perioden)
-  - wiederholtes Dekodieren von UserDefaults-JSON
-  - Kursabruf beim Start
-- Der Ladebildschirm beim Zurückkehren in die App ist ein Symptom-Pflaster.
-  Nach der Optimierung prüfen, ob er noch nötig ist.
+**B7 – Optionales Renditeszenario**
+- Schalter in **Einstellungen → Finanzen → Depot**: „Renditeszenario“.
+  Standard: aus. Kein Button in den Ansichten.
+- Ist er an, wachsen in allen **künftigen** Prognosezeiträumen die
+  **ETF-Bestände** mit einer jährlichen Rendite. Das betrifft das Depot und
+  damit alle Ansichten, die den Depotwert enthalten (Gesamtvermögen, alle
+  Konten). Vergangene und der laufende Zeitraum bleiben unverändert.
+- **Nur ETFs.** Einzelaktien, Krypto und Sonstiges bleiben beim aktuellen
+  Kurs.
+- Rendite = **10-Jahres-Durchschnitt** (jährliche Durchschnittsrendite,
+  CAGR) der ETFs im Depot, aus historischen Kursen von Yahoo Finance
+  (`range=10y`). Gilt für bestehende Stücke und für künftige
+  Sparplan-Stücke; zinseszinsartig pro Monat gerechnet.
+- In den Einstellungen wird der verwendete Prozentsatz angezeigt. Er wird
+  zwischengespeichert und mit der Kursaktualisierung erneuert.
+- Prognosewerte mit Szenario sind in der Oberfläche als Szenario erkennbar
+  (z. B. ein Hinweis unter dem Wert).
+- **Vorher klären:**
+  1. Eine gemeinsame Rendite für alle ETFs (nach Depotwert gewichtet) oder
+     jeder ETF mit seiner eigenen?
+  2. Was gilt für einen ETF mit weniger als 10 Jahren Historie (kürzere
+     Historie nehmen, ab welcher Mindestdauer, sonst ausschließen)?
+  3. Wie wird ein ETF erkannt (Yahoo `quoteType == "ETF"` oder Typ aus
+     Trade Republic)?
 
-### Schritt 7 – Modularisierung
+**B8 – Depot-Anteile: Design und Tiefenanalyse**
+- Die Anteile-Ansicht (Liste und Grafik) bekommt das Design der App: die
+  Stile und Farbflächen wie die übrigen Screens, kein schlichtes Schwarz.
+- Zwischen Grafik und Liste ein Umschalter: **Normal** | **Tiefenanalyse**.
+  - Normal: wie heute.
+  - Tiefenanalyse: ETFs werden in ihre Einzelwerte aufgebrochen. Für jede
+    Aktie zählt der direkte Bestand plus der Anteil aus jedem ETF
+    (ETF-Positionswert × Gewicht der Aktie im ETF). Ergebnis: Anteil jeder
+    Aktie am gesamten Depot in Prozent. Grafik und Liste nutzen diese Werte.
+  - **Nur Einträge mit mindestens 0,1 % Depotanteil** werden in der Liste
+    angezeigt. Der Rest wird nicht gelistet (ggf. als eine Zeile „Sonstige“
+    zusammengefasst; vorher klären).
+- **Vorher klären (kritisch, entscheidet über Machbarkeit):**
+  1. **Datenquelle für ETF-Zusammensetzungen.** Es gibt keine freie,
+     einheitliche Schnittstelle. Optionen: Holdings-Dateien der Anbieter
+     (z. B. iShares, Xtrackers, Vanguard; pro Anbieter eigenes Format, kann
+     sich ändern), Yahoo `topHoldings` (nur Top 10, unvollständig) oder eine
+     kostenpflichtige API. Vor der Umsetzung recherchieren, welche ETFs der
+     Eigentümer hält, und eine Quelle vorschlagen.
+  2. Wie werden dieselben Unternehmen über ETFs und Direktbestand
+     zusammengeführt (ISIN, sonst Name)?
+  3. Bedeutet „0,1“ wirklich 0,1 % des Depots?
+  4. Wie oft werden Zusammensetzungen aktualisiert (sie ändern sich
+     monatlich bis quartalsweise)?
 
-- Freigegeben: lokale Swift Packages, etwa `LififyCore` (Modelle,
-  Persistenz, Formatierung), `LififyFinance`, `LififyChallenges`,
-  `LififyHealth` und `LififyTradeRepublic`. Dazu die App als dünne Hülle.
-- Die genaue Aufteilung vorher als Vorschlag zur Freigabe vorlegen.
+**B9 – Live Activity**
+- Für den Trainings-Timer einer laufenden Session auf Sperrbildschirm und
+  Dynamic Island.
+- **Vorher klären:** Soll es auch Live Activities für Challenges mit
+  geschätzter Dauer geben? Dafür bräuchte eine Challenge heute neu einen
+  „Starten“-Zustand.
 
-### Offene Punkte für später (nur vorschlagen, nicht umsetzen)
+**B10 – Apple Health**
+- Gewicht aus Apple Health lesen und die Körperdaten in den Einstellungen
+  aktuell halten. Abgeschlossene Trainings als Workouts nach Apple Health
+  schreiben.
+- Nur nach ausdrücklicher Freigabe, Texte für die Berechtigungen in
+  Info.plist. Ohne Freigabe funktioniert alles wie bisher.
+- **Vorher klären:** zusätzlich Schritte, aktive Energie oder Ruhepuls lesen?
 
-- Entwicklermodus mit simuliertem Tag: `AbstinenceService` zahlt Coins für
-  simulierte Tage dauerhaft aus. Lösung vorschlagen.
-- Altlasten: `SavedArticle` (Platzhalter) und Bucketlist (ausgeblendet).
-  Klären, ob sie entfernt werden.
+**B11 – Progressive Overload**
+- Pro Übung ein Gewichtsvorschlag für die nächste Session: Wurden in der
+  letzten Session alle Zielwiederholungen geschafft, steigt das Gewicht um
+  eine einstellbare Stufe (Standard 2,5 kg), sonst bleibt es gleich.
+- Verlauf von Volumen (Sätze × Wiederholungen × Gewicht) pro Übung.
+  Bestleistungen gibt es schon; darauf aufbauen.
+
+**B12 – Mahlzeiten: Favoriten und „zuletzt gegessen“**
+- Mahlzeiten mit einem Herz als Favorit markieren. Favoriten und die zuletzt
+  gegessenen Mahlzeiten lassen sich mit einem Tipp erneut eintragen.
+- Favoriten kommen ins Gesundheits-Backup.
+- Kein Gewichts- oder Kalorien-Diagramm (ausdrücklich nicht gewünscht).
+
+### Nicht gewünscht (nicht umsetzen)
+
+- Sparziele, Sparerpauschbetrag, Gewichtsverlauf neben Kalorienbilanz,
+  Challenge-Statistik und Wochen-Review.
+
+### Noch nicht entschieden
+
+- **Abhaken aus der Benachrichtigung:** Erinnerungen an Challenges
+  bekommen Knöpfe wie „Erledigt“, mit denen man direkt in der Mitteilung
+  abhakt, ohne die App zu öffnen. Der Eigentümer hat das noch nicht
+  entschieden; nicht umsetzen, bis er zustimmt.
 - Spätere Ideen des Eigentümers: Desktop-Version oder ein lokales Dashboard
-  über localhost. Nur im Hinterkopf behalten.
+  über localhost.
 
 ## 5. Bekannte Widersprüche zwischen Doku und Code
 
-- README: Die Trade-Republic-Sitzung liege im Schlüsselbund. Code:
-  `storesSession = false`, gespeichert wird nichts.
-- README: Ohne Schlüssel verlässt kein Foto das Gerät. Das stimmt. Mit
-  Schlüssel gehen aber zusätzlich Größe, Gewicht, Alter, Geschlecht und Ziel
-  an Gemini (`MealRecognition.prompt`). Ergänzen.
 - `MealRecognition.send(thinking: true)` setzt `thinkingBudget: 0`, schaltet
-  das Nachdenken also gerade aus. Die Benennung ist irreführend.
-- FEATURES §14: Die Ernährung fehle noch. Sie ist umgesetzt.
-- FEATURES, Annahme 1: Das Backup sichere sämtliche Nutzerdaten. Erst nach
-  Schritt 4 wahr.
+  das Nachdenken also gerade aus. Die Benennung ist irreführend und wird in
+  A2 oder bei passender Gelegenheit bereinigt.
+- `OnboardingView`: „nur Training“ statt Gesundheit (siehe A5).
 
 ## 6. Technische Leitplanken
 
@@ -275,3 +368,6 @@ rund um Aktien und Depot.**
 - Zweisprachige Texte über `L("Deutsch", "English")`.
 - Stil: Grün, Blau, Bordeaux und Violett; kein Systemblau auf gestylten
   Flächen; positive Beträge grün, negative rot (RULES.md).
+- Netzwerk nur, wo nötig (Yahoo Finance, Gemini mit Schlüssel, Trade
+  Republic, ggf. ETF-Zusammensetzungen nach B8). Jede neue externe Quelle
+  steht im README unter Datenschutz.
