@@ -157,6 +157,15 @@ public enum AbstinenceSettings {
         saveExceptions(map)
     }
 
+    /// Removes one recorded reward exception.
+    public static func removeException(_ id: UUID, for challengeID: UUID) {
+        var map = exceptionMap()
+        guard var list = map[challengeID.uuidString] else { return }
+        list.removeAll { $0.id == id }
+        map[challengeID.uuidString] = list.isEmpty ? nil : list
+        saveExceptions(map)
+    }
+
     public static func rewardLink(for rewardID: UUID) -> UUID? {
         rewardLinks()[rewardID.uuidString].flatMap(UUID.init(uuidString:))
     }

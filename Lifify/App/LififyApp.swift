@@ -19,6 +19,7 @@ struct LififyApp: App {
         if case .success(let container) = result {
             LififyDatabase.container = container
             LegacyDataMigration.run()
+            SimulatedDayLedger.rollbackIfOnRealDay(context: container.mainContext)
         }
     }
 

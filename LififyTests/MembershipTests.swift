@@ -101,7 +101,8 @@ extension LififyRuleTests {
                 .reminderRecurrence, .eventRecurrence, .icon, .customCategories
             ]
             let carried = ownRecords.union(LinkKind.financeRecords).union(LinkKind.challengeRecords)
-            #expect(carried == Set(LinkKind.allCases))
+            #expect(carried.union(LinkKind.neverBackedUp) == Set(LinkKind.allCases))
+            #expect(carried.isDisjoint(with: LinkKind.neverBackedUp))
         }
     }
 }

@@ -27,9 +27,12 @@ public enum AbstinenceService {
             let base = max(challenge.rewardCoins, 0)
             for day in plan.days {
                 let completion = ChallengeCompletion(challengeID: challenge.id, date: day, earnedCoins: base)
-                context.insert(completion)
+                SimulatedDayLedger.insert(completion, in: context)
                 if base > 0 {
-                    context.insert(CoinTransaction(date: day, title: challenge.title, amount: base, referenceID: completion.id))
+                    SimulatedDayLedger.book(
+                        CoinTransaction(date: day, title: challenge.title, amount: base, referenceID: completion.id),
+                        in: context
+                    )
                 }
                 changed = true
             }
@@ -44,14 +47,15 @@ public enum AbstinenceService {
                     awarded.insert(milestone.rawValue)
                     let due = milestone.due(from: start, calendar: calendar)
                     if coins > 0 {
-                        context.insert(CoinTransaction(
+                        SimulatedDayLedger.book(CoinTransaction(
                             date: due,
                             title: "\(L("Bonus", "Bonus")): \(challenge.title) · \(milestone.label)",
                             amount: coins,
                             referenceID: challenge.id
-                        ))
+                        ), in: context)
                     }
                     let noticeID = "\(challenge.id.uuidString)|\(milestone.rawValue)|\(start.timeIntervalSince1970)"
+                    SimulatedDayLedger.record(.milestone(challengeID: challenge.id, raw: milestone.rawValue, noticeID: noticeID))
                     AbstinenceSettings.postNotice(AbstinenceNotice(
                         id: noticeID,
                         challengeID: challenge.id,

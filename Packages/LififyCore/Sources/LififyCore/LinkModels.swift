@@ -50,6 +50,8 @@ public enum LinkKind: String, CaseIterable, Codable, Sendable {
     case pinnedChallenges
     case pinnedGroups
     case eventOffer
+    /// Changes made on a simulated day. Never part of a backup.
+    case simulatedEffects
     case fastFoodReward
 
     public static let financeRecords: [LinkKind] = [
@@ -57,6 +59,8 @@ public enum LinkKind: String, CaseIterable, Codable, Sendable {
         .budgetAccounts, .bankCursor, .bankCurrent, .dismissedNoticeTemplates
     ]
     public static let challengeRecords: [LinkKind] = [.pinnedChallenges, .pinnedGroups, .eventOffer, .fastFoodReward]
+    /// Temporary developer data that a backup must never carry.
+    public static let neverBackedUp: Set<LinkKind> = [.simulatedEffects]
 }
 
 /// Reads and writes the finance relations. Reads come from memory after the first load.

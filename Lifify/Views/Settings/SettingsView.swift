@@ -122,6 +122,7 @@ private struct GeneralSettingsView: View {
             set: { enabled in
                 developerMode = enabled
                 AppClock.resetSimulatedDay()
+                SimulatedDayLedger.rollbackIfOnRealDay(context: context)
             }
         )
     }
@@ -150,7 +151,10 @@ private struct GeneralSettingsView: View {
                 let _ = developerDay
                 return AppClock.simulatedDay
             },
-            set: { AppClock.setSimulatedDay($0) }
+            set: {
+                AppClock.setSimulatedDay($0)
+                SimulatedDayLedger.rollbackIfOnRealDay(context: context)
+            }
         )
     }
 

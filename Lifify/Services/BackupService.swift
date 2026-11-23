@@ -716,6 +716,7 @@ enum BackupService {
         try context.fetch(FetchDescriptor<RewardPurchase>()).forEach { context.delete($0) }
         try context.fetch(FetchDescriptor<RewardItem>()).forEach { context.delete($0) }
         try context.fetch(FetchDescriptor<BucketListItem>()).forEach { context.delete($0) }
+        LinkTable.clear(.simulatedEffects)
     }
 
     private struct SideStoreKeys {

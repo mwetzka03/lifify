@@ -111,7 +111,8 @@ public enum NutritionLedger {
     private static func charge(_ reward: RewardItem, context: ModelContext) -> UUID {
         let purchase = RewardPurchase(rewardID: reward.id, title: reward.title, price: reward.price)
         context.insert(purchase)
-        context.insert(CoinTransaction(title: reward.title, amount: -reward.price, referenceID: purchase.id))
+        SimulatedDayLedger.record(.purchase(id: purchase.id, rewardID: reward.id, rewardWasActive: reward.isActive))
+        SimulatedDayLedger.book(CoinTransaction(title: reward.title, amount: -reward.price, referenceID: purchase.id), in: context)
         try? context.save()
         return purchase.id
     }
@@ -132,7 +133,7 @@ public enum NutritionLedger {
     ) {
         guard !challenge.isArchived else { return }
         let calendar = Calendar.current
-        let today = calendar.startOfDay(for: .now)
+        let today = calendar.startOfDay(for: AppClock.now)
         let completions = (try? context.fetch(FetchDescriptor<ChallengeCompletion>())) ?? []
         let events = (try? context.fetch(FetchDescriptor<ChallengeCalendarEvent>())) ?? []
         let transactions = (try? context.fetch(FetchDescriptor<CoinTransaction>())) ?? []

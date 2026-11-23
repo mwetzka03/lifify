@@ -104,6 +104,15 @@ public enum StreakSettings {
         saveStates(map)
     }
 
+    /// Takes back one bought freeze.
+    public static func removePurchasedFreeze(for challengeID: UUID) {
+        var map = states()
+        guard var state = map[challengeID.uuidString], state.purchased > 0 else { return }
+        state.purchased -= 1
+        map[challengeID.uuidString] = state
+        saveStates(map)
+    }
+
     public static func setUsedPeriodKeys(_ keys: [String], for challengeID: UUID) {
         var map = states()
         guard var state = map[challengeID.uuidString] else { return }

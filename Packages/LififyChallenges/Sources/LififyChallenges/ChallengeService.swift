@@ -245,12 +245,13 @@ public enum ChallengeService {
         guard StreakSettings.isEnabled(for: challenge.id) else { return false }
         let price = StreakSettings.price(for: challenge)
         guard ShopAccess.check(balance: walletBalance(transactions: transactions), price: price) == .open else { return false }
-        context.insert(CoinTransaction(
+        SimulatedDayLedger.book(CoinTransaction(
             title: "\(L("Streak-Freeze", "Streak freeze")): \(challenge.title)",
             amount: -price,
             referenceID: challenge.id
-        ))
+        ), in: context)
         StreakSettings.addPurchasedFreeze(for: challenge.id)
+        SimulatedDayLedger.record(.freeze(challengeID: challenge.id))
         try? context.save()
         return true
     }
@@ -282,8 +283,8 @@ public enum ChallengeService {
         } else {
             let earned = projectedCoins(challenge: challenge, on: date, completions: completions, events: events)
             let completion = ChallengeCompletion(challengeID: challenge.id, date: date, earnedCoins: earned)
-            context.insert(completion)
-            context.insert(CoinTransaction(title: challenge.title, amount: earned, referenceID: completion.id))
+            SimulatedDayLedger.insert(completion, in: context)
+            SimulatedDayLedger.book(CoinTransaction(title: challenge.title, amount: earned, referenceID: completion.id), in: context)
             tracked = completions + [completion]
             isNowCompleted = true
         }
@@ -322,8 +323,8 @@ public enum ChallengeService {
             baseCoins: baseCoins
         )
         let completion = ChallengeCompletion(challengeID: challenge.id, date: date, earnedCoins: earned)
-        context.insert(completion)
-        context.insert(CoinTransaction(title: challenge.title, amount: earned, referenceID: completion.id))
+        SimulatedDayLedger.insert(completion, in: context)
+        SimulatedDayLedger.book(CoinTransaction(title: challenge.title, amount: earned, referenceID: completion.id), in: context)
         try? context.save()
         commitFreezes(for: [challenge], completions: completions + [completion], events: events, on: date)
         if ChallengeTimeRules.allowsTime(challenge.category) {
@@ -512,15 +513,15 @@ public enum ChallengeService {
         guard ShopAccess.check(balance: walletBalance(transactions: transactions), price: reward.price) == .open else { return false }
         let purchase = RewardPurchase(rewardID: reward.id, title: reward.title, price: reward.price)
         context.insert(purchase)
-        context.insert(CoinTransaction(title: reward.title, amount: -reward.price, referenceID: purchase.id))
+        SimulatedDayLedger.record(.purchase(id: purchase.id, rewardID: reward.id, rewardWasActive: reward.isActive))
+        SimulatedDayLedger.book(CoinTransaction(title: reward.title, amount: -reward.price, referenceID: purchase.id), in: context)
         if !RewardPolicyStore.allowsMultiplePurchases(for: reward.id) {
             reward.isActive = false
         }
         if let challengeID = AbstinenceSettings.rewardLink(for: reward.id) {
-            AbstinenceSettings.recordException(
-                AbstinenceException(id: UUID(), date: AppClock.now, rewardID: reward.id, rewardTitle: reward.title),
-                for: challengeID
-            )
+            let exception = AbstinenceException(id: UUID(), date: AppClock.now, rewardID: reward.id, rewardTitle: reward.title)
+            AbstinenceSettings.recordException(exception, for: challengeID)
+            SimulatedDayLedger.record(.exception(challengeID: challengeID, id: exception.id))
         }
         try? context.save()
         return true

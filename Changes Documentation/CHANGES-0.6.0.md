@@ -71,6 +71,24 @@ Version 0.6.0 first improves the code base (part A) and then adds new features
 - **Effect:** The wording of every finance rule is unchanged. A script compared
   all words before and after the reformatting.
 
+### 0.6.0: Developer mode no longer changes real coins (A6)
+
+- **What:** While developer mode shows another day, Lifify records coin
+  bookings, check-offs, purchases, freezes, abstinence bonuses, and the
+  birthday bonus. Back on the real day, at launch, or when the mode is turned
+  off, exactly these changes are undone.
+- **Why:** Simulated days used to pay coins permanently.
+- **Effect:** Developer mode can be used for testing without changing the real
+  wallet. Bonuses can be earned again on their real day.
+- **Today:** Meal rewards now follow the simulated day.
+- **Deliberately on the real clock:** The cleanup of past training events
+  stays on the real date, so a simulated day can never delete real events from
+  the iOS calendar.
+- **Limits:** Meals entered on a simulated day stay, only their coins and
+  fast-food charges are undone. A real booking removed during a simulation is
+  not restored. A backup made during a simulation contains the simulated
+  bookings as normal data.
+
 ## Deutsch
 
 ### Überblick
@@ -144,3 +162,23 @@ Funktionen (Teil B). Diese Datei wächst mit jedem abgeschlossenen Schritt.
   0.5.5 Gesundheit.
 - **Auswirkung:** Der Wortlaut aller Finanzregeln bleibt gleich. Ein Skript hat
   alle Wörter vor und nach der Umformatierung verglichen.
+
+### 0.6.0: Entwicklermodus verändert keine echten Coins mehr (A6)
+
+- **Was:** Solange der Entwicklermodus einen anderen Tag zeigt, merkt sich
+  Lifify Coin-Buchungen, Abhaken, Käufe, Freezes, Abstinenz-Boni und den
+  Geburtstagsbonus. Zurück auf dem echten Tag, beim Start oder beim Ausschalten
+  des Modus werden genau diese Änderungen rückgängig gemacht.
+- **Warum:** Simulierte Tage haben bisher dauerhaft Coins ausgezahlt.
+- **Auswirkung:** Der Entwicklermodus lässt sich zum Testen nutzen, ohne das
+  echte Wallet zu verändern. Boni lassen sich an ihrem echten Tag wieder
+  verdienen.
+- **Heute:** Mahlzeiten-Belohnungen folgen jetzt dem simulierten Tag.
+- **Bewusst auf der echten Uhr:** Das Aufräumen vergangener Trainingstermine
+  bleibt beim echten Datum, damit ein simulierter Tag nie echte Termine aus dem
+  iOS-Kalender löscht.
+- **Grenzen:** Mahlzeiten, die an einem simulierten Tag eingetragen wurden,
+  bleiben, nur ihre Coins und Fast-Food-Abbuchungen werden zurückgenommen. Eine
+  echte Buchung, die während der Simulation entfernt wird, kommt nicht zurück.
+  Ein Backup aus einer laufenden Simulation enthält die simulierten Buchungen
+  als normale Daten.

@@ -107,6 +107,15 @@ public enum UserProfile {
         defaults.set(year, forKey: awardedYearKey)
     }
 
+    /// Puts the last awarded birthday year back, or clears it.
+    public static func restoreAwardedYear(_ year: Int?, defaults: UserDefaults = AppDefaults.store) {
+        if let year {
+            defaults.set(year, forKey: awardedYearKey)
+        } else {
+            defaults.removeObject(forKey: awardedYearKey)
+        }
+    }
+
     public static func restore(birthRaw: String, awardedYearRaw: String, defaults: UserDefaults = AppDefaults.store) {
         if let birth = parse(birthRaw) {
             defaults.set(raw(birth), forKey: birthKey)
@@ -157,12 +166,16 @@ public enum BirthdayBonusService {
             UserProfile.setAwardedYear(year)
             return
         }
-        context.insert(CoinTransaction(
+        SimulatedDayLedger.record(.birthday(
+            previousYear: UserProfile.awardedYear(),
+            notificationID: "\(ChallengeNudgePlan.birthdayPrefix)\(year)"
+        ))
+        SimulatedDayLedger.book(CoinTransaction(
             date: now,
             title: L("Geburtstag", "Birthday"),
             amount: BirthdayBonus.coins,
             referenceID: reference
-        ))
+        ), in: context)
         UserProfile.setAwardedYear(year)
         try? context.save()
         Task {
