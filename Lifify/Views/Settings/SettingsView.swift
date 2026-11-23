@@ -8,6 +8,7 @@ import SwiftUI
 import UIKit
 import UniformTypeIdentifiers
 
+/// The settings list.
 struct SettingsView: View {
     @AppStorage("userName") private var userName = ""
 
@@ -41,6 +42,7 @@ struct SettingsView: View {
         .toolbarTitleDisplayMode(.inline)
     }
 
+    /// The profile row.
     private func profileRow(_ subtitle: String) -> some View {
         let trimmed = userName.trimmingCharacters(in: .whitespacesAndNewlines)
         return HStack(spacing: 14) {
@@ -58,6 +60,7 @@ struct SettingsView: View {
     }
 }
 
+/// The screen of a settings entry.
 @ViewBuilder
 private func settingsDestination(_ symbol: String) -> some View {
     switch symbol {
@@ -70,6 +73,7 @@ private func settingsDestination(_ symbol: String) -> some View {
     }
 }
 
+/// Texts of the developer mode.
 enum DeveloperCopy {
     static var toggle: String { L("Entwicklermodus", "Developer mode") }
 }
@@ -79,11 +83,13 @@ enum GeneralSettingsOrder {
     static let sections = ["appearance", "briefing", "developer", "version"]
 }
 
+/// Texts of the editors.
 enum EditorCopy {
     static var moreSettings: String { L("Weitere Einstellungen", "More settings") }
     static let moreStartsClosed = true
 }
 
+/// One settings entry.
 private struct SettingsCategoryLabel: View {
     @Environment(\.colorScheme) private var scheme
     @AppStorage(AppPalette.storageKey) private var paletteRaw = AppPalette.green.rawValue
@@ -105,6 +111,7 @@ private struct SettingsCategoryLabel: View {
     }
 }
 
+/// General settings.
 private struct GeneralSettingsView: View {
     @Environment(\.modelContext) private var context
     @AppStorage("appLanguage") private var language = "de"
@@ -127,6 +134,7 @@ private struct GeneralSettingsView: View {
         )
     }
 
+    /// Binds a weekday's briefing time.
     private func briefingBinding(_ weekday: Int) -> Binding<Date> {
         Binding(
             get: {
@@ -227,6 +235,7 @@ private struct GeneralSettingsView: View {
     }
 }
 
+/// Profile settings.
 private struct UserSettingsView: View {
     @Environment(\.modelContext) private var context
     @EnvironmentObject private var workouts: WorkoutStore
@@ -335,12 +344,14 @@ private struct UserSettingsView: View {
         .onChange(of: goal) { storeBody() }
     }
 
+    /// Stores the body data.
     private func storeBody() {
         UserBody.save(heightText: heightText, weightText: weightText, sex: sex, goal: goal)
         NutritionLedger.settle(context: context, sessions: workouts.sessions)
     }
 }
 
+/// The briefing times per weekday.
 private struct BriefingWeekBoard: View {
     @Environment(\.colorScheme) private var scheme
     @AppStorage(AppPalette.storageKey) private var paletteRaw = AppPalette.green.rawValue
@@ -406,12 +417,14 @@ private struct BriefingWeekBoard: View {
         .padding(.vertical, 4)
     }
 
+    /// Formats a weekday's time.
     private func timeLabel(_ weekday: Int) -> String {
         let clock = LififyNotifications.clock(for: weekday)
         return String(format: "%02d:%02d", clock.hour, clock.minute)
     }
 }
 
+/// Finance settings.
 private struct FinanceSettingsView: View {
     @Environment(\.modelContext) private var context
     @Query private var entries: [LedgerEntry]
@@ -507,6 +520,7 @@ private struct FinanceSettingsView: View {
 
 }
 
+/// Challenge settings.
 private struct ChallengeSettingsView: View {
     @AppStorage(StreakSettings.freezeFactorKey) private var freezeFactor = 10
     @AppStorage(ChallengeCategoryStore.revisionKey) private var categoryRevision = 0
@@ -647,6 +661,7 @@ private struct ChallengeSettingsView: View {
     }
 }
 
+/// Edits a streak multiplier.
 private struct MultiplierRow: View {
     let threshold: Int
     @State private var text: String
@@ -672,6 +687,7 @@ private struct MultiplierRow: View {
     }
 }
 
+/// Edits an abstinence multiplier.
 private struct AbstinenceMultiplierRow: View {
     let difficulty: AbstinenceDifficulty
     let milestone: AbstinenceMilestone
@@ -699,6 +715,7 @@ private struct AbstinenceMultiplierRow: View {
     }
 }
 
+/// One body measurement.
 private struct MeasureField: View {
     let title: String
     @Binding var text: String
@@ -713,6 +730,7 @@ private struct MeasureField: View {
     }
 }
 
+/// The profile photo.
 private struct ProfileAvatar: View {
     var side: CGFloat
     @AppStorage(ProfilePhotoStore.revisionKey) private var revision = 0
@@ -735,6 +753,7 @@ private struct ProfileAvatar: View {
     }
 }
 
+/// Health settings.
 private struct HealthSettingsView: View {
     @AppStorage(RestChime.storageKey) private var restChimeID = 1005
     @AppStorage(MealCapture.saveKey) private var saveMealPhotos = false
@@ -789,6 +808,7 @@ private struct HealthSettingsView: View {
     }
 }
 
+/// Picks the rest sound.
 private struct RestChimePicker: View {
     @Binding var selection: Int
 

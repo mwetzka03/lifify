@@ -5,6 +5,7 @@ import LififyHealth
 import SwiftData
 import SwiftUI
 
+/// The destinations inside Health.
 enum HealthRoute: Hashable {
     case plan(UUID)
     case session(UUID)
@@ -13,6 +14,7 @@ enum HealthRoute: Hashable {
     case abstinence(UUID)
 }
 
+/// The Health tab.
 struct HealthView: View {
     @Environment(\.modelContext) private var context
     @EnvironmentObject private var store: WorkoutStore
@@ -135,6 +137,7 @@ struct HealthView: View {
         }
     }
 
+    /// One past session.
     private func historyRow(_ session: WorkoutSession) -> some View {
         NavigationLink(value: HealthRoute.history(session.id)) {
             HStack(spacing: 12) {
@@ -182,6 +185,7 @@ struct HealthView: View {
         }
     }
 
+    /// One plan card.
     private func planCard(_ plan: WorkoutPlan, sharesRow: Bool) -> some View {
         NavigationLink(value: HealthRoute.plan(plan.id)) {
             VStack(alignment: .leading, spacing: 8) {
@@ -218,6 +222,7 @@ struct HealthView: View {
         }
     }
 
+    /// Describes a plan.
     private func planSummary(_ plan: WorkoutPlan) -> String {
         let exercises = plan.exercises.count
         let sets = plan.exercises.reduce(0) { $0 + $1.sets.count }
@@ -228,6 +233,7 @@ struct HealthView: View {
     }
 }
 
+/// Shows the screen of a route.
 struct HealthRouteScreen: View {
     let route: HealthRoute
 
@@ -253,6 +259,7 @@ struct HealthRouteScreen: View {
     }
 }
 
+/// Opens a session for a plan.
 private struct WorkoutSessionRoute: View {
     @EnvironmentObject private var store: WorkoutStore
     let planID: UUID
@@ -266,6 +273,7 @@ private struct WorkoutSessionRoute: View {
     }
 }
 
+/// Details of a plan.
 struct WorkoutPlanDetailView: View {
     @EnvironmentObject private var store: WorkoutStore
     let planID: UUID
@@ -332,6 +340,7 @@ struct WorkoutPlanDetailView: View {
     }
 }
 
+/// Details of a past session.
 struct WorkoutHistoryView: View {
     @EnvironmentObject private var store: WorkoutStore
     let sessionID: UUID
@@ -402,6 +411,7 @@ struct WorkoutHistoryView: View {
     }
 }
 
+/// All past sessions.
 struct WorkoutHistoryListView: View {
     @EnvironmentObject private var store: WorkoutStore
 
@@ -445,6 +455,7 @@ struct WorkoutHistoryListView: View {
     }
 }
 
+/// The plan card style.
 private struct PlanCardChrome: ViewModifier {
     var sharesRow: Bool
 
@@ -458,6 +469,7 @@ private struct PlanCardChrome: ViewModifier {
     }
 }
 
+/// Marks a personal record.
 struct RecordBadge: View {
     var body: some View {
         HStack(spacing: 4) {

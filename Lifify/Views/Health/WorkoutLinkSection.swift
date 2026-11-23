@@ -5,6 +5,7 @@ import LififyHealth
 import SwiftData
 import SwiftUI
 
+/// Links a plan to challenges and events.
 struct WorkoutLinkSection: View {
     let planID: UUID
     @Query(sort: \ChallengeItem.title) private var challenges: [ChallengeItem]
@@ -77,6 +78,7 @@ struct WorkoutLinkSection: View {
         calendarEvents.map { "\($0.id.uuidString):\($0.linkedChallengeID?.uuidString ?? "-")" }.joined(separator: "|")
     }
 
+    /// Completes the links from the calendar.
     private func closeWorkoutLinks() {
         WorkoutLinkStore.reconcile(calendar: calendarEvents.map {
             WorkoutLinkRules.CalendarLink(eventID: $0.id, challengeID: $0.linkedChallengeID)
@@ -96,6 +98,7 @@ struct WorkoutLinkSection: View {
         return summary.isEmpty ? L("Keine", "None") : summary
     }
 
+    /// One link row.
     private func linkRow(title: String, systemImage: String, value: String) -> some View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: systemImage)
@@ -118,12 +121,14 @@ struct WorkoutLinkSection: View {
     }
 }
 
+/// Which link picker is open.
 private enum LinkPicker: String, Identifiable {
     case challenges
     case events
     var id: String { rawValue }
 }
 
+/// The sheet around a link picker.
 private struct WorkoutLinkPickerSheet: View {
     let kind: LinkPicker
     let planID: UUID
@@ -142,6 +147,7 @@ private struct WorkoutLinkPickerSheet: View {
     }
 }
 
+/// Picks challenges.
 private struct WorkoutChallengePicker: View {
     @Environment(\.dismiss) private var dismiss
     let planID: UUID
@@ -195,6 +201,7 @@ private struct WorkoutChallengePicker: View {
     }
 }
 
+/// Picks events.
 private struct WorkoutEventPicker: View {
     @Environment(\.dismiss) private var dismiss
     let planID: UUID
@@ -247,6 +254,7 @@ private struct WorkoutEventPicker: View {
         }
     }
 
+    /// Describes an event.
     private func eventPickerSubtitle(_ event: ChallengeCalendarEvent) -> String {
         let when = "\(AppDate.numeric(event.startDate)) · \(AppDate.time(event.startDate))"
         guard let challengeID = event.linkedChallengeID,
@@ -258,6 +266,7 @@ private struct WorkoutEventPicker: View {
     }
 }
 
+/// Toggles an ID.
 private func toggle(_ selected: Binding<Set<UUID>>, _ id: UUID) {
     var next = selected.wrappedValue
     if next.contains(id) {
@@ -268,6 +277,7 @@ private func toggle(_ selected: Binding<Set<UUID>>, _ id: UUID) {
     selected.wrappedValue = next
 }
 
+/// One selectable row.
 private func linkChoiceRow(title: String, subtitle: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
     Button(action: action) {
         HStack(spacing: 12) {

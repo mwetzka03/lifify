@@ -7,6 +7,7 @@ import SwiftData
 import SwiftUI
 import UniformTypeIdentifiers
 
+/// A backup file for the system's file exporter.
 struct BackupDocument: FileDocument {
     static var readableContentTypes: [UTType] { [.json] }
     var data: Data
@@ -23,6 +24,7 @@ struct BackupDocument: FileDocument {
     }
 }
 
+/// The parts of the app a backup can hold.
 enum BackupScope: String, CaseIterable {
     case all
     case finance
@@ -51,6 +53,7 @@ enum BackupScope: String, CaseIterable {
     }
 }
 
+/// Exports, restores, and deletes user data.
 @MainActor
 enum BackupService {
     /// The meal list of a Health backup. Photos are not part of any backup.
@@ -85,6 +88,7 @@ enum BackupService {
         LinkTable.backupType, TransferForecastStore.backupType, NoticeTemplateStore.backupType
     ]
 
+    /// Writes the chosen scope as a backup file.
     static func exportData(
         accounts: [Account],
         entries: [LedgerEntry],
@@ -357,11 +361,13 @@ enum BackupService {
         return try encoder.encode(backup)
     }
 
+    /// Restores one backup file.
     @MainActor
     static func restore(data: Data, into context: ModelContext) throws {
         try restore(payloads: [data], into: context)
     }
 
+    /// Restores several files in a safe order and returns their scopes.
     @discardableResult
     @MainActor
     static func restore(payloads: [Data], into context: ModelContext) throws -> [BackupScope] {
@@ -388,6 +394,7 @@ enum BackupService {
         return decoded.map(\.0)
     }
 
+    /// Decodes a backup file.
     private static func decode(_ data: Data) throws -> LififyBackup {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
@@ -396,20 +403,24 @@ enum BackupService {
         return backup
     }
 
+    /// Reads the scope of a backup file.
     static func scope(ofData data: Data) throws -> BackupScope {
         scope(of: try decode(data))
     }
 
+    /// Reads the scope of a decoded backup.
     static func scope(of backup: LififyBackup) -> BackupScope {
         BackupScope(rawValue: backup.records.first { $0.type == "backupScope" }?.strings.first ?? "") ?? .all
     }
 
+    /// Builds the message after a restore.
     static func restoredMessage(_ scopes: [BackupScope]) -> String {
         let names = BackupScope.restoreOrder.filter { scopes.contains($0) }.map(\.restoreName)
         let list = names.isEmpty ? BackupScope.all.restoreName : names.joined(separator: ", ")
         return String(format: L("%@ wiederhergestellt.", "%@ restored."), list)
     }
 
+    /// Deletes user data and keeps the accounts.
     static func deleteUserData(from context: ModelContext) throws {
         let sideStores = try sideStoreKeys(in: context)
         try clear(context, includingAccounts: false)
@@ -426,6 +437,7 @@ enum BackupService {
         LififyNotifications.resetWeekdayClocks()
     }
 
+    /// Deletes finance data and keeps the accounts.
     static func deleteFinanceData(from context: ModelContext) throws {
         let sideStores = try financeSideKeys(in: context)
         try clearFinance(context, includingAccounts: false)
@@ -437,6 +449,7 @@ enum BackupService {
         ClosedPositionStore.reset()
     }
 
+    /// Deletes challenge data.
     static func deleteChallengeData(from context: ModelContext) throws {
         let sideStores = try challengeSideKeys(in: context)
         try clearChallenges(context)
@@ -464,6 +477,7 @@ enum BackupService {
         WorkoutStore.clearStored()
     }
 
+    /// Resets the whole app.
     static func resetApp(from context: ModelContext) throws {
         let sideStores = try sideStoreKeys(in: context)
         try clear(context, includingAccounts: true)
@@ -484,6 +498,7 @@ enum BackupService {
         MealLog.reset()
     }
 
+    /// Replaces all data with a full backup.
     @MainActor
     private static func restoreAll(_ backup: LififyBackup, into context: ModelContext) throws {
         let oldSideStores = try sideStoreKeys(in: context)
@@ -509,6 +524,7 @@ enum BackupService {
         try restoreWorkoutSnapshot(from: backup, required: false)
     }
 
+    /// Replaces finance data with a finance backup.
     @MainActor
     private static func restoreFinance(_ backup: LififyBackup, into context: ModelContext) throws {
         let oldSideStores = try financeSideKeys(in: context)
@@ -543,6 +559,7 @@ enum BackupService {
         BackupDefaults.restore(from: backup.records, scope: .finance)
     }
 
+    /// Replaces challenge data with a challenge backup.
     @MainActor
     private static func restoreChallenges(_ backup: LififyBackup, into context: ModelContext) throws {
         let oldSideStores = try challengeSideKeys(in: context)
@@ -571,6 +588,7 @@ enum BackupService {
         BackupDefaults.restore(from: backup.records, scope: .challenges)
     }
 
+    /// Replaces training and meals with a Health backup.
     private static func restoreTraining(_ backup: LififyBackup, into context: ModelContext) throws {
         try restoreWorkoutSnapshot(from: backup, required: true)
         WorkoutLinkStore.reset()
@@ -585,6 +603,7 @@ enum BackupService {
         NutritionLedger.settle(context: context, sessions: WorkoutStore().sessions)
     }
 
+    /// Returns the records of the given types.
     private static func scopedRecords(
         _ records: [BackupRecord],
         scope: BackupScope,
@@ -609,6 +628,7 @@ enum BackupService {
         }
     }
 
+    /// Restores the training file from a backup.
     private static func restoreWorkoutSnapshot(from backup: LififyBackup, required: Bool) throws {
         guard let text = backup.records.first(where: { $0.type == "workoutSnapshot" })?.strings.first,
               let data = text.data(using: .utf8),
@@ -626,11 +646,13 @@ enum BackupService {
         VariableBudgetAccounts.reset()
     }
 
+    /// Clears challenge links when the backup carries its own.
     private static func clearChallengeLinksIfCarried(by backup: LififyBackup) {
         guard backup.records.contains(where: { $0.type == BackupDefaults.recordType }) else { return }
         LinkKind.challengeRecords.forEach(LinkTable.clear)
     }
 
+    /// Clears all finance side stores.
     private static func resetFinanceSideStores() {
         IncomeAssignmentStore.reset()
         ExpenseGroupAssignmentStore.reset()
@@ -646,6 +668,7 @@ enum BackupService {
         NoticeTemplateStore.reset()
     }
 
+    /// Encodes lots for a backup record.
     private static func lotsJSON(_ lots: [HoldingLot]) -> String {
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
@@ -653,6 +676,7 @@ enum BackupService {
         return String(decoding: data, as: UTF8.self)
     }
 
+    /// Copies backed-up values onto an account.
     private static func applyAccount(_ record: BackupRecord, to account: Account) {
         func string(_ index: Int) -> String { record.strings.indices.contains(index) ? record.strings[index] : "" }
         account.name = string(0)
@@ -664,6 +688,7 @@ enum BackupService {
         if record.uuids.indices.contains(0) { account.parentAccountID = record.uuids[0] }
     }
 
+    /// Restores one finance link.
     private static func insertLink(_ record: BackupRecord) {
         func uuid(_ index: Int) -> UUID? { record.uuids.indices.contains(index) ? record.uuids[index] : nil }
         func bool(_ index: Int) -> Bool { record.booleans.indices.contains(index) ? record.booleans[index] : false }
@@ -681,6 +706,7 @@ enum BackupService {
         }
     }
 
+    /// Deletes all database rows that a backup replaces.
     @MainActor
     private static func clear(_ context: ModelContext, includingAccounts: Bool) throws {
         try clearFinance(context, includingAccounts: includingAccounts)
@@ -688,6 +714,7 @@ enum BackupService {
         try context.fetch(FetchDescriptor<SavedArticle>()).forEach { context.delete($0) }
     }
 
+    /// Deletes the finance rows.
     @MainActor
     private static func clearFinance(_ context: ModelContext, includingAccounts: Bool) throws {
         try context.fetch(FetchDescriptor<TransactionSplit>()).forEach { context.delete($0) }
@@ -706,6 +733,7 @@ enum BackupService {
         try context.fetch(FetchDescriptor<PortfolioHolding>()).forEach { context.delete($0) }
     }
 
+    /// Deletes the challenge rows and simulated-day records.
     @MainActor
     private static func clearChallenges(_ context: ModelContext) throws {
         try context.fetch(FetchDescriptor<ChallengeCalendarEvent>()).forEach { context.delete($0) }
@@ -719,6 +747,7 @@ enum BackupService {
         LinkTable.clear(.simulatedEffects)
     }
 
+    /// The identifiers whose side data must go with their rows.
     private struct SideStoreKeys {
         var iconIDs: [UUID] = []
         var reminderIdentifiers: [String] = []
@@ -727,6 +756,7 @@ enum BackupService {
         var rewardIDs: [UUID] = []
     }
 
+    /// Collects the identifiers of all rows.
     private static func sideStoreKeys(in context: ModelContext) throws -> SideStoreKeys {
         var keys = try financeSideKeys(in: context)
         let challenges = try challengeSideKeys(in: context)
@@ -737,6 +767,7 @@ enum BackupService {
         return keys
     }
 
+    /// Collects the identifiers of finance rows.
     private static func financeSideKeys(in context: ModelContext) throws -> SideStoreKeys {
         var keys = SideStoreKeys()
         keys.iconIDs += try context.fetch(FetchDescriptor<LedgerEntry>()).map(\.id)
@@ -745,6 +776,7 @@ enum BackupService {
         return keys
     }
 
+    /// Collects the identifiers of challenge rows.
     private static func challengeSideKeys(in context: ModelContext) throws -> SideStoreKeys {
         var keys = SideStoreKeys()
         let challenges = try context.fetch(FetchDescriptor<ChallengeItem>())
@@ -759,6 +791,7 @@ enum BackupService {
         return keys
     }
 
+    /// Removes the side data of the collected identifiers.
     private static func clearSideStores(_ keys: SideStoreKeys) {
         keys.iconIDs.forEach {
             IconPreferenceStore.remove(for: $0)
@@ -774,6 +807,7 @@ enum BackupService {
         keys.rewardIDs.forEach { RewardPolicyStore.remove(for: $0) }
     }
 
+    /// Inserts one backed-up row.
     @MainActor
     private static func insert(_ r: BackupRecord, into context: ModelContext) {
         func string(_ index: Int) -> String { r.strings.indices.contains(index) ? r.strings[index] : "" }

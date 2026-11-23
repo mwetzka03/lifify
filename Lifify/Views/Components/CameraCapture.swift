@@ -30,6 +30,7 @@ struct CameraCapture: UIViewControllerRepresentable {
         Coordinator(onCapture: onCapture, onCancel: onCancel)
     }
 
+    /// Passes the taken photo back.
     final class Coordinator: NSObject, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
         private let onCapture: @MainActor (Data) -> Void
         private let onCancel: @MainActor () -> Void
@@ -61,7 +62,9 @@ struct CameraCapture: UIViewControllerRepresentable {
     }
 }
 
+/// Saving meal photos.
 extension MealCapture {
+    /// Saves a photo to the library.
     static func saveToLibrary(_ image: UIImage) {
         PHPhotoLibrary.requestAuthorization(for: .addOnly) { status in
             guard status == .authorized else { return }

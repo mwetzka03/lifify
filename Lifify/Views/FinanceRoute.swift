@@ -4,6 +4,7 @@ import LififyChallenges
 import LififyHealth
 import SwiftUI
 
+/// The destinations inside Finance.
 enum FinanceRoute: Hashable, Codable {
     case income
     case expenses
@@ -21,6 +22,7 @@ enum FinanceRoute: Hashable, Codable {
     case portfolioShares
 }
 
+/// One link to a finance area.
 struct FinanceMoreLink: Identifiable, Equatable {
     var title: String
     var symbol: String
@@ -47,6 +49,7 @@ enum FinanceMoreDirectory {
         ]
     }
 
+    /// Returns the font of a link.
     static func font(_ name: String) -> Font {
         switch name {
         case "footnote": .footnote
@@ -58,12 +61,14 @@ enum FinanceMoreDirectory {
     }
 }
 
+/// Labels of the finance tiles.
 enum FinanceTileCopy {
     static var shopping: String { L("Einkaufszettel", "Shopping list") }
     static var applied: String { L("Angewendet", "Applied") }
     static var planned: String { L("Geplant", "Planned") }
 }
 
+/// Shows the screen of a route.
 struct FinanceRouteScreen: View {
     let route: FinanceRoute
 

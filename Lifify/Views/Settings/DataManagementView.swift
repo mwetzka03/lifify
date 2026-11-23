@@ -6,6 +6,7 @@ import SwiftData
 import SwiftUI
 import UniformTypeIdentifiers
 
+/// Backups, imports, and deletion.
 struct DataManagementView: View {
     @Environment(\.modelContext) private var context
     @Query(sort: \Account.name) private var accounts: [Account]
@@ -169,6 +170,7 @@ struct DataManagementView: View {
         }
     }
 
+    /// Writes a backup and opens the exporter.
     private func createBackup(_ scope: BackupScope) {
         do {
             let snapshot = try workouts.exportSnapshotData()
@@ -203,6 +205,7 @@ struct DataManagementView: View {
         }
     }
 
+    /// Runs the confirmed deletion.
     private func runDestructiveAction() {
         do {
             switch destructiveAction {
@@ -239,6 +242,7 @@ struct DataManagementView: View {
 
 }
 
+/// The bank import section.
 struct FinanceImportSettings: View {
     @ObservedObject var viewModel: DataImportViewModel
     @Binding var importingBank: Bool
@@ -300,6 +304,7 @@ struct FinanceImportSettings: View {
     }
 }
 
+/// The deletions that need confirmation.
 enum DestructiveAction {
     case deleteFinance
     case deleteHealth

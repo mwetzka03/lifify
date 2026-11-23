@@ -5,6 +5,7 @@ import LififyHealth
 import SwiftData
 import SwiftUI
 
+/// Income or expenses of the selected scope.
 struct FilteredLedgerView: View {
     let kind: LedgerKind
     @Environment(\.modelContext) private var context
@@ -246,6 +247,7 @@ struct FilteredLedgerView: View {
         }
     }
 
+    /// A planned item with its actions.
     private func forecastPlanButton(_ item: ForecastListItem) -> some View {
         Button {
             selectedForecast = item
@@ -307,6 +309,7 @@ struct FilteredLedgerView: View {
         accounts.filter { $0.kind != .portfolio && $0.kind != .savingsGroup }.map(\.id)
     }
 
+    /// Opens the editor of a planned item.
     private func editPlan(_ item: ForecastListItem) {
         switch item.kind {
         case .income(let forecast):
@@ -322,6 +325,7 @@ struct FilteredLedgerView: View {
         }
     }
 
+    /// One planned row.
     private func forecastPlanRow(_ item: ForecastListItem) -> some View {
         let savings = item.fixedCostID != nil && SavingsPlanFixedCosts.isManagedName(item.title)
         let category: BookingCategory
@@ -365,6 +369,7 @@ struct FilteredLedgerView: View {
         }
     }
 
+    /// Returns a planned amount's color.
     private func forecastAmountColor(category: BookingCategory, paint: BookingPaint) -> Color {
         switch category {
         case .income: return .green
@@ -381,6 +386,7 @@ struct FilteredLedgerView: View {
         return .combined
     }
 
+    /// Returns a row's category.
     private func rowCategory(_ row: FlowRow) -> BookingCategory {
         BookingClassification.category(
             of: row.entry,
@@ -403,6 +409,7 @@ struct FilteredLedgerView: View {
         return hasher.finalize()
     }
 
+    /// Recalculates the rows outside the render.
     private func refreshRows() async {
         let token = ledgerToken
         await Task.yield()
@@ -428,6 +435,7 @@ struct FilteredLedgerView: View {
     }
 }
 
+/// One row of the list.
 private struct FlowRow: Identifiable {
     var id: String
     var entry: LedgerEntry

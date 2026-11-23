@@ -13,11 +13,13 @@ enum AppTextRole: String, Equatable, CaseIterable {
     case value
 }
 
+/// Shared layout values.
 enum AppChrome {
     static let version = AppVersion.current
 
     /// Screens that use the painted canvas. Finance keeps its own card arrangement.
 
+    /// The font of a text role.
     static func font(_ role: AppTextRole) -> Font {
         switch role {
         case .screenTitle: .title2.weight(.semibold)
@@ -29,13 +31,16 @@ enum AppChrome {
     }
 }
 
+/// One tab of the app.
 struct AppTab: Equatable {
     var title: String
     var symbol: String
     var tag: Int
 }
 
+/// The app's tabs.
 enum AppTabs {
+    /// Lists the tabs.
     static func items() -> [AppTab] {
         [
             AppTab(title: L("Home", "Home"), symbol: "house", tag: 0),
@@ -47,7 +52,9 @@ enum AppTabs {
     }
 }
 
+/// The sections of the Health tab.
 enum HealthScreen {
+    /// Lists the section titles.
     static func sectionTitles() -> [String] {
         [L("Training", "Training"), L("Ernährung", "Nutrition")]
     }
@@ -63,6 +70,7 @@ enum DepotLoad {
     }
 }
 
+/// Labels for creating challenges.
 enum ChallengeCreateCopy {
     static var abstinence: String { L("Abstinenz anlegen", "Create abstinence") }
     static var sport: String { L("Sport anlegen", "Create sport") }
@@ -92,6 +100,7 @@ enum CardBoard {
     static let toolbarMinHeight: CGFloat = 36
     static let toolbarVerticalPadding: CGFloat = 3
 
+    /// The columns of the challenge grid.
     static func challengeColumns() -> [GridItem] {
         Array(
             repeating: GridItem(.flexible(), spacing: 10, alignment: .top),
@@ -106,6 +115,7 @@ enum CardBoard {
         return count % challengeColumnCount != 0 && index == count - 1
     }
 
+    /// Finds the symbol of a Health title.
     static func healthSymbol(matching title: String) -> String {
         let titles = HealthScreen.sectionTitles()
         if titles.count > 1, title == titles[1] { return "fork.knife" }
@@ -113,18 +123,23 @@ enum CardBoard {
     }
 }
 
+/// Texts on challenge cards.
 enum ChallengeCardCopy {
+    /// Formats minutes.
     static func minutesLabel(_ minutes: Int) -> String {
         L("\(minutes) Minuten", "\(minutes) minutes")
     }
 
+    /// Builds the schedule line.
     static func scheduleLine(recurrence: String, minutes: Int?) -> String {
         guard let minutes, minutes > 0 else { return recurrence }
         return "\(recurrence) - \(minutesLabel(minutes))"
     }
 }
 
+/// The titles of the account filter.
 enum AccountBubbleBar {
+    /// Lists the account filter's titles.
     static func titles(accountNames: [String], includesDepot: Bool) -> [String] {
         var titles = [L("Alle Konten", "All accounts")]
         titles.append(contentsOf: accountNames)
@@ -133,12 +148,15 @@ enum AccountBubbleBar {
     }
 }
 
+/// The streak thresholds shown as bubbles.
 enum FactorBoard {
+    /// Lists the bubble labels.
     static func streakBubbles() -> [String] {
         StreakSettings.thresholds.map { "\($0)×" }
     }
 }
 
+/// A selectable bubble.
 struct ChoiceBubble: View {
     let title: String
     let selected: Bool
@@ -195,12 +213,14 @@ struct EvenBubbleRow: Layout {
         }
     }
 
+    /// One line of the flow layout.
     private struct Line {
         var indexes: [Int] = []
         var used: CGFloat = 0
         var height: CGFloat = 0
     }
 
+    /// Breaks the subviews into lines.
     private func lines(in width: CGFloat, subviews: Subviews) -> [Line] {
         var lines: [Line] = []
         var line = Line()
@@ -221,6 +241,7 @@ struct EvenBubbleRow: Layout {
     }
 }
 
+/// A toggle row in More.
 struct MoreSettingsToggle: View {
     @Binding var isExpanded: Bool
 
@@ -241,13 +262,16 @@ struct MoreSettingsToggle: View {
     }
 }
 
+/// One entry of the settings list.
 struct SettingsDirectoryRow: Identifiable, Equatable {
     var title: String
     var symbol: String
     var id: String { symbol }
 }
 
+/// The entries of the settings list.
 enum SettingsDirectory {
+    /// Lists the entries.
     static func rows() -> [SettingsDirectoryRow] {
         [
             SettingsDirectoryRow(title: L("Nutzereinstellungen", "User settings"), symbol: "person.fill"),

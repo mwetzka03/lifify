@@ -4,6 +4,7 @@ import LififyChallenges
 import LififyHealth
 import SwiftUI
 
+/// Edits a training plan.
 struct WorkoutEditorView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var store: WorkoutStore
@@ -117,6 +118,7 @@ struct WorkoutEditorView: View {
         }
     }
 
+    /// An exercise's header.
     private func exerciseHeader(_ exercise: WorkoutPlanExercise) -> some View {
         HStack(alignment: .center, spacing: 12) {
             ExerciseArtwork(code: exercise.code, name: exercise.name)
@@ -133,6 +135,7 @@ struct WorkoutEditorView: View {
         }
     }
 
+    /// The rest controls.
     private func restControls(_ exercise: WorkoutPlanExercise) -> some View {
         HStack {
             Text(L("Pause", "Rest"))
@@ -162,6 +165,7 @@ struct WorkoutEditorView: View {
         .foregroundStyle(.secondary)
     }
 
+    /// One set row.
     private func setRow(exercise: WorkoutPlanExercise, index: Int, set: WorkoutPlanSet) -> some View {
         HStack(spacing: 8) {
             Text("\(index + 1)")
@@ -207,6 +211,7 @@ struct WorkoutEditorView: View {
         }
     }
 
+    /// The rest line between sets.
     private func restDivider(_ seconds: Int) -> some View {
         HStack(spacing: 8) {
             Rectangle().fill(Color.accentColor.opacity(0.45)).frame(height: 2)
@@ -219,6 +224,7 @@ struct WorkoutEditorView: View {
         .padding(.vertical, 2)
     }
 
+    /// Binds a set's weight text.
     private func weightBinding(_ id: UUID) -> Binding<String> {
         Binding(
             get: { weightText[id] ?? "" },
@@ -226,6 +232,7 @@ struct WorkoutEditorView: View {
         )
     }
 
+    /// Binds a set's repetitions text.
     private func repsBinding(_ id: UUID) -> Binding<String> {
         Binding(
             get: { repsText[id] ?? "" },
@@ -233,6 +240,7 @@ struct WorkoutEditorView: View {
         )
     }
 
+    /// Adds an exercise.
     private func add(_ exercise: WorkoutExerciseInfo) {
         let sets = (0..<3).map { _ in WorkoutPlanSet() }
         for set in sets {
@@ -244,6 +252,7 @@ struct WorkoutEditorView: View {
         )
     }
 
+    /// Adds a set.
     private func addSet(to exerciseID: UUID) {
         guard let index = plan.exercises.firstIndex(where: { $0.id == exerciseID }) else { return }
         let previous = plan.exercises[index].sets.last
@@ -253,16 +262,19 @@ struct WorkoutEditorView: View {
         plan.exercises[index].sets.append(set)
     }
 
+    /// Removes a set.
     private func removeSet(exerciseID: UUID, setID: UUID) {
         guard let index = plan.exercises.firstIndex(where: { $0.id == exerciseID }) else { return }
         plan.exercises[index].sets.removeAll { $0.id == setID }
     }
 
+    /// Changes the rest time.
     private func changeRest(_ exerciseID: UUID, by delta: Int) {
         guard let index = plan.exercises.firstIndex(where: { $0.id == exerciseID }) else { return }
         plan.exercises[index].restSeconds = min(600, max(0, plan.exercises[index].restSeconds + delta))
     }
 
+    /// Moves an exercise.
     private func move(_ exerciseID: UUID, by delta: Int) {
         guard let index = plan.exercises.firstIndex(where: { $0.id == exerciseID }) else { return }
         let next = index + delta
@@ -270,6 +282,7 @@ struct WorkoutEditorView: View {
         plan.exercises.swapAt(index, next)
     }
 
+    /// Saves the plan.
     private func save() {
         for exerciseIndex in plan.exercises.indices {
             for setIndex in plan.exercises[exerciseIndex].sets.indices {

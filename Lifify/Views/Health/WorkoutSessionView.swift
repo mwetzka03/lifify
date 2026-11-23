@@ -6,6 +6,7 @@ import SwiftData
 import SwiftUI
 import UIKit
 
+/// A running training session.
 struct WorkoutSessionView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
@@ -151,6 +152,7 @@ struct WorkoutSessionView: View {
         draft.exercises.contains { exercise in exercise.sets.contains(where: \.completed) }
     }
 
+    /// An exercise's header.
     private func exerciseHeader(_ exercise: WorkoutSessionExercise) -> some View {
         HStack(alignment: .center, spacing: 12) {
             ExerciseArtwork(code: exercise.code, name: exercise.name)
@@ -165,6 +167,7 @@ struct WorkoutSessionView: View {
         }
     }
 
+    /// The suggested weight.
     private func suggestion(index: Int, exercise: WorkoutSessionExercise) -> some View {
         let baseWeight = exercise.sets.first?.targetWeightKg ?? 0
         let baseReps = exercise.sets.first?.targetReps ?? 0
@@ -203,6 +206,7 @@ struct WorkoutSessionView: View {
         .foregroundStyle(.secondary)
     }
 
+    /// One set row.
     private func setRow(
         exerciseIndex: Int,
         exercise: WorkoutSessionExercise,
@@ -267,6 +271,7 @@ struct WorkoutSessionView: View {
         }
     }
 
+    /// The rest line between sets.
     private func restDivider(_ seconds: Int) -> some View {
         HStack(spacing: 8) {
             Rectangle().fill(Color.accentColor.opacity(0.45)).frame(height: 2)
@@ -278,6 +283,7 @@ struct WorkoutSessionView: View {
         }
     }
 
+    /// Binds a set's weight text.
     private func weightBinding(_ id: UUID) -> Binding<String> {
         Binding(get: { weightText[id] ?? "" }, set: { newValue in
             weightText[id] = newValue
@@ -289,10 +295,12 @@ struct WorkoutSessionView: View {
         })
     }
 
+    /// Binds a set's repetitions text.
     private func repsBinding(_ id: UUID) -> Binding<String> {
         Binding(get: { repsText[id] ?? "" }, set: { repsText[id] = $0.filter(\.isNumber) })
     }
 
+    /// Prefills the weights used most.
     private func applyFrequentWeights() {
         for exerciseIndex in draft.exercises.indices {
             let code = draft.exercises[exerciseIndex].code
@@ -309,6 +317,7 @@ struct WorkoutSessionView: View {
         }
     }
 
+    /// Deletes an exercise.
     private func deleteExercise(_ id: UUID) {
         if let exercise = draft.exercises.first(where: { $0.id == id }) {
             for set in exercise.sets {
@@ -323,6 +332,7 @@ struct WorkoutSessionView: View {
         draft.exercises.removeAll { $0.id == id }
     }
 
+    /// Deletes a set.
     private func deleteSet(exerciseID: UUID, setID: UUID) {
         guard let exerciseIndex = draft.exercises.firstIndex(where: { $0.id == exerciseID }) else { return }
         draft.exercises[exerciseIndex].sets.removeAll { $0.id == setID }
@@ -334,6 +344,7 @@ struct WorkoutSessionView: View {
         }
     }
 
+    /// Applies a weight to the following sets.
     private func applyWeight(_ weightKg: Double, exerciseIndex: Int) {
         for setIndex in draft.exercises[exerciseIndex].sets.indices {
             guard !draft.exercises[exerciseIndex].sets[setIndex].completed else { continue }
@@ -342,6 +353,7 @@ struct WorkoutSessionView: View {
         }
     }
 
+    /// Applies repetitions to the following sets.
     private func applyReps(_ reps: Int, exerciseIndex: Int) {
         for setIndex in draft.exercises[exerciseIndex].sets.indices {
             guard !draft.exercises[exerciseIndex].sets[setIndex].completed else { continue }
@@ -350,6 +362,7 @@ struct WorkoutSessionView: View {
         }
     }
 
+    /// Toggles a set and starts its rest.
     private func toggle(exerciseIndex: Int, setIndex: Int) {
         commitTexts()
         draft.exercises[exerciseIndex].sets[setIndex].completed.toggle()
@@ -362,6 +375,7 @@ struct WorkoutSessionView: View {
         }
     }
 
+    /// Starts the rest timer.
     private func startRest(setID: UUID, seconds: Int) {
         guard seconds > 0 else {
             restEndsAt = nil
@@ -374,6 +388,7 @@ struct WorkoutSessionView: View {
         restToken = UUID()
     }
 
+    /// Plays the chime when the rest ends.
     private func chimeWhenRestEnds() async {
         guard let end = restEndsAt else { return }
         let delay = end.timeIntervalSinceNow
@@ -384,6 +399,7 @@ struct WorkoutSessionView: View {
         RestChime.play()
     }
 
+    /// Stores typed values.
     private func commitTexts() {
         for exerciseIndex in draft.exercises.indices {
             for setIndex in draft.exercises[exerciseIndex].sets.indices {
@@ -398,6 +414,7 @@ struct WorkoutSessionView: View {
         }
     }
 
+    /// Asks before leaving a running session.
     private func requestClose() {
         commitTexts()
         if hasCompletedSet {
@@ -407,6 +424,7 @@ struct WorkoutSessionView: View {
         }
     }
 
+    /// Saves the session and updates the calendar.
     private func finish() {
         commitTexts()
         guard hasCompletedSet else { return }
@@ -430,6 +448,7 @@ struct WorkoutSessionView: View {
     }
 }
 
+/// The result shown after a session.
 private struct WorkoutFinishSummary: Identifiable {
     let id = UUID()
     let phrase: String
@@ -438,6 +457,7 @@ private struct WorkoutFinishSummary: Identifiable {
     let records: [WorkoutPersonalRecord]
 }
 
+/// The sheet after a session.
 private struct WorkoutFinishSheet: View {
     @Environment(\.dismiss) private var dismiss
     let summary: WorkoutFinishSummary
@@ -488,10 +508,12 @@ private struct WorkoutFinishSheet: View {
     }
 }
 
+/// Blocks the swipe back during a session.
 private struct WorkoutSwipeBackLock: UIViewControllerRepresentable {
     func makeUIViewController(context: Context) -> Controller { Controller() }
     func updateUIViewController(_ controller: Controller, context: Context) {}
 
+    /// Turns the back gesture off while visible.
     final class Controller: UIViewController {
         override func loadView() {
             let view = UIView()
@@ -518,6 +540,7 @@ private struct WorkoutSwipeBackLock: UIViewControllerRepresentable {
     }
 }
 
+/// The running rest timer.
 private struct RestCountdown: View {
     let endsAt: Date
     let total: Int

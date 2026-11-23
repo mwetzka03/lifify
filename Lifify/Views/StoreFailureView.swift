@@ -45,6 +45,7 @@ struct StoreFailureView: View {
         }
     }
 
+    /// Restores the chosen backup.
     private func restore(_ result: Result<URL, Error>) {
         do {
             let url = try result.get()

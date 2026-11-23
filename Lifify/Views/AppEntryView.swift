@@ -5,6 +5,7 @@ import LififyHealth
 import SwiftData
 import SwiftUI
 
+/// Shows setup first and the main app afterward.
 struct AppEntryView: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var accounts: [Account]

@@ -5,6 +5,7 @@ import LififyHealth
 import SwiftData
 import SwiftUI
 
+/// The shopping list.
 struct ShoppingListView: View {
     @Environment(\.modelContext) private var context
     @EnvironmentObject private var filters: FinanceFilterStore
@@ -126,10 +127,12 @@ struct ShoppingListView: View {
         }
     }
 
+    /// Says whether an item is checked.
     private func isChecked(_ item: ShoppingItem) -> Bool {
         item.isPurchased || !FinanceService.shoppingBookings(for: item.id, entries: entries).isEmpty
     }
 
+    /// Formats an item's amount.
     private func rowAmount(_ item: ShoppingItem) -> String {
         let bookings = FinanceService.shoppingBookings(for: item.id, entries: entries, period: period)
         let cents = bookings.isEmpty ? item.amountCents : bookings.reduce(0) { $0 + abs($1.amountCents) }
@@ -137,12 +140,14 @@ struct ShoppingListView: View {
         return Money.string(cents: cents)
     }
 
+    /// Toggles an item.
     private func togglePurchased(_ item: ShoppingItem) {
         guard FinanceService.shoppingBookings(for: item.id, entries: entries).isEmpty else { return }
         item.isPurchased.toggle()
         try? context.save()
     }
 
+    /// Marks items with a booking as purchased.
     private func markAssignedPurchased() {
         var changed = false
         for item in items where !item.isPurchased && !FinanceService.shoppingBookings(for: item.id, entries: entries).isEmpty {
@@ -153,6 +158,7 @@ struct ShoppingListView: View {
     }
 }
 
+/// Details of an item.
 struct ShoppingItemDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @Query(sort: \LedgerEntry.date, order: .reverse) private var entries: [LedgerEntry]
@@ -224,6 +230,7 @@ struct ShoppingItemDetailView: View {
     }
 }
 
+/// Creates or edits an item.
 struct ShoppingItemForm: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
@@ -271,6 +278,7 @@ struct ShoppingItemForm: View {
         }
     }
 
+    /// Formats an amount.
     private static func amountText(_ cents: Int) -> String {
         let formatter = NumberFormatter()
         formatter.locale = AppDate.locale
@@ -280,6 +288,7 @@ struct ShoppingItemForm: View {
         return formatter.string(from: NSNumber(value: Double(cents) / 100)) ?? ""
     }
 
+    /// Saves the item.
     private func save() {
         guard !name.isEmpty else { return }
         let cents = abs(Money.cents(from: amount) ?? 0)

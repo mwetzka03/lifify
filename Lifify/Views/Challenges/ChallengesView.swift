@@ -5,6 +5,7 @@ import LififyHealth
 import SwiftData
 import SwiftUI
 
+/// The challenge board with groups, pins, and history.
 struct ChallengesView: View {
     @Environment(\.modelContext) private var context
     @Query(sort: \ChallengeItem.createdAt, order: .reverse) private var challenges: [ChallengeItem]
@@ -132,6 +133,7 @@ struct ChallengesView: View {
         .onChange(of: developerMode) { commitSimulatedDay() }
     }
 
+    /// Commits freezes and bonuses for the shown day.
     private func commitSimulatedDay() {
         ChallengeService.commitFreezes(for: challenges, completions: completions, events: calendarEvents, on: AppClock.now)
         AbstinenceService.settle(context: context)
@@ -176,6 +178,7 @@ struct ChallengesView: View {
         .fixedSize(horizontal: true, vertical: false)
     }
 
+    /// A round toolbar button.
     @ViewBuilder
     private func glassToolbarButton<Label: View>(
         action: @escaping () -> Void,
@@ -272,6 +275,7 @@ struct ChallengesView: View {
         )
     }
 
+    /// The title of a section.
     private func sectionTitle(_ section: ChallengeSections.Section) -> String {
         switch section.id {
         case "abstinence": return L("Abstinenz", "Abstinence")
@@ -427,6 +431,7 @@ struct ChallengesView: View {
         }
     }
 
+    /// A group with its members.
     private func groupCard(_ group: ChallengeGroup) -> some View {
         let _ = groupPinRevision
         let listed = listedGroupMembers(group)
@@ -507,6 +512,7 @@ struct ChallengesView: View {
         .appGlassCard(radius: 18)
     }
 
+    /// One member inside a group.
     @ViewBuilder
     private func groupMemberCard(_ challenge: ChallengeItem) -> some View {
         if isFinished(challenge), challenge.recurrence == .none {
@@ -546,6 +552,7 @@ struct ChallengesView: View {
         }
     }
 
+    /// The group's pin button.
     private func groupPinButton(_ group: ChallengeGroup) -> some View {
         let pinned = ChallengeGroupPinStore.contains(group.id)
         return Button {
@@ -558,6 +565,7 @@ struct ChallengesView: View {
         }
     }
 
+    /// One category section.
     private func challengeSection(_ section: ChallengeSections.Section) -> some View {
         let pinned = Set(ChallengePinStore.ids())
         let visible = Dictionary(uniqueKeysWithValues: filteredChallenges.map { ($0.id, $0) })
@@ -571,6 +579,7 @@ struct ChallengesView: View {
         }
     }
 
+    /// The cards of a section in pairs.
     private func sectionStack(_ section: ChallengeSections.Section, cards: [ChallengeItem]) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             if section.showsTitle, !cards.isEmpty {
@@ -598,6 +607,7 @@ struct ChallengesView: View {
         }
     }
 
+    /// The button that creates a challenge in a section.
     private func createChallengeButton(_ category: ChallengeCategory) -> some View {
         Button {
             createCategory = category
@@ -613,6 +623,7 @@ struct ChallengesView: View {
         .buttonStyle(.plain)
     }
 
+    /// The card that fits a challenge's category.
     @ViewBuilder
     private func challengeCard(_ challenge: ChallengeItem) -> some View {
         if challenge.category == .abstinence {
@@ -622,6 +633,7 @@ struct ChallengesView: View {
         }
     }
 
+    /// One abstinence run in the history.
     private func abstinenceHistoryRow(_ span: AbstinenceHistorySpan) -> some View {
         let challenge = challenges.first { $0.id == span.challengeID }
         let range = span.dayCount <= 1
@@ -658,6 +670,7 @@ struct ChallengesView: View {
         }
     }
 
+    /// One finished challenge in the history.
     private func historyRow(_ entry: ChallengeHistoryEntry) -> some View {
         let challenge = challenges.first { $0.id == entry.challengeID }
         return Button {
@@ -699,6 +712,7 @@ struct ChallengesView: View {
         calendarEvents.filter(\.isReminderSuggestion)
     }
 
+    /// Says whether a one-time challenge is done.
     private func isFinished(_ challenge: ChallengeItem) -> Bool {
         !ChallengeActivity.staysOnActiveList(
             recurrence: challenge.recurrence,
@@ -706,6 +720,7 @@ struct ChallengesView: View {
         )
     }
 
+    /// Lists a group's members, open ones first.
     private func listedGroupMembers(_ group: ChallengeGroup) -> [ChallengeItem] {
         challenges
             .filter { $0.belongs(to: group.id) && ChallengeGroupBoard.keepsFinishedMember(archived: $0.isArchived) }
@@ -717,10 +732,12 @@ struct ChallengesView: View {
             }
     }
 
+    /// Lists a group's open members.
     private func activeGroupMembers(_ group: ChallengeGroup) -> [ChallengeItem] {
         listedGroupMembers(group).filter { !isFinished($0) }
     }
 
+    /// The card that opens an abstinence challenge.
     private func abstinenceLink(_ challenge: ChallengeItem) -> some View {
         NavigationLink {
             AbstinenceDetailView(challengeID: challenge.id)
@@ -753,6 +770,7 @@ struct ChallengesView: View {
         }
     }
 
+    /// Checks a challenge off, asking for minutes when a slot finishes.
     private func finish(_ challenge: ChallengeItem, on date: Date) {
         if let minutes = ChallengeFinish.suggestedMinutes(
             challenge: challenge,
@@ -774,6 +792,7 @@ struct ChallengesView: View {
         )
     }
 
+    /// The pin button of a challenge.
     private func pinButton(_ challenge: ChallengeItem) -> some View {
         let pinned = ChallengePinStore.contains(challenge.id)
         let full = ChallengePinStore.ids().count >= ChallengePinStore.limit
@@ -788,6 +807,7 @@ struct ChallengesView: View {
         .disabled(!pinned && full)
     }
 
+    /// The card of a regular challenge.
     private func regularChallengeRow(_ challenge: ChallengeItem) -> some View {
         let _ = pinRevision
         let _ = workoutLinkRevision
@@ -853,6 +873,7 @@ struct ChallengesView: View {
         }
     }
 
+    /// Deletes a challenge with its completions and links.
     private func deleteChallenge(_ challenge: ChallengeItem) {
         for completion in completions.filter({ $0.challengeID == challenge.id }) {
             transactions.filter { $0.referenceID == completion.id }.forEach(context.delete)
@@ -873,6 +894,7 @@ struct ChallengesView: View {
         Task { await LififyNotifications.cancel(idPrefix: challengeID) }
     }
 
+    /// Describes a group's linked event.
     private func groupCalendarCaption(_ group: ChallengeGroup) -> String? {
         let events = calendarEvents
             .filter { !$0.isReminderSuggestion && $0.linkedChallengeGroupID == group.id }
@@ -884,6 +906,7 @@ struct ChallengesView: View {
         )
     }
 
+    /// Explains what deleting a group does.
     private func groupDeleteMessage(_ group: ChallengeGroup) -> String {
         let calendar = calendarEvents.contains { !$0.isReminderSuggestion && $0.linkedChallengeGroupID == group.id }
         if calendar {
@@ -898,6 +921,7 @@ struct ChallengesView: View {
         )
     }
 
+    /// Deletes a group, optionally with its challenges.
     private func removeGroup(_ group: ChallengeGroup, challengesToo: Bool) {
         let members = challenges.filter { $0.belongs(to: group.id) }
         let memberIDs = Set(members.map(\.id))
@@ -925,6 +949,7 @@ struct ChallengesView: View {
         try? context.save()
     }
 
+    /// Schedule, calendar link, coins, and streak of a card.
     private func challengeMeta(_ challenge: ChallengeItem, note: String? = nil, doneNote: String? = nil) -> some View {
         let _ = streakRevision
         let _ = developerMode
@@ -995,6 +1020,7 @@ struct ChallengesView: View {
         AppLook.accent(AppAppearance(scheme), palette: AppPalette.resolved(paletteRaw)).color()
     }
 
+    /// The schedule line with its minutes highlighted.
     @ViewBuilder
     private func scheduleText(_ schedule: String, minutes: Int?) -> some View {
         let marker = " - "
@@ -1012,6 +1038,7 @@ struct ChallengesView: View {
     }
 }
 
+/// The list filter of the board.
 private enum ChallengeFilter: String, CaseIterable, Identifiable {
     case all
     case groups
@@ -1026,6 +1053,7 @@ private enum ChallengeFilter: String, CaseIterable, Identifiable {
     }
 }
 
+/// Creates or edits a challenge.
 struct ChallengeForm: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
@@ -1299,6 +1327,7 @@ struct ChallengeForm: View {
         .sorted { $0.startDate < $1.startDate }
     }
 
+    /// Leaves the group that came from an event.
     private func separateEventGroup() {
         guard !separatedEventGroup, let existing else { return }
         guard let eventID = linkedEventID else {
@@ -1310,6 +1339,7 @@ struct ChallengeForm: View {
         groupID = existing.groupIDs.first { $0 != event.linkedChallengeGroupID }
     }
 
+    /// Places the challenge on the chosen event.
     private func assignEvent(_ challenge: ChallengeItem) {
         if let eventID = linkedEventID, let event = formEvents.first(where: { $0.id == eventID }) {
             let existingMembers = ChallengeTimeStore.memberIDs(for: eventID).filter { $0 != challenge.id }
@@ -1355,6 +1385,7 @@ struct ChallengeForm: View {
         }
     }
 
+    /// Validates and saves the challenge.
     @MainActor
     private func save() async {
         guard !title.isEmpty else { return }
@@ -1467,6 +1498,7 @@ struct ChallengeForm: View {
     }
 }
 
+/// Picks the weekdays of a weekly challenge.
 private struct WeekdayPicker: View {
     @Binding var selection: Set<Int>
     private var labels: [String] { Calendar.current.shortWeekdaySymbols }
@@ -1489,6 +1521,7 @@ private struct WeekdayPicker: View {
     }
 }
 
+/// Creates or edits a group.
 private struct ChallengeGroupForm: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
@@ -1591,12 +1624,14 @@ private struct ChallengeGroupForm: View {
         }
     }
 
+    /// Loads the group's members.
     private func loadMembers() {
         guard !loadedMembers, let existingID, !challenges.isEmpty else { return }
         loadedMembers = true
         selected = Set(challenges.filter { $0.belongs(to: existingID) }.map(\.id))
     }
 
+    /// One selectable challenge.
     private func challengeToggle(_ challenge: ChallengeItem) -> some View {
         let minutes = ChallengeTimeStore.minutes(for: challenge.id)
         let chosen = selected.contains(challenge.id)
@@ -1636,6 +1671,7 @@ private struct ChallengeGroupForm: View {
         .disabled(!chosen && !canAdd)
     }
 
+    /// Saves the group and its members.
     private func save() async {
         let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, !isSaving else { return }

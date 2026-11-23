@@ -4,6 +4,7 @@ import LififyChallenges
 import LififyHealth
 import SwiftUI
 
+/// Creates or edits a custom category.
 struct CustomCategoryEditor: View {
     let existing: CustomChallengeCategory?
     var onSave: (CustomChallengeCategory) -> Void
@@ -52,6 +53,7 @@ struct CustomCategoryEditor: View {
         name.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
+    /// Saves the category.
     private func save() {
         guard !trimmedName.isEmpty else { return }
         if let existing {

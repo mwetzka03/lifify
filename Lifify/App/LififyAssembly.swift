@@ -9,6 +9,7 @@ import SwiftData
 enum LififyAssembly {
     private static var installed = false
 
+    /// Connects the packages once.
     static func install() {
         guard !installed else { return }
         installed = true

@@ -5,6 +5,7 @@ import LififyHealth
 import SwiftData
 import SwiftUI
 
+/// The variable budgets.
 struct VariableBudgetsView: View {
     @Environment(\.modelContext) private var context
     @EnvironmentObject private var filters: FinanceFilterStore
@@ -105,6 +106,7 @@ struct VariableBudgetsView: View {
         .sheet(item: $editing) { VariableBudgetForm(budget: $0) }
     }
 
+    /// Sums a budget's spending.
     private func spent(_ budget: VariableBudget) -> Int {
         guard let period = selectedPeriod else {
             return FinanceService.variableSpent(
@@ -124,6 +126,7 @@ struct VariableBudgetsView: View {
         )
     }
 
+    /// Returns a budget's plan.
     private func planned(_ budget: VariableBudget) -> Int {
         let scope: Set<UUID>?
         if let account = selectedAccount, account.kind != .portfolio {
@@ -138,6 +141,7 @@ struct VariableBudgetsView: View {
         )
     }
 
+    /// Describes a budget's accounts.
     private func accountCaption(_ budget: VariableBudget) -> String {
         if VariableBudgetAccounts.storedIDs(for: budget.id) == nil, budget.accountID == nil {
             return L("Alle Konten", "All accounts")
@@ -148,6 +152,7 @@ struct VariableBudgetsView: View {
         return names.joined(separator: ", ")
     }
 
+    /// Deletes a budget.
     private func delete(_ budget: VariableBudget) {
         VariableBudgetAccounts.remove(for: budget.id)
         context.delete(budget)
@@ -155,6 +160,7 @@ struct VariableBudgetsView: View {
     }
 }
 
+/// Details of a budget.
 private struct VariableBudgetDetailView: View {
     let budget: VariableBudget
     @EnvironmentObject private var filters: FinanceFilterStore
@@ -228,6 +234,7 @@ private struct VariableBudgetDetailView: View {
     }
 }
 
+/// Creates or edits a budget.
 struct VariableBudgetForm: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
@@ -304,6 +311,7 @@ struct VariableBudgetForm: View {
         }
     }
 
+    /// Saves the budget.
     private func save() {
         guard let cents = Money.cents(from: amount), !name.trimmingCharacters(in: .whitespaces).isEmpty else { return }
         let ordered = cashAccounts.map(\.id).filter { selectedIDs.contains($0) }

@@ -4,6 +4,7 @@ import LififyChallenges
 import LififyHealth
 import SwiftUI
 
+/// Searches the exercise catalog.
 struct ExerciseSearchView: View {
     @Environment(\.dismiss) private var dismiss
     var onPick: (WorkoutExerciseInfo) -> Void
@@ -82,6 +83,7 @@ struct ExerciseSearchView: View {
     }
 }
 
+/// Texts of the search.
 enum ExerciseSearchCopy {
     static var create: String { L("Übung anlegen", "Create exercise") }
     static var nameField: String { L("Name der Übung", "Exercise name") }

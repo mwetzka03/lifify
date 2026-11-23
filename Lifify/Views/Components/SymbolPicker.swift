@@ -5,15 +5,18 @@ import LififyHealth
 import Foundation
 import SwiftUI
 
+/// One selectable symbol.
 struct SymbolChoice: Identifiable, Equatable {
     var name: String
     var title: String
     var id: String { name }
 }
 
+/// Resolves stored symbols.
 enum AppSymbol {
     static let assetPrefix = "symbol."
 
+    /// Returns the asset name of a stored symbol.
     static func assetName(in stored: String) -> String? {
         guard stored.hasPrefix(assetPrefix) else { return nil }
         let name = String(stored.dropFirst(assetPrefix.count))
@@ -21,6 +24,7 @@ enum AppSymbol {
     }
 }
 
+/// Shows a stored symbol.
 struct AppSymbolImage: View {
     var name: String
 
@@ -37,9 +41,11 @@ struct AppSymbolImage: View {
     }
 }
 
+/// The available symbols.
 enum SymbolCatalog {
     static var names: [String] { choices().map(\.name) }
 
+    /// Lists the symbols.
     static func choices() -> [SymbolChoice] {
         let symbols = [
             "banknote", "eurosign.circle", "creditcard", "building.columns", "wallet.pass",
@@ -65,6 +71,7 @@ enum SymbolCatalog {
     }
 }
 
+/// Picks a symbol.
 struct SymbolPicker: View {
     let title: String
     @Binding var selection: String

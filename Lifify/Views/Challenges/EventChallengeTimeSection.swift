@@ -80,6 +80,7 @@ struct EventChallengeTimeSection: View {
         }
     }
 
+    /// One selectable challenge for a slot.
     private func challengeToggle(_ challenge: ChallengeItem) -> some View {
         let minutes = ChallengeTimeStore.minutes(for: challenge.id)
         let selected = memberIDs.contains(challenge.id)
@@ -112,6 +113,7 @@ struct EventChallengeTimeSection: View {
         .disabled(!selected && !allowsAdding)
     }
 
+    /// Adds a challenge within the slot's minutes.
     private func add(_ challenge: ChallengeItem) {
         guard EventRewrite.acceptsSharedEvent(challenge.recurrence) else { return }
         guard !memberIDs.contains(challenge.id) else { return }

@@ -5,6 +5,7 @@ import LififyHealth
 import SwiftData
 import SwiftUI
 
+/// The expense groups.
 struct ExpenseGroupsView: View {
     @Environment(\.modelContext) private var context
     @Query(sort: \ExpenseGroup.date, order: .reverse) private var groups: [ExpenseGroup]
@@ -56,11 +57,13 @@ struct ExpenseGroupsView: View {
         .sheet(item: $edited) { ExpenseGroupForm(group: $0) }
     }
 
+    /// Sums a group.
     private func total(for group: ExpenseGroup) -> Int {
         let ids = Set(ExpenseGroupAssignmentStore.entryIDs(in: group.id))
         return entries.filter { ids.contains($0.id) }.reduce(0) { $0 + abs($1.amountCents) }
     }
 
+    /// Deletes a group with its lines.
     private func delete(_ group: ExpenseGroup) {
         lines.filter { $0.groupID == group.id }.forEach(context.delete)
         ExpenseGroupAssignmentStore.removeGroup(group.id)
@@ -69,6 +72,7 @@ struct ExpenseGroupsView: View {
     }
 }
 
+/// Details of a group.
 private struct ExpenseGroupDetailView: View {
     @Environment(\.modelContext) private var context
     @Query(sort: \LedgerEntry.date, order: .reverse) private var entries: [LedgerEntry]
@@ -130,6 +134,7 @@ private struct ExpenseGroupDetailView: View {
     }
 }
 
+/// Creates or edits a group.
 private struct ExpenseGroupForm: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
@@ -175,6 +180,7 @@ private struct ExpenseGroupForm: View {
     }
 }
 
+/// Assigns bookings to a group.
 private struct ExpenseBookingPicker: View {
     @Environment(\.dismiss) private var dismiss
     @Query(sort: \LedgerEntry.date, order: .reverse) private var entries: [LedgerEntry]

@@ -5,6 +5,7 @@ import LififyHealth
 import ImageIO
 import SwiftUI
 
+/// An exercise's still image with its video.
 struct ExerciseArtwork: View {
     let code: String
     var name: String = ""
@@ -74,6 +75,7 @@ struct ExerciseArtwork: View {
 
     private var corner: CGFloat { min(10, max(6, side * 0.28)) }
 
+    /// Loads and opens the video.
     private func openVideo() {
         guard !isLoadingVideo, ExerciseMedia.isRemote(code) else { return }
         if let data, !data.isEmpty {
@@ -100,17 +102,20 @@ struct ExerciseArtwork: View {
         }
     }
 
+    /// Shows the loaded animation.
     private func present(_ gif: Data) {
         presentation = ExerciseVideoPresentation(name: ExerciseName.formatted(name), data: gif)
     }
 }
 
+/// An animation to present.
 private struct ExerciseVideoPresentation: Identifiable {
     let id = UUID()
     let name: String
     let data: Data
 }
 
+/// Plays an exercise animation.
 private struct ExerciseVideoSheet: View {
     @Environment(\.dismiss) private var dismiss
     let name: String
@@ -147,13 +152,16 @@ private struct ExerciseVideoSheet: View {
         }
     }
 
+    /// Reads the first frame.
     private func stillFrame(_ data: Data) -> CGImage? {
         guard let source = CGImageSourceCreateWithData(data as CFData, nil) else { return nil }
         return CGImageSourceCreateImageAtIndex(source, 0, nil).map(ArtworkMatte.withoutWhite)
     }
 }
 
+/// Removes the white image background.
 enum ArtworkMatte {
+    /// Makes white pixels transparent.
     static func withoutWhite(_ image: CGImage) -> CGImage {
         let width = image.width
         let height = image.height
@@ -190,12 +198,15 @@ enum ArtworkMatte {
     }
 }
 
+/// One animation frame.
 private struct GIFFrame {
     var image: CGImage
     var duration: Double
 }
 
+/// Decodes GIF animations.
 private enum GIFDecoder {
+    /// Reads all frames.
     static func frames(from data: Data) -> [GIFFrame] {
         guard let source = CGImageSourceCreateWithData(data as CFData, nil) else { return [] }
         let count = CGImageSourceGetCount(source)
@@ -207,6 +218,7 @@ private enum GIFDecoder {
         return frames
     }
 
+    /// Reads a frame's delay.
     private static func delay(source: CGImageSource, index: Int) -> Double {
         let fallback = 0.1
         guard let properties = CGImageSourceCopyPropertiesAtIndex(source, index, nil) as? [String: Any],
@@ -217,6 +229,7 @@ private enum GIFDecoder {
         return value < 0.02 ? fallback : value
     }
 
+    /// Reads a number.
     private static func number(_ value: Any?) -> Double? {
         if let value = value as? Double { return value }
         if let value = value as? NSNumber { return value.doubleValue }
@@ -224,6 +237,7 @@ private enum GIFDecoder {
     }
 }
 
+/// Plays decoded GIF frames.
 private struct AnimatedGIFView: View {
     private let frames: [GIFFrame]
     private let total: Double
@@ -244,6 +258,7 @@ private struct AnimatedGIFView: View {
         }
     }
 
+    /// Returns the frame of a moment.
     private func image(at date: Date) -> CGImage? {
         guard let first = frames.first else { return nil }
         guard frames.count > 1, total > 0 else { return first.image }

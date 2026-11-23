@@ -6,6 +6,7 @@ import Combine
 import Foundation
 import SwiftData
 
+/// Runs file imports and backup restores for the settings screens.
 @MainActor
 final class DataImportViewModel: ObservableObject {
     @Published var destination: BankImportDestination?
@@ -15,6 +16,7 @@ final class DataImportViewModel: ObservableObject {
     @Published var currentBalanceText = ""
     private var finishedMessage: String?
 
+    /// Reads a bank file and asks for the current balance.
     func importBankFile(
         from url: URL,
         context: ModelContext,
@@ -40,6 +42,7 @@ final class DataImportViewModel: ObservableObject {
         }
     }
 
+    /// Books the pending bank file.
     func commitPendingBank(
         context: ModelContext,
         existingEntries: [LedgerEntry]
@@ -75,11 +78,13 @@ final class DataImportViewModel: ObservableObject {
         }
     }
 
+    /// Discards the pending bank file.
     func cancelPendingBank() {
         pendingBank = nil
         currentBalanceText = ""
     }
 
+    /// Imports a Trade Republic statement.
     func importTradeRepublic(
         from url: URL,
         context: ModelContext,
@@ -111,6 +116,7 @@ final class DataImportViewModel: ObservableObject {
         }
     }
 
+    /// Books the answers from the import review.
     func finishReview(_ updated: ImportReview, context: ModelContext) {
         do {
             try BankImportApplier.commitReview(updated, context: context)
@@ -121,6 +127,7 @@ final class DataImportViewModel: ObservableObject {
         finishedMessage = nil
     }
 
+    /// Shows the result or the open questions.
     private func present(_ result: BankImportResult) {
         if result.review.isEmpty {
             finishedMessage = nil
@@ -137,6 +144,7 @@ final class DataImportViewModel: ObservableObject {
         }
     }
 
+    /// Builds the result message.
     private func importMessage(for result: BankImportResult) -> String {
         var parts: [String] = []
         if result.createdSeparateChecking {
@@ -175,10 +183,12 @@ final class DataImportViewModel: ObservableObject {
         return parts.joined(separator: " ")
     }
 
+    /// Restores one backup file.
     func restoreBackup(from url: URL, context: ModelContext) {
         restoreBackups(from: [url], context: context)
     }
 
+    /// Restores several backup files.
     func restoreBackups(from urls: [URL], context: ModelContext) {
         var accessors: [URL] = []
         defer { accessors.forEach { $0.stopAccessingSecurityScopedResource() } }

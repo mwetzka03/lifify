@@ -7,6 +7,7 @@ import SwiftUI
 import UIKit
 import UniformTypeIdentifiers
 
+/// The extract file for the system's exporter.
 struct TradeRepublicExtractDocument: FileDocument {
     static var readableContentTypes: [UTType] { [.plainText] }
     var data: Data
@@ -23,6 +24,7 @@ struct TradeRepublicExtractDocument: FileDocument {
     }
 }
 
+/// The Trade Republic sign-in.
 struct TradeRepublicSignInControls: View {
     @Environment(\.modelContext) private var context
     var showsSkip: Bool
@@ -244,6 +246,7 @@ struct TradeRepublicSignInControls: View {
         }
     }
 
+    /// A titled field.
     private func field<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(title)
@@ -255,6 +258,7 @@ struct TradeRepublicSignInControls: View {
         .appTintedPlate(radius: 14)
     }
 
+    /// The popup's buttons.
     private func popupActions(confirm: String, enabled: Bool, action: @escaping () -> Void) -> some View {
         HStack {
             Button(TradeRepublicCopy.cancel, action: close)
@@ -266,6 +270,7 @@ struct TradeRepublicSignInControls: View {
         }
     }
 
+    /// Opens the sign-in.
     private func beginSignIn() {
         hideKeyboard()
         clearSecrets()
@@ -277,10 +282,12 @@ struct TradeRepublicSignInControls: View {
         }
     }
 
+    /// Hides the keyboard.
     private func hideKeyboard() {
         UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
     }
 
+    /// Starts the sign-in.
     private func start() {
         let phone = phone.trimmingCharacters(in: .whitespacesAndNewlines)
         let pin = pin
@@ -294,6 +301,7 @@ struct TradeRepublicSignInControls: View {
         task = Task { await run(client: fresh, phone: phone, pin: pin) }
     }
 
+    /// Runs the sign-in until the app confirms.
     private func run(client: TradeRepublicClient, phone: String, pin: String) async {
         do {
             let challenge = try await client.begin(phone: phone, pin: pin)
@@ -310,6 +318,7 @@ struct TradeRepublicSignInControls: View {
         }
     }
 
+    /// Waits for the confirmation.
     private func poll(_ client: TradeRepublicClient) async throws {
         while !Task.isCancelled, Date() < deadline {
             let step = try await client.poll(processId: processId, cookies: cookies)
@@ -327,6 +336,7 @@ struct TradeRepublicSignInControls: View {
         if !Task.isCancelled { fail(.notConfirmed) }
     }
 
+    /// Submits a typed code.
     private func submitCode() {
         let entered = code
         code = ""
@@ -348,6 +358,7 @@ struct TradeRepublicSignInControls: View {
         }
     }
 
+    /// Loads and applies the depot data.
     private func finish(_ header: String) async throws {
         guard TradeRepublicCookies.keepsSession(header) else { throw TradeRepublicFailure.sessionNotKept }
         client.invalidate()
@@ -362,6 +373,7 @@ struct TradeRepublicSignInControls: View {
         presentResult()
     }
 
+    /// Shows a failure.
     private func fail(_ failure: TradeRepublicFailure) {
         guard !Task.isCancelled else { return }
         note = failure.message
@@ -369,6 +381,7 @@ struct TradeRepublicSignInControls: View {
         clearSecrets()
     }
 
+    /// Shows the result.
     private func presentResult() {
         if let date = TradeRepublicOpeningBalance.missingDate(context: context) {
             openingDate = date
@@ -379,6 +392,7 @@ struct TradeRepublicSignInControls: View {
         succeed()
     }
 
+    /// Finishes successfully.
     private func succeed() {
         advance = true
         if let onSignedIn {
@@ -390,6 +404,7 @@ struct TradeRepublicSignInControls: View {
         }
     }
 
+    /// Closes and clears the sign-in.
     private func close() {
         task?.cancel()
         client.invalidate()
@@ -400,6 +415,7 @@ struct TradeRepublicSignInControls: View {
         if shouldAdvance { onContinue() }
     }
 
+    /// Clears the PIN and code from memory.
     private func clearSecrets() {
         pin = ""
         code = ""
@@ -407,6 +423,7 @@ struct TradeRepublicSignInControls: View {
         processId = ""
     }
 
+    /// The steps of the sign-in.
     private enum Phase {
         case idle
         case credentials
@@ -418,6 +435,7 @@ struct TradeRepublicSignInControls: View {
     }
 }
 
+/// One way to bring in Trade Republic data.
 private struct TradeRepublicPathRow: View {
     @Environment(\.colorScheme) private var scheme
     @AppStorage(AppPalette.storageKey) private var paletteRaw = AppPalette.green.rawValue
@@ -482,12 +500,14 @@ private struct LififyFrontOverlayBridge<Content: View>: UIViewRepresentable {
     }
 }
 
+/// Shows a view above all sheets.
 @MainActor
 private enum LififyFrontOverlay {
     private static var generation = 0
     private static var window: UIWindow?
     private static var host: UIHostingController<AnyView>?
 
+    /// Shows the overlay.
     static func show<V: View>(_ view: V, from source: UIView) {
         generation += 1
         let root = AnyView(view)
@@ -510,6 +530,7 @@ private enum LififyFrontOverlay {
         self.window = window
     }
 
+    /// Hides the overlay shortly.
     static func hideSoon() {
         let current = generation
         DispatchQueue.main.async {
@@ -518,6 +539,7 @@ private enum LififyFrontOverlay {
         }
     }
 
+    /// Hides the overlay.
     private static func hide() {
         generation += 1
         let closing = window
@@ -531,6 +553,7 @@ private enum LififyFrontOverlay {
     }
 }
 
+/// Shows and shares the diagnostic extract.
 struct TradeRepublicSampleView: View {
     @Environment(\.modelContext) private var context
     @AppStorage(TradeRepublicSample.revisionKey) private var sampleRevision = 0
@@ -614,11 +637,13 @@ struct TradeRepublicSampleView: View {
         }
     }
 
+    /// Reads an extract from the clipboard.
     @MainActor
     private func paste() async {
         await applyExtract(UIPasteboard.general.string ?? "")
     }
 
+    /// Reads an extract from a file.
     @MainActor
     private func load(from url: URL) async {
         let accessing = url.startAccessingSecurityScopedResource()
@@ -627,6 +652,7 @@ struct TradeRepublicSampleView: View {
         await applyExtract(text)
     }
 
+    /// Applies an extract.
     @MainActor
     private func applyExtract(_ text: String) async {
         if TradeRepublicCopy.looksLikeBackup(text) {

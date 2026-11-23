@@ -5,7 +5,9 @@ import LififyHealth
 import SwiftData
 import SwiftUI
 
+/// Arranges shop tiles in rows.
 enum ShopRows {
+    /// Splits items into pairs.
     static func pairs<T>(_ items: [T]) -> [[T]] {
         stride(from: 0, to: items.count, by: 2).map { start in
             Array(items[start..<min(start + 2, items.count)])
@@ -13,6 +15,7 @@ enum ShopRows {
     }
 }
 
+/// The shop with rewards and streak freezes.
 struct ShopView: View {
     @Environment(\.modelContext) private var context
     @Environment(\.openURL) private var openURL
@@ -144,6 +147,7 @@ struct ShopView: View {
         .padding(.top, 16)
     }
 
+    /// One streak freeze offer.
     private func freezeRow(_ challenge: ChallengeItem) -> some View {
         let _ = developerMode
         let _ = developerDay
@@ -196,6 +200,7 @@ struct ShopView: View {
         .appGlassCard(radius: 16)
     }
 
+    /// One reward tile.
     private func rewardTile(_ reward: RewardItem) -> some View {
         let accent = rewardAccent(reward)
         return VStack(alignment: .leading, spacing: 0) {
@@ -294,12 +299,14 @@ struct ShopView: View {
         }
     }
 
+    /// Deletes a reward.
     private func deleteReward(_ reward: RewardItem) {
         RewardPolicyStore.remove(for: reward.id)
         context.delete(reward)
         try? context.save()
     }
 
+    /// Returns a reward's link.
     private func rewardURL(_ reward: RewardItem) -> URL? {
         let raw = reward.urlString.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !raw.isEmpty else { return nil }
@@ -307,11 +314,13 @@ struct ShopView: View {
         return URL(string: "https://\(raw)")
     }
 
+    /// Describes how often a reward was redeemed.
     private func redemptionLabel(_ count: Int) -> String {
         if count == 1 { return L("1× eingelöst", "Redeemed once") }
         return "\(count)× \(L("eingelöst", "redeemed"))"
     }
 
+    /// Returns a reward's accent color.
     private func rewardAccent(_ reward: RewardItem) -> Color {
         let stored = reward.colorHex.trimmingCharacters(in: .whitespacesAndNewlines)
         if !stored.isEmpty, stored.caseInsensitiveCompare("#C78335") != .orderedSame, let custom = color(hex: stored) {
@@ -320,6 +329,7 @@ struct ShopView: View {
         return color(hex: rewardPalette[paletteIndex(reward.id)]) ?? Color(red: 0.78, green: 0.51, blue: 0.21)
     }
 
+    /// Picks a stable palette index.
     private func paletteIndex(_ id: UUID) -> Int {
         var total = 0
         for scalar in id.uuidString.unicodeScalars {
@@ -328,6 +338,7 @@ struct ShopView: View {
         return total
     }
 
+    /// Parses a hex color.
     private func color(hex: String) -> Color? {
         var text = hex.trimmingCharacters(in: .whitespacesAndNewlines)
         if text.hasPrefix("#") { text.removeFirst() }
@@ -343,6 +354,7 @@ struct ShopView: View {
 private let rewardPalette = [
     "#C45C6A", "#4F7CAC", "#2F9E7A", "#E09A3E", "#7B61A8", "#3D8B8B", "#D4783A", "#5B6EAE"
 ]
+/// Creates or edits a reward.
 private struct RewardForm: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
@@ -475,6 +487,7 @@ private struct RewardForm: View {
         }
     }
 
+    /// Parses a reward's color.
     private func rewardColor(_ hex: String) -> Color {
         var text = hex.trimmingCharacters(in: .whitespacesAndNewlines)
         if text.hasPrefix("#") { text.removeFirst() }
@@ -489,6 +502,7 @@ private struct RewardForm: View {
     }
 }
 
+/// Texts of the shop.
 enum ShopCopy {
     static var notEnough: String { L("Nicht genug Coins.", "Not enough coins.") }
     static var redemption: String { L("Einlösbarkeit", "Redemption") }
@@ -497,6 +511,7 @@ enum ShopCopy {
     static var locked: String { L("Gesperrt", "Locked") }
     static var lockedTitle: String { L("Shop gesperrt", "Shop locked") }
 
+    /// Explains the lock and how many coins are missing.
     static func lockedMessage(balance: Int) -> String {
         let missing = ShopAccess.coinsToUnlock(balance: balance)
         return L(

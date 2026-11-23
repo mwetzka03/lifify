@@ -5,6 +5,7 @@ import LififyHealth
 import SwiftData
 import SwiftUI
 
+/// The income overview.
 struct IncomeOverviewView: View {
     @Environment(\.modelContext) private var context
     @Query(sort: \IncomeForecast.name) private var forecasts: [IncomeForecast]
@@ -69,6 +70,7 @@ struct IncomeOverviewView: View {
         .sheet(item: $selected) { TransactionDetailView(entry: $0) }
     }
 
+    /// One forecast row.
     private func forecastRow(_ forecast: IncomeForecast) -> some View {
         HStack {
             VStack(alignment: .leading) {
@@ -84,6 +86,7 @@ struct IncomeOverviewView: View {
     }
 }
 
+/// The income forecasts.
 struct IncomeForecastsView: View {
     @Environment(\.modelContext) private var context
     @Query(sort: \IncomeForecast.name) private var forecasts: [IncomeForecast]
@@ -133,6 +136,7 @@ struct IncomeForecastsView: View {
     }
 }
 
+/// Creates or edits an income forecast.
 struct IncomeForecastForm: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
@@ -190,6 +194,7 @@ struct IncomeForecastForm: View {
         }
     }
 
+    /// Saves the forecast.
     private func save() {
         guard let cents = Money.cents(from: amount), !name.isEmpty else { return }
         let forecast = existing ?? IncomeForecast(name: name, amountCents: abs(cents))

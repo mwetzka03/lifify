@@ -5,6 +5,7 @@ import LififyHealth
 import SwiftData
 import SwiftUI
 
+/// The accounts.
 struct AccountsSettingsView: View {
     @Environment(\.modelContext) private var context
     @Query(sort: \Account.createdAt) private var accounts: [Account]
@@ -56,6 +57,7 @@ struct AccountsSettingsView: View {
         .sheet(item: $edited) { AccountForm(account: $0, allAccounts: accounts) }
     }
 
+    /// Describes an account.
     private func accountSubtitle(_ account: Account) -> String {
         guard account.kind == .portfolio,
               let checkingID = PortfolioLinkStore.checkingID(for: account.id),
@@ -65,6 +67,7 @@ struct AccountsSettingsView: View {
     }
 }
 
+/// Creates or edits an account.
 private struct AccountForm: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
@@ -152,6 +155,7 @@ private struct AccountForm: View {
         }
     }
 
+    /// Saves the account and its depot link.
     private func save() {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }

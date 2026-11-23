@@ -4,6 +4,7 @@ import LififyChallenges
 import LififyHealth
 import SwiftUI
 
+/// A check-off waiting for its actual minutes.
 struct PendingDuration: Identifiable {
     let id = UUID()
     let challenge: ChallengeItem

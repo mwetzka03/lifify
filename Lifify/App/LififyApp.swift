@@ -6,6 +6,7 @@ import SwiftData
 import SwiftUI
 import UserNotifications
 
+/// The app entry point. It opens the database before the first screen.
 @main
 struct LififyApp: App {
     @State private var containerResult: Result<ModelContainer, Error>

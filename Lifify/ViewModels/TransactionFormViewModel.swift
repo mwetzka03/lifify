@@ -6,6 +6,7 @@ import Combine
 import Foundation
 import SwiftData
 
+/// One editable part of a split booking.
 struct SplitDraft: Identifiable {
     let id: UUID
     var targetID: UUID?
@@ -18,6 +19,7 @@ struct SplitDraft: Identifiable {
     }
 }
 
+/// Holds and saves the values of the booking form.
 @MainActor
 final class TransactionFormViewModel: ObservableObject {
     let id: UUID
@@ -89,6 +91,7 @@ final class TransactionFormViewModel: ObservableObject {
         !categoryLocked && (existing == nil || (didRefine && category.allowsManualEntry))
     }
 
+    /// Refines the category once the accounts are known.
     func refineIfNeeded(accounts: [Account]) {
         guard let existing else { return }
         let resolved = BookingClassification.category(of: existing, accounts: accounts, viewedAccountID: nil)
@@ -102,11 +105,13 @@ final class TransactionFormViewModel: ObservableObject {
         category = resolved
     }
 
+    /// Prepares the account fields.
     func prepareAccounts(_ accounts: [Account]) {
         guard existing == nil else { return }
         fillAccounts(for: category, accounts: accounts)
     }
 
+    /// Fills sensible accounts for a category.
     func fillAccounts(for category: BookingCategory, accounts: [Account]) {
         let portfolios = accounts.filter { $0.kind == .portfolio }
         let checking = accounts.filter { $0.kind != .portfolio && $0.kind != .savingsGroup }
@@ -142,6 +147,7 @@ final class TransactionFormViewModel: ObservableObject {
         }
     }
 
+    /// Validates the form and writes the booking with its links.
     func save(
         context: ModelContext,
         pools: [BudgetPool],
@@ -291,6 +297,7 @@ final class TransactionFormViewModel: ObservableObject {
         }
     }
 
+    /// Keeps a linked shopping item's state in step.
     private func syncShoppingPurchase(context: ModelContext, previousID: UUID?, currentID: UUID?) {
         let ids = Set([previousID, currentID].compactMap { $0 })
         guard !ids.isEmpty else { return }
@@ -313,6 +320,7 @@ final class TransactionFormViewModel: ObservableObject {
         if changed { try? context.save() }
     }
 
+    /// Reads the valid split amounts.
     private func splitValues(_ drafts: [SplitDraft]) -> [(targetID: UUID, amount: Int)]? {
         var result: [(UUID, Int)] = []
         for draft in drafts {

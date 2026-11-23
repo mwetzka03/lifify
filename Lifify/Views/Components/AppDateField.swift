@@ -4,6 +4,7 @@ import LififyChallenges
 import LififyHealth
 import SwiftUI
 
+/// A date field in the app's style.
 struct AppDateField: View {
     let title: String
     @Binding var selection: Date

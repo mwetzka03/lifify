@@ -4,10 +4,12 @@ import LififyChallenges
 import LififyHealth
 import SwiftUI
 
+/// The day a picker opens at.
 private enum EventPickerAnchor {
     static let today = "event-picker-today"
 }
 
+/// Picks a calendar event for a challenge.
 struct ChallengeEventPicker: View {
     @Binding var selection: UUID?
     let events: [ChallengeCalendarEvent]
@@ -71,6 +73,7 @@ struct ChallengeEventPicker: View {
         }
     }
 
+    /// One day's events.
     private func daySection(_ bucket: DayBucket) -> some View {
         let today = Calendar.current.isDateInToday(bucket.day)
         return Section {
@@ -109,6 +112,7 @@ struct ChallengeEventPicker: View {
         }
     }
 
+    /// One selectable event.
     private func eventButton(_ event: ChallengeCalendarEvent) -> some View {
         Button {
             selection = event.id
@@ -131,6 +135,7 @@ struct ChallengeEventPicker: View {
         .buttonStyle(.plain)
     }
 
+    /// Describes an event in the picker.
     private func eventCaption(_ event: ChallengeCalendarEvent) -> String {
         let slot = ChallengeTimeStore.plannedMinutes(for: event.id)
             ?? ChallengeTimeRules.minutes(from: event.startDate, to: event.endDate)
@@ -145,6 +150,7 @@ struct ChallengeEventPicker: View {
     }
 }
 
+/// The events of one day.
 private struct DayBucket: Identifiable {
     var day: Date
     var events: [ChallengeCalendarEvent]

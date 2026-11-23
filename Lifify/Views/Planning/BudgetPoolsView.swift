@@ -5,6 +5,7 @@ import LififyHealth
 import SwiftData
 import SwiftUI
 
+/// The budget pools.
 struct BudgetPoolsView: View {
     @Environment(\.modelContext) private var context
     @Query(sort: \BudgetPool.name) private var pools: [BudgetPool]
@@ -68,6 +69,7 @@ struct BudgetPoolsView: View {
     }
 }
 
+/// Details of a pool.
 private struct BudgetPoolDetailView: View {
     @Environment(\.modelContext) private var context
     @Query private var splits: [TransactionSplit]
@@ -140,6 +142,7 @@ private struct BudgetPoolDetailView: View {
         }
     }
 
+    /// Removes a booking from the pool.
     private func unlink(_ entry: LedgerEntry) {
         splits
             .filter { $0.transactionID == entry.id && $0.kind == .budgetPool && $0.targetID == pool.id }
@@ -161,11 +164,13 @@ private struct BudgetPoolDetailView: View {
         return entries.filter { ids.contains($0.id) }
     }
 
+    /// Returns a booking's amount in the pool.
     private func assignedAmount(_ entry: LedgerEntry) -> Int {
         periodSplits.filter { $0.transactionID == entry.id }.reduce(0) { $0 + $1.amountCents }
     }
 }
 
+/// Creates or edits a pool.
 private struct BudgetPoolForm: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
@@ -210,6 +215,7 @@ private struct BudgetPoolForm: View {
         }
     }
 
+    /// Saves the pool.
     private func save() {
         guard let cents = Money.cents(from: amount), !name.isEmpty else { return }
         if let existing {
@@ -233,6 +239,7 @@ private struct BudgetPoolForm: View {
     }
 }
 
+/// Assigns bookings to a pool.
 private struct PoolBookingPicker: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
@@ -320,6 +327,7 @@ private struct PoolBookingPicker: View {
         }
     }
 
+    /// Saves the assignments.
     private func save() {
         for entry in entries where selected.contains(entry.id) {
             let absolute = abs(entry.amountCents)

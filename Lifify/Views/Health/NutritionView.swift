@@ -7,6 +7,7 @@ import SwiftData
 import SwiftUI
 import UIKit
 
+/// The daily nutrition board.
 struct NutritionBoard: View {
     @Environment(\.modelContext) private var context
     @EnvironmentObject private var store: WorkoutStore
@@ -109,6 +110,7 @@ struct NutritionBoard: View {
         }
     }
 
+    /// The day switcher.
     private func dayBar(today: Date, calendar: Calendar) -> some View {
         HStack {
             Button {
@@ -147,6 +149,7 @@ struct NutritionBoard: View {
         .appGlassCard(radius: 18)
     }
 
+    /// The calorie target card.
     private func targetCard(target: Int?, meals: [MealRecord], trained: Bool, measures: BodyMeasures) -> some View {
         let eaten = NutritionPlan.rounded(.calories, meals: meals)
         let goal = BodyGoal.resolved(goalRaw)
@@ -193,6 +196,7 @@ struct NutritionBoard: View {
         .appGlassCard(radius: 18)
     }
 
+    /// One nutrient line.
     private func nutrientLine(_ title: String, _ value: String) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(title)
@@ -203,6 +207,7 @@ struct NutritionBoard: View {
         }
     }
 
+    /// The nutrient overview.
     private func nutrientBoard(
         meals: [MealRecord],
         measures: BodyMeasures,
@@ -227,6 +232,7 @@ struct NutritionBoard: View {
         }
     }
 
+    /// One nutrient figure.
     private func nutrientFigure(
         _ nutrient: Nutrient,
         meals: [MealRecord],
@@ -296,6 +302,7 @@ struct NutritionBoard: View {
         }
     }
 
+    /// The day's meals.
     private func mealCard(_ dayMeals: [MealRecord]) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             if dayMeals.isEmpty {
@@ -329,6 +336,7 @@ struct NutritionBoard: View {
         .appGlassCard(radius: 18)
     }
 
+    /// One meal row.
     private func mealRow(_ meal: MealRecord) -> some View {
         HStack(alignment: .top, spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
@@ -346,6 +354,7 @@ struct NutritionBoard: View {
         .contentShape(Rectangle())
     }
 
+    /// Describes a meal.
     private func mealCaption(_ meal: MealRecord) -> String {
         let protein = NutritionPlan.rounded(.protein, meals: [meal])
         var parts = ["\(protein) \(Nutrient.protein.unit) \(Nutrient.protein.label)"]
@@ -357,11 +366,13 @@ struct NutritionBoard: View {
         return parts.joined(separator: " · ")
     }
 
+    /// Moves the shown day.
     private func shift(by delta: Int, calendar: Calendar, today: Date) {
         guard let next = calendar.date(byAdding: .day, value: delta, to: day) else { return }
         day = min(calendar.startOfDay(for: next), today)
     }
 
+    /// The day's calorie reward.
     private func calorieReward(target: Int?, meals: [MealRecord]) -> some View {
         let confirmed = meals.filter { $0.status == .confirmed }
         let eaten = NutritionPlan.rounded(.calories, meals: confirmed)
@@ -404,6 +415,7 @@ struct NutritionBoard: View {
         }
     }
 
+    /// The day's fast-food charge.
     @ViewBuilder
     private func fastFoodCharge(_ meals: [MealRecord]) -> some View {
         let count = meals.filter { $0.kind == .fastFood }.count
@@ -419,11 +431,13 @@ struct NutritionBoard: View {
         }
     }
 
+    /// Reloads the meals.
     private func reload() {
         NutritionLedger.settle(context: context, sessions: store.sessions)
         meals = MealLog.all()
     }
 
+    /// Builds the data for the recognition.
     private func person(on key: String) -> MealPerson {
         let measures = UserBody.current()
         let calendar = Calendar.current
@@ -439,12 +453,14 @@ struct NutritionBoard: View {
         )
     }
 
+    /// Loads a picked photo.
     private func attach(_ item: PhotosPickerItem, on key: String) async {
         let data = try? await item.loadTransferable(type: Data.self)
         photoItem = nil
         await storePhoto(data, on: key, fromCamera: false)
     }
 
+    /// Stores a photo and starts the recognition.
     private func storePhoto(_ data: Data?, on key: String, fromCamera: Bool) async {
         if fromCamera,
            MealCapture.keepsInLibrary(AppDefaults.store.bool(forKey: MealCapture.saveKey)),
@@ -487,6 +503,7 @@ struct NutritionBoard: View {
     }
 }
 
+/// Edits a meal.
 private struct MealEditor: View {
     @Environment(\.dismiss) private var dismiss
     @State private var meal: MealRecord
@@ -590,6 +607,7 @@ private struct MealEditor: View {
         }
     }
 
+    /// One editable nutrient.
     private func amountField(_ nutrient: Nutrient) -> some View {
         HStack {
             Text(nutrient.label)
@@ -604,6 +622,7 @@ private struct MealEditor: View {
         }
     }
 
+    /// Binds a nutrient's text.
     private func binding(_ nutrient: Nutrient) -> Binding<String> {
         Binding(
             get: { amounts[nutrient.rawValue] ?? "" },
@@ -611,6 +630,7 @@ private struct MealEditor: View {
         )
     }
 
+    /// Applies the written correction through a new recognition.
     private func keepFeedback() async {
         guard MealRecognition.isConnected,
               let name = meal.photoName,
@@ -646,6 +666,7 @@ private struct MealEditor: View {
         store(status: .draft)
     }
 
+    /// Saves the meal with a status.
     private func store(status: MealStatus) {
         var saved = meal
         if saved.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -662,6 +683,7 @@ private struct MealEditor: View {
         dismiss()
     }
 
+    /// Formats an amount.
     private static func amountText(_ value: Double) -> String {
         let shown = value.rounded() == value ? String(Int(value)) : String(format: "%.1f", value)
         if AppDefaults.store.string(forKey: "appLanguage") == "en" { return shown }

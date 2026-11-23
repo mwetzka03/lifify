@@ -5,6 +5,7 @@ import LififyHealth
 import SwiftData
 import SwiftUI
 
+/// The fixed costs.
 struct FixedCostsView: View {
     @Environment(\.modelContext) private var context
     @EnvironmentObject private var filters: FinanceFilterStore
@@ -87,6 +88,7 @@ struct FixedCostsView: View {
         }
     }
 
+    /// One cost row.
     private func costRow(_ cost: FixedCost) -> some View {
         let savings = SavingsPlanFixedCosts.isSavingsCost(cost)
         return Button {
@@ -118,6 +120,7 @@ struct FixedCostsView: View {
         }
     }
 
+    /// Describes a cost.
     private func detail(for cost: FixedCost) -> String {
         guard cost.isActive else {
             return "\(cost.cadence.label) · \(L("Beendet", "Ended"))"
@@ -133,6 +136,7 @@ struct FixedCostsView: View {
         return "\(cost.cadence.label) · \(cost.dueRule.label) · \(nextText) · \(openText)"
     }
 
+    /// Counts a cost's open charges.
     private func openCount(for cost: FixedCost) -> Int {
         guard let period = filters.period(in: periods) else { return 0 }
         return FinanceService.openChargeCount(
@@ -178,6 +182,7 @@ struct FixedCostsView: View {
         .padding(.vertical, 4)
     }
 
+    /// Deletes a cost.
     private func delete(_ cost: FixedCost) {
         SavingsPlanFixedCosts.removePlan(for: cost)
         IconPreferenceStore.remove(for: cost.id)
@@ -186,6 +191,7 @@ struct FixedCostsView: View {
     }
 }
 
+/// Creates or edits a cost.
 struct FixedCostForm: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context

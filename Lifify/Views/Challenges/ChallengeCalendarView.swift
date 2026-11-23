@@ -5,6 +5,7 @@ import LififyHealth
 import SwiftData
 import SwiftUI
 
+/// The calendar of events and challenges.
 struct ChallengeCalendarView: View {
     @Environment(\.modelContext) private var context
     @Query(sort: \ChallengeCalendarEvent.startDate) private var events: [ChallengeCalendarEvent]
@@ -115,6 +116,7 @@ struct ChallengeCalendarView: View {
         }
     }
 
+    /// Checks a challenge off, asking for minutes when a slot finishes.
     private func finish(_ challenge: ChallengeItem, on date: Date) {
         if let minutes = ChallengeFinish.suggestedMinutes(
             challenge: challenge,
@@ -136,6 +138,7 @@ struct ChallengeCalendarView: View {
         )
     }
 
+    /// Lists a day's events.
     private func eventsForDay(_ day: Date) -> [ChallengeCalendarEvent] {
         let start = Calendar.current.startOfDay(for: day)
         let end = Calendar.current.date(byAdding: .day, value: 1, to: start)!
@@ -144,11 +147,13 @@ struct ChallengeCalendarView: View {
         }
     }
 
+    /// Lists a day's challenges.
     private func challengesForDay(_ day: Date) -> [ChallengeItem] {
         challenges.filter { ChallengeService.isDue($0, on: day) }
     }
 }
 
+/// The agenda of one day.
 private struct DayAgendaCard: View {
     let day: Date
     let events: [ChallengeCalendarEvent]
@@ -278,6 +283,7 @@ private struct DayAgendaCard: View {
         .appGlassCard(radius: 16)
     }
 
+    /// Describes what an event is linked to.
     private func eventLinkCaption(_ event: ChallengeCalendarEvent) -> EventLinkCaption? {
         let memberTitles = ChallengeTimeStore.memberIDs(for: event.id).compactMap { id in
             allChallenges.first(where: { $0.id == id })?.title
@@ -297,6 +303,7 @@ private struct DayAgendaCard: View {
         return nil
     }
 
+    /// Describes a challenge's linked events.
     private func challengeCalendarCaption(_ challenge: ChallengeItem) -> String? {
         let linked = ChallengeTimeStore.linkedEvents(for: challenge.id, in: scheduleEvents)
         return LinkCaption.calendar(
@@ -307,12 +314,14 @@ private struct DayAgendaCard: View {
     }
 }
 
+/// An event's link text.
 private struct EventLinkCaption {
     var text: String
     var symbol: String
     var followsStyle: Bool
 }
 
+/// Creates or edits an event.
 private struct ChallengeEventForm: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
@@ -515,6 +524,7 @@ private struct ChallengeEventForm: View {
         )
     }
 
+    /// A picker with an empty choice.
     private func optionalPicker(_ title: String, selection: Binding<UUID?>, values: [(UUID, String)]) -> some View {
         Picker(title, selection: selection) {
             Text(L("Keine", "None")).tag(Optional<UUID>.none)
@@ -522,6 +532,7 @@ private struct ChallengeEventForm: View {
         }
     }
 
+    /// Saves the event and closes the form.
     @MainActor
     private func saveAndClose() async {
         guard !isSaving else { return }
@@ -531,6 +542,7 @@ private struct ChallengeEventForm: View {
         if statusMessage == nil { dismiss() }
     }
 
+    /// Writes the event to the store and the system calendar.
     @MainActor
     private func writeEvent() async -> ChallengeCalendarEvent? {
         guard !title.isEmpty else { return nil }
@@ -604,6 +616,7 @@ private struct ChallengeEventForm: View {
         return event
     }
 
+    /// Lists the challenges that stay on the event.
     private func assignedChallengeIDs(timed: [UUID]) -> [UUID] {
         var ids = timed
         if let linkedChallengeID, !ids.contains(linkedChallengeID) {
@@ -612,6 +625,7 @@ private struct ChallengeEventForm: View {
         return ids
     }
 
+    /// Places the linked challenges on the event.
     private func placeLinkedChallenges(_ ids: [UUID], on event: ChallengeCalendarEvent) async {
         let people = (try? context.fetch(FetchDescriptor<ChallengeItem>())) ?? challenges
         for challenge in people where ids.contains(challenge.id) {
@@ -636,6 +650,7 @@ private struct ChallengeEventForm: View {
         }
     }
 
+    /// Stores the event's workout links.
     private func syncWorkoutLinks() {
         let stored = (try? context.fetch(FetchDescriptor<ChallengeCalendarEvent>())) ?? []
         WorkoutLinkStore.reconcile(calendar: stored.filter { !$0.isReminderSuggestion }.map {
@@ -643,6 +658,7 @@ private struct ChallengeEventForm: View {
         })
     }
 
+    /// Turns the event into a challenge.
     @MainActor
     private func adoptAsChallenge() async {
         guard !title.isEmpty, !isSaving, memberIDs.isEmpty, !sportLocked else { return }
@@ -716,6 +732,7 @@ private struct ChallengeEventForm: View {
         }
     }
 
+    /// Deletes the event here and in the system calendar.
     @MainActor
     private func deleteEvent() async {
         guard !isSaving, let event = existing ?? savedEvent else { return }

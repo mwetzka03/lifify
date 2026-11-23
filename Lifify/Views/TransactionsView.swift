@@ -5,6 +5,7 @@ import LififyHealth
 import SwiftData
 import SwiftUI
 
+/// All bookings of the selected scope.
 struct TransactionsView: View {
     @Environment(\.modelContext) private var context
     @EnvironmentObject private var filters: FinanceFilterStore
@@ -117,6 +118,7 @@ struct TransactionsView: View {
         }
     }
 
+    /// Deletes a booking with its links.
     private func delete(_ entry: LedgerEntry) {
         splits.filter { $0.transactionID == entry.id }.forEach { context.delete($0) }
         IconPreferenceStore.remove(for: entry.id)
@@ -129,6 +131,7 @@ struct TransactionsView: View {
     }
 }
 
+/// One booking row.
 struct TransactionRow: View {
     let entry: LedgerEntry
     var accounts: [Account] = []
@@ -192,12 +195,14 @@ struct TransactionRow: View {
     }
 }
 
+/// One assignment shown on a booking.
 private struct AssignmentLine: Identifiable {
     var id: String
     var title: String
     var value: String
 }
 
+/// An amount with its difference line.
 struct BookingAmountStack: View {
     let amount: Int
     let amountColor: Color
@@ -222,6 +227,7 @@ struct BookingAmountStack: View {
     }
 }
 
+/// Details of a booking.
 struct TransactionDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @Query private var accounts: [Account]
@@ -475,6 +481,7 @@ struct TransactionDetailView: View {
         return entries.filter { ids.contains($0.id) }.sorted { $0.date > $1.date }
     }
 
+    /// A linked booking.
     private func linkedBookingLine(_ linked: LedgerEntry) -> some View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
@@ -489,10 +496,12 @@ struct TransactionDetailView: View {
         }
     }
 
+    /// Finds an account.
     private func account(_ id: UUID?) -> Account? {
         accounts.first { $0.id == id }
     }
 
+    /// One account with its signed amount.
     private func accountLine(_ account: Account, signed: Int) -> some View {
         HStack(spacing: 12) {
             Image(systemName: signed < 0 ? "arrow.up.circle" : "arrow.down.circle")
@@ -558,6 +567,7 @@ struct TransactionDetailView: View {
     }
 }
 
+/// Creates or edits a booking.
 struct TransactionFormView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
@@ -702,10 +712,12 @@ struct TransactionFormView: View {
         entries.filter { $0.kind == .expense && $0.id != viewModel.id }
     }
 
+    /// Labels an expense choice.
     private func expenseChoiceLabel(_ entry: LedgerEntry) -> String {
         "\(entry.title) · \(AppDate.numeric(entry.date)) · \(Money.string(cents: abs(entry.amountCents)))"
     }
 
+    /// An account picker.
     private func accountPicker(
         _ title: String,
         selection: Binding<UUID?>,
@@ -726,6 +738,7 @@ struct TransactionFormView: View {
         }
     }
 
+    /// A picker with an empty choice.
     private func optionalPicker(_ title: String, selection: Binding<UUID?>, values: [(UUID, String)]) -> some View {
         Picker(title, selection: selection) {
             Text(L("Keine", "None")).tag(Optional<UUID>.none)
@@ -736,6 +749,7 @@ struct TransactionFormView: View {
     }
 }
 
+/// Splits a booking across budgets and pools.
 private struct SplitSection: View {
     let title: String
     @Binding var drafts: [SplitDraft]

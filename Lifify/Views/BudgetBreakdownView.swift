@@ -5,6 +5,7 @@ import LififyHealth
 import SwiftData
 import SwiftUI
 
+/// Explains how the home budget is calculated.
 struct BudgetBreakdownView: View {
     @Query private var variableBudgets: [VariableBudget]
     @Query private var pools: [BudgetPool]
@@ -123,6 +124,7 @@ struct BudgetBreakdownView: View {
         .sheet(item: $selected) { TransactionDetailView(entry: $0) }
     }
 
+    /// Explains which expenses count.
     private func explanation(_ snapshot: HomeBudgetSnapshot) -> String {
         if snapshot.countsAllExpenses {
             return L(
@@ -136,6 +138,7 @@ struct BudgetBreakdownView: View {
         )
     }
 
+    /// One line of the breakdown.
     @ViewBuilder
     private func lineRow(_ line: HomeBudgetLine, color: Color) -> some View {
         let row = HStack {
@@ -163,6 +166,7 @@ struct BudgetBreakdownView: View {
         }
     }
 
+    /// The total of a section.
     private func totalRow(_ cents: Int, expense: Bool) -> some View {
         HStack {
             Text(L("Summe", "Total"))

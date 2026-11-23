@@ -8,6 +8,7 @@ import SwiftData
 /// Builds the next daily pushes from the current challenges, events, and forecasts.
 @MainActor
 enum DailyBriefingService {
+    /// Schedules the morning briefings of the coming days.
     static func refresh(context: ModelContext) async {
         guard LififyNotifications.briefingEnabled else {
             await LififyNotifications.cancelBriefings()
@@ -116,6 +117,7 @@ enum DailyBriefingService {
         )
     }
 
+    /// Schedules the upcoming abstinence milestones.
     static func scheduleAbstinence(context: ModelContext) async {
         guard await LififyNotifications.requestAccess() else { return }
         let challenges = (try? context.fetch(FetchDescriptor<ChallengeItem>())) ?? []
@@ -144,6 +146,7 @@ enum DailyBriefingService {
         }
     }
 
+    /// Builds one day's briefing text.
     private static func body(for day: Date, context: ModelContext, calendar: Calendar) -> String {
         let storedEvents = (try? context.fetch(FetchDescriptor<ChallengeCalendarEvent>())) ?? []
         let events = storedEvents
@@ -179,6 +182,7 @@ enum DailyBriefingService {
         )
     }
 
+    /// Finds the next salary after a day.
     private static func nextSalary(in forecasts: [IncomeForecast], after day: Date, calendar: Calendar) -> Date? {
         guard let limit = calendar.date(byAdding: .year, value: 1, to: day) else { return nil }
         let active = forecasts.filter(\.isActive)
@@ -195,6 +199,7 @@ enum DailyBriefingService {
         ).first { calendar.startOfDay(for: $0) >= calendar.startOfDay(for: day) }
     }
 
+    /// Says whether a fixed cost falls on a day.
     private static func occurs(_ cost: FixedCost, on day: Date, calendar: Calendar) -> Bool {
         guard let limit = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: day)) else { return false }
         return CalendarService.nextOccurrences(
@@ -207,6 +212,7 @@ enum DailyBriefingService {
         ).contains { calendar.isDate($0, inSameDayAs: day) }
     }
 
+    /// Formats a day for notification IDs.
     private static func dayStamp(_ day: Date, calendar: Calendar) -> String {
         let parts = calendar.dateComponents([.year, .month, .day], from: day)
         return String(format: "%04d-%02d-%02d", parts.year ?? 0, parts.month ?? 0, parts.day ?? 0)

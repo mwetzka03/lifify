@@ -6,6 +6,7 @@ import AppIntents
 import Foundation
 import SwiftData
 
+/// The bank chosen in a shortcut.
 enum BankNoticeAccountChoice: String, AppEnum {
     case sparkasse
     case tradeRepublic
@@ -29,6 +30,7 @@ enum BankNoticeAccountChoice: String, AppEnum {
     }
 }
 
+/// The Shortcuts action that books a bank notice.
 struct RecordBankNoticeIntent: AppIntent {
     static var title: LocalizedStringResource { "Bankmitteilung buchen" }
     static var description: IntentDescription {
@@ -42,19 +44,23 @@ struct RecordBankNoticeIntent: AppIntent {
     @Parameter(title: "Konto")
     var account: BankNoticeAccountChoice
 
+    /// Books the notice and speaks the result.
     func perform() async throws -> some IntentResult & ProvidesDialog {
         let message = await BankNoticeIntake.commitFromShortcut(text: notification, bank: account.bank)
         return .result(dialog: IntentDialog(stringLiteral: message))
     }
 }
 
+/// Shortcut access to the notice intake.
 extension BankNoticeIntake {
+    /// Books a notice into the shared database.
     static func commitFromShortcut(text: String, bank: BankNoticeBank) -> String {
         guard let container = LififyDatabase.container else { return BankNoticeCopy.unavailable }
         return commit(text: text, bank: bank, context: ModelContext(container))
     }
 }
 
+/// The app's shortcuts.
 struct LififyShortcuts: AppShortcutsProvider {
     static var appShortcuts: [AppShortcut] {
         AppShortcut(

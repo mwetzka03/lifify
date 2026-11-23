@@ -6,6 +6,7 @@ import Charts
 import SwiftData
 import SwiftUI
 
+/// The depot's shares as a chart and list.
 struct PortfolioShareChartView: View {
     @EnvironmentObject private var filters: FinanceFilterStore
     @Query(sort: \PortfolioHolding.name) private var holdings: [PortfolioHolding]
@@ -136,6 +137,7 @@ struct PortfolioShareChartView: View {
         .frame(maxWidth: .infinity)
     }
 
+    /// Calculates the shares.
     private func makeShares() -> [PortfolioShare] {
         let periods = FinancePeriods.all(entries: entries, forecasts: forecasts, accounts: accounts)
         let projectionDay = filters.period(in: periods)?.end ?? .now
@@ -177,11 +179,13 @@ struct PortfolioShareChartView: View {
     }
 }
 
+/// Keeps the calculated shares between renders.
 private final class ShareCache {
     var token: Int?
     var shares: [PortfolioShare] = []
 }
 
+/// One position's share.
 private struct PortfolioShare: Identifiable, Equatable {
     var id: UUID
     var label: String
@@ -195,6 +199,7 @@ private struct SharePieChart: View, @MainActor Equatable {
     let shares: [PortfolioShare]
     @Binding var selectedID: UUID?
 
+    /// Redraws only when the shares or selection change.
     static func == (lhs: SharePieChart, rhs: SharePieChart) -> Bool {
         lhs.shares == rhs.shares
     }
@@ -222,6 +227,7 @@ private struct SharePieChart: View, @MainActor Equatable {
         }
     }
 
+    /// Finds the slice at a touch point.
     private func shareID(at location: CGPoint, in size: CGSize) -> UUID? {
         let center = CGPoint(x: size.width / 2, y: size.height / 2)
         let dx = location.x - center.x
@@ -243,6 +249,7 @@ private struct SharePieChart: View, @MainActor Equatable {
     }
 }
 
+/// Formats a share.
 private enum SharePercent {
     private static let formatter: NumberFormatter = {
         let formatter = NumberFormatter()
@@ -252,6 +259,7 @@ private enum SharePercent {
         return formatter
     }()
 
+    /// Formats a fraction as a percentage.
     static func string(_ fraction: Double) -> String {
         formatter.locale = Locale(identifier: AppDefaults.store.string(forKey: "appLanguage") == "en" ? "en_US" : "de_DE")
         return formatter.string(from: NSNumber(value: fraction)) ?? "0 %"

@@ -5,6 +5,7 @@ import LififyHealth
 import SwiftData
 import SwiftUI
 
+/// Money owed to or by contacts.
 struct DebtsView: View {
     @Environment(\.modelContext) private var context
     @Query(sort: \DebtEntry.date, order: .reverse) private var debts: [DebtEntry]
@@ -45,11 +46,13 @@ struct DebtsView: View {
         .sheet(isPresented: $showingNew) { DebtForm() }
     }
 
+    /// Sums the debts of a direction.
     private func total(_ direction: DebtDirection) -> Int {
         debts.filter { !$0.isSettled && $0.direction == direction }.reduce(0) { $0 + $1.amountCents }
     }
 }
 
+/// Creates or edits a debt.
 private struct DebtForm: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context

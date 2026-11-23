@@ -77,6 +77,7 @@ struct SavingsPlanCreateForm: View {
         }
     }
 
+    /// Fills the form from a holding.
     private func applyHolding(_ id: UUID?) {
         guard let holding = holdings.first(where: { $0.id == id }) else { return }
         if name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -97,6 +98,7 @@ struct SavingsPlanCreateForm: View {
         checkingAccountID = debitAccounts.first?.id
     }
 
+    /// Saves the plan.
     private func save() {
         guard let holding = holdings.first(where: { $0.id == holdingID }),
               let portfolioID = holding.accountID,

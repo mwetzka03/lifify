@@ -5,6 +5,7 @@ import LififyHealth
 import SwiftData
 import SwiftUI
 
+/// Starts the sync with the system calendar.
 struct SystemCalendarSyncView: View {
     @Environment(\.modelContext) private var context
     @Query private var events: [ChallengeCalendarEvent]

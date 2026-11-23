@@ -5,6 +5,7 @@ import LififyHealth
 import SwiftData
 import SwiftUI
 
+/// Details of a forecast with its bookings.
 struct ForecastDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
@@ -145,6 +146,7 @@ struct ForecastDetailView: View {
         }
     }
 
+    /// One booking row.
     private func bookingRow(_ entry: LedgerEntry) -> some View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
@@ -257,15 +259,18 @@ struct ForecastDetailView: View {
         }?.id
     }
 
+    /// Says whether a booking fits the shown account.
     private func matchesAccount(_ entry: LedgerEntry) -> Bool {
         guard let account else { return true }
         return entry.accountID == account.id || entry.fromAccountID == account.id || entry.toAccountID == account.id
     }
 
+    /// Labels a booking choice.
     private func choiceLabel(_ entry: LedgerEntry) -> String {
         "\(entry.title) · \(AppDate.numeric(entry.date)) · \(Money.string(cents: abs(entry.amountCents)))"
     }
 
+    /// Applies the chosen booking.
     private func apply() {
         switch item.kind {
         case .variable(let id):
@@ -278,6 +283,7 @@ struct ForecastDetailView: View {
         }
     }
 
+    /// Assigns the booking to a budget.
     private func assignVariable(_ budgetID: UUID) {
         guard let chosen, let entry = entries.first(where: { $0.id == chosen }) else { return }
         entry.variableBudgetID = budgetID
@@ -287,6 +293,7 @@ struct ForecastDetailView: View {
         try? context.save()
     }
 
+    /// Removes a booking from its budget.
     private func unlinkVariable(_ entry: LedgerEntry) {
         guard let budgetID = variableBudget?.id else { return }
         if entry.variableBudgetID == budgetID {
@@ -300,6 +307,7 @@ struct ForecastDetailView: View {
         try? context.save()
     }
 
+    /// Keeps the shopping item in step.
     private func syncShopping(_ itemID: UUID) {
         let previous = entries.filter { entry in
             guard period.contains(entry.date) else { return false }
@@ -323,6 +331,7 @@ struct ForecastDetailView: View {
         try? context.save()
     }
 
+    /// Replaces the forecast's single link.
     private func replaceSingleLink() {
         let previous = entries.filter { entry in
             guard period.contains(entry.date), let link = ForecastPeriodLinkStore.link(for: entry.id) else { return false }
@@ -343,6 +352,7 @@ struct ForecastDetailView: View {
         }
     }
 
+    /// Clears a booking's link.
     private func clearLink(_ entryID: UUID) {
         ForecastPeriodLinkStore.clear(entryID: entryID)
         switch item.kind {

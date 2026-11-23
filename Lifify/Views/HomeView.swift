@@ -5,6 +5,7 @@ import LififyHealth
 import SwiftData
 import SwiftUI
 
+/// The Home tab.
 struct HomeView: View {
     @Environment(\.modelContext) private var context
     @Query private var variableBudgets: [VariableBudget]
@@ -162,6 +163,7 @@ struct HomeView: View {
         }
     }
 
+    /// Checks a challenge off, asking for minutes when a slot finishes.
     private func finish(_ challenge: ChallengeItem, on date: Date) {
         if let minutes = ChallengeFinish.suggestedMinutes(
             challenge: challenge,
@@ -286,6 +288,7 @@ struct HomeView: View {
         }
     }
 
+    /// Expands or collapses a weekday.
     private func toggleWeekday(_ day: Date) {
         let start = Calendar.current.startOfDay(for: day)
         if let expandedWeekday, Calendar.current.isDate(expandedWeekday, inSameDayAs: start) {
@@ -295,11 +298,13 @@ struct HomeView: View {
         }
     }
 
+    /// Says whether a weekday is expanded.
     private func isExpanded(_ day: Date) -> Bool {
         guard let expandedWeekday else { return false }
         return Calendar.current.isDate(expandedWeekday, inSameDayAs: day)
     }
 
+    /// A weekday's details.
     private func dayDetails(_ day: Date) -> some View {
         let dayEvents = events(on: day)
         let dayChallenges = dueChallenges(on: day)
@@ -411,6 +416,7 @@ struct HomeView: View {
         .appGlassCard(radius: 18)
     }
 
+    /// The popup card.
     private func popupCard(_ popup: HomePopup) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             switch popup.kind {
@@ -434,6 +440,7 @@ struct HomeView: View {
         .appGlassCard(radius: 18)
     }
 
+    /// The popup's rows.
     @ViewBuilder
     private func popupRows(_ popup: HomePopup) -> some View {
         switch popup.kind {
@@ -532,11 +539,13 @@ struct HomeView: View {
         }
     }
 
+    /// Describes an abstinence notice.
     private func abstinenceNoticeLine(_ notice: AbstinenceNotice) -> String {
         guard let milestone = AbstinenceMilestone(rawValue: notice.milestone) else { return notice.milestone }
         return "\(milestone.label). \(AbstinenceCheer.line(for: milestone))"
     }
 
+    /// Warns that a streak has no freeze left.
     private func freezeWarning(done: Int, required: Int, recurrence: ChallengeRecurrence) -> String {
         let when: String
         switch recurrence {
@@ -549,6 +558,7 @@ struct HomeView: View {
         return "\(done)/\(required) \(when). \(L("Keine Streak-Freeze mehr. Kauf eine im Shop, sonst fällt die Serie am Ende auf 0.", "No streak freeze left. Buy one in the shop, or the streak drops to 0 at the end."))"
     }
 
+    /// Describes a challenge's linked events.
     private func homeCalendarCaption(_ challenge: ChallengeItem) -> String? {
         let linked = ChallengeTimeStore.linkedEvents(for: challenge.id, in: calendarEvents)
         return LinkCaption.calendar(
@@ -558,6 +568,7 @@ struct HomeView: View {
         )
     }
 
+    /// Describes the days until a reward.
     private func rewardDaysText(_ days: Int) -> String {
         if days == 0 { return L("Heute", "Today") }
         if days == 1 { return L("in 1 Tag", "in 1 day") }
@@ -643,6 +654,7 @@ struct HomeView: View {
         }
     }
 
+    /// Describes an event's challenges.
     private func eventChallengeCaption(_ event: ChallengeCalendarEvent) -> String? {
         let memberTitles = ChallengeTimeStore.memberIDs(for: event.id).compactMap { id in
             challenges.first(where: { $0.id == id })?.title
@@ -763,6 +775,7 @@ struct HomeView: View {
         }
     }
 
+    /// One titled agenda section.
     private func agendaSection<Content: View>(
         _ title: String,
         systemImage: String,
@@ -784,6 +797,7 @@ struct HomeView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
+    /// Lists a day's events.
     private func events(on day: Date) -> [ChallengeCalendarEvent] {
         let start = Calendar.current.startOfDay(for: day)
         let end = Calendar.current.date(byAdding: .day, value: 1, to: start)!
@@ -792,10 +806,12 @@ struct HomeView: View {
         }
     }
 
+    /// Lists a day's due challenges.
     private func dueChallenges(on day: Date) -> [ChallengeItem] {
         challenges.filter { $0.category != .abstinence && ChallengeService.isDue($0, on: day) }
     }
 
+    /// Moves the shown week.
     private func move(by value: Int) {
         let component: Calendar.Component = mode == .day ? .day : (mode == .week ? .weekOfYear : .month)
         if let date = Calendar.current.date(byAdding: component, value: value, to: selectedDate) {
@@ -804,6 +820,7 @@ struct HomeView: View {
     }
 }
 
+/// The budget card.
 private struct BudgetSummaryCard: View {
     let planned: Int
     let spent: Int
@@ -862,6 +879,7 @@ private struct BudgetSummaryCard: View {
         return min(Double(spent) / Double(planned), 1)
     }
 
+    /// Describes the next salary.
     private func salaryText(date: Date, days: Int) -> String {
         let day = Calendar.current.component(.day, from: date)
         let month = Calendar.current.component(.month, from: date)
@@ -873,7 +891,9 @@ private struct BudgetSummaryCard: View {
     }
 }
 
+/// The content of a popup.
 private struct HomePopup: Identifiable {
+    /// The kinds of popup.
     enum Kind {
         case morning([(event: ChallengeCalendarEvent, challenge: ChallengeItem)])
         case reward(ChallengeCalendarEvent, RewardItem, Int)
@@ -885,6 +905,7 @@ private struct HomePopup: Identifiable {
     let kind: Kind
 }
 
+/// One booking on Home.
 private struct HomeTransactionRow: View {
     let entry: LedgerEntry
     var accounts: [Account] = []
@@ -928,6 +949,7 @@ private struct HomeTransactionRow: View {
     }
 }
 
+/// The bookings of a period.
 private struct PeriodTransactionsView: View {
     let title: String
     let entries: [LedgerEntry]
@@ -946,6 +968,7 @@ private struct PeriodTransactionsView: View {
     }
 }
 
+/// String list helpers.
 private extension Array where Element == String {
     var shiftedForMonday: [String] {
         guard count == 7 else { return self }
@@ -953,6 +976,7 @@ private extension Array where Element == String {
     }
 }
 
+/// One day of the week board.
 private struct WeekDayCard<Details: View>: View {
     let day: Date
     let expanded: Bool
@@ -1001,6 +1025,7 @@ private struct WeekDayCard<Details: View>: View {
     }
 }
 
+/// The press style of a weekday.
 private struct WeekToggleButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label

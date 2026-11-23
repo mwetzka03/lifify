@@ -4,6 +4,7 @@ import LififyChallenges
 import LififyHealth
 import SwiftUI
 
+/// Asks about possible duplicate bookings.
 struct ImportReviewSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var review: ImportReview
@@ -100,6 +101,7 @@ struct ImportReviewSheet: View {
         }
     }
 
+    /// One question with its switch.
     private func similarToggle(_ choice: Binding<ImportSimilarChoice>) -> some View {
         Toggle(isOn: choice.include) {
             VStack(alignment: .leading, spacing: 4) {

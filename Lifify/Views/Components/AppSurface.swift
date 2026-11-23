@@ -4,11 +4,13 @@ import LififyChallenges
 import LififyHealth
 import SwiftUI
 
+/// Shared surface values.
 enum AppSurface {
     static var canvas: Color { Color(.systemGroupedBackground) }
     static var card: Color { Color(.secondarySystemGroupedBackground) }
 }
 
+/// The resolved light or dark look.
 enum AppAppearance: String, Equatable, CaseIterable {
     case light
     case dark
@@ -18,6 +20,7 @@ enum AppAppearance: String, Equatable, CaseIterable {
     }
 }
 
+/// A color as plain components.
 struct AppColor: Equatable {
     var red: Double
     var green: Double
@@ -26,6 +29,7 @@ struct AppColor: Equatable {
 
     var brightness: Double { ((red + green + blue) / 3) * opacity }
 
+    /// Converts to a SwiftUI color.
     func color() -> Color {
         Color(red: red, green: green, blue: blue).opacity(opacity)
     }
@@ -50,6 +54,7 @@ enum AppPalette: String, CaseIterable, Identifiable {
         }
     }
 
+    /// Reads a stored palette.
     static func resolved(_ raw: String) -> AppPalette {
         AppPalette(rawValue: raw) ?? .green
     }
@@ -57,30 +62,37 @@ enum AppPalette: String, CaseIterable, Identifiable {
 
 /// Light and dark each have their own paint. Every palette keeps that split.
 enum AppLook {
+    /// The canvas's top color.
     static func canvasTop(_ appearance: AppAppearance, palette: AppPalette = .green) -> AppColor {
         paint(palette).canvasTop(appearance)
     }
 
+    /// The canvas's bottom color.
     static func canvasBottom(_ appearance: AppAppearance, palette: AppPalette = .green) -> AppColor {
         paint(palette).canvasBottom(appearance)
     }
 
+    /// A background orb's color.
     static func orb(_ appearance: AppAppearance, index: Int, palette: AppPalette = .green) -> AppColor {
         paint(palette).orb(appearance, index: index)
     }
 
+    /// The card fill.
     static func cardFill(_ appearance: AppAppearance, palette: AppPalette = .green) -> AppColor {
         paint(palette).cardFill(appearance)
     }
 
+    /// The card outline.
     static func cardStroke(_ appearance: AppAppearance, palette: AppPalette = .green) -> AppColor {
         paint(palette).cardStroke(appearance)
     }
 
+    /// The accent color.
     static func accent(_ appearance: AppAppearance, palette: AppPalette = .green) -> AppColor {
         paint(palette).accent(appearance)
     }
 
+    /// Says whether light and dark differ for a palette.
     static func modesDiffer(palette: AppPalette = .green) -> Bool {
         let lightTop = canvasTop(.light, palette: palette)
         let darkTop = canvasTop(.dark, palette: palette)
@@ -96,6 +108,7 @@ enum AppLook {
             && lightCard.brightness > 0.8
     }
 
+    /// Returns the colors of a palette.
     private static func paint(_ palette: AppPalette) -> PalettePaint {
         switch palette {
         case .green: .green
@@ -106,6 +119,7 @@ enum AppLook {
     }
 }
 
+/// The colors of one palette.
 private struct PalettePaint {
     var lightTop: AppColor
     var darkTop: AppColor
@@ -122,27 +136,33 @@ private struct PalettePaint {
     var lightAccent: AppColor
     var darkAccent: AppColor
 
+    /// The canvas's top color.
     func canvasTop(_ appearance: AppAppearance) -> AppColor {
         appearance == .light ? lightTop : darkTop
     }
 
+    /// The canvas's bottom color.
     func canvasBottom(_ appearance: AppAppearance) -> AppColor {
         appearance == .light ? lightBottom : darkBottom
     }
 
+    /// A background orb's color.
     func orb(_ appearance: AppAppearance, index: Int) -> AppColor {
         if appearance == .light { return index == 0 ? lightOrb : lightOrbAlt }
         return index == 0 ? darkOrb : darkOrbAlt
     }
 
+    /// The card fill.
     func cardFill(_ appearance: AppAppearance) -> AppColor {
         appearance == .light ? lightCard : darkCard
     }
 
+    /// The card outline.
     func cardStroke(_ appearance: AppAppearance) -> AppColor {
         appearance == .light ? lightStroke : darkStroke
     }
 
+    /// The accent color.
     func accent(_ appearance: AppAppearance) -> AppColor {
         appearance == .light ? lightAccent : darkAccent
     }
@@ -216,6 +236,7 @@ private struct PalettePaint {
     )
 }
 
+/// The app's background.
 struct AppPlayfulCanvas: View {
     @Environment(\.colorScheme) private var scheme
     @AppStorage(AppPalette.storageKey) private var paletteRaw = AppPalette.green.rawValue
@@ -247,15 +268,19 @@ struct AppPlayfulCanvas: View {
     }
 }
 
+/// Shared surface modifiers.
 extension View {
+    /// Applies the app's background.
     func appCanvas() -> some View {
         background(AppPlayfulCanvas())
     }
 
+    /// Applies a tinted plate.
     func appTintedPlate(radius: CGFloat = 14) -> some View {
         background(AppTintedPlate(radius: radius))
     }
 
+    /// Applies a tinted capsule.
     func appTintedCapsule() -> some View {
         background(AppTintedCapsuleFill())
     }
@@ -265,6 +290,7 @@ extension View {
         background(AppPlayfulCanvas())
     }
 
+    /// Styles a list.
     func appGlassList() -> some View {
         self
             .scrollContentBackground(.hidden)
@@ -273,6 +299,7 @@ extension View {
             .appAccentTint()
     }
 
+    /// Styles a list row.
     func appGlassRow() -> some View {
         modifier(AppGlassRowModifier())
     }
@@ -287,18 +314,22 @@ extension View {
         modifier(AppAccentTintModifier())
     }
 
+    /// Uses the accent as foreground.
     func appAccentForeground() -> some View {
         modifier(AppAccentForegroundModifier())
     }
 
+    /// Applies a glass card.
     func appGlassCard(radius: CGFloat = 22) -> some View {
         modifier(AppGlassCardModifier(radius: radius))
     }
 
+    /// Applies a text role.
     func appText(_ role: AppTextRole) -> some View {
         font(AppChrome.font(role))
     }
 
+    /// Applies a glass surface.
     @ViewBuilder
     func liquidGlassSurface(prominent: Bool = false) -> some View {
         self
@@ -308,6 +339,7 @@ extension View {
             .clipShape(Capsule())
     }
 
+    /// Applies a bounded bubble.
     @ViewBuilder
     func boundedBubble(circle: Bool = false) -> some View {
         if circle {
@@ -332,6 +364,7 @@ struct ListCardEdge: Equatable {
     static let middle = ListCardEdge(roundsTop: false, roundsBottom: false)
     static let bottom = ListCardEdge(roundsTop: false, roundsBottom: true)
 
+    /// Finds a row's position in a joined card.
     static func edge(index: Int, count: Int) -> ListCardEdge {
         if count <= 1 { return .single }
         if index <= 0 { return .top }
@@ -340,6 +373,7 @@ struct ListCardEdge: Equatable {
     }
 }
 
+/// The list row style.
 private struct AppGlassRowModifier: ViewModifier {
     @Environment(\.colorScheme) private var scheme
     @AppStorage(AppPalette.storageKey) private var paletteRaw = AppPalette.green.rawValue
@@ -351,6 +385,7 @@ private struct AppGlassRowModifier: ViewModifier {
     }
 }
 
+/// Joins list rows into one card.
 private struct AppJoinedCardModifier: ViewModifier {
     var edge: ListCardEdge
 
@@ -371,6 +406,7 @@ private struct AppJoinedCardModifier: ViewModifier {
     }
 }
 
+/// The fill of a joined card.
 private struct AppJoinedCardFill: View {
     var edge: ListCardEdge
     @Environment(\.colorScheme) private var scheme
@@ -391,6 +427,7 @@ private struct AppJoinedCardFill: View {
     }
 }
 
+/// The tinted plate.
 private struct AppTintedPlate: View {
     var radius: CGFloat
     @Environment(\.colorScheme) private var scheme
@@ -406,6 +443,7 @@ private struct AppTintedPlate: View {
     }
 }
 
+/// The tinted capsule.
 private struct AppTintedCapsuleFill: View {
     @Environment(\.colorScheme) private var scheme
     @AppStorage(AppPalette.storageKey) private var paletteRaw = AppPalette.green.rawValue
@@ -419,6 +457,7 @@ private struct AppTintedCapsuleFill: View {
     }
 }
 
+/// Applies the accent tint.
 private struct AppAccentTintModifier: ViewModifier {
     @Environment(\.colorScheme) private var scheme
     @AppStorage(AppPalette.storageKey) private var paletteRaw = AppPalette.green.rawValue
@@ -428,6 +467,7 @@ private struct AppAccentTintModifier: ViewModifier {
     }
 }
 
+/// Applies the accent foreground.
 private struct AppAccentForegroundModifier: ViewModifier {
     @Environment(\.colorScheme) private var scheme
     @AppStorage(AppPalette.storageKey) private var paletteRaw = AppPalette.green.rawValue
@@ -437,6 +477,7 @@ private struct AppAccentForegroundModifier: ViewModifier {
     }
 }
 
+/// The glass card.
 private struct AppGlassCardModifier: ViewModifier {
     var radius: CGFloat
     @Environment(\.colorScheme) private var scheme
@@ -453,6 +494,7 @@ private struct AppGlassCardModifier: ViewModifier {
     }
 }
 
+/// Reports a card's height to its pair.
 private struct PairHeightPreference: PreferenceKey {
     static let defaultValue: CGFloat = 0
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
@@ -460,10 +502,12 @@ private struct PairHeightPreference: PreferenceKey {
     }
 }
 
+/// Carries the shared height of a pair.
 private struct PairRowHeightKey: EnvironmentKey {
     static let defaultValue: CGFloat = 0
 }
 
+/// Access to the pair height.
 extension EnvironmentValues {
     var pairRowHeight: CGFloat {
         get { self[PairRowHeightKey.self] }
@@ -491,12 +535,15 @@ struct EqualHeightPair<Content: View>: View {
     }
 }
 
+/// Equal-height card helpers.
 extension View {
+    /// Makes both cards of a pair equally high.
     func equalPairCard(radius: CGFloat = 18) -> some View {
         modifier(EqualPairCardModifier(radius: radius))
     }
 }
 
+/// The equal-height card.
 private struct EqualPairCardModifier: ViewModifier {
     var radius: CGFloat
     @Environment(\.pairRowHeight) private var rowHeight

@@ -5,6 +5,7 @@ import LififyHealth
 import SwiftData
 import SwiftUI
 
+/// The finance overview.
 struct DashboardView: View {
     let isMainTab: Bool
     var path: Binding<NavigationPath>?
@@ -231,6 +232,7 @@ struct DashboardView: View {
         .sheet(isPresented: $showingNewSavingsPlan) { SavingsPlanCreateForm() }
     }
 
+    /// The period's figures.
     @ViewBuilder
     private func financeSummary(
         _ snapshot: PeriodForecast,
@@ -308,6 +310,7 @@ struct DashboardView: View {
         }
     }
 
+    /// The depot view of the overview.
     private func depotContent(_ period: ForecastPeriod) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             VStack(alignment: .leading, spacing: 2) {
@@ -327,6 +330,7 @@ struct DashboardView: View {
         }
     }
 
+    /// One forecast line or the savings group.
     @ViewBuilder
     private func forecastLine(_ line: ForecastDisplayLine) -> some View {
         if line.isSavingsHeader {
@@ -336,6 +340,7 @@ struct DashboardView: View {
         }
     }
 
+    /// A forecast with its actions.
     private func forecastButton(_ item: ForecastListItem) -> some View {
         Button {
             selectedForecast = item
@@ -407,6 +412,7 @@ struct DashboardView: View {
         .listRowBackground(Color.clear)
     }
 
+    /// The savings group header.
     private func savingsForecastHeader(bookedCents: Int, openCents: Int) -> some View {
         let expanded = savingsForecastsExpanded || !forecastQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         let total = bookedCents + openCents
@@ -436,6 +442,7 @@ struct DashboardView: View {
         .buttonStyle(.plain)
     }
 
+    /// Lists the shown forecasts with savings plans grouped.
     private func visibleForecasts(_ period: ForecastPeriod) -> [ForecastDisplayLine] {
         let query = forecastQuery.trimmingCharacters(in: .whitespacesAndNewlines)
         let groupTitle = L("Sparpläne", "Savings plans")
@@ -459,6 +466,7 @@ struct DashboardView: View {
             bookedCents: figures.booked,
             openCents: figures.open
         )
+        /// Adds the savings group.
         func appendSavings() {
             lines.append(header)
             if expanded {
@@ -476,6 +484,7 @@ struct DashboardView: View {
         return lines
     }
 
+    /// Says whether a forecast is a savings plan.
     private func isSavingsForecast(_ item: ForecastListItem) -> Bool {
         guard item.fixedCostID != nil else { return false }
         if let cost = fixedCosts.first(where: { $0.id == item.fixedCostID }) {
@@ -484,6 +493,7 @@ struct DashboardView: View {
         return SavingsPlanFixedCosts.isManagedName(item.title)
     }
 
+    /// Sums the booked and open savings amounts.
     private func savingsForecastFigures(period: ForecastPeriod) -> (booked: Int, open: Int) {
         let savings = forecastItems(period).filter(isSavingsForecast)
         let open = savings.filter { !$0.settled }.reduce(0) { $0 + abs($1.signedCents) }
@@ -497,6 +507,7 @@ struct DashboardView: View {
         return (booked, open)
     }
 
+    /// Lists the period's forecasts.
     private func forecastItems(_ period: ForecastPeriod) -> [ForecastListItem] {
         _ = forecastRejectionRevision
         return ForecastSchedule.financeView(
@@ -513,6 +524,7 @@ struct DashboardView: View {
         )
     }
 
+    /// Opens the editor of a forecast.
     private func editForecast(_ item: ForecastListItem) {
         switch item.kind {
         case .income(let forecast):
@@ -528,6 +540,7 @@ struct DashboardView: View {
         }
     }
 
+    /// One forecast row.
     private func forecastRow(_ item: ForecastListItem) -> some View {
         let savings = item.fixedCostID != nil && SavingsPlanFixedCosts.isManagedName(item.title)
         let category: BookingCategory = switch item.kind {
@@ -568,6 +581,7 @@ struct DashboardView: View {
         }
     }
 
+    /// Returns a forecast's amount color.
     private func forecastAmountColor(category: BookingCategory, signed: Int, paint: BookingPaint) -> Color {
         switch category {
         case .income: return .green
@@ -662,6 +676,7 @@ struct DashboardView: View {
         }
     }
 
+    /// Deletes a booking with its links.
     private func deleteBooking(_ entry: LedgerEntry) {
         splits.filter { $0.transactionID == entry.id }.forEach { context.delete($0) }
         IconPreferenceStore.remove(for: entry.id)
@@ -673,6 +688,7 @@ struct DashboardView: View {
         try? context.save()
     }
 
+    /// Says whether a planned transfer is booked.
     private func transferForecastIsBooked(_ forecast: TransferForecastRecord, period: ForecastPeriod) -> Bool {
         if ForecastPeriodLinkStore.covers(.transfer, id: forecast.id, entries: entries, period: period) { return true }
         return entries.contains { entry in
@@ -681,6 +697,7 @@ struct DashboardView: View {
         }
     }
 
+    /// A link that works with or without a navigation path.
     private func linked<Label: View>(_ route: FinanceRoute, @ViewBuilder label: () -> Label) -> some View {
         Group {
             if let path {
@@ -697,6 +714,7 @@ struct DashboardView: View {
         .frame(maxWidth: .infinity, alignment: .top)
     }
 
+    /// The net worth card.
     private func netWorthCard(_ forecast: PeriodForecast, period: ForecastPeriod) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(L("Gesamtvermögen", "Net worth"))
@@ -719,6 +737,7 @@ struct DashboardView: View {
         .financeCard()
     }
 
+    /// The shopping bias card.
     private func biasCard(_ forecast: PeriodForecast) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(FinanceTileCopy.shopping)
@@ -747,6 +766,7 @@ struct DashboardView: View {
         .financeCard(padding: 12)
     }
 
+    /// An income or expense tile.
     private func flowTile(_ title: String, amount: Int, note: FlowNote? = nil, fillsRow: Bool = false) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(title)
@@ -773,6 +793,7 @@ struct DashboardView: View {
         .financeCard(padding: 12, fillsRow: fillsRow)
     }
 
+    /// A balance tile.
     private func balanceTile(
         _ title: String,
         amount: Int,
@@ -861,6 +882,7 @@ struct DashboardView: View {
         accounts.filter { $0.kind != .portfolio && $0.kind != .savingsGroup }.map(\.id)
     }
 
+    /// Calculates the period for the selected scope.
     private func forecast(for period: ForecastPeriod) async -> PeriodForecast {
         let combined = selectedFilterAccount == nil && !filters.showsDepot
         await Task.yield()
@@ -972,6 +994,7 @@ struct DashboardView: View {
         return cash + HoldingMaintenance.marketValue(of: holdings, through: dayBefore)
     }
 
+    /// Calculates the liquid balances.
     private func liquidForecast(for period: ForecastPeriod) -> PeriodForecast {
         let liquid = accounts.filter { $0.isLiquid && $0.kind != .portfolio && $0.kind != .savingsGroup }
         let liquidIDs = Set(liquid.map(\.id))
@@ -994,6 +1017,7 @@ struct DashboardView: View {
         )
     }
 
+    /// Uses the depot value when the depot is shown.
     private func presented(_ snapshot: PeriodForecast, period: ForecastPeriod) -> PeriodForecast {
         guard filters.showsDepot else { return snapshot }
         var copy = snapshot
@@ -1013,10 +1037,12 @@ struct DashboardView: View {
         return calendar.startOfDay(for: period.start) > calendar.startOfDay(for: .now)
     }
 
+    /// Says whether open amounts are noted.
     private func showsForecastNotes(_ period: ForecastPeriod) -> Bool {
         !isFuturePeriod(period) && period.end >= Calendar.current.startOfDay(for: .now)
     }
 
+    /// Sums the open planned transfers of an account.
     private func openTransferTotals(for account: Account, period: ForecastPeriod) -> (income: Int, expenses: Int) {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: .now)
@@ -1075,6 +1101,7 @@ struct DashboardView: View {
         return hasher.finalize()
     }
 
+    /// Recalculates the summary outside the render.
     private func refreshSummary() async {
         let selection = selectionToken
         await Task.yield()
@@ -1114,6 +1141,7 @@ struct DashboardView: View {
         return hasher.finalize()
     }
 
+    /// Loads the stores before the calculation.
     private func warmFinanceStores() {
         _ = SavingsPlanStore.all()
         _ = ClosedPositionStore.all()
@@ -1140,6 +1168,7 @@ struct DashboardView: View {
         }
     }
 
+    /// Names the date of the net worth.
     private func netWorthCaption(_ period: ForecastPeriod) -> String {
         let today = Calendar.current.startOfDay(for: .now)
         if period.contains(today) { return L("Heute", "Today") }
@@ -1147,6 +1176,7 @@ struct DashboardView: View {
         return L("Prognose zum Periodenende", "Forecast at period end")
     }
 
+    /// Returns the color of a flow.
     private func flowColor(_ cents: Int) -> Color {
         if cents > 0 { return .green }
         if cents < 0 { return .red }
@@ -1155,6 +1185,7 @@ struct DashboardView: View {
 
 }
 
+/// Registers the finance routes when no path is used.
 private struct FinanceDestinationRegistration: ViewModifier {
     let isEnabled: Bool
 
@@ -1167,6 +1198,7 @@ private struct FinanceDestinationRegistration: ViewModifier {
     }
 }
 
+/// The links to further finance areas.
 private struct FinanceMoreSection: View {
     var path: Binding<NavigationPath>?
 
@@ -1188,6 +1220,7 @@ private struct FinanceMoreSection: View {
         }
     }
 
+    /// One link section.
     private func sectionLink(_ link: FinanceMoreLink) -> some View {
         Group {
             if let path {
@@ -1205,6 +1238,7 @@ private struct FinanceMoreSection: View {
         .buttonStyle(.plain)
     }
 
+    /// One link row.
     private func row(_ link: FinanceMoreLink) -> some View {
         HStack(spacing: 12) {
             Image(systemName: link.symbol)
@@ -1224,6 +1258,7 @@ private struct FinanceMoreSection: View {
     }
 }
 
+/// Reports a tile's height.
 private struct TileHeightPreference: PreferenceKey {
     static let defaultValue: CGFloat = 0
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
@@ -1231,10 +1266,12 @@ private struct TileHeightPreference: PreferenceKey {
     }
 }
 
+/// Carries a row's tile height.
 private struct TileRowHeightKey: EnvironmentKey {
     static let defaultValue: CGFloat = 0
 }
 
+/// Access to the tile height.
 private extension EnvironmentValues {
     var tileRowHeight: CGFloat {
         get { self[TileRowHeightKey.self] }
@@ -1242,6 +1279,7 @@ private extension EnvironmentValues {
     }
 }
 
+/// Makes the tiles of a row equally high.
 private struct EqualHeightTileRow<Content: View>: View {
     @ViewBuilder var content: () -> Content
     @State private var height: CGFloat = 0
@@ -1255,11 +1293,13 @@ private struct EqualHeightTileRow<Content: View>: View {
     }
 }
 
+/// A small note on a tile.
 private struct FlowNote {
     var title: String
     var cents: Int
 }
 
+/// One line of the forecast list.
 private struct ForecastDisplayLine: Identifiable {
     var id: String
     var item: ForecastListItem?
@@ -1280,12 +1320,14 @@ private struct ForecastDisplayLine: Identifiable {
     }
 }
 
+/// The summary prepared outside the render.
 private struct PreparedSummary {
     var forecast: PeriodForecast
     var liquidStart: Int?
     var liquidEnd: Int?
 }
 
+/// The finance card style.
 private struct FinanceCardModifier: ViewModifier {
     var padding: CGFloat
     var fillsRow: Bool
@@ -1313,7 +1355,9 @@ private struct FinanceCardModifier: ViewModifier {
     }
 }
 
+/// Finance card helper.
 private extension View {
+    /// Applies the finance card.
     func financeCard(padding: CGFloat = 12, fillsRow: Bool = false) -> some View {
         modifier(FinanceCardModifier(padding: padding, fillsRow: fillsRow))
     }

@@ -5,6 +5,7 @@ import LififyHealth
 import SwiftData
 import SwiftUI
 
+/// The planned transfers.
 struct TransferForecastsView: View {
     @State private var forecasts: [TransferForecastRecord] = []
     @State private var showingNew = false
@@ -55,6 +56,7 @@ struct TransferForecastsView: View {
         .sheet(item: $edited, onDismiss: { reload() }) { TransferForecastForm(forecast: $0) }
     }
 
+    /// Reloads the transfers.
     private func reload() {
         forecasts = TransferForecastStore.all().sorted {
             $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
@@ -62,6 +64,7 @@ struct TransferForecastsView: View {
     }
 }
 
+/// Creates or edits a planned transfer.
 struct TransferForecastForm: View {
     @Environment(\.dismiss) private var dismiss
     @Query(sort: \Account.name) private var accounts: [Account]
@@ -130,6 +133,7 @@ struct TransferForecastForm: View {
         accounts.filter { $0.kind != .portfolio && $0.kind != .savingsGroup }
     }
 
+    /// Saves the transfer.
     private func save() {
         guard let cents = Money.cents(from: amount), cents != 0, !name.isEmpty else { return }
         guard let fromAccountID, let toAccountID, fromAccountID != toAccountID else { return }

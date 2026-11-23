@@ -43,6 +43,7 @@ enum BackupDefaults {
         ChallengeGroupPinStore.revisionKey
     ]
 
+    /// Says whether a preference belongs to a backup scope.
     static func belongs(_ key: String, to scope: BackupScope) -> Bool {
         let finance = financeKeys.contains(key) || financePrefixes.contains { key.hasPrefix($0) }
         let challenges = challengeKeys.contains(key) || challengePrefixes.contains { key.hasPrefix($0) }

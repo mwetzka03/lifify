@@ -5,6 +5,7 @@ import LififyHealth
 import SwiftData
 import SwiftUI
 
+/// The Shortcuts setup and notice templates.
 struct ShortcutsSettingsView: View {
     @Query(sort: \Account.createdAt) private var accounts: [Account]
     @State private var templates: [NoticeTemplate] = NoticeTemplateStore.all()
@@ -15,6 +16,7 @@ struct ShortcutsSettingsView: View {
         accounts.map { NamedAccount(id: $0.id, name: $0.name, kind: $0.kind, isMain: $0.isMain) }
     }
 
+    /// Turns a template on or off.
     private func setEnabled(_ enabled: Bool, for id: UUID) {
         guard let index = templates.firstIndex(where: { $0.id == id }) else { return }
         templates[index].isEnabled = enabled
@@ -145,6 +147,7 @@ struct ShortcutsSettingsView: View {
     }
 }
 
+/// Creates or edits a template.
 private struct NoticeTemplateForm: View {
     @Environment(\.dismiss) private var dismiss
     let accounts: [Account]

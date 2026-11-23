@@ -5,6 +5,7 @@ import LififyHealth
 import SwiftData
 import SwiftUI
 
+/// The running timer on an abstinence card.
 struct AbstinenceSummary: View {
     let challenge: ChallengeItem
     @Environment(\.modelContext) private var context
@@ -25,6 +26,7 @@ struct AbstinenceSummary: View {
         }
     }
 
+    /// The card's content.
     private func summary(_ now: Date) -> some View {
         let start = challenge.startDate ?? challenge.createdAt
         let elapsed = AbstinenceRules.elapsed(from: start, to: now)
@@ -54,6 +56,7 @@ struct AbstinenceSummary: View {
         }
     }
 
+    /// Changes when a settlement is due.
     private func settleToken(_ now: Date) -> String {
         let start = challenge.startDate ?? challenge.createdAt
         let reached = AbstinenceRules.reached(start: start, now: now).map(\.rawValue).joined(separator: ",")
@@ -62,7 +65,9 @@ struct AbstinenceSummary: View {
     }
 }
 
+/// Formats the running timer.
 enum AbstinenceClockText {
+    /// Formats a time span.
     static func string(_ interval: TimeInterval) -> String {
         let clock = AbstinenceRules.clock(interval)
         let time = String(format: "%02d:%02d:%02d", clock.hours, clock.minutes, clock.seconds)
@@ -72,6 +77,7 @@ enum AbstinenceClockText {
     }
 }
 
+/// Details of an abstinence challenge.
 struct AbstinenceDetailView: View {
     let challengeID: UUID
     @Environment(\.modelContext) private var context
@@ -126,6 +132,7 @@ struct AbstinenceDetailView: View {
         }
     }
 
+    /// The detail content.
     private func detail(_ challenge: ChallengeItem, now: Date) -> some View {
         let start = challenge.startDate ?? challenge.createdAt
         let elapsed = AbstinenceRules.elapsed(from: start, to: now)
@@ -223,6 +230,7 @@ struct AbstinenceDetailView: View {
         }
     }
 
+    /// Changes when a settlement is due.
     private func settleToken(_ challenge: ChallengeItem, _ now: Date) -> String {
         let start = challenge.startDate ?? challenge.createdAt
         let reached = AbstinenceRules.reached(start: start, now: now).map(\.rawValue).joined(separator: ",")

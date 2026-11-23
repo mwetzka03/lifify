@@ -10,6 +10,7 @@ import SwiftData
 /// A failed or interrupted move leaves the old keys and runs again on the next launch.
 @MainActor
 enum LegacyDataMigration {
+    /// Moves older UserDefaults data into the database, one area at a time.
     static func run() {
         guard let context = LififyDatabase.sideContext else { return }
         migrateDepot(context)
@@ -19,6 +20,7 @@ enum LegacyDataMigration {
         AppDefaults.clearCaches()
     }
 
+    /// Says whether an area was already moved.
     static func isFinished(_ area: String, context: ModelContext) -> Bool {
         let descriptor = FetchDescriptor<DataMigrationRecord>(predicate: #Predicate { $0.area == area })
         return ((try? context.fetchCount(descriptor)) ?? 0) > 0
@@ -57,6 +59,7 @@ enum LegacyDataMigration {
         return try? JSONDecoder().decode(T.self, from: data)
     }
 
+    /// Lists the stored keys with a prefix.
     static func keys(prefix: String) -> [String] {
         AppDefaults.store.dictionaryRepresentation().keys.filter { $0.hasPrefix(prefix) }
     }
@@ -74,6 +77,7 @@ enum LegacyDataMigration {
         })
     }
 
+    /// Moves one stored dictionary into the link table.
     private static func insertMap<T: Codable>(_ type: T.Type, kind: LinkKind, key: String, context: ModelContext) -> Bool {
         guard let values = decoded([String: T].self, key: key, empty: [:]) else { return false }
         for (entry, raw) in LinkTable.encoded(values) {
@@ -82,6 +86,7 @@ enum LegacyDataMigration {
         return true
     }
 
+    /// Moves one stored list into the link table.
     private static func insertList<T: Codable>(_ type: T.Type, kind: LinkKind, key: String, context: ModelContext) -> Bool {
         guard let values = decoded([T].self, key: key, empty: []) else { return false }
         if !values.isEmpty {
@@ -92,6 +97,7 @@ enum LegacyDataMigration {
         return true
     }
 
+    /// Moves the challenge side data.
     private static func migrateChallenges(_ context: ModelContext) {
         let defaults = AppDefaults.store
         let stateKey = "lifify.streakStates"
@@ -185,6 +191,7 @@ enum LegacyDataMigration {
         })
     }
 
+    /// Moves the finance links.
     private static func migrateFinanceLinks(_ context: ModelContext) {
         let defaults = AppDefaults.store
         let maps: [(LinkKind, String)] = [
@@ -248,6 +255,7 @@ enum LegacyDataMigration {
         })
     }
 
+    /// Moves the depot data.
     private static func migrateDepot(_ context: ModelContext) {
         let lotKey = "lifify.holdingLots"
         let planKey = "lifify.savingsPlans"
@@ -278,6 +286,7 @@ enum LegacyDataMigration {
             }
             let defaults = AppDefaults.store
             var market: [UUID: StoredHoldingMarket] = [:]
+            /// Finds or creates a holding's market row.
             func row(_ key: String, _ prefix: String) -> StoredHoldingMarket? {
                 guard let id = UUID(uuidString: String(key.dropFirst(prefix.count))) else { return nil }
                 if let existing = market[id] { return existing }

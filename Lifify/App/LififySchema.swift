@@ -17,6 +17,7 @@ final class DataMigrationRecord {
     }
 }
 
+/// The first stored schema, with finance only.
 enum LififySchemaV1: VersionedSchema {
     static let versionIdentifier = Schema.Version(1, 0, 0)
     static var models: [any PersistentModel.Type] {
@@ -38,6 +39,7 @@ enum LififySchemaV1: VersionedSchema {
     }
 }
 
+/// Adds challenges, coins, and rewards.
 enum LififySchemaV2: VersionedSchema {
     static let versionIdentifier = Schema.Version(2, 0, 0)
     static var models: [any PersistentModel.Type] {
@@ -54,6 +56,7 @@ enum LififySchemaV2: VersionedSchema {
     }
 }
 
+/// Moves side data from UserDefaults into the database.
 enum LififySchemaV3: VersionedSchema {
     static let versionIdentifier = Schema.Version(3, 0, 0)
     static var models: [any PersistentModel.Type] {
@@ -122,6 +125,7 @@ enum LififySchemaV4: VersionedSchema {
     }
 }
 
+/// The upgrade path between all stored schema versions.
 enum LififyMigrationPlan: SchemaMigrationPlan {
     static var schemas: [any VersionedSchema.Type] {
         [LififySchemaV1.self, LififySchemaV2.self, LififySchemaV3.self, LififySchemaV4.self]

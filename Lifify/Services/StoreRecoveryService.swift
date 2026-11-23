@@ -5,6 +5,7 @@ import LififyHealth
 import Foundation
 import SwiftData
 
+/// Why a store recovery cannot start.
 enum StoreRecoveryError: LocalizedError {
     case notAFullBackup
 
@@ -23,6 +24,7 @@ enum StoreRecoveryService {
     private static let generationKey = "lififyStoreGeneration"
     private static let currentGeneration = 3
 
+    /// Only an unfinished setup may move a broken store aside.
     nonisolated static func movesStoreAside(setupComplete: Bool) -> Bool {
         !setupComplete
     }
@@ -31,6 +33,7 @@ enum StoreRecoveryService {
         AppDefaults.store.bool(forKey: "hasCompletedOnboarding")
     }
 
+    /// Opens the database with its upgrade path.
     static func makeContainer(url: URL? = nil) throws -> ModelContainer {
         let schema = Schema(versionedSchema: LififySchemaV4.self)
         let configuration = url.map { ModelConfiguration(schema: schema, url: $0) }
@@ -42,6 +45,7 @@ enum StoreRecoveryService {
         )
     }
 
+    /// Opens the database and handles a failure by setup state.
     static func openContainer(url: URL? = nil) -> Result<ModelContainer, Error> {
         prepareCompatibleStore()
         do {
@@ -85,6 +89,7 @@ enum StoreRecoveryService {
         }
     }
 
+    /// Applies the store generation rule at launch.
     static func prepareCompatibleStore() {
         guard AppDefaults.store.integer(forKey: generationKey) != currentGeneration else { return }
         if movesStoreAside(setupComplete: setupComplete) {
@@ -94,11 +99,13 @@ enum StoreRecoveryService {
         AppDefaults.store.set(currentGeneration, forKey: generationKey)
     }
 
+    /// Archives the stores and restarts setup.
     static func archiveExistingStoresAndReset() {
         archiveExistingStores()
         resetLaunchState()
     }
 
+    /// Resets the setup state.
     private static func resetLaunchState() {
         let defaults = AppDefaults.store
         defaults.set(false, forKey: "hasCompletedOnboarding")
@@ -107,6 +114,7 @@ enum StoreRecoveryService {
         IncomeAssignmentStore.reset()
     }
 
+    /// Lists a folder's store files.
     private static func storeFiles(in folder: URL) -> [URL] {
         let contents = (try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil)) ?? []
         return contents.filter { url in
@@ -115,6 +123,7 @@ enum StoreRecoveryService {
         }
     }
 
+    /// Moves the stores into a new archive folder.
     @discardableResult
     private static func archiveExistingStores() -> URL? {
         let fileManager = FileManager.default
@@ -133,10 +142,12 @@ enum StoreRecoveryService {
         return archive
     }
 
+    /// Deletes the current stores.
     private static func removeCurrentStores() {
         storeFiles(in: AppFiles.supportDirectory).forEach { try? FileManager.default.removeItem(at: $0) }
     }
 
+    /// Moves archived stores back.
     private static func moveStores(from archive: URL) {
         let support = AppFiles.supportDirectory
         for source in storeFiles(in: archive) {

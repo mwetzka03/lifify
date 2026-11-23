@@ -5,6 +5,7 @@ import LififyHealth
 import SwiftData
 import SwiftUI
 
+/// The tab bar with the work that runs around it.
 struct RootView: View {
     @Environment(\.modelContext) private var context
     @Environment(\.scenePhase) private var scenePhase
@@ -23,6 +24,7 @@ struct RootView: View {
     @State private var resumeLocked = false
     @State private var leftForeground = false
 
+    /// The root screen of a tab.
     @ViewBuilder
     private func tabRoot(_ tab: AppTab) -> some View {
         switch tab.tag {
@@ -127,6 +129,7 @@ struct RootView: View {
         }
     }
 
+    /// Refreshes calendar, bonuses, and notifications on return.
     private func resumeForegroundWork() async {
         await EventKitSyncService().sync(
             context: context,

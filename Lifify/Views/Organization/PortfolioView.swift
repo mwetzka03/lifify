@@ -412,6 +412,7 @@ struct PortfolioElementsView: View {
     }
 }
 
+/// The savings plans.
 struct SavingsPlansView: View {
     @Environment(\.modelContext) private var context
     @EnvironmentObject private var filters: FinanceFilterStore
@@ -505,12 +506,14 @@ struct SavingsPlansView: View {
             .sorted { $0.date > $1.date }
     }
 
+    /// Reloads the plans.
     private func reload() {
         SavingsPlanRunner.bookDue(context: context)
         SavingsPlanFixedCosts.sync(context: context)
         plans = SavingsPlanStore.all()
     }
 
+    /// Deletes a plan.
     private func delete(_ plan: SavingsPlanRecord) {
         SavingsPlanStore.remove(id: plan.id)
         SavingsPlanFixedCosts.sync(context: context)
@@ -518,6 +521,7 @@ struct SavingsPlansView: View {
     }
 }
 
+/// A plan's name and schedule.
 private struct SavingsPlanLabel: View {
     let plan: SavingsPlanRecord
     var checkingName: String
@@ -545,6 +549,7 @@ private struct SavingsPlanLabel: View {
     }
 }
 
+/// One plan row with its actions.
 @MainActor
 private func savingsPlanRow(
     _ plan: SavingsPlanRecord,
@@ -573,6 +578,7 @@ private func savingsPlanRow(
     }
 }
 
+/// Edits a plan.
 private struct SavingsPlanEditor: View {
     @Environment(\.dismiss) private var dismiss
     @Query(sort: \Account.name) private var accounts: [Account]
@@ -629,6 +635,7 @@ private struct SavingsPlanEditor: View {
         }
     }
 
+    /// Fills the default checking account.
     private func fillDefaultAccount() {
         if debitAccounts.contains(where: { $0.id == checkingAccountID }) { return }
         if let preferred = TradeAccountPreference.accountID(),
@@ -641,6 +648,7 @@ private struct SavingsPlanEditor: View {
         }
     }
 
+    /// Saves the plan.
     private func save() {
         guard let cents = Money.cents(from: amount), cents > 0 else { return }
         guard debitAccounts.contains(where: { $0.id == checkingAccountID }) else { return }
@@ -656,6 +664,7 @@ private struct SavingsPlanEditor: View {
     }
 }
 
+/// Edits one lot.
 private struct LotEditor: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
@@ -709,6 +718,7 @@ private struct LotEditor: View {
         }
     }
 
+    /// Saves the lot and its booking.
     private func save() {
         let count = Double(quantity.replacingOccurrences(of: ",", with: ".")) ?? 0
         guard count > 0, let cents = Money.cents(from: amount), cents > 0 else { return }
@@ -731,6 +741,7 @@ private struct LotEditor: View {
     }
 }
 
+/// Whether a lot is a buy, sale, or savings plan.
 private enum LotKind: String, CaseIterable, Identifiable {
     case buy, savings, sale
     var id: String { rawValue }
@@ -743,6 +754,7 @@ private enum LotKind: String, CaseIterable, Identifiable {
     }
 }
 
+/// Details of a position.
 private struct HoldingDetailView: View {
     let holding: PortfolioHolding
     @Environment(\.modelContext) private var context
@@ -861,6 +873,7 @@ private struct HoldingDetailView: View {
         }
     }
 
+    /// Deletes a lot and its booking.
     private func deleteLot(_ lot: HoldingLot) {
         HoldingMaintenance.deleteLedger(lot, holding: holding, context: context)
         HoldingLotStore.remove(lotID: lot.id, holdingID: holding.id)
@@ -871,10 +884,12 @@ private struct HoldingDetailView: View {
         }
     }
 
+    /// Reloads the lots.
     private func reloadLots() {
         lots = HoldingLotStore.lots(for: holding.id).sorted { $0.date < $1.date }
     }
 
+    /// Describes a lot.
     private func lotTitle(_ lot: HoldingLot) -> String {
         if lot.isSale { return L("Verkauf", "Sale") }
         if lot.isSavingsPlan { return L("Sparplan", "Savings plan") }
@@ -884,6 +899,7 @@ private struct HoldingDetailView: View {
         return L("Kauf", "Purchase")
     }
 
+    /// The icon of a trade.
     private func tradeIcon(
         _ title: String,
         systemImage: String,
@@ -907,6 +923,7 @@ private struct HoldingDetailView: View {
     }
 }
 
+/// Creates or edits a position.
 private struct HoldingForm: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
@@ -1175,6 +1192,7 @@ private struct HoldingForm: View {
         }
     }
 
+    /// Finds or creates the depot account.
     private func resolvedPortfolioAccount() -> Account {
         if let accountID, let match = portfolioAccounts.first(where: { $0.id == accountID }) {
             return match
@@ -1192,6 +1210,7 @@ private struct HoldingForm: View {
         return account
     }
 
+    /// Searches for the entered ISIN.
     @MainActor
     private func search() async {
         isSearching = true
@@ -1207,6 +1226,7 @@ private struct HoldingForm: View {
         }
     }
 
+    /// Applies a found security.
     @MainActor
     private func select(_ suggestion: StockSuggestion) async {
         selectedSuggestion = suggestion
@@ -1220,6 +1240,7 @@ private struct HoldingForm: View {
     }
 }
 
+/// Books a buy or sale.
 private struct HoldingTradeSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
@@ -1376,6 +1397,7 @@ private struct HoldingTradeSheet: View {
         return accounts.first { $0.kind == .portfolio }
     }
 
+    /// Saves the trade with its booking.
     private func save() {
         let count: Double
         if isSale && sellByPercent {
@@ -1496,6 +1518,7 @@ private struct HoldingTradeSheet: View {
         return Money.cents(from: trimmed) ?? -1
     }
 
+    /// Describes the fee.
     private func feeNote(_ cents: Int) -> String {
         guard cents > 0 else { return "" }
         return "\(L("Gebühr", "Fee")): \(Money.string(cents: cents))"

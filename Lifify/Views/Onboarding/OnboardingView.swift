@@ -7,6 +7,7 @@ import SwiftData
 import SwiftUI
 import UniformTypeIdentifiers
 
+/// A broker offered in setup.
 struct OnboardingBroker: Identifiable {
     var id: String { name }
     var name: String
@@ -26,6 +27,7 @@ struct OnboardingBroker: Identifiable {
     }
 }
 
+/// The setup steps.
 enum OnboardingSteps {
     static var title: String { L("Lifify einrichten", "Set up Lifify") }
     static var start: String { L("Wie möchtest du starten?", "How would you like to start?") }
@@ -50,6 +52,7 @@ enum OnboardingSteps {
     static var secondaryIncome: String { L("Nebeneinnahmen (optional)", "Secondary income (optional)") }
 }
 
+/// Decides where setup resumes.
 enum OnboardingResume {
     /// Unfinished setup always opens on the first step after a relaunch or update.
     static func launchStep(isComplete: Bool, savedStep: Int) -> Int {
@@ -59,6 +62,7 @@ enum OnboardingResume {
     }
 }
 
+/// A secondary income being entered.
 private struct SecondaryIncomeDraft: Identifiable {
     let id = UUID()
     var rowID: UUID?
@@ -70,6 +74,7 @@ private struct SecondaryIncomeDraft: Identifiable {
     var dueDay = 1
 }
 
+/// The first-time setup.
 struct OnboardingView: View {
     @Environment(\.modelContext) private var context
     @Query private var accounts: [Account]
@@ -627,6 +632,7 @@ struct OnboardingView: View {
             && (Money.cents(from: primaryAmount) ?? 0) > 0
     }
 
+    /// The next button.
     private func nextButton(_ action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack {
@@ -637,6 +643,7 @@ struct OnboardingView: View {
         }
     }
 
+    /// The back button.
     private func backButton() -> some View {
         Button {
             step = max(step - 1, 0)
@@ -649,6 +656,7 @@ struct OnboardingView: View {
         }
     }
 
+    /// Creates the Trade Republic accounts.
     private func createTradeRepublicAccounts() {
         let checking: Account
         if let existing = accounts.first(where: {
@@ -669,6 +677,7 @@ struct OnboardingView: View {
         try? context.save()
     }
 
+    /// Saves the main account.
     private func saveMainAccount() -> Bool {
         let account = accounts.first(where: \.isMain) ?? Account(name: accountName, isMain: true)
         accounts.forEach { $0.isMain = false }
@@ -688,6 +697,7 @@ struct OnboardingView: View {
         }
     }
 
+    /// Reads the chosen bank file.
     private func importBankFile(_ result: Result<[URL], Error>) {
         guard case let .success(urls) = result, let url = urls.first else {
             if case let .failure(error) = result { message = error.localizedDescription }
@@ -711,6 +721,7 @@ struct OnboardingView: View {
         }
     }
 
+    /// Reads the chosen Trade Republic file.
     private func importTradeRepublicFile(_ result: Result<[URL], Error>) {
         guard case let .success(urls) = result, let url = urls.first else {
             if case let .failure(error) = result { message = error.localizedDescription }
@@ -731,6 +742,7 @@ struct OnboardingView: View {
         }
     }
 
+    /// Books the Trade Republic statement.
     private func commitTradeRepublicImport() {
         guard let document = pendingDocument else { return }
         do {
@@ -755,6 +767,7 @@ struct OnboardingView: View {
         }
     }
 
+    /// Books the bank file with the entered balance.
     private func commitBankImport() {
         guard let accountID = mainAccountID ?? accounts.first(where: \.isMain)?.id,
               let account = accounts.first(where: { $0.id == accountID }),
@@ -828,6 +841,7 @@ struct OnboardingView: View {
         }
     }
 
+    /// Fills the primary income from a booking.
     private func fillPrimaryIncome() {
         guard let row = positiveRows.first(where: { $0.id == primaryRowID }) else { return }
         primaryName = row.title
@@ -837,6 +851,7 @@ struct OnboardingView: View {
         dueDay = Calendar.current.component(.day, from: row.date)
     }
 
+    /// Fills a secondary income from a booking.
     private func fillSecondaryIncome(_ draftID: UUID) {
         guard let index = secondaryDrafts.firstIndex(where: { $0.id == draftID }),
               let row = positiveRows.first(where: { $0.id == secondaryDrafts[index].rowID })
@@ -850,6 +865,7 @@ struct OnboardingView: View {
         secondaryDrafts[index].dueDay = Calendar.current.component(.day, from: row.date)
     }
 
+    /// Saves all entries and finishes setup.
     private func finishSetup() {
         guard !isFinishing,
               let amount = Money.cents(from: primaryAmount),
@@ -927,6 +943,7 @@ struct OnboardingView: View {
         BirthdayBonusService.settle(context: context)
     }
 
+    /// Restores a backup during setup.
     private func restoreBackup(_ result: Result<[URL], Error>) {
         guard case let .success(urls) = result, !urls.isEmpty else {
             if case let .failure(error) = result { message = error.localizedDescription }

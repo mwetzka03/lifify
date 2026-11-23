@@ -5,6 +5,7 @@ import LififyHealth
 import SwiftData
 import SwiftUI
 
+/// The coin balance with its bookings.
 struct WalletView: View {
     @Query(sort: \CoinTransaction.date, order: .reverse) private var transactions: [CoinTransaction]
     @Query(sort: \RewardPurchase.date, order: .reverse) private var purchases: [RewardPurchase]

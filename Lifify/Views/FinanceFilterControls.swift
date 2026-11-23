@@ -5,6 +5,7 @@ import LififyHealth
 import SwiftData
 import SwiftUI
 
+/// The shared period and account filter.
 struct FinanceFilterControls: View {
     @EnvironmentObject private var filters: FinanceFilterStore
     let periods: [ForecastPeriod]
@@ -19,6 +20,7 @@ struct FinanceFilterControls: View {
         }
     }
 
+    /// The period switcher.
     private func periodBar(_ period: ForecastPeriod) -> some View {
         let index = periods.firstIndex(of: period)
         return HStack(spacing: 8) {
@@ -82,6 +84,7 @@ struct FinanceFilterControls: View {
         }
     }
 
+    /// Selects an account or the depot.
     private func chooseAccount(index: Int, bankAccounts: [Account], includesDepot: Bool) {
         if index == 0 {
             filters.selectAllAccounts()
@@ -97,6 +100,7 @@ struct FinanceFilterControls: View {
         }
     }
 
+    /// Says whether a filter bubble is selected.
     private func accountSelected(index: Int, bankAccounts: [Account], includesDepot: Bool) -> Bool {
         if filters.showsDepot {
             return includesDepot && index == bankAccounts.count + 1

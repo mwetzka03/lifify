@@ -5,6 +5,7 @@ import LififyHealth
 import SwiftData
 import SwiftUI
 
+/// Details of a fixed cost.
 struct FixedCostDetailView: View {
     @Environment(\.modelContext) private var context
     @EnvironmentObject private var filters: FinanceFilterStore
@@ -143,11 +144,13 @@ struct FixedCostDetailView: View {
         return account?.kind == .portfolio ? nil : account
     }
 
+    /// Says whether a booking fits the shown account.
     private func matchesAccount(_ entry: LedgerEntry) -> Bool {
         guard let account = selectedAccount else { return true }
         return entry.accountID == account.id || entry.fromAccountID == account.id || entry.toAccountID == account.id
     }
 
+    /// Removes a booking's link.
     private func unlink(_ entry: LedgerEntry) {
         if let link = ForecastPeriodLinkStore.link(for: entry.id), link.kind == .fixed, link.id == cost.id {
             ForecastPeriodLinkStore.clear(entryID: entry.id)

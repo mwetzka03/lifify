@@ -4,6 +4,7 @@ import LififyChallenges
 import LififyHealth
 import SwiftUI
 
+/// A coin amount with its symbol.
 struct CoinAmountView: View {
     let amount: Int
     var showsPlus = false
