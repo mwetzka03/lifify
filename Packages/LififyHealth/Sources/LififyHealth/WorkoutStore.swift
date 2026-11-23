@@ -2,6 +2,7 @@ import Foundation
 import LififyChallenges
 import LififyCore
 
+/// Stores plans, sessions, and meals in one file.
 @MainActor
 public final class WorkoutStore: ObservableObject {
     public static let replacedNotification = Notification.Name("lifify.workouts.replaced")
@@ -15,6 +16,7 @@ public final class WorkoutStore: ObservableObject {
     private let decoder: JSONDecoder
     nonisolated(unsafe) private var replacementObserver: NSObjectProtocol?
 
+    /// Loads the store from a file.
     public init(fileURL: URL? = nil) {
         self.fileURL = fileURL ?? Self.defaultFileURL()
         encoder = JSONEncoder()
@@ -40,16 +42,19 @@ public final class WorkoutStore: ObservableObject {
         }
     }
 
+    /// The default file location.
     public static func defaultFileURL() -> URL {
         AppFiles.supportDirectory
             .appendingPathComponent("Lifify", isDirectory: true)
             .appendingPathComponent("workouts.json")
     }
 
+    /// Exports the whole store.
     public func exportSnapshotData() throws -> Data {
         try encoder.encode(Snapshot(plans: plans, sessions: sessions, meals: meals))
     }
 
+    /// Replaces the stored file after validating it.
     public static func replaceStoredSnapshot(_ data: Data) throws {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
@@ -60,19 +65,23 @@ public final class WorkoutStore: ObservableObject {
         NotificationCenter.default.post(name: replacedNotification, object: nil)
     }
 
+    /// Deletes the stored file.
     public static func clearStored() {
         try? FileManager.default.removeItem(at: defaultFileURL())
         NotificationCenter.default.post(name: replacedNotification, object: nil)
     }
 
+    /// Returns a plan.
     public func plan(id: UUID) -> WorkoutPlan? {
         plans.first { $0.id == id }
     }
 
+    /// Returns a session.
     public func session(id: UUID) -> WorkoutSession? {
         sessions.first { $0.id == id }
     }
 
+    /// Saves a plan.
     public func save(plan: WorkoutPlan) {
         var stored = plan
         stored.updatedAt = .now
@@ -85,11 +94,13 @@ public final class WorkoutStore: ObservableObject {
         persist()
     }
 
+    /// Deletes a plan.
     public func deletePlan(id: UUID) {
         plans.removeAll { $0.id == id }
         persist()
     }
 
+    /// Saves a session.
     public func save(session: WorkoutSession) {
         if let index = sessions.firstIndex(where: { $0.id == session.id }) {
             sessions[index] = session
@@ -101,11 +112,13 @@ public final class WorkoutStore: ObservableObject {
         persist()
     }
 
+    /// Deletes a session.
     public func deleteSession(id: UUID) {
         sessions.removeAll { $0.id == id }
         persist()
     }
 
+    /// Saves a meal.
     public func save(meal: MealEntry) {
         if let index = meals.firstIndex(where: { $0.id == meal.id }) {
             meals[index] = meal
@@ -116,11 +129,13 @@ public final class WorkoutStore: ObservableObject {
         persist()
     }
 
+    /// Deletes a meal.
     public func deleteMeal(id: UUID) {
         meals.removeAll { $0.id == id }
         persist()
     }
 
+    /// Clears the store.
     public func reset() {
         plans = []
         sessions = []
@@ -129,6 +144,7 @@ public final class WorkoutStore: ObservableObject {
         persist()
     }
 
+    /// Stores the weights a person uses most on the plan.
     private func rememberFrequentWeights(from session: WorkoutSession) {
         guard var plan = plans.first(where: { $0.id == session.planID }) else { return }
         let history = sessions
@@ -149,11 +165,13 @@ public final class WorkoutStore: ObservableObject {
         }
     }
 
+    /// The file's content.
     private struct Snapshot: Codable {
         var plans: [WorkoutPlan]
         var sessions: [WorkoutSession]
         var meals: [MealEntry]
 
+        /// The stored field names.
         private enum CodingKeys: String, CodingKey {
             case plans
             case sessions
@@ -166,6 +184,7 @@ public final class WorkoutStore: ObservableObject {
             self.meals = meals
         }
 
+        /// Decodes the file. Older files may lack meals.
         init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             plans = try container.decode([WorkoutPlan].self, forKey: .plans)
@@ -173,6 +192,7 @@ public final class WorkoutStore: ObservableObject {
             meals = try container.decodeIfPresent([MealEntry].self, forKey: .meals) ?? []
         }
 
+        /// Encodes the file.
         func encode(to encoder: Encoder) throws {
             var container = encoder.container(keyedBy: CodingKeys.self)
             try container.encode(plans, forKey: .plans)
@@ -181,6 +201,7 @@ public final class WorkoutStore: ObservableObject {
         }
     }
 
+    /// Reads the file.
     private func load() {
         guard FileManager.default.fileExists(atPath: fileURL.path) else {
             plans = []
@@ -201,6 +222,7 @@ public final class WorkoutStore: ObservableObject {
         }
     }
 
+    /// Writes the file.
     private func persist() {
         do {
             let directory = fileURL.deletingLastPathComponent()

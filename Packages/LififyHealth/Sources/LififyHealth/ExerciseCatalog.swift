@@ -2,6 +2,7 @@ import Foundation
 import LififyChallenges
 import LififyCore
 
+/// One exercise of the bundled catalog.
 public struct CatalogExercise: Decodable, Identifiable, Hashable, Sendable {
     public var exerciseId: String
     public var name: String
@@ -26,18 +27,22 @@ public struct CatalogExercise: Decodable, Identifiable, Hashable, Sendable {
     }
 }
 
+/// Finds exercises in the bundled catalog.
 public enum ExerciseCatalog {
     public static let exercises: [CatalogExercise] = load()
 
+    /// Returns an exercise by ID.
     public static func exercise(id: String) -> CatalogExercise? {
         exercises.first { $0.exerciseId == id }
     }
 
+    /// Returns the animation URL of an exercise.
     public static func gifURL(for code: String) -> URL? {
         guard let raw = exercise(id: code)?.gifUrl, let url = URL(string: raw) else { return nil }
         return url
     }
 
+    /// Searches the catalog.
     public static func search(_ query: String) -> [CatalogExercise] {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         let source = exercises.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
@@ -50,6 +55,7 @@ public enum ExerciseCatalog {
         }
     }
 
+    /// Converts a catalog exercise for a plan.
     public static func info(for exercise: CatalogExercise) -> WorkoutExerciseInfo {
         WorkoutExerciseInfo(
             id: exercise.exerciseId,
@@ -60,6 +66,7 @@ public enum ExerciseCatalog {
         )
     }
 
+    /// Loads the bundled catalog.
     private static func load() -> [CatalogExercise] {
         guard let url = Bundle.main.url(forResource: "exercises", withExtension: "json"),
               let data = try? Data(contentsOf: url),
@@ -74,7 +81,9 @@ public enum ExerciseCatalog {
     }
 }
 
+/// Formats exercise names.
 public enum ExerciseName {
+    /// Capitalizes each word.
     public static func formatted(_ name: String) -> String {
         name.split(separator: " ", omittingEmptySubsequences: true).map { word in
             word.split(separator: "-", omittingEmptySubsequences: false).map { part in
@@ -85,7 +94,9 @@ public enum ExerciseName {
     }
 }
 
+/// Says where an exercise's media comes from.
 public enum ExerciseMedia {
+    /// Says whether the animation is loaded from the web.
     public static func isRemote(_ code: String) -> Bool {
         ExerciseCatalog.gifURL(for: code) != nil
     }

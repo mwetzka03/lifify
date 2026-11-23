@@ -2,7 +2,9 @@ import Foundation
 import LififyChallenges
 import LififyCore
 
+/// Calculates progress, records, and grades of training.
 public enum WorkoutProgress {
+    /// Finds the most frequent recent weight.
     public static func frequentWeight(weightsNewestFirst: [[Double]], limit: Int = 5) -> Double? {
         let sample = weightsNewestFirst.prefix(limit).flatMap { $0.map(WorkoutFormat.rounded) }
         guard !sample.isEmpty else { return nil }
@@ -15,6 +17,7 @@ public enum WorkoutProgress {
         return sample.first { winners.contains($0) }
     }
 
+    /// Says whether all planned sets were met.
     public static func metPlan(_ sets: [WorkoutSessionSet]) -> Bool {
         guard !sets.isEmpty else { return false }
         return sets.allSatisfy { set in
@@ -24,10 +27,12 @@ public enum WorkoutProgress {
         }
     }
 
+    /// Sorts sessions, newest first.
     public static func sessionsNewestFirst(_ sessions: [WorkoutSession]) -> [WorkoutSession] {
         sessions.sorted { $0.finishedAt > $1.finishedAt }
     }
 
+    /// Finds the last performance of an exercise.
     public static func previousPerformance(
         sessions: [WorkoutSession],
         exerciseCode: String,
@@ -44,6 +49,7 @@ public enum WorkoutProgress {
         return nil
     }
 
+    /// Finds an exercise's most frequent weight.
     public static func frequentWeight(
         sessions: [WorkoutSession],
         exerciseCode: String,
@@ -61,6 +67,7 @@ public enum WorkoutProgress {
         return frequentWeight(weightsNewestFirst: weights, limit: limit)
     }
 
+    /// Says whether the last session allows a heavier weight.
     public static func readyToProgress(sessions: [WorkoutSession], planID: UUID, exerciseCode: String) -> Bool {
         let relevant = sessionsNewestFirst(sessions).filter { $0.planID == planID }
         guard relevant.count >= 3 else { return false }
@@ -70,18 +77,22 @@ public enum WorkoutProgress {
         }
     }
 
+    /// Sums the volume of completed sets.
     public static func volume(of sets: [WorkoutSessionSet]) -> Double {
         sets.filter(\.completed).reduce(0) { $0 + $1.weightKg * Double($1.reps) }
     }
 
+    /// Sums the volume of an exercise.
     public static func volume(of exercise: WorkoutSessionExercise) -> Double {
         volume(of: exercise.sets)
     }
 
+    /// Sums the volume of a session.
     public static func volume(of session: WorkoutSession) -> Double {
         session.performedExercises.reduce(0) { $0 + volume(of: $1) }
     }
 
+    /// Formats a volume.
     public static func volumeText(_ value: Double) -> String {
         let formatter = NumberFormatter()
         formatter.numberStyle = .decimal
@@ -92,6 +103,7 @@ public enum WorkoutProgress {
         return "\(number) kg"
     }
 
+    /// Says whether a set beats all earlier sets.
     public static func isPersonalRecord(
         set: WorkoutSessionSet,
         exerciseCode: String,
@@ -121,6 +133,7 @@ public enum WorkoutProgress {
         return abs(weight - bestWeight) < 0.001 && set.reps > bestReps
     }
 
+    /// Lists the records of a session.
     public static func personalRecords(in session: WorkoutSession, sessions: [WorkoutSession]) -> [WorkoutPersonalRecord] {
         session.performedExercises.flatMap { exercise in
             exercise.sets.compactMap { set -> WorkoutPersonalRecord? in
@@ -136,6 +149,7 @@ public enum WorkoutProgress {
         }
     }
 
+    /// Grades a session against earlier ones.
     public static func grade(of session: WorkoutSession, comparedWith sessions: [WorkoutSession]) -> WorkoutGrade {
         let previous = sessions
             .filter { $0.planID == session.planID && $0.id != session.id && $0.finishedAt < session.finishedAt }
@@ -150,6 +164,7 @@ public enum WorkoutProgress {
         return .strong
     }
 
+    /// Picks a motivating line for a grade.
     public static func motivation(for grade: WorkoutGrade, seed: Int) -> String {
         let lines: [String]
         switch grade {
@@ -177,12 +192,14 @@ public enum WorkoutProgress {
     }
 }
 
+/// How a session compares with earlier ones.
 public enum WorkoutGrade {
     case weak
     case average
     case strong
 }
 
+/// One personal record.
 public struct WorkoutPersonalRecord: Identifiable {
     public var setID: UUID
     public var exerciseCode: String

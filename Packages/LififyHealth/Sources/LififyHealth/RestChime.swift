@@ -3,9 +3,11 @@ import LififyChallenges
 import LififyCore
 import Foundation
 
+/// The sound played when a rest ends.
 public enum RestChime: Sendable {
     public static let storageKey = "restChimeSoundID"
 
+    /// A selectable system sound.
     public struct Tone: Identifiable, Hashable, Sendable {
         public var id: Int
         public var name: String
@@ -52,10 +54,12 @@ public enum RestChime: Sendable {
         tones.first { $0.id == selectedID }?.name ?? "Alarm"
     }
 
+    /// Plays the selected sound.
     public static func play() {
         AudioServicesPlayAlertSound(SystemSoundID(selectedID))
     }
 
+    /// Plays a sound as a preview.
     public static func preview(_ id: Int) {
         AudioServicesPlayAlertSound(SystemSoundID(id))
     }

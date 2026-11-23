@@ -4,6 +4,7 @@ import LififyCore
 import Security
 import UIKit
 
+/// The body data sent with a photo to calculate a fitting estimate.
 public struct MealPerson: Equatable, Sendable {
     public var heightCm: Double
     public var weightKg: Double
@@ -22,6 +23,7 @@ public struct MealPerson: Equatable, Sendable {
     }
 }
 
+/// The values read from a meal photo.
 public struct MealReading: Equatable, Sendable {
     public var title: String
     public var kind: MealKind
@@ -36,6 +38,7 @@ public struct MealReading: Equatable, Sendable {
     }
 }
 
+/// The request to the recognition service.
 extension MealRecognition {
     /// Sends one photo to Gemini when a key is stored. Returns nil when the key is missing or the answer cannot be read.
     public static func read(image: Data, person: MealPerson, correction: String) async -> MealReading? {
@@ -50,6 +53,7 @@ extension MealRecognition {
         return await send(prompt: prompt, jpeg: jpeg, key: key, thinking: false)
     }
 
+    /// Sends one request and reads its answer.
     private static func send(prompt: String, jpeg: Data, key: String, thinking: Bool) async -> MealReading? {
         guard let url = URL(string: "https://generativelanguage.googleapis.com/v1beta/models/\(model):generateContent") else {
             return nil
@@ -85,6 +89,7 @@ extension MealRecognition {
         return parse(bytes)
     }
 
+    /// Builds the instruction for the model.
     private static func prompt(person: MealPerson, correction: String) -> String {
         let kinds = MealKind.allCases.map(\.rawValue).joined(separator: "|")
         let nutrients = Nutrient.allCases.map(\.rawValue).joined(separator: ", ")
@@ -109,6 +114,7 @@ extension MealRecognition {
         return lines.joined(separator: "\n")
     }
 
+    /// Reads the model's JSON answer.
     private static func parse(_ data: Data) -> MealReading? {
         guard let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let candidates = root["candidates"] as? [[String: Any]],
@@ -136,6 +142,7 @@ extension MealRecognition {
         return MealReading(title: title.isEmpty ? L("Mahlzeit", "Meal") : title, kind: kind, note: note, nutrients: nutrients)
     }
 
+    /// Reads a number from JSON.
     private static func number(_ value: Any?) -> Double? {
         if let value = value as? Double { return value }
         if let value = value as? Int { return Double(value) }

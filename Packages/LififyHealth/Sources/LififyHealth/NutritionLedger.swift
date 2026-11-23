@@ -8,6 +8,7 @@ import SwiftData
 public enum NutritionLedger {
     public static let challengeMark = "nutrition:calories"
 
+    /// Brings the nutrition challenge, fast-food charges, and day rewards in line with the meals.
     public static func settle(context: ModelContext, sessions: [WorkoutSession]) {
         let reward = ensureReward(context: context)
         let challenge = ensureChallenge(context: context)
@@ -30,6 +31,7 @@ public enum NutritionLedger {
         settleDays(meals: MealLog.all(), challenge: challenge, sessions: sessions, context: context)
     }
 
+    /// Removes a meal's charge and rewards.
     public static func forget(_ meal: MealRecord, context: ModelContext) {
         if let chargeID = meal.chargeID {
             refund(chargeID, context: context)
@@ -52,6 +54,7 @@ public enum NutritionLedger {
         }
     }
 
+    /// Finds or creates the nutrition challenge.
     private static func ensureChallenge(context: ModelContext) -> ChallengeItem {
         let stored = (try? context.fetch(FetchDescriptor<ChallengeItem>())) ?? []
         let goal = UserBody.current().goal
@@ -83,6 +86,7 @@ public enum NutritionLedger {
         return challenge
     }
 
+    /// Finds or creates the fast-food reward.
     private static func ensureReward(context: ModelContext) -> RewardItem {
         let stored = (try? context.fetch(FetchDescriptor<RewardItem>())) ?? []
         if let id = LinkTable.map(.fastFoodReward)["id"].flatMap(UUID.init(uuidString:)),
@@ -108,6 +112,7 @@ public enum NutritionLedger {
         return reward
     }
 
+    /// Books the automatic fast-food purchase, which also works while the shop is locked.
     private static func charge(_ reward: RewardItem, context: ModelContext) -> UUID {
         let purchase = RewardPurchase(rewardID: reward.id, title: reward.title, price: reward.price)
         context.insert(purchase)
@@ -117,6 +122,7 @@ public enum NutritionLedger {
         return purchase.id
     }
 
+    /// Refunds a fast-food purchase.
     private static func refund(_ purchaseID: UUID, context: ModelContext) {
         let purchases = (try? context.fetch(FetchDescriptor<RewardPurchase>())) ?? []
         let coins = (try? context.fetch(FetchDescriptor<CoinTransaction>())) ?? []
@@ -125,6 +131,13 @@ public enum NutritionLedger {
         try? context.save()
     }
 
+    /// Pays, corrects, or removes each day's reward from the confirmed meals.
+    ///
+    /// - Parameters:
+    ///   - meals: All meals.
+    ///   - challenge: The nutrition challenge.
+    ///   - sessions: The training sessions, which raise a day's target.
+    ///   - context: The database context.
     private static func settleDays(
         meals: [MealRecord],
         challenge: ChallengeItem,

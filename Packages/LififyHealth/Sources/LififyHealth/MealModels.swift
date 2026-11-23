@@ -3,6 +3,7 @@ import LififyChallenges
 import LififyCore
 import SwiftData
 
+/// The stored form of a meal.
 @Model
 public final class StoredMeal {
     @Attribute(.unique) public var mealID: UUID
@@ -18,6 +19,7 @@ public final class StoredMeal {
     public var kindRaw: String
     public var chargeID: UUID?
 
+    /// Stores a meal.
     public init(_ meal: MealRecord) {
         mealID = meal.id
         dayKey = meal.dayKey
@@ -33,6 +35,7 @@ public final class StoredMeal {
         chargeID = meal.chargeID
     }
 
+    /// Copies a meal's values.
     public func update(from meal: MealRecord) {
         dayKey = meal.dayKey
         title = meal.title

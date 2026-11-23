@@ -36,6 +36,7 @@ public enum BodySex: String, CaseIterable, Identifiable, Sendable {
         }
     }
 
+    /// Reads a stored value.
     public static func resolved(_ raw: String) -> BodySex {
         BodySex(rawValue: raw) ?? .unspecified
     }
@@ -66,11 +67,13 @@ public enum BodyGoal: String, CaseIterable, Identifiable, Sendable {
         }
     }
 
+    /// Reads a stored value.
     public static func resolved(_ raw: String) -> BodyGoal {
         BodyGoal(rawValue: raw) ?? .maintain
     }
 }
 
+/// Height, weight, sex, and goal.
 public struct BodyMeasures: Equatable, Sendable {
     public var heightCm: Double
     public var weightKg: Double
@@ -89,12 +92,14 @@ public struct BodyMeasures: Equatable, Sendable {
     }
 }
 
+/// Stores the body data.
 public enum UserBody {
     public static let heightKey = "lifify.userHeightCm"
     public static let weightKey = "lifify.userWeightKg"
     public static let sexKey = "lifify.userSex"
     public static let goalKey = "lifify.userGoal"
 
+    /// Returns the current body data.
     public static func current(defaults: UserDefaults = AppDefaults.store) -> BodyMeasures {
         BodyMeasures(
             heightCm: defaults.double(forKey: heightKey),
@@ -104,14 +109,17 @@ public enum UserBody {
         )
     }
 
+    /// Formats the height for editing.
     public static func heightText(defaults: UserDefaults = AppDefaults.store) -> String {
         text(current(defaults: defaults).heightCm)
     }
 
+    /// Formats the weight for editing.
     public static func weightText(defaults: UserDefaults = AppDefaults.store) -> String {
         text(current(defaults: defaults).weightKg)
     }
 
+    /// Stores typed body data.
     public static func save(
         heightText: String,
         weightText: String,
@@ -125,6 +133,7 @@ public enum UserBody {
         defaults.set(goal.rawValue, forKey: goalKey)
     }
 
+    /// Restores the body data from a backup.
     public static func restore(height: String, weight: String, sex: String, goal: String, defaults: UserDefaults = AppDefaults.store) {
         save(
             heightText: height,
@@ -135,6 +144,7 @@ public enum UserBody {
         )
     }
 
+    /// Removes the body data.
     public static func reset(defaults: UserDefaults = AppDefaults.store) {
         defaults.removeObject(forKey: heightKey)
         defaults.removeObject(forKey: weightKey)
@@ -142,6 +152,7 @@ public enum UserBody {
         defaults.removeObject(forKey: goalKey)
     }
 
+    /// Stores a positive value, or removes the key.
     private static func store(_ value: Double, key: String, defaults: UserDefaults) {
         if value > 0 {
             defaults.set(value, forKey: key)
@@ -150,6 +161,7 @@ public enum UserBody {
         }
     }
 
+    /// Formats a value for editing.
     private static func text(_ value: Double) -> String {
         guard value > 0 else { return "" }
         let shown = value.rounded() == value ? String(Int(value)) : String(format: "%.1f", value)
@@ -158,6 +170,7 @@ public enum UserBody {
     }
 }
 
+/// The tracked nutrients.
 public enum Nutrient: String, CaseIterable, Identifiable, Sendable {
     case calories
     case protein
@@ -234,6 +247,7 @@ public enum MealKind: String, Codable, CaseIterable, Identifiable, Sendable {
         }
     }
 
+    /// Reads a meal kind from text.
     public static func resolved(_ raw: String) -> MealKind {
         let cleaned = raw
             .trimmingCharacters(in: .whitespacesAndNewlines)
@@ -253,16 +267,19 @@ public enum MealKind: String, Codable, CaseIterable, Identifiable, Sendable {
     }
 }
 
+/// How a meal was entered.
 public enum MealSource: String, Codable {
     case manual
     case photo
 }
 
+/// Whether a meal is confirmed.
 public enum MealStatus: String, Codable {
     case draft
     case confirmed
 }
 
+/// One logged meal.
 public struct MealRecord: Codable, Identifiable, Equatable {
     public var id: UUID
     public var dayKey: String
@@ -310,14 +327,17 @@ public struct MealRecord: Codable, Identifiable, Equatable {
         self.chargeID = chargeID
     }
 
+    /// Returns the amount of a nutrient.
     public func amount(_ nutrient: Nutrient) -> Double {
         nutrients[nutrient.rawValue] ?? 0
     }
 
+    /// The stored field names.
     private enum CodingKeys: String, CodingKey {
         case id, dayKey, title, note, correction, createdAt, source, status, photoName, nutrients, kindRaw, chargeID
     }
 
+    /// Decodes a meal. Fields missing from older versions get defaults.
     public init(from decoder: Decoder) throws {
         let box = try decoder.container(keyedBy: CodingKeys.self)
         id = try box.decode(UUID.self, forKey: .id)
@@ -334,6 +354,7 @@ public struct MealRecord: Codable, Identifiable, Equatable {
         chargeID = try box.decodeIfPresent(UUID.self, forKey: .chargeID)
     }
 
+    /// Encodes a meal.
     public func encode(to encoder: Encoder) throws {
         var box = encoder.container(keyedBy: CodingKeys.self)
         try box.encode(id, forKey: .id)
@@ -351,6 +372,7 @@ public struct MealRecord: Codable, Identifiable, Equatable {
     }
 }
 
+/// Texts of the nutrition area.
 public enum NutritionCopy {
     public static var recognitionPending: String {
         L("Die Erkennung ist noch nicht verbunden.", "Recognition is not connected yet.")
@@ -372,6 +394,7 @@ public enum NutritionCopy {
         challengeTitle(for: .loseFat)
     }
 
+    /// The challenge title of a goal.
     public static func challengeTitle(for goal: BodyGoal) -> String {
         switch goal {
         case .loseFat: L("Kaloriendefizit", "Calorie deficit")
@@ -395,6 +418,7 @@ public enum NutritionCopy {
 public enum MealCapture {
     public static let saveKey = "lifify.saveMealPhotos"
 
+    /// Says whether a photo is also saved to the library.
     public static func keepsInLibrary(_ enabled: Bool) -> Bool { enabled }
 }
 
@@ -407,6 +431,7 @@ public enum MealRecognition {
         connected(hasKey: !(KeychainStore.string(account: keyAccount) ?? "").isEmpty)
     }
 
+    /// Recognition needs a stored key.
     public static func connected(hasKey: Bool) -> Bool { hasKey }
 }
 
@@ -416,6 +441,7 @@ public enum MealScore {
     public static let cleanBonus = 10
     public static let fastFoodPrice = 25
 
+    /// The score points of a meal kind.
     public static func points(for kind: MealKind) -> Int {
         switch kind {
         case .whole: 2
@@ -427,6 +453,7 @@ public enum MealScore {
         }
     }
 
+    /// Says whether a day contains fast food.
     public static func buysFastFood(_ kinds: [MealKind]) -> Bool {
         kinds.contains(.fastFood)
     }
@@ -464,6 +491,7 @@ public enum MealScore {
 public enum NutrientGuide {
     public static let headlines: [Nutrient] = [.protein, .carbohydrate, .fat]
 
+    /// Returns the daily target of a nutrient.
     public static func daily(
         _ nutrient: Nutrient,
         weightKg: Double,
@@ -524,18 +552,21 @@ public enum NutrientGuide {
         }
     }
 
+    /// Converts a calorie share into an amount.
     private static func share(_ calories: Int?, percent: Int, perUnit: Int) -> Int {
         guard let calories, calories > 0, perUnit > 0 else { return 0 }
         return Int((Double(calories) * Double(percent) / 100 / Double(perUnit)).rounded())
     }
 }
 
+/// Calculates daily targets and totals.
 public enum NutritionPlan {
     /// Sedentary maintenance, because the profile does not ask for a job.
     public static let activityPercent = 120
     /// Added on a day that already has a finished workout.
     public static let trainingBonus = 250
 
+    /// Parses a typed amount.
     public static func amount(from text: String) -> Double {
         let cleaned = text
             .replacingOccurrences(of: " ", with: "")
@@ -543,6 +574,7 @@ public enum NutritionPlan {
         return Double(cleaned) ?? 0
     }
 
+    /// Parses a day key.
     public static func date(from key: String, calendar: Calendar = .current) -> Date? {
         let parts = key.split(separator: "-").compactMap { Int($0) }
         guard parts.count == 3 else { return nil }
@@ -550,11 +582,13 @@ public enum NutritionPlan {
             .map { calendar.startOfDay(for: $0) }
     }
 
+    /// Builds a day key.
     public static func dayKey(_ date: Date, calendar: Calendar = .current) -> String {
         let parts = calendar.dateComponents([.year, .month, .day], from: date)
         return String(format: "%04d-%02d-%02d", parts.year ?? 0, parts.month ?? 0, parts.day ?? 0)
     }
 
+    /// Returns the age on a day.
     public static func age(birth: Birthday, on day: Date, calendar: Calendar = .current) -> Int {
         guard let born = calendar.date(from: DateComponents(year: birth.year, month: birth.month, day: birth.day)) else {
             return 0
@@ -562,11 +596,13 @@ public enum NutritionPlan {
         return max(calendar.dateComponents([.year], from: born, to: day).year ?? 0, 0)
     }
 
+    /// Calculates resting calories.
     public static func restingCalories(weightKg: Double, heightCm: Double, age: Int, sex: BodySex) -> Int {
         let raw = (10 * weightKg) + (6.25 * heightCm) - (5 * Double(age)) + sex.mifflinOffset
         return Int(raw.rounded())
     }
 
+    /// Returns a rounded percentage.
     public static func percent(_ value: Int, _ percent: Int) -> Int {
         Int(((Double(value) * Double(percent)) / 100).rounded())
     }
@@ -587,6 +623,7 @@ public enum NutritionPlan {
         return aimed + (trained ? trainingBonus : 0)
     }
 
+    /// Returns a day's calorie target.
     public static func dayTarget(
         measures: BodyMeasures,
         birth: Birthday?,
@@ -605,31 +642,38 @@ public enum NutritionPlan {
         )
     }
 
+    /// Says whether a session finished that day.
     public static func trained(on day: Date, sessions: [WorkoutSession], calendar: Calendar = .current) -> Bool {
         sessions.contains { calendar.isDate($0.finishedAt, inSameDayAs: day) }
     }
 
+    /// Lists the meals of a day.
     public static func onDay(_ key: String, meals: [MealRecord]) -> [MealRecord] {
         meals.filter { $0.dayKey == key }.sorted { $0.createdAt < $1.createdAt }
     }
 
+    /// Sums a nutrient.
     public static func total(_ nutrient: Nutrient, meals: [MealRecord]) -> Double {
         meals.reduce(0) { $0 + $1.amount(nutrient) }
     }
 
+    /// Sums and rounds a nutrient.
     public static func rounded(_ nutrient: Nutrient, meals: [MealRecord]) -> Int {
         Int(total(nutrient, meals: meals).rounded())
     }
 }
 
+/// Stores the meals.
 @MainActor
 public enum MealLog {
     private static var cached: [MealRecord]?
 
+    /// Drops the in-memory copy.
     public static func clearCache() {
         cached = nil
     }
 
+    /// Returns all meals.
     public static func all() -> [MealRecord] {
         if let cached { return cached }
         let meals = LififyDatabase.rows(FetchDescriptor<StoredMeal>()).map(\.meal).sorted { $0.createdAt < $1.createdAt }
@@ -637,6 +681,7 @@ public enum MealLog {
         return meals
     }
 
+    /// Adds or updates a meal.
     public static func upsert(_ meal: MealRecord) {
         var meals = all()
         if let index = meals.firstIndex(where: { $0.id == meal.id }) {
@@ -655,6 +700,7 @@ public enum MealLog {
         LififyDatabase.saveSide()
     }
 
+    /// Deletes a meal.
     public static func remove(id: UUID) {
         cached = all().filter { $0.id != id }
         guard let context = LififyDatabase.sideContext else { return }
@@ -662,17 +708,20 @@ public enum MealLog {
         LififyDatabase.saveSide()
     }
 
+    /// Deletes all meals.
     public static func reset() {
         LififyDatabase.deleteAll(StoredMeal.self)
         cached = []
     }
 
+    /// Exports the meals as JSON for a backup.
     public static func exportJSON() -> String {
         let meals = all()
         guard !meals.isEmpty, let data = try? JSONEncoder().encode(meals) else { return "" }
         return String(decoding: data, as: UTF8.self)
     }
 
+    /// Replaces the meals from a backup.
     public static func restore(json: String) {
         reset()
         guard let data = json.data(using: .utf8),
@@ -688,7 +737,9 @@ public enum MealLog {
     }
 }
 
+/// Stores meal photos on the device.
 public enum MealPhotoStore {
+    /// Stores a photo and returns its name.
     public static func save(_ data: Data, id: UUID) -> String? {
         guard !data.isEmpty, data.count < 8_000_000 else { return nil }
         let name = "\(id.uuidString).jpg"
@@ -702,20 +753,24 @@ public enum MealPhotoStore {
         }
     }
 
+    /// Loads a photo.
     public static func load(_ name: String) -> Data? {
         guard !name.isEmpty else { return nil }
         return try? Data(contentsOf: directory().appendingPathComponent(name))
     }
 
+    /// Deletes a photo.
     public static func remove(_ name: String?) {
         guard let name, !name.isEmpty else { return }
         try? FileManager.default.removeItem(at: directory().appendingPathComponent(name))
     }
 
+    /// Deletes all photos.
     public static func removeAll() {
         try? FileManager.default.removeItem(at: directory())
     }
 
+    /// The photo folder.
     private static func directory() -> URL {
         AppFiles.supportDirectory.appendingPathComponent("MealPhotos", isDirectory: true)
     }

@@ -21,6 +21,12 @@ public enum WorkoutCalendarSync {
         return max(rounded, step)
     }
 
+    /// Moves the linked events to the real training time and checks the challenges off.
+    ///
+    /// - Parameters:
+    ///   - session: The finished session.
+    ///   - context: The database context.
+    ///   - sessions: All sessions, used for the cleanup afterward.
     public static func apply(session: WorkoutSession, context: ModelContext, sessions: [WorkoutSession]) async {
         let end = clock(session.finishedAt)
         let length = duration(seconds: session.durationSeconds)
@@ -113,6 +119,7 @@ public enum WorkoutCalendarSync {
         try? context.save()
     }
 
+    /// Says whether the event lies on the session's day.
     private static func onFinishDay(_ event: ChallengeCalendarEvent, session: WorkoutSession) -> Bool {
         Calendar.current.isDate(event.startDate, inSameDayAs: session.finishedAt)
     }
@@ -139,6 +146,7 @@ public enum WorkoutCalendarSync {
         }
     }
 
+    /// Creates an event for a due challenge without one.
     private static func createOccurrence(
         for challenge: ChallengeItem,
         session: WorkoutSession,
