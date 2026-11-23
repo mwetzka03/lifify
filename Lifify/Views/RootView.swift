@@ -2,6 +2,7 @@ import LififyCore
 import LififyFinance
 import LififyChallenges
 import LififyHealth
+import Combine
 import SwiftData
 import SwiftUI
 
@@ -80,6 +81,12 @@ struct RootView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: NotificationRoute.didChange)) { _ in
             openNotificationRoute()
+        }
+        .onReceive(
+            NotificationCenter.default.publisher(for: ModelContext.didSave)
+                .debounce(for: .seconds(2), scheduler: DispatchQueue.main)
+        ) { _ in
+            Task { await BudgetAlertService.check(context: context) }
         }
         .onChange(of: developerMode) { BirthdayBonusService.settle(context: context) }
         .onChange(of: developerDay) { BirthdayBonusService.settle(context: context) }

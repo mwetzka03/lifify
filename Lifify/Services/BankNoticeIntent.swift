@@ -56,7 +56,10 @@ extension BankNoticeIntake {
     /// Books a notice into the shared database.
     static func commitFromShortcut(text: String, bank: BankNoticeBank) -> String {
         guard let container = LififyDatabase.container else { return BankNoticeCopy.unavailable }
-        return commit(text: text, bank: bank, context: ModelContext(container))
+        let context = ModelContext(container)
+        let message = commit(text: text, bank: bank, context: context)
+        Task { await BudgetAlertService.check(context: context) }
+        return message
     }
 }
 

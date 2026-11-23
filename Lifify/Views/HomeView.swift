@@ -678,18 +678,11 @@ struct HomeView: View {
     }
 
     private var daysUntilSalary: Int? {
-        guard let nextSalary = budget.nextSalary else { return nil }
-        return Calendar.current.dateComponents(
-            [.day],
-            from: Calendar.current.startOfDay(for: .now),
-            to: Calendar.current.startOfDay(for: nextSalary)
-        ).day
+        budget.daysUntilSalary()
     }
 
     private var dailyAllowance: Int? {
-        let remaining = budget.remaining
-        guard remaining > 0, let daysUntilSalary else { return nil }
-        return remaining / max(daysUntilSalary, 1)
+        budget.dailyAllowance()
     }
 
     private var periodBookings: some View {

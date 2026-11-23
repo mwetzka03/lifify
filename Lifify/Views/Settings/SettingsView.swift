@@ -438,6 +438,7 @@ private struct FinanceSettingsView: View {
     var body: some View {
         Form {
             FinanceLockSection()
+            BudgetAlertSection()
             Section {
                 Toggle(L("Mitteilung zum Monatsrückblick", "Notify about the monthly review"), isOn: $reviewNotice)
             } footer: {

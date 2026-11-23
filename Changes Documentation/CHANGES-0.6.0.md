@@ -151,6 +151,16 @@ Version 0.6.0 first improves the code base (part A) and then adds new features
   payments. A subscription whose payments have stopped is not suggested.
 - **Tests changed:** The navigation test now expects the two new links.
 
+### 0.6.0: Budget warnings (B3)
+
+- **What:** A local notification appears when a variable cost or budget pool
+  reaches 80 % and 100 %, and when today's budget is exceeded. Thresholds and
+  switches are under Settings, Finance.
+- **Why:** An overspent budget should be noticed while it can still be changed.
+- **Effect:** The check runs after every saved booking, including Shortcuts and
+  imports. Each threshold notifies once per period. Only the running period
+  counts, and several warnings arrive as one notification.
+
 ## Deutsch
 
 ### Überblick
@@ -311,3 +321,14 @@ Funktionen (Teil B). Diese Datei wächst mit jedem abgeschlossenen Schritt.
   die bisherigen Zahlungen. Ein Abo, dessen Zahlungen aufgehört haben, wird nicht
   vorgeschlagen.
 - **Geänderte Tests:** Der Navigationstest erwartet die zwei neuen Links.
+
+### 0.6.0: Budget-Warnungen (B3)
+
+- **Was:** Eine lokale Mitteilung erscheint, wenn eine variable Kostenposition
+  oder ein Budgetpool 80 % und 100 % erreicht und wenn das Tagesbudget
+  überschritten ist. Schwellen und Schalter liegen unter Einstellungen, Finanzen.
+- **Warum:** Ein überzogenes Budget soll auffallen, solange man noch reagieren
+  kann.
+- **Auswirkung:** Die Prüfung läuft nach jeder gespeicherten Buchung, auch aus
+  Kurzbefehlen und Importen. Jede Schwelle meldet sich einmal pro Zeitraum. Nur
+  der laufende Zeitraum zählt, mehrere Warnungen kommen als eine Mitteilung.

@@ -35,6 +35,11 @@ enum BackupDefaults {
         "restChimeSoundID",
         ProgressiveOverload.stepKey,
         PeriodReviewNotifier.enabledKey,
+        BudgetAlertSettings.enabledKey,
+        BudgetAlertSettings.budgetsKey,
+        BudgetAlertSettings.dailyKey,
+        BudgetAlertSettings.firstKey,
+        BudgetAlertSettings.secondKey,
         "portfolioSort",
         "portfolioPerformanceBasis",
         "portfolioPerformanceUnit"
