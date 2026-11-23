@@ -174,6 +174,10 @@ Eigentümer darf umsortieren.
   ersetzen.
 - Verhalten und Aussehen unverändert. Performance vorher und nachher messen,
   wie in 0.5.5.
+- Stand 23.11.2026: `PortfolioView` und `ChallengesView` sind umgebaut.
+  `DashboardView`, `TransactionsView` und `DataManagementView` waren in der
+  Messung nicht spürbar langsam und werden auf Wunsch des Eigentümers
+  **zusammen mit A8** umgebaut.
 
 **A3 – V2-Altspalten entfernen**
 - `ChallengeItem.groupID`, `groupIDsRaw` und andere Spalten, die nach dem
@@ -182,11 +186,8 @@ Eigentümer darf umsortieren.
 - Migrationstest: Ein Store aus 0.5.5 öffnet mit 0.6.0 und behält alle
   Daten.
 
-**A4 – Automatischer Testlauf (CI)**
-- GitHub Actions: Build und Tests auf einem macOS-Runner bei jedem Push auf
-  `main` und `version*`-Branches sowie bei Pull Requests.
-- Das App-Icon liegt im `.icon`-Format; prüfen, welche Xcode-Version der
-  Runner braucht. Den Workflow-Stand im README erwähnen.
+**A4 – entfällt** (Entscheidung des Eigentümers, 23.11.2026): kein
+automatischer Testlauf (CI).
 
 **A5 – Doku lesbar halten**
 - Der Changelog 0.5.5 ist aufgeräumt. In FINANZEN.md lange Fließtext-Absätze
@@ -428,6 +429,7 @@ Eigentümer darf umsortieren.
 
 - Sparziele, Sparerpauschbetrag, Gewichtsverlauf neben Kalorienbilanz,
   Challenge-Statistik und Wochen-Review.
+- Automatischer Testlauf (CI, GitHub Actions).
 
 ### Noch nicht entschieden
 
