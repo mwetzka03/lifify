@@ -16,6 +16,7 @@ struct LififyRuleTests {}
 struct TestStore {
     let defaults: UserDefaults
     let container: ModelContainer
+    let calendar: RecordingCalendarGateway
 
     var context: ModelContext { container.mainContext }
 
@@ -40,14 +41,17 @@ func withTestStore<T>(_ body: @MainActor (TestStore) async throws -> T) async th
     AppDefaults.use(defaults)
     AppFiles.use(files)
     LififyDatabase.container = container
+    let calendar = RecordingCalendarGateway()
+    CalendarBridge.use(calendar)
     defer {
+        CalendarBridge.use(nil)
         LififyDatabase.container = nil
         AppDefaults.use(nil)
         AppFiles.use(nil)
         defaults.removePersistentDomain(forName: suite)
         try? FileManager.default.removeItem(at: files)
     }
-    return try await body(TestStore(defaults: defaults, container: container))
+    return try await body(TestStore(defaults: defaults, container: container, calendar: calendar))
 }
 
 func date(_ year: Int, _ month: Int, _ day: Int, _ hour: Int = 12, _ minute: Int = 0) -> Date {
