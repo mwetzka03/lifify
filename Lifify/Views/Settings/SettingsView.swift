@@ -757,6 +757,7 @@ private struct ProfileAvatar: View {
 private struct HealthSettingsView: View {
     @AppStorage(RestChime.storageKey) private var restChimeID = 1005
     @AppStorage(MealCapture.saveKey) private var saveMealPhotos = false
+    @AppStorage(ProgressiveOverload.stepKey) private var overloadStep = ProgressiveOverload.defaultStepKg
     @State private var geminiKey = ""
 
     var body: some View {
@@ -781,12 +782,15 @@ private struct HealthSettingsView: View {
                 } label: {
                     LabeledContent(L("Klingelton", "Chime"), value: RestChime.tones.first { $0.id == restChimeID }?.name ?? RestChime.selectedName)
                 }
+                Stepper(value: $overloadStep, in: 0.5...10, step: 0.5) {
+                    LabeledContent(L("Gewichtsstufe", "Weight step"), value: "\(WorkoutFormat.weight(overloadStep)) kg")
+                }
             } header: {
                 Text(L("Training", "Training"))
             } footer: {
                 Text(L(
-                    "Der Ton beendet die Satzpause.",
-                    "The chime ends a rest period."
+                    "Der Ton beendet die Satzpause. Die Stufe erhöht den Gewichtsvorschlag, wenn im letzten Training alle Wiederholungen geschafft wurden.",
+                    "The chime ends a rest period. The step raises the suggested weight when the last workout reached every rep."
                 ))
             }
             .appGlassRow()

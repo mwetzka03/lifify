@@ -316,6 +316,7 @@ struct WorkoutPlanDetailView: View {
                                     }
                                     .font(.body)
                                 }
+                                ExerciseVolumeHistory(sessions: store.sessions, exerciseCode: exercise.code)
                             }
                             .padding(14)
                             .frame(maxWidth: .infinity, alignment: .leading)
@@ -336,6 +337,33 @@ struct WorkoutPlanDetailView: View {
             } else {
                 ContentUnavailableView(L("Plan nicht gefunden", "Plan not found"), systemImage: "figure.strengthtraining.traditional")
             }
+        }
+    }
+}
+
+/// The volume of an exercise in its latest sessions, as plain numbers.
+private struct ExerciseVolumeHistory: View {
+    let sessions: [WorkoutSession]
+    let exerciseCode: String
+
+    var body: some View {
+        let points = ProgressiveOverload.volumeHistory(sessions: sessions, exerciseCode: exerciseCode)
+        if !points.isEmpty {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(L("Volumen", "Volume"))
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                ForEach(points) { point in
+                    HStack {
+                        Text(AppDate.numeric(point.date))
+                        Spacer()
+                        Text(WorkoutProgress.volumeText(point.volume))
+                            .monospacedDigit()
+                    }
+                    .font(.caption)
+                }
+            }
+            .padding(.top, 4)
         }
     }
 }

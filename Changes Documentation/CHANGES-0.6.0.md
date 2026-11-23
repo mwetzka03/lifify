@@ -117,6 +117,16 @@ Version 0.6.0 first improves the code base (part A) and then adds new features
   older Trade Republic imports are only partly covered, so they stay unsplit
   until they have their own tests.
 
+### 0.6.0: Progressive overload (B11)
+
+- **What:** Each exercise in a running workout shows a suggested weight. It
+  rises by an adjustable step (default 2.5 kg) when the last session reached
+  every target rep, and stays the same otherwise. The plan shows the volume of
+  each exercise per session.
+- **Why:** The next weight should not have to be worked out by hand.
+- **Effect:** The suggestion is applied only with a tap. The existing hint after
+  three successful workouts stays and takes priority.
+
 ## Deutsch
 
 ### Überblick
@@ -240,3 +250,13 @@ Funktionen (Teil B). Diese Datei wächst mit jedem abgeschlossenen Schritt.
 - **Grenzen:** Die Referenz deckt die Hauptpfade ab. Selten genutzte
   Reparaturpfade für ältere Trade-Republic-Importe sind nur teilweise erfasst
   und bleiben unzerlegt, bis sie eigene Tests haben.
+
+### 0.6.0: Progressive Overload (B11)
+
+- **Was:** Jede Übung im laufenden Training zeigt einen Gewichtsvorschlag. Er
+  steigt um eine einstellbare Stufe (Standard 2,5 kg), wenn im letzten Training
+  alle Zielwiederholungen geschafft wurden, sonst bleibt er gleich. Der Plan
+  zeigt das Volumen jeder Übung pro Training.
+- **Warum:** Das nächste Gewicht soll man nicht von Hand ausrechnen müssen.
+- **Auswirkung:** Der Vorschlag wird nur per Tipp übernommen. Der bisherige
+  Hinweis nach drei erfolgreichen Trainings bleibt und hat Vorrang.

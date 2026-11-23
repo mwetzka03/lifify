@@ -81,6 +81,12 @@ struct WorkoutSessionView: View {
                         exerciseCode: exercise.code
                     ) {
                         suggestion(index: index, exercise: exercise)
+                    } else if let next = ProgressiveOverload.suggestion(
+                        sessions: store.sessions,
+                        exerciseCode: exercise.code,
+                        step: ProgressiveOverload.stepKg
+                    ) {
+                        overloadRow(next, index: index)
                     }
                     columnHeader
                     ForEach(Array(exercise.sets.enumerated()), id: \.element.id) { setIndex, set in
@@ -192,6 +198,27 @@ struct WorkoutSessionView: View {
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.accentColor.opacity(0.12), in: RoundedRectangle(cornerRadius: 12))
+    }
+
+    /// The weight suggested from the last session, applied with one tap.
+    private func overloadRow(_ next: ProgressiveOverload.Suggestion, index: Int) -> some View {
+        HStack(spacing: 8) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("\(L("Vorschlag", "Suggestion")): \(WorkoutFormat.weight(next.weightKg)) kg")
+                    .font(.subheadline.weight(.semibold))
+                Text(next.raised
+                    ? L("Letztes Mal alle Wiederholungen geschafft.", "You reached every rep last time.")
+                    : L("Gewicht halten, bis alle Wiederholungen sitzen.", "Hold the weight until every rep is there."))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 8)
+            Button(L("Übernehmen", "Apply")) {
+                applyWeight(next.weightKg, exerciseIndex: index)
+            }
+            .buttonStyle(.bordered)
+            .appAccentTint()
+        }
     }
 
     private var columnHeader: some View {
