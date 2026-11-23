@@ -138,7 +138,11 @@ struct TransactionRow: View {
     var scope: BookingScope = .combined
 
     var body: some View {
-        HStack(spacing: 12) {
+        // Classification and sale lookups are costly, so each row resolves them once.
+        let category = category
+        let amount = displayAmount(for: category)
+        let paint = paint(category: category, amount: amount)
+        return HStack(spacing: 12) {
             Image(systemName: category.systemImage)
                 .frame(width: 28)
                 .foregroundStyle(paint.iconColor)
@@ -151,7 +155,7 @@ struct TransactionRow: View {
                     .foregroundStyle(.secondary)
             }
             Spacer()
-            BookingAmountStack(amount: displayAmount, amountColor: paint.amountColor, difference: paint.differenceCents)
+            BookingAmountStack(amount: amount, amountColor: paint.amountColor, difference: paint.differenceCents)
         }
     }
 
@@ -159,30 +163,32 @@ struct TransactionRow: View {
         BookingClassification.category(of: entry, accounts: accounts, viewedAccountID: viewedAccountID)
     }
 
-    private var signedAmount: Int {
-        BookingClassification.signedAmount(of: entry, category: category, viewedAccountID: viewedAccountID)
+    /// The amount shown for the booking in the current scope.
+    private func displayAmount(for category: BookingCategory) -> Int {
+        let signed = BookingClassification.signedAmount(of: entry, category: category, viewedAccountID: viewedAccountID)
+        return BookingClassification.displayedAmount(signed, category: category, scope: scope)
     }
 
-    private var displayAmount: Int {
-        BookingClassification.displayedAmount(signedAmount, category: category, scope: scope)
-    }
-
-    private var paint: BookingPaint {
+    /// The colors and the difference line of the booking.
+    private func paint(category: BookingCategory, amount: Int) -> BookingPaint {
         BookingClassification.paint(
             category: category,
-            signed: displayAmount,
+            signed: amount,
             scope: scope,
-            differenceCents: category == .portfolioSale ? saleDifference : expenseRemainder
+            differenceCents: difference(for: category)
         )
     }
 
-    private var expenseRemainder: Int? {
-        guard category == .expense else { return nil }
-        return RefundLinkStore.realExpenseCents(of: entry, entries: ledgerEntries)
-    }
-
-    private var saleDifference: Int? {
-        HoldingMaintenance.saleEconomics(for: entry, holdings: holdings)?.differenceCents
+    /// The realized sale result, or what remains of an expense after refunds.
+    private func difference(for category: BookingCategory) -> Int? {
+        switch category {
+        case .portfolioSale:
+            return HoldingMaintenance.saleEconomics(for: entry, holdings: holdings)?.differenceCents
+        case .expense:
+            return RefundLinkStore.realExpenseCents(of: entry, entries: ledgerEntries)
+        default:
+            return nil
+        }
     }
 }
 

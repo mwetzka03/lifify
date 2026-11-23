@@ -13,7 +13,10 @@ extension LififyRuleTests {
     /// Measures the first open of the large screens with stress data.
     ///
     /// Skipped in normal test runs. Start it with `TEST_RUNNER_LIFIFY_MEASURE=1` in a
-    /// Release build. Each result is the median of three opens on freshly seeded data.
+    /// Release build. `TEST_RUNNER_LIFIFY_MEASURE_SCREEN` limits it to one screen and
+    /// `TEST_RUNNER_LIFIFY_MEASURE_SAMPLES` sets the opens per screen (default five).
+    /// Each result is the median of those opens on freshly seeded data,
+    /// with the slowest and fastest open beside it so noise stays visible.
     @Suite("Screen performance", .enabled(if: ProcessInfo.processInfo.environment["LIFIFY_MEASURE"] != nil))
     @MainActor
     struct ScreenPerformanceTests {
@@ -35,16 +38,20 @@ extension LififyRuleTests {
         }
 
         @Test func firstOpen() async throws {
-            for screen in Screen.allCases {
+            let environment = ProcessInfo.processInfo.environment
+            let count = environment["LIFIFY_MEASURE_SAMPLES"].flatMap(Int.init) ?? 5
+            let only = environment["LIFIFY_MEASURE_SCREEN"]
+            for screen in Screen.allCases where only == nil || only == screen.rawValue {
                 var samples: [TimeInterval] = []
-                for _ in 0..<3 {
+                for _ in 0..<count {
                     samples.append(try await withTestStore { store in
                         try seed(store)
+                        _ = try await lastStall(after: Date())
                         return try await open(screen, store: store)
                     })
                 }
-                let median = samples.sorted()[1]
-                print("MEASURE \(screen.rawValue) \(Int(median * 1_000)) ms")
+                let sorted = samples.sorted().map { Int($0 * 1_000) }
+                print("MEASURE \(screen.rawValue) median \(sorted[count / 2]) ms, range \(sorted[0])-\(sorted[count - 1]) ms")
             }
         }
 
