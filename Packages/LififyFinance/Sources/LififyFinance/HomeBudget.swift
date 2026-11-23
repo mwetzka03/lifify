@@ -57,6 +57,17 @@ public struct HomeBudgetSnapshot {
 @MainActor
 public enum HomeBudget {
     /// Builds the home budget for the current period.
+    ///
+    /// - Parameters:
+    ///   - entries: All bookings.
+    ///   - accounts: All accounts.
+    ///   - forecasts: The income forecasts.
+    ///   - variableBudgets: The variable budgets.
+    ///   - pools: The budget pools.
+    ///   - splits: The booking splits.
+    ///   - dashboardPeriod: The raw value of the chosen period mode.
+    ///   - now: The current time.
+    /// - Returns: Planned and spent amounts with their lines.
     public static func make(
         entries: [LedgerEntry],
         accounts: [Account],
@@ -67,33 +78,62 @@ public enum HomeBudget {
         dashboardPeriod: String,
         now: Date = FinanceClock.now
     ) -> HomeBudgetSnapshot {
-        let calendar = Calendar.current
-        let today = calendar.startOfDay(for: now)
-        let periodStart = budgetPeriodStart(
-            now: now,
-            forecasts: forecasts,
-            dashboardPeriod: dashboardPeriod
+        let periodStart = budgetPeriodStart(now: now, forecasts: forecasts, dashboardPeriod: dashboardPeriod)
+        let periodEnd = budgetPeriodEnd(start: periodStart, forecasts: forecasts, dashboardPeriod: dashboardPeriod)
+        let today = Calendar.current.startOfDay(for: now)
+        let income = incomeEntries(entries, accounts: accounts, from: periodStart, through: periodEnd)
+        let upcoming = forecastLines(forecasts, from: today, through: periodEnd)
+        let plan = plannedIncome(booked: income, upcoming: upcoming, today: today)
+        let purchases = purchaseLines(entries, accounts: accounts, from: periodStart, through: now)
+        let expenses = expenseLines(entries, from: periodStart, through: now)
+        let variable = variableLines(variableBudgets, entries: entries, splits: splits, now: now)
+        let poolRows = poolLines(pools, splits: splits, now: now)
+        let countsAllExpenses = forecasts.contains(where: \.isActive)
+        let counted = countsAllExpenses ? expenses + purchases : variable + poolRows + purchases
+        return HomeBudgetSnapshot(
+            planned: plan.planned,
+            spent: counted.reduce(0) { $0 + $1.cents },
+            nextSalary: nextSalaryDate(forecasts: forecasts, now: now),
+            periodStart: periodStart,
+            periodEnd: periodEnd,
+            countsAllExpenses: countsAllExpenses,
+            incomeLines: income.map { line(for: $0, cents: abs($0.amountCents)) },
+            forecastLines: upcoming,
+            forecastAdjustment: plan.adjustment,
+            expenseLines: expenses,
+            purchaseLines: purchases,
+            variableLines: variable,
+            poolLines: poolRows
         )
-        let periodEnd = budgetPeriodEnd(
-            start: periodStart,
-            forecasts: forecasts,
-            dashboardPeriod: dashboardPeriod
-        )
-        let incomeEntries = entries
+    }
+
+    /// Builds the line of one booking.
+    private static func line(for entry: LedgerEntry, cents: Int) -> HomeBudgetLine {
+        HomeBudgetLine(id: entry.id.uuidString, title: entry.title, date: entry.date, cents: cents, entry: entry)
+    }
+
+    /// Lists the period's real income, newest first. Refunds and own transfers do not count.
+    private static func incomeEntries(
+        _ entries: [LedgerEntry],
+        accounts: [Account],
+        from start: Date,
+        through end: Date
+    ) -> [LedgerEntry] {
+        entries
             .filter {
                 $0.kind == .income
                     && !BookingClassification.isRefund($0)
-                    && $0.date >= periodStart
-                    && $0.date <= periodEnd
+                    && $0.date >= start
+                    && $0.date <= end
                     && ExternalIncome.countsInHomeBudget($0, accounts: accounts)
             }
             .sorted { $0.date > $1.date }
-        let booked = incomeEntries.reduce(0) { $0 + abs($1.amountCents) }
-        let bookedFromToday = incomeEntries
-            .filter { $0.date >= today }
-            .reduce(0) { $0 + abs($1.amountCents) }
-        let forecastLines = forecasts.filter(\.isActive).flatMap { forecast in
-            occurrences(of: forecast, from: today, through: periodEnd).map { date in
+    }
+
+    /// Lists the income still expected from today to the period's end.
+    private static func forecastLines(_ forecasts: [IncomeForecast], from today: Date, through end: Date) -> [HomeBudgetLine] {
+        forecasts.filter(\.isActive).flatMap { forecast in
+            occurrences(of: forecast, from: today, through: end).map { date in
                 HomeBudgetLine(
                     id: "forecast-\(forecast.id.uuidString)-\(date.dayKey)",
                     title: forecast.name,
@@ -103,96 +143,87 @@ public enum HomeBudget {
             }
         }
         .sorted { ($0.date ?? .distantPast) < ($1.date ?? .distantPast) }
-        let upcoming = forecastLines.reduce(0) { $0 + $1.cents }
-        let adjustment = min(upcoming, max(0, bookedFromToday))
-        let planned = booked + max(0, upcoming - bookedFromToday)
+    }
 
+    /// Adds expected income to booked income. Money booked from today on replaces its forecast.
+    ///
+    /// - Parameters:
+    ///   - booked: The period's income bookings.
+    ///   - upcoming: The income still expected.
+    ///   - today: The start of the current day.
+    /// - Returns: The planned total and the amount of forecast already covered.
+    private static func plannedIncome(
+        booked: [LedgerEntry],
+        upcoming: [HomeBudgetLine],
+        today: Date
+    ) -> (planned: Int, adjustment: Int) {
+        let total = booked.reduce(0) { $0 + abs($1.amountCents) }
+        let fromToday = booked.filter { $0.date >= today }.reduce(0) { $0 + abs($1.amountCents) }
+        let expected = upcoming.reduce(0) { $0 + $1.cents }
+        return (total + max(0, expected - fromToday), min(expected, max(0, fromToday)))
+    }
+
+    /// Lists the period's security purchases, newest first.
+    private static func purchaseLines(
+        _ entries: [LedgerEntry],
+        accounts: [Account],
+        from start: Date,
+        through now: Date
+    ) -> [HomeBudgetLine] {
         let portfolios = Set(accounts.filter { $0.kind == .portfolio }.map(\.id))
-        let purchaseEntries = entries
+        return entries
             .filter { entry in
-                guard entry.date >= periodStart, entry.date <= now else { return false }
+                guard entry.date >= start, entry.date <= now else { return false }
                 return PortfolioCashFlow.isSecurityPurchase(entry, portfolioIDs: portfolios)
             }
             .sorted { $0.date > $1.date }
-        let purchaseLines = purchaseEntries.map { entry in
-            HomeBudgetLine(
-                id: entry.id.uuidString,
-                title: entry.title,
-                date: entry.date,
-                cents: abs(entry.amountCents),
-                entry: entry
-            )
-        }
-        let countsAllExpenses = forecasts.contains(where: \.isActive)
-        let expenseEntries = entries
-            .filter { $0.kind == .expense && $0.date >= periodStart && $0.date <= now }
+            .map { line(for: $0, cents: abs($0.amountCents)) }
+    }
+
+    /// Lists the period's expenses after refunds, newest first.
+    private static func expenseLines(_ entries: [LedgerEntry], from start: Date, through now: Date) -> [HomeBudgetLine] {
+        entries
+            .filter { $0.kind == .expense && $0.date >= start && $0.date <= now }
             .sorted { $0.date > $1.date }
-        let expenseLines = expenseEntries.compactMap { entry -> HomeBudgetLine? in
-            let cents = RefundLinkStore.countedExpenseCents(of: entry, entries: entries)
-            guard cents > 0 else { return nil }
-            return HomeBudgetLine(
-                id: entry.id.uuidString,
-                title: entry.title,
-                date: entry.date,
-                cents: cents,
-                entry: entry
-            )
-        }
-        let variableLines = variableBudgets.map { budget in
+            .compactMap { entry in
+                let cents = RefundLinkStore.countedExpenseCents(of: entry, entries: entries)
+                return cents > 0 ? line(for: entry, cents: cents) : nil
+            }
+    }
+
+    /// Lists this month's spending per variable budget.
+    private static func variableLines(
+        _ budgets: [VariableBudget],
+        entries: [LedgerEntry],
+        splits: [TransactionSplit],
+        now: Date
+    ) -> [HomeBudgetLine] {
+        budgets.map { budget in
             HomeBudgetLine(
                 id: budget.id.uuidString,
                 title: budget.name,
                 date: nil,
-                cents: FinanceService.variableSpent(
-                    budgetID: budget.id,
-                    monthKey: now.monthKey,
-                    entries: entries,
+                cents: FinanceService.variableSpent(budgetID: budget.id, monthKey: now.monthKey, entries: entries, splits: splits)
+            )
+        }
+        .filter { $0.cents != 0 }
+    }
+
+    /// Lists the current spending per active pool.
+    private static func poolLines(_ pools: [BudgetPool], splits: [TransactionSplit], now: Date) -> [HomeBudgetLine] {
+        pools.filter(\.isActive).map { pool in
+            HomeBudgetLine(
+                id: pool.id.uuidString,
+                title: pool.name,
+                date: nil,
+                cents: FinanceService.poolSpent(
+                    pool: pool,
+                    periodKey: CalendarService.periodKey(for: now, pool: pool),
                     splits: splits
                 )
             )
         }
         .filter { $0.cents != 0 }
-        let poolLines = pools.filter(\.isActive).map { pool in
-            let key = CalendarService.periodKey(for: now, pool: pool)
-            return HomeBudgetLine(
-                id: pool.id.uuidString,
-                title: pool.name,
-                date: nil,
-                cents: FinanceService.poolSpent(pool: pool, periodKey: key, splits: splits)
-            )
-        }
-        .filter { $0.cents != 0 }
-        let spent: Int
-        if countsAllExpenses {
-            spent = expenseLines.reduce(0) { $0 + $1.cents } + purchaseLines.reduce(0) { $0 + $1.cents }
-        } else {
-            spent = variableLines.reduce(0) { $0 + $1.cents }
-                + poolLines.reduce(0) { $0 + $1.cents }
-                + purchaseLines.reduce(0) { $0 + $1.cents }
-        }
-        return HomeBudgetSnapshot(
-            planned: planned,
-            spent: spent,
-            nextSalary: nextSalaryDate(forecasts: forecasts, now: now),
-            periodStart: periodStart,
-            periodEnd: periodEnd,
-            countsAllExpenses: countsAllExpenses,
-            incomeLines: incomeEntries.map { entry in
-                HomeBudgetLine(
-                    id: entry.id.uuidString,
-                    title: entry.title,
-                    date: entry.date,
-                    cents: abs(entry.amountCents),
-                    entry: entry
-                )
-            },
-            forecastLines: forecastLines,
-            forecastAdjustment: adjustment,
-            expenseLines: expenseLines,
-            purchaseLines: purchaseLines,
-            variableLines: variableLines,
-            poolLines: poolLines
-        )
     }
 
     /// Lists a forecast's due dates in a range.
