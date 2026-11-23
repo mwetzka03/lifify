@@ -12,6 +12,7 @@ struct ChallengesView: View {
     @Query(sort: \ChallengeCalendarEvent.startDate) private var calendarEvents: [ChallengeCalendarEvent]
     @Query private var completions: [ChallengeCompletion]
     @Query private var transactions: [CoinTransaction]
+    @State private var model = ChallengeBoardModel()
     @State private var completedTab = false
     @State private var filter = ChallengeFilter.all
     @State private var createCategory: ChallengeCategory?
@@ -211,15 +212,21 @@ struct ChallengesView: View {
         }
     }
 
+    /// The completions grouped by challenge for this render.
+    private var completionIndex: ChallengeCompletionIndex {
+        model.index(completions: completions, hasUnsavedChanges: context.hasChanges)
+    }
+
     private var filteredChallenges: [ChallengeItem] {
-        challenges.filter { challenge in
+        let index = completionIndex
+        return challenges.filter { challenge in
             guard !challenge.isArchived else { return false }
             guard EventChallengeLink.showsIndividual(inGroup: !challenge.groupIDs.isEmpty, singleFilter: filter == .single) else {
                 return false
             }
             return ChallengeActivity.staysOnActiveList(
                 recurrence: challenge.recurrence,
-                hasCompletion: completions.contains { $0.challengeID == challenge.id }
+                hasCompletion: index.hasCompletion(challenge.id)
             )
         }
     }
@@ -553,8 +560,9 @@ struct ChallengesView: View {
 
     private func challengeSection(_ section: ChallengeSections.Section) -> some View {
         let pinned = Set(ChallengePinStore.ids())
+        let visible = Dictionary(uniqueKeysWithValues: filteredChallenges.map { ($0.id, $0) })
         let cards = section.challengeIDs.compactMap { id in
-            filteredChallenges.first { $0.id == id && !pinned.contains($0.id) }
+            pinned.contains(id) ? nil : visible[id]
         }
         return Group {
             if ChallengeBoard.showsCategory(unpinned: cards.count) {
@@ -694,7 +702,7 @@ struct ChallengesView: View {
     private func isFinished(_ challenge: ChallengeItem) -> Bool {
         !ChallengeActivity.staysOnActiveList(
             recurrence: challenge.recurrence,
-            hasCompletion: completions.contains { $0.challengeID == challenge.id }
+            hasCompletion: completionIndex.hasCompletion(challenge.id)
         )
     }
 
@@ -783,7 +791,11 @@ struct ChallengesView: View {
     private func regularChallengeRow(_ challenge: ChallengeItem) -> some View {
         let _ = pinRevision
         let _ = workoutLinkRevision
-        let doneToday = ChallengeService.isCompleted(challenge, on: AppClock.now, completions: completions)
+        let doneToday = ChallengeService.isCompleted(
+            challenge,
+            on: AppClock.now,
+            completions: completionIndex.completions(for: challenge.id)
+        )
         let gray = ChallengeActivity.dimsActiveRow(recurrence: challenge.recurrence, completedToday: doneToday)
         let workouts = WorkoutLinkStore.planIDs(forChallenge: challenge.id).count
         let followsNutrition = ChallengeCheckoff.followsNutrition(challenge.externalIdentifier)
@@ -918,10 +930,11 @@ struct ChallengesView: View {
         let _ = developerMode
         let _ = developerDay
         let enabled = StreakSettings.isEnabled(for: challenge.id)
+        let own = completionIndex.completions(for: challenge.id)
         let streak = ChallengeService.status(
             for: challenge,
             endingOn: AppClock.now,
-            completions: completions,
+            completions: own,
             events: calendarEvents
         ).count
         let linked = ChallengeTimeStore.linkedEvents(for: challenge.id, in: calendarEvents).filter { event in
@@ -959,7 +972,7 @@ struct ChallengesView: View {
                     amount: ChallengeService.projectedCoins(
                         challenge: challenge,
                         on: AppClock.now,
-                        completions: completions,
+                        completions: own,
                         events: calendarEvents
                     ),
                     showsPlus: true

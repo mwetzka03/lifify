@@ -23,6 +23,30 @@ Version 0.6.0 first improves the code base (part A) and then adds new features
   events move at once, their calendar rewrites now run one after another
   instead of in parallel. The duplicated recurrence translation is now shared.
 
+### 0.6.0: Leaner screens (A2, in progress)
+
+- **What:** The depot and the challenge board calculate through screen models
+  (`PortfolioScreenModel`, `ChallengeBoardModel`). A booking row resolves its
+  category and sale result once per render.
+- **Why:** The depot repeated its calculations for every row. Every challenge
+  card searched the completions of all challenges.
+- **Effect:** Same values and same look, with faster first opens. Release build
+  in the iPhone 17 simulator with 5,000 bookings, 30 holdings, 1,200 lots, 365
+  prices per holding, 100 challenges, and 3,000 completions:
+
+  | Screen | Before (median) | After (median) |
+  | --- | ---: | ---: |
+  | Depot | 1.9 s | 0.5 s |
+  | Challenges, run 1 | 1.8 s | 0.6 s |
+  | Challenges, run 2 | 3.6 s | 0.35 s |
+
+- **Limits:** Simulator runs vary widely, so only clear differences count. The
+  finance overview, transactions, and data management showed no measurable
+  change. An extra forecast cache for the overview brought no gain and was
+  removed again.
+- **Measuring:** `ScreenPerformanceTests` is skipped in normal test runs and
+  starts with `TEST_RUNNER_LIFIFY_MEASURE=1`.
+
 ## Deutsch
 
 ### Überblick
@@ -45,3 +69,28 @@ Funktionen (Teil B). Diese Datei wächst mit jedem abgeschlossenen Schritt.
   sich mehrere Termine gleichzeitig, werden sie im Kalender jetzt nacheinander
   statt parallel umgeschrieben. Die doppelte Übersetzung der Wiederholungen ist
   zusammengeführt.
+
+### 0.6.0: Schlankere Screens (A2, in Arbeit)
+
+- **Was:** Depot und Challenge-Übersicht rechnen über Screen-Modelle
+  (`PortfolioScreenModel`, `ChallengeBoardModel`). Eine Buchungszeile ermittelt
+  Kategorie und Verkaufsergebnis nur noch einmal pro Darstellung.
+- **Warum:** Das Depot wiederholte seine Berechnungen für jede Zeile. Jede
+  Challenge-Karte durchsuchte die Abschlüsse aller Challenges.
+- **Auswirkung:** Gleiche Werte und gleiches Aussehen, aber schnellere erste
+  Aufrufe. Release-Build im iPhone-17-Simulator mit 5.000 Buchungen, 30
+  Positionen, 1.200 Lots, 365 Kursen je Position, 100 Challenges und 3.000
+  Abschlüssen:
+
+  | Screen | Vorher (Median) | Nachher (Median) |
+  | --- | ---: | ---: |
+  | Depot | 1,9 s | 0,5 s |
+  | Challenges, Lauf 1 | 1,8 s | 0,6 s |
+  | Challenges, Lauf 2 | 3,6 s | 0,35 s |
+
+- **Grenzen:** Simulatorläufe schwanken stark, deshalb zählen nur deutliche
+  Unterschiede. Finanzübersicht, Buchungen und Datenverwaltung zeigten keine
+  messbare Änderung. Ein zusätzlicher Prognose-Zwischenspeicher für die
+  Übersicht brachte nichts und wurde wieder entfernt.
+- **Messen:** `ScreenPerformanceTests` wird in normalen Testläufen übersprungen
+  und startet mit `TEST_RUNNER_LIFIFY_MEASURE=1`.
