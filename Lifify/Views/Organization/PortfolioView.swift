@@ -5,6 +5,7 @@ import LififyHealth
 import SwiftData
 import SwiftUI
 
+/// The full depot screen with all positions.
 struct PortfolioView: View {
     @Environment(\.modelContext) private var context
     @EnvironmentObject private var filters: FinanceFilterStore
@@ -15,130 +16,48 @@ struct PortfolioView: View {
     @AppStorage("portfolioPerformanceBasis") private var basis = PortfolioBasis.today.rawValue
     @AppStorage("portfolioPerformanceUnit") private var unit = PortfolioUnit.percent.rawValue
     @AppStorage("portfolioSort") private var sort = PortfolioSort.value.rawValue
+    @State private var model = PortfolioScreenModel()
     @State private var showingNew = false
     @State private var edited: PortfolioHolding?
     @State private var selected: PortfolioHolding?
     @State private var isRefreshing = false
     @State private var savingsPlans: [SavingsPlanRecord] = []
 
+    /// The calculated depot for the selected period.
+    private var snapshot: PortfolioSnapshot {
+        model.snapshot(
+            holdings: holdings,
+            through: filters.projectionDay(entries: entries, forecasts: forecasts, accounts: accounts),
+            sort: sort
+        )
+    }
+
     var body: some View {
-        List {
+        let content = snapshot
+        return List {
+            valueSection(content)
             Section {
-                let totals = portfolioPerformance
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(L("Depotwert", "Portfolio value"))
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                    Text(Money.string(cents: HoldingMaintenance.marketValue(of: holdings, through: projectionDay)))
-                        .font(.title2.bold())
-                    selectedPerformanceLabel(totals)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.vertical, 4)
+                PortfolioOptionPicker<PortfolioBasis>(title: L("Zeitraum", "Period"), selection: $basis)
+                PortfolioOptionPicker<PortfolioUnit>(title: L("Einheit", "Unit"), selection: $unit)
             }
             .appGlassRow()
             Section {
-                Picker(L("Zeitraum", "Period"), selection: $basis) {
-                    ForEach(PortfolioBasis.allCases) { Text($0.label).tag($0.rawValue) }
-                }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-                Picker(L("Einheit", "Unit"), selection: $unit) {
-                    ForEach(PortfolioUnit.allCases) { Text($0.label).tag($0.rawValue) }
-                }
-                .pickerStyle(.segmented)
-                .labelsHidden()
+                PortfolioOptionPicker<PortfolioSort>(title: L("Sortierung", "Sort"), selection: $sort)
             }
             .appGlassRow()
-            Section {
-                Picker(L("Sortierung", "Sort"), selection: $sort) {
-                    ForEach(PortfolioSort.allCases) { Text($0.label).tag($0.rawValue) }
-                }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-            }
-            .appGlassRow()
-            if !savingsPlans.isEmpty || !sortedHoldings.isEmpty {
-                Section {
-                    if !savingsPlans.isEmpty {
-                        NavigationLink(value: FinanceRoute.savingsPlans) {
-                            Text(L("Sparpläne", "Savings plans"))
-                        }
-                    }
-                    if !sortedHoldings.isEmpty {
-                        NavigationLink(value: FinanceRoute.portfolioShares) {
-                            Label(L("Anteile", "Shares"), systemImage: "chart.pie")
-                        }
-                    }
-                }
-                .appGlassRow()
-            }
-            ForEach(sortedHoldings) { holding in
-                let performance = holdingPerformance(holding)
-                let quantity = projectedQuantity(holding)
-                let value = projectedValue(holding)
-                Button {
-                    selected = holding
-                } label: {
-                    HStack(alignment: .top) {
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(holding.name).foregroundStyle(.primary)
-                            Text("\(quantity.formatted()) × \(Money.string(cents: shownPrice(quantity: quantity, value: value, holding: holding)))")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                        Spacer(minLength: 12)
-                        VStack(alignment: .trailing, spacing: 2) {
-                            Text(Money.string(cents: value))
-                                .foregroundStyle(.primary)
-                            selectedPerformanceLabel(performance)
-                        }
-                    }
-                }
-                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                    Button(role: .destructive) {
-                        deleteHolding(holding)
-                    } label: {
-                        Label(L("Löschen", "Delete"), systemImage: "trash")
-                    }
-                }
-                .swipeActions(edge: .leading, allowsFullSwipe: false) {
-                    Button {
-                        edited = holding
-                    } label: {
-                        Label(L("Bearbeiten", "Edit"), systemImage: "pencil")
-                    }
-                    .appAccentTint()
-                }
-                .appGlassRow()
-            }
+            linksSection(content)
+            ForEach(content.rows) { holdingRow($0) }
         }
         .overlay {
-            if sortedHoldings.isEmpty && savingsPlans.isEmpty {
+            if content.rows.isEmpty && savingsPlans.isEmpty {
                 ContentUnavailableView(L("Keine Depotpositionen", "No holdings"), systemImage: "chart.line.uptrend.xyaxis")
             }
         }
         .appGlassList()
         .navigationTitle(L("Depot", "Portfolio"))
-        .toolbar {
-            ToolbarItemGroup(placement: .topBarTrailing) {
-                Button {
-                    Task {
-                        isRefreshing = true
-                        await MarketDataService.refresh(holdings: holdings, context: context)
-                        isRefreshing = false
-                    }
-                } label: {
-                    if isRefreshing { ProgressView() } else { Image(systemName: "arrow.clockwise") }
-                }
-                .disabled(isRefreshing || holdings.isEmpty)
-                Button { showingNew = true } label: { Image(systemName: "plus") }
-            }
-        }
+        .toolbar { toolbarButtons }
         .onAppear {
-            for holding in holdings where HoldingPurchaseDateStore.date(for: holding.id) == nil {
-                HoldingPurchaseDateStore.set(holding.updatedAt, for: holding.id)
-            }
+            HoldingMaintenance.backfillPurchaseDates(holdings)
             SavingsPlanRunner.bookDue(context: context)
             SavingsPlanFixedCosts.sync(context: context)
             savingsPlans = SavingsPlanStore.all()
@@ -148,70 +67,192 @@ struct PortfolioView: View {
         .sheet(item: $selected) { HoldingDetailView(holding: $0) }
     }
 
-    fileprivate func deleteHolding(_ holding: PortfolioHolding) {
-        MarketSymbolStore.remove(for: holding.id)
-        PreviousCloseStore.remove(for: holding.id)
-        HoldingPurchaseDateStore.remove(for: holding.id)
-        HoldingLotStore.removeAll(for: holding.id)
-        context.delete(holding)
-        try? context.save()
+    /// The depot value with its selected gain.
+    private func valueSection(_ content: PortfolioSnapshot) -> some View {
+        Section {
+            PortfolioValueHeader(content: content, basis: basis, unit: unit)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.vertical, 4)
+        }
+        .appGlassRow()
     }
 
-    private var projectionDay: Date {
-        let periods = FinancePeriods.all(entries: entries, forecasts: forecasts, accounts: accounts)
-        return filters.period(in: periods)?.end ?? .now
-    }
-
-    private func projectedQuantity(_ holding: PortfolioHolding) -> Double {
-        HoldingMaintenance.quantity(of: holding, through: projectionDay, holdings: holdings)
-    }
-
-    private func projectedValue(_ holding: PortfolioHolding) -> Int {
-        HoldingMaintenance.marketValue(of: holding, through: projectionDay, holdings: holdings)
-    }
-
-    private func shownPrice(quantity: Double, value: Int, holding: PortfolioHolding) -> Int {
-        guard quantity > 0.0000005 else { return holding.currentPriceCents }
-        return Int((Double(value) / quantity).rounded())
-    }
-
-    private var openHoldings: [PortfolioHolding] {
-        holdings.filter { projectedQuantity($0) > 0.0000005 }
-    }
-
-    private var sortedHoldings: [PortfolioHolding] {
-        switch PortfolioSort(rawValue: sort) ?? .value {
-        case .value:
-            let values = Dictionary(uniqueKeysWithValues: openHoldings.map { ($0.id, projectedValue($0)) })
-            return openHoldings.sorted { (values[$0.id] ?? 0) > (values[$1.id] ?? 0) }
-        case .purchase:
-            return openHoldings.sorted { lhs, rhs in
-                let left = HoldingPurchaseDateStore.date(for: lhs.id) ?? .distantPast
-                let right = HoldingPurchaseDateStore.date(for: rhs.id) ?? .distantPast
-                if left != right { return left > right }
-                return lhs.name.localizedCaseInsensitiveCompare(rhs.name) == .orderedAscending
+    /// Links to the savings plans and the share chart, when there is something to show.
+    @ViewBuilder
+    private func linksSection(_ content: PortfolioSnapshot) -> some View {
+        if !savingsPlans.isEmpty || !content.rows.isEmpty {
+            Section {
+                if !savingsPlans.isEmpty {
+                    NavigationLink(value: FinanceRoute.savingsPlans) {
+                        Text(L("Sparpläne", "Savings plans"))
+                    }
+                }
+                if !content.rows.isEmpty {
+                    NavigationLink(value: FinanceRoute.portfolioShares) {
+                        Label(L("Anteile", "Shares"), systemImage: "chart.pie")
+                    }
+                }
             }
-        case .name:
-            return openHoldings.sorted {
-                $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
-            }
+            .appGlassRow()
         }
     }
 
-    private var portfolioPerformance: HoldingPerformance {
-        openHoldings.reduce(HoldingPerformance()) { total, holding in
-            total.adding(holdingPerformance(holding))
+    /// One position with swipe actions.
+    private func holdingRow(_ row: PortfolioRow) -> some View {
+        Button {
+            selected = row.holding
+        } label: {
+            PortfolioRowContent(row: row, basis: basis, unit: unit)
         }
+        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+            Button(role: .destructive) {
+                HoldingMaintenance.deletePosition(row.holding, context: context)
+            } label: {
+                Label(L("Löschen", "Delete"), systemImage: "trash")
+            }
+        }
+        .swipeActions(edge: .leading, allowsFullSwipe: false) {
+            Button {
+                edited = row.holding
+            } label: {
+                Label(L("Bearbeiten", "Edit"), systemImage: "pencil")
+            }
+            .appAccentTint()
+        }
+        .appGlassRow()
     }
 
-    private func selectedPerformanceLabel(_ performance: HoldingPerformance) -> some View {
+    /// The refresh and add buttons.
+    @ToolbarContentBuilder
+    private var toolbarButtons: some ToolbarContent {
+        ToolbarItemGroup(placement: .topBarTrailing) {
+            Button {
+                Task {
+                    isRefreshing = true
+                    await MarketDataService.refresh(holdings: holdings, context: context)
+                    isRefreshing = false
+                }
+            } label: {
+                if isRefreshing { ProgressView() } else { Image(systemName: "arrow.clockwise") }
+            }
+            .disabled(isRefreshing || holdings.isEmpty)
+            Button { showingNew = true } label: { Image(systemName: "plus") }
+        }
+    }
+}
+
+/// A segmented control for one depot option, stored by raw value.
+private struct PortfolioOptionPicker<Option: PortfolioOption>: View {
+    let title: String
+    @Binding var selection: String
+
+    var body: some View {
+        Picker(title, selection: $selection) {
+            ForEach(Array(Option.allCases)) { Text($0.label).tag($0.rawValue) }
+        }
+        .pickerStyle(.segmented)
+        .labelsHidden()
+    }
+}
+
+/// A gain in the selected basis and unit, green or red by its sign.
+private struct PortfolioPerformanceLabel: View {
+    let performance: HoldingPerformance
+    let basis: String
+    let unit: String
+
+    var body: some View {
         let selected = performance.selected(basis: basis, unit: unit)
-        return Text(selected.text)
+        Text(selected.text)
             .font(.caption.bold())
             .foregroundStyle(selected.cents < 0 ? .red : (selected.cents > 0 ? .green : .secondary))
     }
 }
 
+/// The depot value with its total gain.
+private struct PortfolioValueHeader: View {
+    let content: PortfolioSnapshot
+    let basis: String
+    let unit: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(L("Depotwert", "Portfolio value"))
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            Text(Money.string(cents: content.marketValueCents))
+                .font(.title2.bold())
+            PortfolioPerformanceLabel(performance: content.totals, basis: basis, unit: unit)
+        }
+    }
+}
+
+/// Name, shares, price, value, and gain of one position.
+private struct PortfolioRowContent: View {
+    let row: PortfolioRow
+    let basis: String
+    let unit: String
+
+    var body: some View {
+        HStack(alignment: .top) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(row.holding.name).foregroundStyle(.primary)
+                Text("\(row.quantity.formatted()) × \(Money.string(cents: row.shownPriceCents))")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 12)
+            VStack(alignment: .trailing, spacing: 2) {
+                Text(Money.string(cents: row.valueCents))
+                    .foregroundStyle(.primary)
+                PortfolioPerformanceLabel(performance: row.performance, basis: basis, unit: unit)
+            }
+        }
+    }
+}
+
+/// A plated link row with a title and a chevron.
+private struct PortfolioCardLink<Title: View>: View {
+    let path: Binding<NavigationPath>?
+    let route: FinanceRoute
+    @ViewBuilder let title: Title
+
+    var body: some View {
+        Group {
+            if let path {
+                Button {
+                    path.wrappedValue.append(route)
+                } label: {
+                    label
+                }
+            } else {
+                NavigationLink(value: route) {
+                    label
+                }
+            }
+        }
+        .buttonStyle(.plain)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .appTintedPlate(radius: 14)
+    }
+
+    /// The title with its chevron.
+    private var label: some View {
+        HStack {
+            title
+                .font(.headline)
+                .foregroundStyle(.primary)
+            Spacer()
+            Image(systemName: "chevron.right")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+        }
+        .padding(12)
+        .contentShape(Rectangle())
+    }
+}
+
+/// The depot section embedded in Finance, optionally limited to one account.
 struct PortfolioElementsView: View {
     var accountID: UUID?
     var showsValueHeader = true
@@ -225,134 +266,57 @@ struct PortfolioElementsView: View {
     @AppStorage("portfolioPerformanceBasis") private var basis = PortfolioBasis.today.rawValue
     @AppStorage("portfolioPerformanceUnit") private var unit = PortfolioUnit.percent.rawValue
     @AppStorage("portfolioSort") private var sort = PortfolioSort.value.rawValue
+    @State private var model = PortfolioScreenModel()
     @State private var showingNew = false
     @State private var edited: PortfolioHolding?
     @State private var selected: PortfolioHolding?
     @State private var isRefreshing = false
     @State private var savingsPlans: [SavingsPlanRecord] = []
 
-    private var projectionDay: Date {
-        let periods = FinancePeriods.all(entries: entries, forecasts: forecasts, accounts: accounts)
-        return filters.period(in: periods)?.end ?? .now
-    }
-
+    /// The positions of the shown account, or all of them.
     private var scopedHoldings: [PortfolioHolding] {
         holdings.filter { accountID == nil || $0.accountID == accountID }
     }
 
-    private var visibleHoldings: [PortfolioHolding] {
-        scopedHoldings.filter {
-            HoldingMaintenance.quantity(of: $0, through: projectionDay, holdings: scopedHoldings) > 0.0000005
-        }
+    /// The calculated depot for the selected period and account.
+    private var snapshot: PortfolioSnapshot {
+        model.snapshot(
+            holdings: scopedHoldings,
+            through: filters.projectionDay(entries: entries, forecasts: forecasts, accounts: accounts),
+            sort: sort
+        )
     }
 
-    private func projectedQuantity(_ holding: PortfolioHolding) -> Double {
-        HoldingMaintenance.quantity(of: holding, through: projectionDay, holdings: scopedHoldings)
-    }
-
-    private func projectedValue(_ holding: PortfolioHolding) -> Int {
-        HoldingMaintenance.marketValue(of: holding, through: projectionDay, holdings: scopedHoldings)
-    }
-
-    private func shownPrice(quantity: Double, value: Int, holding: PortfolioHolding) -> Int {
-        guard quantity > 0.0000005 else { return holding.currentPriceCents }
-        return Int((Double(value) / quantity).rounded())
+    /// The savings plans of the shown account.
+    private var visiblePlans: [SavingsPlanRecord] {
+        savingsPlans.filter { accountID == nil || $0.portfolioAccountID == accountID }
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        let content = snapshot
+        return VStack(alignment: .leading, spacing: 8) {
             if showsValueHeader {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(L("Depotwert", "Portfolio value"))
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                    Text(Money.string(cents: HoldingMaintenance.marketValue(of: scopedHoldings, through: projectionDay)))
-                        .font(.title2.bold())
-                    performanceLabel(portfolioTotals)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(12)
-                .appTintedPlate(radius: 14)
-            }
-            savingsPlanCard
-            shareChartCard
-
-            VStack(alignment: .leading, spacing: 8) {
-                Picker(L("Zeitraum", "Period"), selection: $basis) {
-                    ForEach(PortfolioBasis.allCases) { Text($0.label).tag($0.rawValue) }
-                }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-                Picker(L("Einheit", "Unit"), selection: $unit) {
-                    ForEach(PortfolioUnit.allCases) { Text($0.label).tag($0.rawValue) }
-                }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-                Picker(L("Sortierung", "Sort"), selection: $sort) {
-                    ForEach(PortfolioSort.allCases) { Text($0.label).tag($0.rawValue) }
-                }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-            }
-            .padding(12)
-            .appTintedPlate(radius: 14)
-
-            HStack(spacing: 16) {
-                Button {
-                    Task {
-                        isRefreshing = true
-                        await MarketDataService.refresh(holdings: visibleHoldings, context: context)
-                        isRefreshing = false
-                    }
-                } label: {
-                    Group {
-                        if isRefreshing {
-                            ProgressView()
-                        } else {
-                            Label(L("Kurse aktualisieren", "Refresh quotes"), systemImage: "arrow.clockwise")
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.7)
-                        }
-                    }
-                    .font(.headline.weight(.semibold))
-                    .foregroundStyle(.primary)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 52)
-                    .liquidGlassSurface()
-                }
-                .buttonStyle(.borderless)
-                .tint(.primary)
-                .disabled(isRefreshing || visibleHoldings.isEmpty)
-                Button {
-                    showingNew = true
-                } label: {
-                    Image(systemName: "plus")
-                        .font(.title2.weight(.bold))
-                        .foregroundStyle(.primary)
-                        .frame(width: 52, height: 52)
-                        .boundedBubble(circle: true)
-                }
-                .buttonStyle(.borderless)
-                .tint(.primary)
-                .accessibilityLabel(L("Position", "Holding"))
-            }
-
-            if sortedHoldings.isEmpty {
-                Text(L("Keine Depotpositionen", "No holdings"))
-                    .foregroundStyle(.secondary)
+                PortfolioValueHeader(content: content, basis: basis, unit: unit)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(12)
                     .appTintedPlate(radius: 14)
-            } else {
-                ForEach(sortedHoldings) { holding in
-                    holdingRow(holding)
+            }
+            if !visiblePlans.isEmpty {
+                PortfolioCardLink(path: path, route: .savingsPlans) {
+                    Text(L("Sparpläne", "Savings plans"))
                 }
             }
+            if !content.rows.isEmpty {
+                PortfolioCardLink(path: path, route: .portfolioShares) {
+                    Label(L("Anteile", "Shares"), systemImage: "chart.pie")
+                }
+            }
+            optionsCard
+            actionButtons(content)
+            holdingList(content)
         }
         .onAppear {
-            for holding in visibleHoldings where HoldingPurchaseDateStore.date(for: holding.id) == nil {
-                HoldingPurchaseDateStore.set(holding.updatedAt, for: holding.id)
-            }
+            HoldingMaintenance.backfillPurchaseDates(content.rows.map(\.holding))
             savingsPlans = SavingsPlanStore.all()
         }
         .sheet(isPresented: $showingNew) { HoldingForm(holding: nil, preferredAccountID: accountID) }
@@ -360,284 +324,91 @@ struct PortfolioElementsView: View {
         .sheet(item: $selected) { HoldingDetailView(holding: $0) }
     }
 
-    private var visiblePlans: [SavingsPlanRecord] {
-        savingsPlans.filter { accountID == nil || $0.portfolioAccountID == accountID }
-    }
-
-    @ViewBuilder
-    private var savingsPlanCard: some View {
-        if !visiblePlans.isEmpty {
-            savingsPlanLink
-                .buttonStyle(.plain)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .appTintedPlate(radius: 14)
-        }
-    }
-
-    private var savingsPlanLink: some View {
-        Group {
-            if let path {
-                Button {
-                    path.wrappedValue.append(FinanceRoute.savingsPlans)
-                } label: {
-                    savingsPlanLinkLabel
-                }
-            } else {
-                NavigationLink(value: FinanceRoute.savingsPlans) {
-                    savingsPlanLinkLabel
-                }
-            }
-        }
-    }
-
-    private var savingsPlanLinkLabel: some View {
-        HStack {
-            Text(L("Sparpläne", "Savings plans"))
-                .font(.headline)
-                .foregroundStyle(.primary)
-            Spacer()
-            Image(systemName: "chevron.right")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
+    /// The period, unit, and sort controls.
+    private var optionsCard: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            PortfolioOptionPicker<PortfolioBasis>(title: L("Zeitraum", "Period"), selection: $basis)
+            PortfolioOptionPicker<PortfolioUnit>(title: L("Einheit", "Unit"), selection: $unit)
+            PortfolioOptionPicker<PortfolioSort>(title: L("Sortierung", "Sort"), selection: $sort)
         }
         .padding(12)
-        .contentShape(Rectangle())
+        .appTintedPlate(radius: 14)
     }
 
-    @ViewBuilder
-    private var shareChartCard: some View {
-        if !visibleHoldings.isEmpty {
-            shareChartLink
-                .buttonStyle(.plain)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .appTintedPlate(radius: 14)
-        }
-    }
-
-    private var shareChartLink: some View {
-        Group {
-            if let path {
-                Button {
-                    path.wrappedValue.append(FinanceRoute.portfolioShares)
-                } label: {
-                    shareChartLinkLabel
+    /// The refresh and add buttons.
+    private func actionButtons(_ content: PortfolioSnapshot) -> some View {
+        HStack(spacing: 16) {
+            Button {
+                Task {
+                    isRefreshing = true
+                    await MarketDataService.refresh(holdings: content.rows.map(\.holding), context: context)
+                    isRefreshing = false
                 }
-            } else {
-                NavigationLink(value: FinanceRoute.portfolioShares) {
-                    shareChartLinkLabel
+            } label: {
+                Group {
+                    if isRefreshing {
+                        ProgressView()
+                    } else {
+                        Label(L("Kurse aktualisieren", "Refresh quotes"), systemImage: "arrow.clockwise")
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
+                    }
                 }
-            }
-        }
-    }
-
-    private var shareChartLinkLabel: some View {
-        HStack {
-            Label(L("Anteile", "Shares"), systemImage: "chart.pie")
-                .font(.headline)
+                .font(.headline.weight(.semibold))
                 .foregroundStyle(.primary)
-            Spacer()
-            Image(systemName: "chevron.right")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity)
+                .frame(height: 52)
+                .liquidGlassSurface()
+            }
+            .buttonStyle(.borderless)
+            .tint(.primary)
+            .disabled(isRefreshing || content.rows.isEmpty)
+            Button {
+                showingNew = true
+            } label: {
+                Image(systemName: "plus")
+                    .font(.title2.weight(.bold))
+                    .foregroundStyle(.primary)
+                    .frame(width: 52, height: 52)
+                    .boundedBubble(circle: true)
+            }
+            .buttonStyle(.borderless)
+            .tint(.primary)
+            .accessibilityLabel(L("Position", "Holding"))
         }
-        .padding(12)
-        .contentShape(Rectangle())
     }
 
-    private var portfolioTotals: HoldingPerformance {
-        visibleHoldings.reduce(HoldingPerformance()) { $0.adding(holdingPerformance($1)) }
+    /// The positions, or a note when there are none.
+    @ViewBuilder
+    private func holdingList(_ content: PortfolioSnapshot) -> some View {
+        if content.rows.isEmpty {
+            Text(L("Keine Depotpositionen", "No holdings"))
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(12)
+                .appTintedPlate(radius: 14)
+        } else {
+            ForEach(content.rows) { holdingRow($0) }
+        }
     }
 
-    private func holdingRow(_ holding: PortfolioHolding) -> some View {
-        let performance = holdingPerformance(holding)
-        let quantity = projectedQuantity(holding)
-        let value = projectedValue(holding)
-        return Button {
-            selected = holding
+    /// One plated position with its context menu.
+    private func holdingRow(_ row: PortfolioRow) -> some View {
+        Button {
+            selected = row.holding
         } label: {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(holding.name).foregroundStyle(.primary)
-                    Text("\(quantity.formatted()) × \(Money.string(cents: shownPrice(quantity: quantity, value: value, holding: holding)))")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                Spacer(minLength: 12)
-                VStack(alignment: .trailing, spacing: 2) {
-                    Text(Money.string(cents: value))
-                        .foregroundStyle(.primary)
-                    performanceLabel(performance)
-                }
-            }
-            .padding(12)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .appTintedPlate(radius: 14)
+            PortfolioRowContent(row: row, basis: basis, unit: unit)
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .appTintedPlate(radius: 14)
         }
         .buttonStyle(.plain)
         .contextMenu {
-            Button(L("Bearbeiten", "Edit")) { edited = holding }
+            Button(L("Bearbeiten", "Edit")) { edited = row.holding }
             Button(L("Löschen", "Delete"), role: .destructive) {
-                delete(holding)
+                HoldingMaintenance.deletePosition(row.holding, context: context)
             }
         }
-    }
-
-    private func delete(_ holding: PortfolioHolding) {
-        MarketSymbolStore.remove(for: holding.id)
-        PreviousCloseStore.remove(for: holding.id)
-        HoldingPurchaseDateStore.remove(for: holding.id)
-        HoldingLotStore.removeAll(for: holding.id)
-        context.delete(holding)
-        try? context.save()
-    }
-
-    private var sortedHoldings: [PortfolioHolding] {
-        switch PortfolioSort(rawValue: sort) ?? .value {
-        case .value:
-            let values = Dictionary(uniqueKeysWithValues: visibleHoldings.map { ($0.id, projectedValue($0)) })
-            return visibleHoldings.sorted { (values[$0.id] ?? 0) > (values[$1.id] ?? 0) }
-        case .purchase:
-            return visibleHoldings.sorted { lhs, rhs in
-                let left = HoldingPurchaseDateStore.date(for: lhs.id) ?? .distantPast
-                let right = HoldingPurchaseDateStore.date(for: rhs.id) ?? .distantPast
-                if left != right { return left > right }
-                return lhs.name.localizedCaseInsensitiveCompare(rhs.name) == .orderedAscending
-            }
-        case .name:
-            return visibleHoldings.sorted {
-                $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
-            }
-        }
-    }
-
-    private func performanceLabel(_ performance: HoldingPerformance) -> some View {
-        let selected = performance.selected(basis: basis, unit: unit)
-        return Text(selected.text)
-            .font(.caption.bold())
-            .foregroundStyle(selected.cents < 0 ? .red : (selected.cents > 0 ? .green : .secondary))
-    }
-}
-
-private enum PortfolioBasis: String, CaseIterable, Identifiable {
-    case today
-    case purchase
-
-    var id: String { rawValue }
-    var label: String {
-        switch self {
-        case .today: L("Heute", "Today")
-        case .purchase: L("Seit Kauf", "Since purchase")
-        }
-    }
-}
-
-enum PortfolioSort: String, CaseIterable, Identifiable {
-    case value
-    case purchase
-    case name
-
-    var id: String { rawValue }
-    var label: String {
-        switch self {
-        case .value: L("Wert", "Value")
-        case .purchase: L("Kauf", "Purchase")
-        case .name: "A–Z"
-        }
-    }
-}
-
-enum PortfolioUnit: String, CaseIterable, Identifiable {
-    case percent
-    case eur
-
-    var id: String { rawValue }
-    var label: String {
-        switch self {
-        case .percent: "%"
-        case .eur: "€"
-        }
-    }
-}
-
-@MainActor
-func holdingPerformance(_ holding: PortfolioHolding) -> HoldingPerformance {
-    let value = Int((holding.quantity * Double(holding.currentPriceCents)).rounded())
-    let purchaseValue = Int((holding.quantity * Double(holding.purchasePriceCents)).rounded())
-    let previous = PreviousCloseStore.cents(for: holding.id)
-    let day: (cents: Int, base: Int)?
-    if let previous, previous > 0 {
-        day = (
-            value - Int((holding.quantity * Double(previous)).rounded()),
-            Int((holding.quantity * Double(previous)).rounded())
-        )
-    } else {
-        day = nil
-    }
-    return HoldingPerformance(
-        value: value,
-        dayCents: day?.cents,
-        dayBase: day?.base ?? 0,
-        purchaseCents: value - purchaseValue,
-        purchaseBase: purchaseValue
-    )
-}
-
-struct HoldingPerformance {
-    var value = 0
-    var dayCents: Int?
-    var dayBase = 0
-    var purchaseCents = 0
-    var purchaseBase = 0
-
-    var dayPercent: Double? {
-        guard dayCents != nil, dayBase > 0 else { return nil }
-        return Double(dayCents ?? 0) / Double(dayBase)
-    }
-
-    var purchasePercent: Double? {
-        guard purchaseBase > 0 else { return nil }
-        return Double(purchaseCents) / Double(purchaseBase)
-    }
-
-    func adding(_ other: HoldingPerformance) -> HoldingPerformance {
-        HoldingPerformance(
-            value: value + other.value,
-            dayCents: dayCents == nil && other.dayCents == nil ? nil : (dayCents ?? 0) + (other.dayCents ?? 0),
-            dayBase: dayBase + other.dayBase,
-            purchaseCents: purchaseCents + other.purchaseCents,
-            purchaseBase: purchaseBase + other.purchaseBase
-        )
-    }
-
-    func selected(basis: String, unit: String) -> (text: String, cents: Int) {
-        let useToday = basis != PortfolioBasis.purchase.rawValue
-        let useEuro = unit == PortfolioUnit.eur.rawValue
-        if useToday {
-            guard let cents = dayCents else {
-                return (L("Kein Vortageskurs", "No previous close"), 0)
-            }
-            if useEuro { return (signedMoney(cents), cents) }
-            guard let percent = dayPercent else {
-                return (L("Kein Vortageskurs", "No previous close"), cents)
-            }
-            return (signedPercent(percent), cents)
-        }
-        if useEuro { return (signedMoney(purchaseCents), purchaseCents) }
-        guard let percent = purchasePercent else { return (signedMoney(purchaseCents), purchaseCents) }
-        return (signedPercent(percent), purchaseCents)
-    }
-
-    private func signedMoney(_ cents: Int) -> String {
-        cents > 0 ? "+\(Money.string(cents: cents))" : Money.string(cents: cents)
-    }
-
-    private func signedPercent(_ ratio: Double) -> String {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .percent
-        formatter.maximumFractionDigits = 2
-        formatter.minimumFractionDigits = 2
-        formatter.positivePrefix = formatter.plusSign
-        return formatter.string(from: NSNumber(value: ratio)) ?? "0 %"
     }
 }
 

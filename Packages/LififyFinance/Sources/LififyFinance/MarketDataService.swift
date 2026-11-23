@@ -31,9 +31,12 @@ public enum HoldingMarketStore {
     }
 
     private static var cached: [UUID: Values]?
+    /// Changes whenever a stored value changes, so calculations know when to repeat.
+    public private(set) static var cacheRevision = 0
 
     public static func clearCache() {
         cached = nil
+        cacheRevision &+= 1
     }
 
     public static func values(for holdingID: UUID) -> Values {
@@ -47,6 +50,7 @@ public enum HoldingMarketStore {
         let empty = values == Values()
         map[holdingID] = empty ? nil : values
         cached = map
+        cacheRevision &+= 1
         guard let context = LififyDatabase.sideContext else { return }
         let descriptor = FetchDescriptor<StoredHoldingMarket>(predicate: #Predicate { $0.holdingID == holdingID })
         let row = (try? context.fetch(descriptor))?.first
