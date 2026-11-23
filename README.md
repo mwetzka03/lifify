@@ -115,6 +115,18 @@ starts setup again.
 The same app runs in the Simulator when the destination is an iPhone with iOS
 17 or newer.
 
+### Code structure
+
+The logic lives in four local Swift packages under `Packages`: `LififyCore`
+(shared models and storage), `LififyFinance` (including Trade Republic),
+`LififyChallenges`, and `LififyHealth`. The app target holds the views,
+navigation, backup, and the wiring between packages. Methods stay small and
+call well-named helpers instead of growing; repeated logic is shared through
+protocols with default implementations, generics, and composition. Every type
+and method carries a `///` comment that says what it does; longer methods also
+list their parameters and return value. The full rules are in
+[RULES.md](RULES.md#code).
+
 ### Data and import
 
 Everything lives on the device. A JSON backup does not include meal or profile photos, exercise images, price caches, or anything in the Keychain. JSON backups, CSV files, and
@@ -283,6 +295,19 @@ Einstellungen und startet die Einrichtung neu.
 
 Dieselbe App läuft im Simulator, wenn als Ziel ein iPhone mit iOS 17 oder
 neuer gewählt ist.
+
+### Code-Struktur
+
+Die Logik liegt in vier lokalen Swift Packages unter `Packages`: `LififyCore`
+(gemeinsame Modelle und Speicher), `LififyFinance` (mit Trade Republic),
+`LififyChallenges` und `LififyHealth`. Das App-Target enthält Views,
+Navigation, Backup und das Zusammenschalten der Packages. Methoden bleiben
+klein und rufen gut benannte Hilfsmethoden auf, statt zu wachsen;
+wiederkehrende Logik wird über Protokolle mit Standard-Implementierungen,
+Generics und Komposition geteilt. Jeder Typ und jede Methode trägt einen
+`///`-Kommentar, der sagt, was sie tut; längere Methoden nennen zusätzlich
+Parameter und Rückgabewert. Die vollständigen Regeln stehen in
+[RULES.md](RULES.md#code-1).
 
 ### Daten und Import
 

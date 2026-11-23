@@ -49,6 +49,10 @@ steht in `Changes Documentation/CHANGES-0.5.5.md`.
 - Modular bauen: Fachlogik in die Packages (`LififyCore`, `LififyFinance`,
   `LififyChallenges`, `LififyHealth`), keine Fachlogik in Views. Neue Targets
   (Widget-Extension) nutzen dieselben Packages.
+- **Code-Regeln aus RULES.md, Abschnitt „Code“, gelten für jede Zeile:**
+  kleine Methoden, keine Doppelungen, Wiederverwendung über Protokolle,
+  `///`-Doku über jedem Typ und jeder Methode, bei längeren Methoden mit
+  Eingabe und Ausgabe.
 
 ### Bauen und testen (macOS, Xcode)
 
@@ -210,6 +214,25 @@ Eigentümer darf umsortieren.
   ihre Beträge nur, wenn in Einstellungen, Finanzen der Schalter
   „Finanzwerte in Widgets zeigen“ an ist (Standard: aus). Sonst steht dort
   „Gesperrt“ mit einem Schloss.
+
+**A8 – Code kompakter und dokumentiert (Wunsch des Eigentümers)**
+- Regeln: RULES.md, Abschnitt „Code“. Sie gelten ab sofort für jede
+  Änderung.
+- Bestandsaufnahme: Der Code hat heute **kein einziges Protokoll**, rund
+  260 Enums (meist Namensräume mit statischen Funktionen) und nur rund 370
+  `///`-Zeilen bei rund 1.700 Funktionen.
+- Durchgang Package für Package (Core, Finance, Challenges, Health, dann
+  App-Target), je ein Commit:
+  1. Doppelte Logik finden und in gemeinsame Funktionen, Typen oder
+     Protokolle mit Standard-Implementierung zusammenführen.
+  2. Methoden über etwa 30 Zeilen in benannte Hilfsmethoden zerlegen.
+  3. `///`-Kommentare für alle Typen und nicht trivialen Methoden; bei
+     Methoden über etwa 15 Zeilen zusätzlich `- Parameters:` und
+     `- Returns:`.
+- Verhalten unverändert; die Tests müssen ohne Anpassung grün bleiben. Wo
+  ein Test angepasst werden muss, im Changelog begründen.
+- Mit A2 (Views verschlanken) verzahnen: Was A2 ohnehin umbaut, wird dort
+  gleich nach diesen Regeln gebaut.
 
 ### Teil B – Neue Features (freigegeben)
 
