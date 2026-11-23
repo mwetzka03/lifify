@@ -43,7 +43,9 @@ func withTestStore<T>(_ body: @MainActor (TestStore) async throws -> T) async th
     LififyDatabase.container = container
     let calendar = RecordingCalendarGateway()
     CalendarBridge.use(calendar)
+    MarketDataService.refreshesPrices = false
     defer {
+        MarketDataService.refreshesPrices = true
         CalendarBridge.use(nil)
         LififyDatabase.container = nil
         AppDefaults.use(nil)

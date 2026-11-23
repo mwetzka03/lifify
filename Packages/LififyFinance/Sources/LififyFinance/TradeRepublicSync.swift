@@ -607,7 +607,7 @@ public enum TradeRepublicSync {
         holdings: [HeldPosition],
         activities: [TradeRepublicActivity],
         known: Set<String>,
-        now: Date = .now
+        now: Date = FinanceClock.now
     ) -> [TradeRepublicMove] {
         let fresh = activities.filter { !known.contains(TradeRepublicTimeline.fingerprint($0.id)) }
         let live = Dictionary(grouping: positions.filter { $0.quantity > 0.0000005 }, by: { $0.isin.uppercased() })

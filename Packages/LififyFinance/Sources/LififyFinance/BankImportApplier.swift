@@ -200,7 +200,7 @@ public enum ImportBalance {
         let first = entries
             .filter { $0.accountID == account.id || $0.fromAccountID == account.id || $0.toAccountID == account.id }
             .map(\.date)
-            .min() ?? Date()
+            .min() ?? FinanceClock.now
         let day = Calendar.current.startOfDay(for: first)
         let opening = LedgerEntry(
             date: day,
@@ -225,7 +225,7 @@ public enum ImportBalance {
         let computed = FinanceService.currentBalance(for: account, entries: entries)
         let delta = correctionCents(current: currentCents, computed: computed)
         guard delta != 0 else { return nil }
-        let last = BankImportCursor.date(for: account.id) ?? Date()
+        let last = BankImportCursor.date(for: account.id) ?? FinanceClock.now
         let entry = LedgerEntry(
             date: Calendar.current.startOfDay(for: last),
             title: L("Saldo-Korrektur", "Balance adjustment"),
@@ -307,7 +307,7 @@ public enum BankImportCursor {
     }
 
     /// Stores the import date and balance.
-    public static func mark(_ accountID: UUID, at date: Date = Date(), currentCents: Int? = nil) {
+    public static func mark(_ accountID: UUID, at date: Date = FinanceClock.now, currentCents: Int? = nil) {
         LinkTable.set(.bankCursor, key: accountID.uuidString, value: String(date.timeIntervalSince1970))
         if let currentCents {
             LinkTable.set(.bankCurrent, key: accountID.uuidString, value: String(currentCents))
@@ -926,7 +926,7 @@ public enum BankImportApplier {
             HoldingLotStore.add(lot, holdingID: holding.id)
             holding.quantity = max(0, holding.quantity - trade.quantity)
             holding.currentPriceCents = max(price, 0)
-            holding.updatedAt = .now
+            holding.updatedAt = FinanceClock.now
             return
         }
         if let holding = holdings.first(where: { $0.accountID == portfolio.id && $0.symbol.caseInsensitiveCompare(trade.isin) == .orderedSame }) {
@@ -936,7 +936,7 @@ public enum BankImportApplier {
             holding.quantity = next
             holding.currentPriceCents = max(price, 0)
             holding.name = trade.name
-            holding.updatedAt = .now
+            holding.updatedAt = FinanceClock.now
             HoldingLotStore.add(lot, holdingID: holding.id)
             rememberPurchase(date, holdingID: holding.id)
             return

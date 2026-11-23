@@ -65,7 +65,7 @@ public enum HomeBudget {
         pools: [BudgetPool],
         splits: [TransactionSplit],
         dashboardPeriod: String,
-        now: Date = .now
+        now: Date = FinanceClock.now
     ) -> HomeBudgetSnapshot {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: now)

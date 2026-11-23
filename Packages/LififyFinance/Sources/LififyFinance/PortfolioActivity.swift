@@ -192,7 +192,7 @@ public struct SavingsPlanRecord: Codable, Identifiable, Hashable {
 
     /// Returns the next execution after a date.
     @MainActor
-    public func nextExecution(after date: Date = .now) -> Date? {
+    public func nextExecution(after date: Date = FinanceClock.now) -> Date? {
         guard active else { return nil }
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: date)
@@ -325,7 +325,7 @@ public enum HoldingMaintenance {
         }
         holding.quantity = position.quantity
         holding.purchasePriceCents = position.priceCents
-        holding.updatedAt = .now
+        holding.updatedAt = FinanceClock.now
         if let first = lots.first(where: { !$0.isSale }) {
             HoldingPurchaseDateStore.set(first.date, for: holding.id)
         }
@@ -491,7 +491,7 @@ public enum HoldingMaintenance {
     private static func priceCents(for holding: PortfolioHolding, on day: Date) -> Int {
         let calendar = Calendar.current
         let dayStart = calendar.startOfDay(for: day)
-        let today = calendar.startOfDay(for: .now)
+        let today = calendar.startOfDay(for: FinanceClock.now)
         if dayStart > today {
             return max(holding.currentPriceCents, 0)
         }
@@ -588,7 +588,7 @@ public enum HoldingMaintenance {
     /// Executions after today and after the last booked execution, through `day`.
     private static func futureExecutionCount(_ plan: SavingsPlanRecord, through day: Date) -> Int {
         let calendar = Calendar.current
-        let today = calendar.startOfDay(for: .now)
+        let today = calendar.startOfDay(for: FinanceClock.now)
         let target = calendar.startOfDay(for: day)
         guard target > today else { return 0 }
         let tomorrow = calendar.date(byAdding: .day, value: 1, to: today) ?? today
@@ -662,7 +662,7 @@ public enum SavingsPlanBuilder {
     ) -> [SavingsPlanRecord] {
         let savings = rows.filter { $0.trade?.isSavingsPlan == true }
         let grouped = Dictionary(grouping: savings) { $0.trade?.isin.uppercased() ?? "" }
-        let statementEnd = rows.map(\.date).max() ?? .now
+        let statementEnd = rows.map(\.date).max() ?? FinanceClock.now
         return grouped.compactMap { isin, items in
             guard !isin.isEmpty else { return nil }
             let sorted = items.sorted { $0.date < $1.date }
@@ -744,7 +744,7 @@ public enum SavingsPlanRunner {
         guard plans.contains(where: \.active) || removedSynthetic else { return }
         let entries = (try? context.fetch(FetchDescriptor<LedgerEntry>())) ?? []
         let calendar = Calendar.current
-        let today = calendar.startOfDay(for: .now)
+        let today = calendar.startOfDay(for: FinanceClock.now)
         var changed = removedSynthetic
         if removedSynthetic {
             for index in plans.indices {

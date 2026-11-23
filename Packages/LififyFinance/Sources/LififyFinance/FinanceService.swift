@@ -130,7 +130,7 @@ public enum FinanceService {
         splits: [TransactionSplit]
     ) -> Int {
         guard pool.isScalable else { return 0 }
-        let keys = CalendarService.periodKeys(from: pool.createdAt, through: .now, pool: pool)
+        let keys = CalendarService.periodKeys(from: pool.createdAt, through: FinanceClock.now, pool: pool)
         var carry = 0
         for key in keys {
             if key == currentPeriodKey { return carry }
@@ -163,7 +163,7 @@ public enum FinanceService {
         entries: [LedgerEntry],
         holdings: [PortfolioHolding] = []
     ) -> Int {
-        balance(for: account, entries: entries, holdings: holdings, through: endOfDay(Date()))
+        balance(for: account, entries: entries, holdings: holdings, through: endOfDay(FinanceClock.now))
     }
 
     /// Cash at the end of the previous period. Adjustments dated on the period
@@ -254,7 +254,7 @@ public enum FinanceService {
         splits: [TransactionSplit],
         forecasts: [IncomeForecast],
         shopping: [ShoppingItem],
-        now: Date = .now,
+        now: Date = FinanceClock.now,
         incomePredicate: ((LedgerEntry) -> Bool)? = nil,
         includePortfolioValue: Bool = false,
         countSavingsPlansInCash: Bool = true,
@@ -691,7 +691,7 @@ public enum FinanceService {
     /// Bookings tied to a fixed cost: stored link, fixed-cost id, or the same-day automatic match.
     public static func assignedBookings(for cost: FixedCost, entries: [LedgerEntry]) -> [LedgerEntry] {
         let calendar = Calendar.current
-        let today = calendar.startOfDay(for: .now)
+        let today = calendar.startOfDay(for: FinanceClock.now)
         var matched: [UUID: LedgerEntry] = [:]
         for entry in entries {
             if ForecastMatchRejectionStore.isRejected(costID: cost.id, entryID: entry.id) { continue }
@@ -719,7 +719,7 @@ public enum FinanceService {
     public static func upcomingCharges(for cost: FixedCost, entries: [LedgerEntry], limit: Int = 3) -> [ScheduledCharge] {
         guard cost.isActive, limit > 0 else { return [] }
         let calendar = Calendar.current
-        let today = calendar.startOfDay(for: .now)
+        let today = calendar.startOfDay(for: FinanceClock.now)
         guard let horizon = calendar.date(byAdding: .year, value: 2, to: today) else { return [] }
         return Array(
             scheduledCharges(costs: [cost], entries: entries, from: today, through: horizon)
@@ -732,7 +732,7 @@ public enum FinanceService {
     public static func nextChargeDate(for cost: FixedCost, entries: [LedgerEntry]) -> Date? {
         guard cost.isActive else { return nil }
         let calendar = Calendar.current
-        let today = calendar.startOfDay(for: .now)
+        let today = calendar.startOfDay(for: FinanceClock.now)
         guard let horizon = calendar.date(byAdding: .year, value: 2, to: today) else { return nil }
         return scheduledCharges(costs: [cost], entries: entries, from: today, through: horizon)
             .first { !$0.isPaid }?
@@ -1412,7 +1412,7 @@ public enum ForecastSchedule {
     ) -> [ForecastListItem] {
         guard !showsDepot else { return [] }
         let calendar = Calendar.current
-        let today = calendar.startOfDay(for: .now)
+        let today = calendar.startOfDay(for: FinanceClock.now)
         guard period.end >= today else { return [] }
         let chosen = forecasts.filter { forecast in
             guard forecast.isActive else { return false }
@@ -1457,7 +1457,7 @@ public enum ForecastSchedule {
         showsDepot: Bool
     ) -> [ForecastListItem] {
         guard !showsDepot else { return [] }
-        let today = Calendar.current.startOfDay(for: .now)
+        let today = Calendar.current.startOfDay(for: FinanceClock.now)
         guard period.end >= today else { return [] }
         let chosen = FixedCostScope.applicable(
             costs: costs.filter(\.isActive),
@@ -1498,10 +1498,10 @@ public enum ForecastSchedule {
         cashAccountIDs: [UUID]
     ) -> [ForecastListItem] {
         guard !showsDepot else { return [] }
-        let today = Calendar.current.startOfDay(for: .now)
+        let today = Calendar.current.startOfDay(for: FinanceClock.now)
         guard period.end >= today else { return [] }
         let scope = account.map { Set([$0.id]) }
-        let spentThrough = min(Date(), period.end)
+        let spentThrough = min(FinanceClock.now, period.end)
         return budgets.compactMap { budget in
             let plan = VariableBudgetAccounts.planCents(
                 budget: budget,
@@ -1542,7 +1542,7 @@ public enum ForecastSchedule {
     ) -> [ForecastListItem] {
         guard !showsDepot else { return [] }
         guard account == nil || account?.isMain == true else { return [] }
-        let today = Calendar.current.startOfDay(for: .now)
+        let today = Calendar.current.startOfDay(for: FinanceClock.now)
         guard period.end >= today else { return [] }
         let calendar = Calendar.current
         return shopping.compactMap { item in
@@ -1575,7 +1575,7 @@ public enum ForecastSchedule {
     ) -> [ForecastListItem] {
         guard !showsDepot, let account else { return [] }
         let calendar = Calendar.current
-        let today = calendar.startOfDay(for: .now)
+        let today = calendar.startOfDay(for: FinanceClock.now)
         guard period.end >= today else { return [] }
         var items: [ForecastListItem] = []
         for forecast in TransferForecastStore.all() where forecast.active {

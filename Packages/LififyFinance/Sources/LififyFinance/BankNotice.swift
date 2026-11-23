@@ -486,7 +486,7 @@ public enum BankNoticeIntake {
         text: String,
         bank: BankNoticeBank,
         context: ModelContext,
-        now: Date = .now
+        now: Date = FinanceClock.now
     ) -> String {
         let accounts = (try? context.fetch(FetchDescriptor<Account>())) ?? []
         let entries = (try? context.fetch(FetchDescriptor<LedgerEntry>())) ?? []

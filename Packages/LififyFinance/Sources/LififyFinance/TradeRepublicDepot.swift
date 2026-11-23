@@ -787,7 +787,7 @@ public enum TradeRepublicDepotApplier {
             if rest > 0.001, average > 0 {
                 let oldest = accepted.map(\.date).min()
                     ?? HoldingLotStore.lots(for: holding.id).map(\.date).min()
-                    ?? Date()
+                    ?? FinanceClock.now
                 let date = Calendar.current.date(byAdding: .day, value: -1, to: oldest) ?? oldest
                 _ = insertShares(date: date, quantity: rest, unitCents: average, holding: holding)
             }
@@ -861,7 +861,7 @@ public enum TradeRepublicDepotApplier {
             guard changed else { continue }
             _ = insertGrant(
                 id: "gift-\(symbol)",
-                date: giftDate ?? lots.map(\.date).min() ?? Date(),
+                date: giftDate ?? lots.map(\.date).min() ?? FinanceClock.now,
                 title: holding.name,
                 quantity: 0,
                 amountCents: Int((holding.quantity * Double(position.averageBuyInCents ?? 0)).rounded()),
@@ -1024,7 +1024,7 @@ public enum TradeRepublicDepotApplier {
                 let executions = activities.filter {
                     $0.savingsPlan && $0.amountCents < 0 && $0.isin.caseInsensitiveCompare(plan.isin) == .orderedSame
                 }
-                let last = executions.map(\.date).max() ?? .now
+                let last = executions.map(\.date).max() ?? FinanceClock.now
                 let holding = holdings.first { $0.symbol.caseInsensitiveCompare(plan.isin) == .orderedSame }
                 let name = plan.name.isEmpty ? (holding?.name ?? plan.isin) : plan.name
                 var record = SavingsPlanRecord(
@@ -1159,7 +1159,7 @@ public enum TradeRepublicDepotApplier {
                 entries: entries,
                 accounts: accounts,
                 context: context
-            )?.start ?? Calendar.current.startOfDay(for: Date())
+            )?.start ?? Calendar.current.startOfDay(for: FinanceClock.now)
             let startDay = Calendar.current.startOfDay(for: start)
             let later = entries.reduce(0) { partial, entry in
                 guard Calendar.current.startOfDay(for: entry.date) > startDay else { return partial }
@@ -1181,7 +1181,7 @@ public enum TradeRepublicDepotApplier {
             account: checking,
             entries: &entries,
             currentCents: liveCents,
-            date: Date(),
+            date: FinanceClock.now,
             context: context
         )
         try? context.save()

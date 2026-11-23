@@ -1,0 +1,334 @@
+##### BANK IMPORT
+=== first import
+8|0|Giro|0|0
+=== first: accounts
+Giro|checking|true|true|DE89370400440532013000|-
+Spar|savings|true|false|DE12500105170648489890|-
+=== first: entries
+2026-02-27 0:0|Eröffnungssaldo||-27565|adjustment|Giro|-|-|-
+2026-02-27 12:0|Gehalt|Sender-IBAN: DE75512108001245126199⏎Empfänger-IBAN: DE89370400440532013000|250000|income|Giro|-|-|32ec412d50846bab6e6b15a897cf306a20ef06fc8021fbe5d13f05b7a4efa30d
+2026-03-01 12:0|Miete|Sender-IBAN: DE89370400440532013000⏎Empfänger-IBAN: DE75512108001245126199|-80000|expense|Giro|-|-|367ab500f7da8238f51c2e7cff33473a6a582a5ee3a897e9eaa07943bc9e42e0
+2026-03-03 12:0|REWE|Karte 1⏎Sender-IBAN: DE89370400440532013000⏎Empfänger-IBAN: DE75512108001245126199|-4599|expense|Giro|-|-|2176470c12f0049fb84a6d88629f8a8717f6c217e0ce17b1318c77b54c5dd4c6
+2026-03-04 12:0|Sparen|Sender-IBAN: DE89370400440532013000⏎Empfänger-IBAN: DE12500105170648489890|10000|transfer|-|Giro|Spar|0fd059fbb38ffd799827b98039a1a97b0914d919680f2f3370ab10b57949f93e
+2026-03-05 12:0|Kauf ETF||-5000|expense|Giro|-|-|e96e24ee016e1957ee1ecc3dc7c3394b9a0c14e56dac9c28282493cb24eb69a0
+2026-03-06 12:0|Sparplan ETF||-2500|expense|Giro|-|-|85895b6dd90640a60efc9edef5ddb56b644cb36e7d186150a157b60f858c6a1c
+2026-03-09 12:0|Verkauf ETF||3000|income|Giro|-|-|91fa6c854ab1766144d6779e5c28e374be6454c1e9627f55335971a6f0b6e72d
+2026-03-10 12:0|Dividende|Ertrag|120|income|Giro|-|-|e317c4e543db8b78e8ee632b19683043ddadccb94a036b563e4b73b8b61ec198
+=== first: holdings
+=== first: plans
+=== first: closed
+=== first: links
+=== repeat import
+0|0|0
+=== repeat: accounts
+Giro|checking|true|true|DE89370400440532013000|-
+Spar|savings|true|false|DE12500105170648489890|-
+=== repeat: entries
+2026-02-27 0:0|Eröffnungssaldo||-27565|adjustment|Giro|-|-|-
+2026-02-27 12:0|Gehalt|Sender-IBAN: DE75512108001245126199⏎Empfänger-IBAN: DE89370400440532013000|250000|income|Giro|-|-|32ec412d50846bab6e6b15a897cf306a20ef06fc8021fbe5d13f05b7a4efa30d
+2026-03-01 12:0|Miete|Sender-IBAN: DE89370400440532013000⏎Empfänger-IBAN: DE75512108001245126199|-80000|expense|Giro|-|-|367ab500f7da8238f51c2e7cff33473a6a582a5ee3a897e9eaa07943bc9e42e0
+2026-03-03 12:0|REWE|Karte 1⏎Sender-IBAN: DE89370400440532013000⏎Empfänger-IBAN: DE75512108001245126199|-4599|expense|Giro|-|-|2176470c12f0049fb84a6d88629f8a8717f6c217e0ce17b1318c77b54c5dd4c6
+2026-03-04 12:0|Sparen|Sender-IBAN: DE89370400440532013000⏎Empfänger-IBAN: DE12500105170648489890|10000|transfer|-|Giro|Spar|0fd059fbb38ffd799827b98039a1a97b0914d919680f2f3370ab10b57949f93e
+2026-03-05 12:0|Kauf ETF||-5000|expense|Giro|-|-|e96e24ee016e1957ee1ecc3dc7c3394b9a0c14e56dac9c28282493cb24eb69a0
+2026-03-06 12:0|Sparplan ETF||-2500|expense|Giro|-|-|85895b6dd90640a60efc9edef5ddb56b644cb36e7d186150a157b60f858c6a1c
+2026-03-09 12:0|Verkauf ETF||3000|income|Giro|-|-|91fa6c854ab1766144d6779e5c28e374be6454c1e9627f55335971a6f0b6e72d
+2026-03-10 12:0|Dividende|Ertrag|120|income|Giro|-|-|e317c4e543db8b78e8ee632b19683043ddadccb94a036b563e4b73b8b61ec198
+=== repeat: holdings
+=== repeat: plans
+=== repeat: closed
+=== repeat: links
+=== similar questions
+Dividende|120|Dividende|false
+Nachzügler|-100|0 Buchungen an diesem Tag|true
+Zusatz|-700|1 Buchungen an diesem Tag|true
+=== similar accepted: accounts
+Giro|checking|true|true|DE89370400440532013000|-
+Spar|savings|true|false|DE12500105170648489890|-
+=== similar accepted: entries
+2026-02-27 0:0|Eröffnungssaldo||-27565|adjustment|Giro|-|-|-
+2026-02-27 12:0|Gehalt|Sender-IBAN: DE75512108001245126199⏎Empfänger-IBAN: DE89370400440532013000|250000|income|Giro|-|-|32ec412d50846bab6e6b15a897cf306a20ef06fc8021fbe5d13f05b7a4efa30d
+2026-03-01 12:0|Miete|Sender-IBAN: DE89370400440532013000⏎Empfänger-IBAN: DE75512108001245126199|-80000|expense|Giro|-|-|367ab500f7da8238f51c2e7cff33473a6a582a5ee3a897e9eaa07943bc9e42e0
+2026-03-02 12:0|Nachzügler|Sender-IBAN: DE89370400440532013000⏎Empfänger-IBAN: DE75512108001245126199|-100|expense|Giro|-|-|6cda9e1f372fc847a3cb7e75c2aa7c6a7f11455732ee4a95633ec5d8c117b1a0
+2026-03-03 12:0|REWE|Karte 1⏎Sender-IBAN: DE89370400440532013000⏎Empfänger-IBAN: DE75512108001245126199|-4599|expense|Giro|-|-|2176470c12f0049fb84a6d88629f8a8717f6c217e0ce17b1318c77b54c5dd4c6
+2026-03-04 12:0|Sparen|Sender-IBAN: DE89370400440532013000⏎Empfänger-IBAN: DE12500105170648489890|10000|transfer|-|Giro|Spar|0fd059fbb38ffd799827b98039a1a97b0914d919680f2f3370ab10b57949f93e
+2026-03-05 12:0|Kauf ETF||-5000|expense|Giro|-|-|e96e24ee016e1957ee1ecc3dc7c3394b9a0c14e56dac9c28282493cb24eb69a0
+2026-03-06 12:0|Sparplan ETF||-2500|expense|Giro|-|-|85895b6dd90640a60efc9edef5ddb56b644cb36e7d186150a157b60f858c6a1c
+2026-03-09 12:0|Verkauf ETF||3000|income|Giro|-|-|91fa6c854ab1766144d6779e5c28e374be6454c1e9627f55335971a6f0b6e72d
+2026-03-10 12:0|Dividende|Ertrag|120|income|Giro|-|-|e317c4e543db8b78e8ee632b19683043ddadccb94a036b563e4b73b8b61ec198
+2026-03-10 12:0|Dividende|Sender-IBAN: DE75512108001245126199|120|income|Giro|-|-|48d01d7b9d55f682a88f9faf097e16549c0eede8d4ed1359dd9f66f5348270f4
+2026-03-10 12:0|Zusatz|Sender-IBAN: DE89370400440532013000⏎Empfänger-IBAN: DE75512108001245126199|-700|expense|Giro|-|-|0071d69c4a7fb457418c3a7e55395ea9a221e518a2b2b3d9ecd8ced66863ed65
+2026-03-12 12:0|Tanken|Sender-IBAN: DE89370400440532013000⏎Empfänger-IBAN: DE75512108001245126199|-6000|expense|Giro|-|-|e883c5c82691085e1dd0466c6928277dc17ea62337c1316133ee52919ece58b8
+2026-03-18 0:0|Saldo-Korrektur|Typ: Saldo-Korrektur|680|income|Giro|-|-|-
+=== similar accepted: holdings
+=== similar accepted: plans
+=== similar accepted: closed
+=== similar accepted: links
+=== direct row
+false|["Tanken"]
+=== transfer questions
+=== transfer accepted: accounts
+Giro|checking|true|true|DE89370400440532013000|-
+Spar|savings|true|false|DE12500105170648489890|-
+=== transfer accepted: entries
+2026-02-27 0:0|Eröffnungssaldo||-27565|adjustment|Giro|-|-|-
+2026-02-27 12:0|Gehalt|Sender-IBAN: DE75512108001245126199⏎Empfänger-IBAN: DE89370400440532013000|250000|income|Giro|-|-|32ec412d50846bab6e6b15a897cf306a20ef06fc8021fbe5d13f05b7a4efa30d
+2026-03-01 12:0|Miete|Sender-IBAN: DE89370400440532013000⏎Empfänger-IBAN: DE75512108001245126199|-80000|expense|Giro|-|-|367ab500f7da8238f51c2e7cff33473a6a582a5ee3a897e9eaa07943bc9e42e0
+2026-03-02 12:0|Nachzügler|Sender-IBAN: DE89370400440532013000⏎Empfänger-IBAN: DE75512108001245126199|-100|expense|Giro|-|-|6cda9e1f372fc847a3cb7e75c2aa7c6a7f11455732ee4a95633ec5d8c117b1a0
+2026-03-03 12:0|REWE|Karte 1⏎Sender-IBAN: DE89370400440532013000⏎Empfänger-IBAN: DE75512108001245126199|-4599|expense|Giro|-|-|2176470c12f0049fb84a6d88629f8a8717f6c217e0ce17b1318c77b54c5dd4c6
+2026-03-04 0:0|Eröffnungssaldo||0|adjustment|Spar|-|-|-
+2026-03-04 12:0|Sparen|Sender-IBAN: DE89370400440532013000⏎Empfänger-IBAN: DE12500105170648489890|10000|transfer|-|Giro|Spar|0fd059fbb38ffd799827b98039a1a97b0914d919680f2f3370ab10b57949f93e
+2026-03-05 12:0|Kauf ETF||-5000|expense|Giro|-|-|e96e24ee016e1957ee1ecc3dc7c3394b9a0c14e56dac9c28282493cb24eb69a0
+2026-03-06 12:0|Sparplan ETF||-2500|expense|Giro|-|-|85895b6dd90640a60efc9edef5ddb56b644cb36e7d186150a157b60f858c6a1c
+2026-03-09 12:0|Verkauf ETF||3000|income|Giro|-|-|91fa6c854ab1766144d6779e5c28e374be6454c1e9627f55335971a6f0b6e72d
+2026-03-10 12:0|Dividende|Ertrag|120|income|Giro|-|-|e317c4e543db8b78e8ee632b19683043ddadccb94a036b563e4b73b8b61ec198
+2026-03-10 12:0|Dividende|Sender-IBAN: DE75512108001245126199|120|income|Giro|-|-|48d01d7b9d55f682a88f9faf097e16549c0eede8d4ed1359dd9f66f5348270f4
+2026-03-10 12:0|Zusatz|Sender-IBAN: DE89370400440532013000⏎Empfänger-IBAN: DE75512108001245126199|-700|expense|Giro|-|-|0071d69c4a7fb457418c3a7e55395ea9a221e518a2b2b3d9ecd8ced66863ed65
+2026-03-12 12:0|Tanken|Sender-IBAN: DE89370400440532013000⏎Empfänger-IBAN: DE75512108001245126199|-6000|expense|Giro|-|-|e883c5c82691085e1dd0466c6928277dc17ea62337c1316133ee52919ece58b8
+2026-03-18 0:0|Saldo-Korrektur|Typ: Saldo-Korrektur|680|income|Giro|-|-|-
+=== transfer accepted: holdings
+=== transfer accepted: plans
+=== transfer accepted: closed
+=== transfer accepted: links
+##### STATEMENT
+=== statement
+6|2|Trade Republic|true
+=== statement: accounts
+Depot|portfolio|false|false||-
+Giro|checking|true|true|DE89370400440532013000|-
+Trade Republic|checking|true|false|DE11100110012620000000|-
+=== statement: entries
+2026-01-05 12:0|Einzahlung|Sender-IBAN: DE89370400440532013000|100000|transfer|-|Giro|Trade Republic|7d6355b227ea09095420c6a64b31861b86aa111d44d0ff74ce80e82eb8b68b07
+2026-01-06 12:0|Kauf Aktie||30000|transfer|-|Trade Republic|Depot|bbf642179063ffa768a5813ac749d415f0f0b39cb2511d2588b11d3f782418b1
+2026-02-02 12:0|Sparplan||5000|transfer|-|Trade Republic|Depot|1b30684430d569587484e652dd206a17a472adf38d999723fca7b9776eeb2cad
+2026-03-02 12:0|Sparplan||5000|transfer|-|Trade Republic|Depot|85061a9615cb2e90484252ae5915728dc238adff04f83e61dc34da8dda1b8398
+2026-03-09 12:0|Verkauf Aktie||16000|transfer|-|Depot|Trade Republic|5e99fc9d035da5538cb34164c50269e678bd58c54fd87d9b9da1f10fe90fe630
+2026-03-10 12:0|Zinsen|Zinsen|250|income|Trade Republic|-|-|ea9abd7614886e07222a80a3804d95c0e5e6389ae06082e0c2f3828c39c63fd2
+=== statement: holdings
+Apple|US0378331005|Depot|1.000000|15000|16000
+Apple|US0378331005|Depot|lot|2026-01-06 12:0|2.000000|15000|-30000|false|false||true
+Apple|US0378331005|Depot|lot|2026-03-09 12:0|1.000000|16000|16000|true|false||true
+World ETF|IE00B4L5Y983|Depot|1.000000|10000|10000
+World ETF|IE00B4L5Y983|Depot|lot|2026-02-02 12:0|0.500000|10000|-5000|false|true||true
+World ETF|IE00B4L5Y983|Depot|lot|2026-03-02 12:0|0.500000|10000|-5000|false|true||true
+=== statement: plans
+IE00B4L5Y983|World ETF|5000|monthly|Trade Republic|Depot|2026-03-02 12:0|true
+=== statement: closed
+=== statement: links
+Trade Republic->Depot
+=== statement repeat
+0|2
+=== statement repeat: accounts
+Depot|portfolio|false|false||-
+Giro|checking|true|true|DE89370400440532013000|-
+Trade Republic|checking|true|false|DE11100110012620000000|-
+=== statement repeat: entries
+2026-01-05 0:0|Startsaldo|Typ: Startsaldo|0|adjustment|Trade Republic|-|-|tr-startsaldo
+2026-01-05 12:0|Einzahlung|Sender-IBAN: DE89370400440532013000|100000|transfer|-|Giro|Trade Republic|7d6355b227ea09095420c6a64b31861b86aa111d44d0ff74ce80e82eb8b68b07
+2026-01-06 12:0|Kauf Aktie||30000|transfer|-|Trade Republic|Depot|bbf642179063ffa768a5813ac749d415f0f0b39cb2511d2588b11d3f782418b1
+2026-02-02 12:0|Sparplan||5000|transfer|-|Trade Republic|Depot|1b30684430d569587484e652dd206a17a472adf38d999723fca7b9776eeb2cad
+2026-03-02 12:0|Sparplan||5000|transfer|-|Trade Republic|Depot|85061a9615cb2e90484252ae5915728dc238adff04f83e61dc34da8dda1b8398
+2026-03-09 12:0|Verkauf Aktie||16000|transfer|-|Depot|Trade Republic|5e99fc9d035da5538cb34164c50269e678bd58c54fd87d9b9da1f10fe90fe630
+2026-03-10 12:0|Zinsen|Zinsen|250|income|Trade Republic|-|-|ea9abd7614886e07222a80a3804d95c0e5e6389ae06082e0c2f3828c39c63fd2
+=== statement repeat: holdings
+Apple|US0378331005|Depot|1.000000|15000|16000
+Apple|US0378331005|Depot|lot|2026-01-06 12:0|2.000000|15000|-30000|false|false||true
+Apple|US0378331005|Depot|lot|2026-03-09 12:0|1.000000|16000|16000|true|false||true
+World ETF|IE00B4L5Y983|Depot|1.000000|10000|10000
+World ETF|IE00B4L5Y983|Depot|lot|2026-02-02 12:0|0.500000|10000|-5000|false|true||true
+World ETF|IE00B4L5Y983|Depot|lot|2026-03-02 12:0|0.500000|10000|-5000|false|true||true
+=== statement repeat: plans
+IE00B4L5Y983|World ETF|5000|monthly|Trade Republic|Depot|2026-03-02 12:0|true
+=== statement repeat: closed
+=== statement repeat: links
+Trade Republic->Depot
+##### LIVE SESSION
+=== first session
+12
+=== first session: accounts
+Depot|portfolio|false|false||-
+Giro|checking|true|true|DE89370400440532013000|-
+Trade Republic|checking|true|false||-
+=== first session: entries
+2026-01-02 12:0|Einzahlung|Typ: Überweisung⏎Ereignis: PAYMENT_INBOUND|100000|income|Trade Republic|-|-|tr-a1
+2026-01-05 12:0|Kauf: Apple|Typ: Handel⏎ISIN: US0378331005⏎Stück: 3⏎Kurs: 150,00 €⏎Ereignis: ORDER_EXECUTED|45000|transfer|-|Trade Republic|Depot|tr-a2
+2026-02-02 12:0|Sparplan: World ETF|Typ: Handel⏎ISIN: IE00B4L5Y983⏎Stück: 2⏎Kurs: 100,00 €⏎Ereignis: SAVINGS_PLAN_EXECUTED|20000|transfer|-|Trade Republic|Depot|tr-a3
+2026-03-02 12:0|Sparplan: World ETF|Typ: Handel⏎ISIN: IE00B4L5Y983⏎Stück: 1.5⏎Kurs: 100,00 €⏎Ereignis: SAVINGS_PLAN_EXECUTED|15000|transfer|-|Trade Republic|Depot|tr-a4
+2026-03-04 12:0|Verkauf: Apple|Typ: Handel⏎ISIN: US0378331005⏎Stück: 1⏎Kurs: 160,00 €⏎Ereignis: ORDER_EXECUTED|16000|transfer|-|Depot|Trade Republic|tr-a5
+2026-03-05 12:0|Kauf: Tesla|Typ: Handel⏎ISIN: US88160R1014⏎Stück: 1⏎Kurs: 90,00 €⏎Ereignis: ORDER_EXECUTED|9000|transfer|-|Trade Republic|Depot|tr-a6
+2026-03-06 12:0|Verkauf: Tesla|Typ: Handel⏎ISIN: US88160R1014⏎Stück: 1⏎Kurs: 95,00 €⏎Ereignis: ORDER_EXECUTED|9500|transfer|-|Depot|Trade Republic|tr-a7
+2026-03-07 12:0|Depotgeschenk: SAP|Typ: Depotgeschenk⏎ISIN: DE0007164600⏎Stück: 1⏎Ereignis: GIFTING_RECIPIENT_ACTIVITY|0|income|Depot|-|-|tr-gift-DE0007164600
+2026-03-09 12:0|Apple|Typ: Ertrag⏎Ereignis: SSP_CORPORATE_ACTION_CASH|320|income|Trade Republic|-|-|tr-a9
+2026-03-10 12:0|Zinsen|Typ: Zinsen⏎Ereignis: INTEREST_PAYOUT|410|income|Trade Republic|-|-|tr-a10
+2026-03-11 12:0|Bäcker|Typ: Kartentransaktion⏎Ereignis: CARD_TRANSACTION|-350|expense|Trade Republic|-|-|tr-a11
+2026-03-18 0:0|Saldo-Korrektur|Typ: Saldo-Korrektur|41230|adjustment|Trade Republic|-|-|saldo-korrektur
+2026-03-18 0:0|Startsaldo|Typ: Startsaldo|41230|adjustment|Trade Republic|-|-|tr-startsaldo
+=== first session: holdings
+Apple|US0378331005|Depot|2.000000|15000|0
+Apple|US0378331005|Depot|lot|2026-01-05 12:0|3.000000|15000|-45000|false|false||true
+Apple|US0378331005|Depot|lot|2026-03-04 12:0|1.000000|16000|16000|true|false||true
+SAP|DE0007164600|Depot|1.000000|0|0
+SAP|DE0007164600|Depot|lot|2026-03-07 12:0|1.000000|0|0|false|false|gift|false
+World ETF|IE00B4L5Y983|Depot|3.500000|10000|0
+World ETF|IE00B4L5Y983|Depot|lot|2026-02-02 12:0|2.000000|10000|-20000|false|true||true
+World ETF|IE00B4L5Y983|Depot|lot|2026-03-02 12:0|1.500000|10000|-15000|false|true||true
+=== first session: plans
+IE00B4L5Y983|World ETF|15000|monthly|Trade Republic|Depot|2026-03-02 12:0|true
+=== first session: closed
+US88160R1014|Tesla|2026-03-05 12:0|1.000000|9000|-9000|false|false||true
+US88160R1014|Tesla|2026-03-06 12:0|1.000000|9500|9500|true|false||true
+=== first session: links
+Trade Republic->Depot
+=== second session
+12
+=== second session: accounts
+Depot|portfolio|false|false||-
+Giro|checking|true|true|DE89370400440532013000|-
+Trade Republic|checking|true|false||-
+=== second session: entries
+2026-01-02 12:0|Einzahlung|Typ: Überweisung⏎Ereignis: PAYMENT_INBOUND|100000|income|Trade Republic|-|-|tr-a1
+2026-01-05 12:0|Kauf: Apple|Typ: Handel⏎ISIN: US0378331005⏎Stück: 3⏎Kurs: 150,00 €⏎Ereignis: ORDER_EXECUTED|45000|transfer|-|Trade Republic|Depot|tr-a2
+2026-02-02 12:0|Sparplan: World ETF|Typ: Handel⏎ISIN: IE00B4L5Y983⏎Stück: 2⏎Kurs: 100,00 €⏎Ereignis: SAVINGS_PLAN_EXECUTED|20000|transfer|-|Trade Republic|Depot|tr-a3
+2026-03-02 12:0|Sparplan: World ETF|Typ: Handel⏎ISIN: IE00B4L5Y983⏎Stück: 1.5⏎Kurs: 100,00 €⏎Ereignis: SAVINGS_PLAN_EXECUTED|15000|transfer|-|Trade Republic|Depot|tr-a4
+2026-03-04 12:0|Verkauf: Apple|Typ: Handel⏎ISIN: US0378331005⏎Stück: 1⏎Kurs: 160,00 €⏎Ereignis: ORDER_EXECUTED|16000|transfer|-|Depot|Trade Republic|tr-a5
+2026-03-05 12:0|Kauf: Tesla|Typ: Handel⏎ISIN: US88160R1014⏎Stück: 1⏎Kurs: 90,00 €⏎Ereignis: ORDER_EXECUTED|9000|transfer|-|Trade Republic|Depot|tr-a6
+2026-03-06 12:0|Verkauf: Tesla|Typ: Handel⏎ISIN: US88160R1014⏎Stück: 1⏎Kurs: 95,00 €⏎Ereignis: ORDER_EXECUTED|9500|transfer|-|Depot|Trade Republic|tr-a7
+2026-03-07 12:0|Depotgeschenk: SAP|Typ: Depotgeschenk⏎ISIN: DE0007164600⏎Stück: 1⏎Ereignis: GIFTING_RECIPIENT_ACTIVITY|0|income|Depot|-|-|tr-gift-DE0007164600
+2026-03-09 12:0|Apple|Typ: Ertrag⏎Ereignis: SSP_CORPORATE_ACTION_CASH|320|income|Trade Republic|-|-|tr-a9
+2026-03-10 12:0|Zinsen|Typ: Zinsen⏎Ereignis: INTEREST_PAYOUT|410|income|Trade Republic|-|-|tr-a10
+2026-03-11 12:0|Bäcker|Typ: Kartentransaktion⏎Ereignis: CARD_TRANSACTION|-350|expense|Trade Republic|-|-|tr-a11
+2026-03-18 0:0|Saldo-Korrektur|Typ: Saldo-Korrektur|41230|adjustment|Trade Republic|-|-|saldo-korrektur
+2026-03-18 0:0|Startsaldo|Typ: Startsaldo|41230|adjustment|Trade Republic|-|-|tr-startsaldo
+=== second session: holdings
+Apple|US0378331005|Depot|2.000000|15000|0
+Apple|US0378331005|Depot|lot|2026-01-05 12:0|3.000000|15000|-45000|false|false||true
+Apple|US0378331005|Depot|lot|2026-03-04 12:0|1.000000|16000|16000|true|false||true
+SAP|DE0007164600|Depot|1.000000|0|0
+SAP|DE0007164600|Depot|lot|2026-03-07 12:0|1.000000|0|0|false|false|gift|false
+World ETF|IE00B4L5Y983|Depot|3.500000|10000|0
+World ETF|IE00B4L5Y983|Depot|lot|2026-02-02 12:0|2.000000|10000|-20000|false|true||true
+World ETF|IE00B4L5Y983|Depot|lot|2026-03-02 12:0|1.500000|10000|-15000|false|true||true
+=== second session: plans
+IE00B4L5Y983|World ETF|15000|monthly|Trade Republic|Depot|2026-03-02 12:0|true
+=== second session: closed
+US88160R1014|Tesla|2026-03-05 12:0|1.000000|9000|-9000|false|false||true
+US88160R1014|Tesla|2026-03-06 12:0|1.000000|9500|9500|true|false||true
+=== second session: links
+Trade Republic->Depot
+##### NOTICES
+=== notice answers
+Gebucht
+Schon gebucht
+Gebucht
+Gebucht
+Gebucht
+Die Mitteilung ließ sich nicht lesen.
+=== notices: accounts
+Sparkasse Giro|checking|true|true||-
+Trade Republic|checking|true|false|DE11100110012620000000|-
+=== notices: entries
+2026-03-18 12:0|Aral||-4000|expense|Trade Republic|-|-|-
+2026-03-18 12:0|Bäckerei Müller||-1250|expense|Sparkasse Giro|-|-|-
+2026-03-18 12:0|Gehalt||125000|income|Sparkasse Giro|-|-|-
+2026-03-18 12:0|Umbuchung||10000|transfer|-|Sparkasse Giro|Trade Republic|-
+=== notices: holdings
+=== notices: plans
+=== notices: closed
+=== notices: links
+##### PLANNING
+=== home calendarMonth
+250000|110003|139997|2026-03-31 0:0|2026-03-01 0:0|2026-03-31 23:59|true|0
+forecast|Gehalt|2026-03-31 0:0|250000
+expense|Jacke|2026-03-13 12:0|3000
+expense|Ausflug|2026-03-12 12:0|6000
+expense|REWE|2026-03-08 12:0|12003
+expense|Miete|2026-03-01 12:0|80000
+purchase|Kauf: ETF|2026-03-16 12:0|9000
+variable|Essen|-|12003
+pool|Freizeit|-|4000
+=== home salaryPeriod
+250000|110003|139997|2026-03-31 0:0|2026-02-27 0:0|2026-03-30 23:59|true|0
+income|Gehalt|2026-02-27 12:0|250000
+expense|Jacke|2026-03-13 12:0|3000
+expense|Ausflug|2026-03-12 12:0|6000
+expense|REWE|2026-03-08 12:0|12003
+expense|Miete|2026-03-01 12:0|80000
+purchase|Kauf: ETF|2026-03-16 12:0|9000
+variable|Essen|-|12003
+pool|Freizeit|-|4000
+=== forecast 2026-01-30|2026-02-26 all
+628003|250000|92002|536001|628003|7000|0|0|0|0|92002|80000|12002|250000|0
+event|2026-01-30 0:0|Gehalt|250000
+event|2026-02-01 12:0|Miete|-80000
+event|2026-02-08 12:0|REWE|-12002
+event|2026-02-25 0:0|Strom|-7000
+=== forecast 2026-01-30|2026-02-26 Giro
+574003|250000|92002|487001|574003|7000|0|0|0|0|92002|80000|12002|250000|0
+event|2026-01-30 0:0|Gehalt|250000
+event|2026-02-01 12:0|Miete|-80000
+event|2026-02-08 12:0|REWE|-12002
+event|2026-02-25 0:0|Strom|-7000
+=== forecast 2026-02-27|2026-03-30 all
+974006|250000|101003|628003|930009|7000|27997|0|9000|250000|101003|80000|12003|0|43997
+event|2026-02-27 12:0|Gehalt|250000
+event|2026-03-01 12:0|Miete|-80000
+event|2026-03-08 12:0|REWE|-12003
+event|2026-03-12 12:0|Ausflug|-6000
+event|2026-03-13 12:0|Jacke|-3000
+event|2026-03-16 12:0|Kauf: ETF|-9000
+event|2026-03-22 12:0|Schuhe|-9000
+event|2026-03-25 0:0|Strom|-7000
+item|2026-02-27 0:0|Gehalt|250000|true
+item|2026-03-01 0:0|Miete|-80000|true
+item|2026-03-22 0:0|Schuhe|-9000|false
+item|2026-03-25 0:0|Strom|-7000|false
+item|2026-03-30 0:0|Essen|-27997|false
+=== forecast 2026-02-27|2026-03-30 Giro
+959006|250000|101003|574003|871009|7000|27997|0|9000|250000|101003|80000|12003|0|43997
+event|2026-02-27 12:0|Gehalt|250000
+event|2026-03-01 12:0|Miete|-80000
+event|2026-03-08 12:0|REWE|-12003
+event|2026-03-12 12:0|Ausflug|-6000
+event|2026-03-13 12:0|Jacke|-3000
+event|2026-03-22 12:0|Schuhe|-9000
+event|2026-03-25 0:0|Strom|-7000
+item|2026-02-27 0:0|Gehalt|250000|true
+item|2026-03-01 0:0|Miete|-80000|true
+item|2026-03-22 0:0|Schuhe|-9000|false
+item|2026-03-25 0:0|Strom|-7000|false
+item|2026-03-30 0:0|Essen|-27997|false
+=== forecast 2026-03-31|2026-04-29 all
+1053009|250000|0|930009|1053009|87000|40000|0|0|0|0|0|0|250000|127000
+event|2026-03-31 0:0|Gehalt|250000
+event|2026-04-01 0:0|Miete|-80000
+event|2026-04-25 0:0|Strom|-7000
+item|2026-03-31 0:0|Gehalt|250000|false
+item|2026-04-01 0:0|Miete|-80000|false
+item|2026-04-25 0:0|Strom|-7000|false
+item|2026-04-29 0:0|Essen|-40000|false
+=== forecast 2026-03-31|2026-04-29 Giro
+1038009|250000|0|871009|994009|87000|40000|0|0|0|0|0|0|250000|127000
+event|2026-03-31 0:0|Gehalt|250000
+event|2026-04-01 0:0|Miete|-80000
+event|2026-04-25 0:0|Strom|-7000
+item|2026-03-31 0:0|Gehalt|250000|false
+item|2026-04-01 0:0|Miete|-80000|false
+item|2026-04-25 0:0|Strom|-7000|false
+item|2026-04-29 0:0|Essen|-40000|false
+=== forecast 2026-04-30|2026-05-28 all
+1176009|250000|0|1053009|1176009|87000|40000|0|0|0|0|0|0|250000|127000
+event|2026-04-30 0:0|Gehalt|250000
+event|2026-05-01 0:0|Miete|-80000
+event|2026-05-25 0:0|Strom|-7000
+item|2026-04-30 0:0|Gehalt|250000|false
+item|2026-05-01 0:0|Miete|-80000|false
+item|2026-05-25 0:0|Strom|-7000|false
+item|2026-05-28 0:0|Essen|-40000|false
+=== forecast 2026-04-30|2026-05-28 Giro
+1161009|250000|0|994009|1117009|87000|40000|0|0|0|0|0|0|250000|127000
+event|2026-04-30 0:0|Gehalt|250000
+event|2026-05-01 0:0|Miete|-80000
+event|2026-05-25 0:0|Strom|-7000
+item|2026-04-30 0:0|Gehalt|250000|false
+item|2026-05-01 0:0|Miete|-80000|false
+item|2026-05-25 0:0|Strom|-7000|false
+item|2026-05-28 0:0|Essen|-40000|false

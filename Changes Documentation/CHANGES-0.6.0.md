@@ -104,6 +104,19 @@ Version 0.6.0 first improves the code base (part A) and then adds new features
   settings still show their content. A device without a passcode cannot be
   locked, so Finance stays open there.
 
+### 0.6.0: Reference test for money paths (A8)
+
+- **What:** `MoneyReferenceTests` runs bank import, Trade Republic statement and
+  live session, bank notices, home budget, and forecasts on fixed data at a
+  fixed date. It compares the full result with a stored reference.
+- **Why:** The long finance methods are split next, and their results must stay
+  the same.
+- **Effect:** No visible change. `FinanceClock` makes the time fixable in tests.
+  Tests no longer load live prices.
+- **Limits:** The reference covers the main paths. Rarely used repair paths for
+  older Trade Republic imports are only partly covered, so they stay unsplit
+  until they have their own tests.
+
 ## Deutsch
 
 ### Überblick
@@ -213,3 +226,17 @@ Funktionen (Teil B). Diese Datei wächst mit jedem abgeschlossenen Schritt.
 - **Grenzen:** Gesperrt ist wie vereinbart nur der Tab Finanzen. Home und die
   Finanz-Einstellungen zeigen ihre Inhalte weiter. Ein Gerät ohne Code lässt
   sich nicht sperren, dort bleibt Finanzen offen.
+
+### 0.6.0: Referenztest für die Geld-Pfade (A8)
+
+- **Was:** `MoneyReferenceTests` führt Bankimport, Trade-Republic-Auszug und
+  Live-Sitzung, Bankmitteilungen, Home-Budget und Prognosen mit festen Daten an
+  einem festen Datum aus. Das gesamte Ergebnis wird mit einer gespeicherten
+  Referenz verglichen.
+- **Warum:** Als Nächstes werden die langen Finanzmethoden zerlegt, und ihre
+  Ergebnisse müssen gleich bleiben.
+- **Auswirkung:** Sichtbar ändert sich nichts. `FinanceClock` macht die Zeit in
+  Tests festlegbar. Tests laden keine Live-Kurse mehr.
+- **Grenzen:** Die Referenz deckt die Hauptpfade ab. Selten genutzte
+  Reparaturpfade für ältere Trade-Republic-Importe sind nur teilweise erfasst
+  und bleiben unzerlegt, bis sie eigene Tests haben.

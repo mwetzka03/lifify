@@ -245,7 +245,7 @@ public final class PortfolioScreenModel {
                 )
             },
             day: calendar.startOfDay(for: day),
-            today: calendar.startOfDay(for: .now),
+            today: calendar.startOfDay(for: FinanceClock.now),
             sort: sort,
             lotRevision: HoldingLotStore.cacheRevision,
             planRevision: SavingsPlanStore.cacheRevision,
@@ -292,7 +292,7 @@ public final class PortfolioScreenModel {
 public extension FinanceFilterStore {
     /// The end of the selected finance period, or now when none is selected.
     func projectionDay(entries: [LedgerEntry], forecasts: [IncomeForecast], accounts: [Account]) -> Date {
-        period(in: FinancePeriods.all(entries: entries, forecasts: forecasts, accounts: accounts))?.end ?? .now
+        period(in: FinancePeriods.all(entries: entries, forecasts: forecasts, accounts: accounts))?.end ?? FinanceClock.now
     }
 }
 

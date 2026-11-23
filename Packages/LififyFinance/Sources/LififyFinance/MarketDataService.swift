@@ -254,8 +254,12 @@ public enum HoldingPurchaseDateStore {
 /// Loads quotes and history from Yahoo Finance.
 @MainActor
 public enum MarketDataService {
+    /// Turned off in tests, so they never depend on live prices or the network.
+    public static var refreshesPrices = true
+
     /// Refreshes prices and history of the holdings.
     public static func refresh(holdings: [PortfolioHolding], context: ModelContext) async {
+        guard refreshesPrices else { return }
         var changed = false
         var fxRates: [String: [String: Double]] = [:]
         for holding in holdings where isQuoteable(holding.symbol) {

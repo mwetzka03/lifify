@@ -42,7 +42,7 @@ public final class FinanceFilterStore: ObservableObject {
         if let periodID, let match = periods.first(where: { $0.id == periodID }) {
             return match
         }
-        return periods.first { $0.contains(.now) } ?? periods.last
+        return periods.first { $0.contains(FinanceClock.now) } ?? periods.last
     }
 
     /// Returns the selected account.
@@ -62,7 +62,7 @@ public final class FinanceFilterStore: ObservableObject {
 
     /// Selects the period containing today.
     public func jumpToToday(in periods: [ForecastPeriod]) {
-        periodID = periods.first { $0.contains(.now) }?.id
+        periodID = periods.first { $0.contains(FinanceClock.now) }?.id
     }
 }
 
@@ -92,7 +92,7 @@ public enum FinancePeriods {
         let primary = primaryForecast(in: forecasts)
         let key = MemoKey(
             generation: ModelChangeCounter.value,
-            day: Calendar.current.startOfDay(for: .now),
+            day: Calendar.current.startOfDay(for: FinanceClock.now),
             entryCount: entries.count,
             mainID: main?.id,
             primaryID: primary?.id,
@@ -117,7 +117,7 @@ public enum FinancePeriods {
                 || entry.toAccountID == main.id
         }
         guard let earliest = relevant.map(\.date).min() else { return [] }
-        let latest = Calendar.current.date(byAdding: .month, value: 18, to: .now) ?? .now
+        let latest = Calendar.current.date(byAdding: .month, value: 18, to: FinanceClock.now) ?? FinanceClock.now
         return FinanceService.forecastPeriods(
             primary: primary,
             earliest: earliest,
