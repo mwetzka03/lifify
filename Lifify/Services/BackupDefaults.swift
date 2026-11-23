@@ -34,6 +34,7 @@ enum BackupDefaults {
         "lifify.briefingMinute",
         "restChimeSoundID",
         ProgressiveOverload.stepKey,
+        AppleHealthSync.exportedKey,
         PeriodReviewNotifier.enabledKey,
         ReturnScenario.enabledKey,
         BudgetAlertSettings.enabledKey,

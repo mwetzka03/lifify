@@ -129,6 +129,8 @@ list their parameters and return value. The full rules are in
 
 ### Data and import
 
+Apple Health is optional and off by default. After you allow it, Lifify reads weight, steps, active energy, and resting pulse and saves finished workouts. These values stay on the device.
+
 For the depot's deep analysis, Lifify downloads public holdings files from Xtrackers (DWS) and VanEck at most once a week. Those requests contain only fund identifiers, never your holdings or amounts.
 
 The Finance tab is locked with Face ID or the device passcode by default. It stays open until the app goes to the background. The switch is under Settings, Finance. Other tabs and the settings themselves are not locked.
@@ -314,6 +316,8 @@ Parameter und Rückgabewert. Die vollständigen Regeln stehen in
 [RULES.md](RULES.md#code-1).
 
 ### Daten und Import
+
+Apple Health ist optional und standardmäßig aus. Nach deiner Freigabe liest Lifify Gewicht, Schritte, aktive Energie und Ruhepuls und sichert beendete Trainings. Diese Werte bleiben auf dem Gerät.
 
 Für die Tiefenanalyse des Depots lädt Lifify höchstens einmal pro Woche öffentliche Bestandslisten von Xtrackers (DWS) und VanEck. Diese Abrufe enthalten nur Fonds-Kennungen, nie deine Bestände oder Beträge.
 

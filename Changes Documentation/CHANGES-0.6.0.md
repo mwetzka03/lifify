@@ -208,6 +208,18 @@ Version 0.6.0 first improves the code base (part A) and then adds new features
   this way. A check-off never removes an existing one. A meal with a favorite's
   name takes its nutrients. The budget answer needs an unlocked device.
 
+### 0.6.0: Apple Health (B10)
+
+- **What:** An optional switch under Settings, Health connects Apple Health. It
+  reads weight, steps, active energy, and resting pulse, and saves finished
+  workouts. The Health tab shows today's values and a short history as numbers.
+- **Why:** Body data and training should not have to be kept twice.
+- **Effect:** Without permission, everything works as before. A newer weight
+  updates the body data and so the calorie target. Each workout is saved once.
+- **Setup:** The app now needs the HealthKit capability. See the setup steps for
+  the Apple Developer account.
+- **Not built:** Sleep stays out until the owner decides.
+
 ## Deutsch
 
 ### Überblick
@@ -431,3 +443,17 @@ Funktionen (Teil B). Diese Datei wächst mit jedem abgeschlossenen Schritt.
   nicht abhaken. Ein Abhaken entfernt nie einen vorhandenen Haken. Eine Mahlzeit
   mit dem Namen eines Favoriten übernimmt dessen Nährwerte. Die Budget-Antwort
   braucht ein entsperrtes Gerät.
+
+### 0.6.0: Apple Health (B10)
+
+- **Was:** Ein optionaler Schalter unter Einstellungen, Gesundheit verbindet
+  Apple Health. Gelesen werden Gewicht, Schritte, aktive Energie und Ruhepuls,
+  beendete Trainings werden als Workouts gesichert. Der Gesundheit-Tab zeigt
+  Tageswerte und einen kurzen Verlauf als Zahlen.
+- **Warum:** Körperdaten und Training sollen nicht doppelt gepflegt werden.
+- **Auswirkung:** Ohne Freigabe funktioniert alles wie bisher. Ein neueres Gewicht
+  aktualisiert die Körperdaten und damit das Kalorienziel. Jedes Training wird
+  einmal gesichert.
+- **Einrichtung:** Die App braucht jetzt die HealthKit-Berechtigung. Siehe die
+  Schritte für das Apple-Developer-Konto.
+- **Nicht gebaut:** Schlaf bleibt draußen, bis der Eigentümer entschieden hat.

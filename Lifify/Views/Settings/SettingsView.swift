@@ -811,6 +811,7 @@ private struct HealthSettingsView: View {
                 ))
             }
             .appGlassRow()
+            AppleHealthSection()
         }
         .appGlassList()
         .navigationTitle(L("Gesundheit", "Health"))

@@ -465,6 +465,7 @@ struct WorkoutSessionView: View {
         let sessions = store.sessions
         Task {
             await WorkoutCalendarSync.apply(session: finished, context: context, sessions: sessions)
+            await AppleHealthSync.export(finished)
         }
         finishSummary = WorkoutFinishSummary(
             phrase: phrase,
