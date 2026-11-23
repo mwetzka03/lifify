@@ -206,20 +206,40 @@ Eigentümer darf umsortieren.
   entsperrt. Der Rest der App bleibt ohne Sperre.
 - Schalter in Einstellungen, Finanzen (Standard: an).
 - Entsperrt bleibt Finanzen, bis die App in den Hintergrund geht.
-- Widgets (B1) zeigen Finanzwerte nur, wenn der Eigentümer das in den
-  Widget-Einstellungen zulässt. Vorher klären, siehe B1.
+- Widgets (B1): Solange die Face-ID-Sperre an ist, zeigen Finanz-Widgets
+  ihre Beträge nur, wenn in Einstellungen, Finanzen der Schalter
+  „Finanzwerte in Widgets zeigen“ an ist (Standard: aus). Sonst steht dort
+  „Gesperrt“ mit einem Schloss.
 
 ### Teil B – Neue Features (freigegeben)
 
 **B1 – Widgets (Home- und Sperrbildschirm)**
-- Kandidaten: Tagesbudget bzw. Restbudget, Coins-Stand, Challenges von heute
-  (interaktiv abhakbar über AppIntent, iOS 17).
+- Der Eigentümer hat die Auswahl freigegeben („kreativ werden“). Umfang:
+  - **Tagesbudget** (klein): Restbudget heute und Tagesbudget als Ring in
+    Budgetfarben; rot, wenn überschritten.
+  - **Heute** (mittel): die nächsten 3–4 offenen Challenges des Tages,
+    **interaktiv abhakbar** (AppIntent, iOS 17), dazu der nächste
+    Termin-Slot. Sport-Challenges mit verknüpftem Training sind nicht
+    abhakbar (Regel aus Abschnitt 3); stattdessen öffnet ein Tipp das
+    Training.
+  - **Coins & Streak** (klein): Wallet-Stand; bei Minus rot mit Hinweis
+    „Shop gesperrt“; dazu der längste laufende Streak.
+  - **Depot** (klein/mittel): Depotwert und Veränderung zum Vortag.
+  - **Nächstes Training** (klein): Plan und Termin; ein Tipp öffnet die
+    Session.
+  - **Überblick** (groß): Budgetring, Challenges von heute, nächstes
+    Training.
+  - **Sperrbildschirm:** rund (Budget-Ring in %), rechteckig (nächste offene
+    Challenge), Zeile (Coins).
+- Finanz-Widgets folgen der Regel aus A7.
+- Widgets aktualisieren sich nach jeder relevanten Änderung in der App
+  (`WidgetCenter.reloadTimelines`) und zum Tageswechsel.
 - Voraussetzung: Der SwiftData-Store zieht in einen App-Group-Container um,
   damit App und Widget dieselben Daten lesen. Das ist eine Migration des
   Speicherorts. Sie muss mit Test und Rückfallweg gebaut werden und darf
   keine Daten verlieren.
-- **Vorher klären:** welche Widgets genau und in welchen Größen; ob
-  Finanzwerte trotz Face ID (A7) im Widget erscheinen dürfen.
+- Die Schritte im Apple-Developer-Konto (App Group, Widget-Extension)
+  beschreibt Claude dem Eigentümer.
 
 **B2 – Siri und Kurzbefehle**
 - Neue AppIntents neben `RecordBankNoticeIntent`: Challenge abhaken,
@@ -241,9 +261,11 @@ Eigentümer darf umsortieren.
   Durchschnitt der letzten 3 bis 6 Zeiträume; die größten Abweichungen
   zuerst.
 - Optional als Mitteilung zum Zeitraumwechsel.
-- **Vorher klären:** Gehaltszeitraum (wie der Rest der App) oder
-  Kalendermonat; wo er in der Oberfläche erscheint (unter Weitere Bereiche
-  oder im Briefing).
+- Zeitraum: folgt der Einstellung aus der Einrichtung
+  (`dashboardPeriodMode`: Kalendermonat oder Gehaltszeitraum), wie der Rest
+  der Finanzen. Ändert der Nutzer die Einstellung, folgt der Rückblick.
+- Platz: als Eintrag unter Finanzen, Weitere Bereiche. Zum Zeitraumwechsel
+  optional eine Mitteilung, die den Rückblick öffnet.
 
 **B5 – Abo-Erkennung**
 - Wiederkehrende Buchungen finden, die noch keine Fixkosten sind: derselbe
@@ -270,21 +292,24 @@ Eigentümer darf umsortieren.
   Konten). Vergangene und der laufende Zeitraum bleiben unverändert.
 - **Nur ETFs.** Einzelaktien, Krypto und Sonstiges bleiben beim aktuellen
   Kurs.
-- Rendite = **10-Jahres-Durchschnitt** (jährliche Durchschnittsrendite,
-  CAGR) der ETFs im Depot, aus historischen Kursen von Yahoo Finance
-  (`range=10y`). Gilt für bestehende Stücke und für künftige
-  Sparplan-Stücke; zinseszinsartig pro Monat gerechnet.
-- In den Einstellungen wird der verwendete Prozentsatz angezeigt. Er wird
-  zwischengespeichert und mit der Kursaktualisierung erneuert.
+- **Jeder ETF bekommt seine eigene Rendite** (entschieden):
+  1. Gibt es mindestens 10 Jahre Kurshistorie: jährliche
+     Durchschnittsrendite (CAGR) über 10 Jahre.
+  2. Sonst, bei mindestens 5 Jahren: CAGR über 5 Jahre.
+  3. Sonst: **3 % pro Jahr**.
+- Kursquelle: Yahoo Finance (`range=10y`, Monatswerte). Die Rendite gilt für
+  bestehende Stücke und für künftige Sparplan-Stücke dieses ETFs; monatlich
+  zinseszinsartig gerechnet.
+- In den Einstellungen steht pro ETF der verwendete Prozentsatz und seine
+  Grundlage (10 J., 5 J. oder Standard 3 %). Er wird zwischengespeichert und
+  mit der Kursaktualisierung erneuert.
 - Prognosewerte mit Szenario sind in der Oberfläche als Szenario erkennbar
   (z. B. ein Hinweis unter dem Wert).
-- **Vorher klären:**
-  1. Eine gemeinsame Rendite für alle ETFs (nach Depotwert gewichtet) oder
-     jeder ETF mit seiner eigenen?
-  2. Was gilt für einen ETF mit weniger als 10 Jahren Historie (kürzere
-     Historie nehmen, ab welcher Mindestdauer, sonst ausschließen)?
-  3. Wie wird ein ETF erkannt (Yahoo `quoteType == "ETF"` oder Typ aus
-     Trade Republic)?
+- Hebel-ETFs (z. B. Amundi MSCI USA Daily 2x Leveraged) bekommen ihre eigene
+  historische Rendite wie jeder andere ETF; keine Sonderrechnung.
+- **Vorher prüfen:** wie ein ETF zuverlässig erkannt wird (Yahoo
+  `quoteType == "ETF"`, Typ aus Trade Republic oder beides). Erkennung im
+  Depot sichtbar machen und von Hand korrigierbar.
 
 **B8 – Depot-Anteile: Design und Tiefenanalyse**
 - Die Anteile-Ansicht (Liste und Grafik) bekommt das Design der App: die
@@ -295,28 +320,62 @@ Eigentümer darf umsortieren.
     Aktie zählt der direkte Bestand plus der Anteil aus jedem ETF
     (ETF-Positionswert × Gewicht der Aktie im ETF). Ergebnis: Anteil jeder
     Aktie am gesamten Depot in Prozent. Grafik und Liste nutzen diese Werte.
-  - **Nur Einträge mit mindestens 0,1 % Depotanteil** werden in der Liste
-    angezeigt. Der Rest wird nicht gelistet (ggf. als eine Zeile „Sonstige“
-    zusammengefasst; vorher klären).
-- **Vorher klären (kritisch, entscheidet über Machbarkeit):**
-  1. **Datenquelle für ETF-Zusammensetzungen.** Es gibt keine freie,
-     einheitliche Schnittstelle. Optionen: Holdings-Dateien der Anbieter
-     (z. B. iShares, Xtrackers, Vanguard; pro Anbieter eigenes Format, kann
-     sich ändern), Yahoo `topHoldings` (nur Top 10, unvollständig) oder eine
-     kostenpflichtige API. Vor der Umsetzung recherchieren, welche ETFs der
-     Eigentümer hält, und eine Quelle vorschlagen.
-  2. Wie werden dieselben Unternehmen über ETFs und Direktbestand
-     zusammengeführt (ISIN, sonst Name)?
-  3. Bedeutet „0,1“ wirklich 0,1 % des Depots?
-  4. Wie oft werden Zusammensetzungen aktualisiert (sie ändern sich
-     monatlich bis quartalsweise)?
+  - **Nur Einträge mit mindestens 0,1 % Depotanteil** stehen einzeln in der
+    Liste. Alles darunter wird zu **einer Zeile „Sonstige“** zusammengefasst
+    (entschieden).
+  - Hebel-ETFs zählen mit ihrem Hebel: Ein 2x-ETF trägt 2 × Positionswert
+    × Gewicht bei. Die Summe kann dann über 100 % liegen; das wird unter der
+    Liste erklärt.
+- **ETFs des Eigentümers** (Stand 23.11.2026; Liste kann wachsen):
+  - Xtrackers MSCI World (USD)
+  - iShares Core MSCI World (USD)
+  - iShares MSCI USA (USD)
+  - Xtrackers MSCI World ex USA (USD)
+  - Xtrackers Artificial Intelligence & Big Data (USD)
+  - Amundi MSCI Emerging Markets (EUR)
+  - iShares MSCI World Small Cap
+  - Amundi MSCI USA Daily 2x Leveraged (EUR)
+  - VanEck Rare Earth and Strategic Metals (USD)
+  - iShares Space Technologies (USD; Name prüfen)
+  - VanEck Space Innovators (USD)
+  - VanEck Quantum Computing (USD)
+  - ein MSCI World Consumer Staples (Anbieter noch unbekannt)
+- **Datenquelle – Vorschlag, vor der Umsetzung mit dem Eigentümer
+  bestätigen:**
+  1. **Adapter pro Anbieter**, automatisch abgerufen und zwischengespeichert:
+     - iShares: Holdings-CSV der Fondsseite (`…ajax?fileType=csv…` bzw.
+       `latest-holdings.csv`). Für UCITS-Fonds die deutsche oder britische
+       Seite nutzen; die URL pro Fonds ermitteln und testen.
+     - Xtrackers (DWS): Holdings-Download auf etf.dws.com, Excel.
+     - VanEck: vollständige Holdings auf vaneck.com, Download prüfen.
+     - Amundi: Zusammensetzung auf amundietf.com prüfen.
+  2. **Index-Stellvertreter:** Fonds, die denselben Index abbilden, haben
+     dieselben Gewichte. Ein synthetischer oder schwer abrufbarer Fonds
+     (z. B. Amundi MSCI Emerging Markets, Amundi MSCI USA 2x als
+     Swap-Konstruktion, deren Fondsbestand ein Ersatzkorb ist) nutzt die
+     Gewichte eines iShares-Fonds auf denselben Index. Bei Swap-ETFs ist
+     **nur der Index aussagekräftig, nicht der Fondsbestand.**
+  3. **Manueller Import als Rückfall:** Der Eigentümer lädt eine
+     Holdings-Datei (CSV oder Excel) über die Dateien-App, wenn ein Abruf
+     scheitert oder ein Anbieter nicht unterstützt ist.
+  - Excel-Dateien (`.xlsx`) sind ZIP-Archive mit XML. Ohne
+    Drittanbieter-Bibliothek muss ein kleiner Leser gebaut werden
+    (Entpacken über das `Compression`-Framework). Aufwand vorher nennen.
+  - Keine Inhalte von Drittportalen wie justETF, Lightyear oder
+    stockanalysis abgreifen (Nutzungsbedingungen, instabil).
+- Zusammenführen derselben Unternehmen: zuerst über ISIN, sonst über
+  Ticker und Börse, zuletzt über normalisierten Namen. Mehrere Aktiengattungen
+  (z. B. Alphabet A und C) zu einem Unternehmen zusammenfassen.
+- Aktualisierung: Zusammensetzungen ändern sich monatlich bis quartalsweise.
+  Abruf höchstens einmal pro Woche oder von Hand; Stand-Datum pro ETF
+  anzeigen.
+- Neue externe Quellen im README unter Datenschutz nennen (es werden nur
+  Fonds-IDs abgefragt, keine Nutzerdaten).
 
 **B9 – Live Activity**
-- Für den Trainings-Timer einer laufenden Session auf Sperrbildschirm und
-  Dynamic Island.
-- **Vorher klären:** Soll es auch Live Activities für Challenges mit
-  geschätzter Dauer geben? Dafür bräuchte eine Challenge heute neu einen
-  „Starten“-Zustand.
+- **Nur** für den Trainings-Timer einer laufenden Session, auf
+  Sperrbildschirm und Dynamic Island: Plan, aktuelle Übung, Satz, Zeit und
+  Pausen-Timer. Keine Live Activities für Challenges (entschieden).
 
 **B10 – Apple Health**
 - Gewicht aus Apple Health lesen und die Körperdaten in den Einstellungen
@@ -324,7 +383,10 @@ Eigentümer darf umsortieren.
   schreiben.
 - Nur nach ausdrücklicher Freigabe, Texte für die Berechtigungen in
   Info.plist. Ohne Freigabe funktioniert alles wie bisher.
-- **Vorher klären:** zusätzlich Schritte, aktive Energie oder Ruhepuls lesen?
+- Zusätzlich lesen (entschieden): **Schritte**, **aktive Energie** und
+  **Ruhepuls**. Anzeige im Gesundheit-Tab, Tageswerte und kurzer Verlauf als
+  Zahlen (kein Diagramm-Zwang).
+- **Schlaf** (`sleepAnalysis`) ist noch nicht entschieden, siehe unten.
 
 **B11 – Progressive Overload**
 - Pro Übung ein Gewichtsvorschlag für die nächste Session: Wurden in der
@@ -350,6 +412,12 @@ Eigentümer darf umsortieren.
   bekommen Knöpfe wie „Erledigt“, mit denen man direkt in der Mitteilung
   abhakt, ohne die App zu öffnen. Der Eigentümer hat das noch nicht
   entschieden; nicht umsetzen, bis er zustimmt.
+- **Schlaf aus Apple Health:** Der Eigentümer möchte wissen, wie das
+  funktioniert, und hat noch nicht entschieden. Nicht umsetzen, bis er
+  zustimmt.
+- **Vorschläge, nicht freigegeben:** automatische Challenges aus
+  Health-Werten (z. B. „10.000 Schritte“ hakt sich selbst ab). Erst
+  vorschlagen.
 - Spätere Ideen des Eigentümers: Desktop-Version oder ein lokales Dashboard
   über localhost.
 
