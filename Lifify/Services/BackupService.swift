@@ -58,6 +58,8 @@ enum BackupScope: String, CaseIterable {
 enum BackupService {
     /// The meal list of a Health backup. Photos are not part of any backup.
     private static let mealLogType = "mealLog"
+    /// The favorite meals of a full or Health backup.
+    private static let mealFavoritesType = "mealFavorites"
     private static let financeTypes: Set<String> = [
         "account", "entry", "split", "fixed", "variable", "pool", "forecast", "shopping", "debt",
         "group", "line", "holding", "holdingLot", "savingsPlan", "closedPosition", "portfolioLink",
@@ -347,6 +349,9 @@ enum BackupService {
         if scope == .training {
             records.append(BackupRecord(type: mealLogType, id: UUID(), strings: [MealLog.exportJSON()]))
         }
+        if scope == .all || scope == .training {
+            records.append(BackupRecord(type: mealFavoritesType, id: UUID(), strings: [MealFavorites.exportJSON()]))
+        }
         if scope == .all || scope == .training, let workoutSnapshot, !workoutSnapshot.isEmpty {
             records.append(BackupRecord(
                 type: "workoutSnapshot",
@@ -471,6 +476,7 @@ enum BackupService {
             MealPhotoStore.remove(meal.photoName)
         }
         MealLog.reset()
+        MealFavorites.reset()
         MealPhotoStore.removeAll()
         WorkoutLinkStore.reset()
         ExerciseImageStore.removeAll()
@@ -496,6 +502,7 @@ enum BackupService {
         UserProfile.reset()
         UserBody.reset()
         MealLog.reset()
+        MealFavorites.reset()
     }
 
     /// Replaces all data with a full backup.
@@ -594,6 +601,9 @@ enum BackupService {
         WorkoutLinkStore.reset()
         for record in backup.records where record.type == "workoutChallengeLink" || record.type == "workoutEventLink" {
             insertLink(record)
+        }
+        if let favorites = backup.records.first(where: { $0.type == mealFavoritesType }) {
+            MealFavorites.restore(json: favorites.strings.first ?? "")
         }
         // A training file from before 0.5.5 has no meal list and leaves the meals alone.
         guard let mealLog = backup.records.first(where: { $0.type == mealLogType }) else { return }
@@ -967,6 +977,8 @@ enum BackupService {
             NoticeTemplateStore.restore(r)
         case "backupScope", "workoutSnapshot", BackupDefaults.recordType, mealLogType:
             break
+        case mealFavoritesType:
+            MealFavorites.restore(json: string(0))
         case "appPreferences":
             UserBody.reset()
             MealLog.reset()

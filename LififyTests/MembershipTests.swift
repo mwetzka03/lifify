@@ -98,7 +98,7 @@ extension LififyRuleTests {
                 .expenseGroup, .incomePrimary, .incomeSecondary, .incomeEntry, .challengeDuration, .challengeActual,
                 .challengeMembers, .challengePlanned, .abstinenceDifficulty, .abstinenceAwarded, .abstinenceRelapses,
                 .abstinenceNotices, .abstinenceExceptions, .abstinenceRewardLink, .rewardPolicy, .reminderSync,
-                .reminderRecurrence, .eventRecurrence, .icon, .customCategories
+                .reminderRecurrence, .eventRecurrence, .icon, .customCategories, .mealFavorites
             ]
             let carried = ownRecords.union(LinkKind.financeRecords).union(LinkKind.challengeRecords)
             #expect(carried.union(LinkKind.neverBackedUp) == Set(LinkKind.allCases))

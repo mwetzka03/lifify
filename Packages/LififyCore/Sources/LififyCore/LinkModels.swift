@@ -52,6 +52,8 @@ public enum LinkKind: String, CaseIterable, Codable, Sendable {
     case pinnedChallenges
     case pinnedGroups
     case eventOffer
+    /// Favorite meals. The Health backup carries them as one record.
+    case mealFavorites
     /// Changes made on a simulated day. Never part of a backup.
     case simulatedEffects
     case fastFoodReward

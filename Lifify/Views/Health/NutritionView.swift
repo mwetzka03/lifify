@@ -52,6 +52,7 @@ struct NutritionBoard: View {
             dayBar(today: today, calendar: calendar)
             targetCard(target: target, meals: dayMeals, trained: trained, measures: measures)
             addRow
+            quickAddRow(dayKey: key)
             mealCard(dayMeals)
         }
         .onAppear(perform: reload)
@@ -302,6 +303,45 @@ struct NutritionBoard: View {
         }
     }
 
+    /// Favorites and recent meals, entered again with one tap.
+    @ViewBuilder
+    private func quickAddRow(dayKey: String) -> some View {
+        let favorites = MealFavorites.all()
+        let recent = MealFavorites.recent(in: meals)
+        if !favorites.isEmpty || !recent.isEmpty {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(favorites) { quickAddChip($0, symbol: "heart.fill", dayKey: dayKey) }
+                    ForEach(recent) { quickAddChip($0, symbol: "clock.arrow.circlepath", dayKey: dayKey) }
+                }
+            }
+            .accessibilityLabel(L("Favoriten und zuletzt gegessen", "Favorites and recent meals"))
+        }
+    }
+
+    /// One meal that is added to the shown day on tap.
+    private func quickAddChip(_ template: MealTemplate, symbol: String, dayKey: String) -> some View {
+        Button {
+            MealLog.upsert(MealFavorites.meal(from: template, dayKey: dayKey))
+            reload()
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: symbol)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Text(template.title)
+                    .lineLimit(1)
+                Text("\(template.calories) kcal")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .appGlassCard(radius: 14)
+        }
+        .buttonStyle(.plain)
+    }
+
     /// The day's meals.
     private func mealCard(_ dayMeals: [MealRecord]) -> some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -321,6 +361,7 @@ struct NutritionBoard: View {
                 }
                 .buttonStyle(.plain)
                 .contextMenu {
+                    favoriteButton(meal)
                     Button(role: .destructive) {
                         NutritionLedger.forget(meal, context: context)
                         MealPhotoStore.remove(meal.photoName)
@@ -336,6 +377,20 @@ struct NutritionBoard: View {
         .appGlassCard(radius: 18)
     }
 
+    /// Adds a meal to the favorites or removes it.
+    private func favoriteButton(_ meal: MealRecord) -> some View {
+        let isFavorite = MealFavorites.contains(meal)
+        return Button {
+            MealFavorites.toggle(meal)
+            reload()
+        } label: {
+            Label(
+                isFavorite ? L("Aus Favoriten entfernen", "Remove from favorites") : L("Zu Favoriten", "Add to favorites"),
+                systemImage: isFavorite ? "heart.slash" : "heart"
+            )
+        }
+    }
+
     /// One meal row.
     private func mealRow(_ meal: MealRecord) -> some View {
         HStack(alignment: .top, spacing: 12) {
@@ -349,6 +404,15 @@ struct NutritionBoard: View {
             Spacer(minLength: 8)
             Text("\(NutritionPlan.rounded(.calories, meals: [meal])) kcal")
                 .font(.body.weight(.semibold))
+            Button {
+                MealFavorites.toggle(meal)
+                reload()
+            } label: {
+                Image(systemName: MealFavorites.contains(meal) ? "heart.fill" : "heart")
+                    .foregroundStyle(MealFavorites.contains(meal) ? Color.red : Color.secondary)
+            }
+            .buttonStyle(.borderless)
+            .accessibilityLabel(L("Favorit", "Favorite"))
         }
         .padding(14)
         .contentShape(Rectangle())

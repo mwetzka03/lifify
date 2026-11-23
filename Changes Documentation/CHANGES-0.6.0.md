@@ -127,6 +127,15 @@ Version 0.6.0 first improves the code base (part A) and then adds new features
 - **Effect:** The suggestion is applied only with a tap. The existing hint after
   three successful workouts stays and takes priority.
 
+### 0.6.0: Meal favorites (B12)
+
+- **What:** A heart marks a meal as a favorite. Favorites and recently eaten
+  meals appear above the day's meals and are entered again with one tap.
+- **Why:** Regular meals should not have to be typed or photographed each time.
+- **Effect:** A new entry copies name, nutrients, and kind, but no photo. A
+  repeated fast-food meal is charged again like any new one. Favorites are part
+  of full and Health backups.
+
 ## Deutsch
 
 ### Überblick
@@ -260,3 +269,14 @@ Funktionen (Teil B). Diese Datei wächst mit jedem abgeschlossenen Schritt.
 - **Warum:** Das nächste Gewicht soll man nicht von Hand ausrechnen müssen.
 - **Auswirkung:** Der Vorschlag wird nur per Tipp übernommen. Der bisherige
   Hinweis nach drei erfolgreichen Trainings bleibt und hat Vorrang.
+
+### 0.6.0: Mahlzeiten-Favoriten (B12)
+
+- **Was:** Ein Herz markiert eine Mahlzeit als Favorit. Favoriten und zuletzt
+  gegessene Mahlzeiten stehen über den Mahlzeiten des Tages und lassen sich mit
+  einem Tipp erneut eintragen.
+- **Warum:** Regelmäßige Mahlzeiten sollen nicht jedes Mal neu getippt oder
+  fotografiert werden.
+- **Auswirkung:** Ein neuer Eintrag übernimmt Name, Nährwerte und Art, aber kein
+  Foto. Eine wiederholte Fast-Food-Mahlzeit wird wie jede neue abgebucht.
+  Favoriten sind Teil des Gesamt- und Gesundheits-Backups.
