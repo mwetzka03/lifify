@@ -13,5 +13,7 @@
 			</array>
 		</dict>
 	</array>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Lifify entsperrt mit Face ID nur den Bereich Finanzen.</string>
 </dict>
 </plist>

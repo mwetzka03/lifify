@@ -129,6 +129,8 @@ list their parameters and return value. The full rules are in
 
 ### Data and import
 
+The Finance tab is locked with Face ID or the device passcode by default. It stays open until the app goes to the background. The switch is under Settings, Finance. Other tabs and the settings themselves are not locked.
+
 Everything lives on the device. A JSON backup does not include meal or profile photos, exercise images, price caches, or anything in the Keychain. JSON backups, CSV files, and
 single CAMT files are chosen through the system file dialog. A Trade Republic
 PDF is its own import, not an ordinary bank import. ZIP and MT940 are not
@@ -310,6 +312,8 @@ Parameter und Rückgabewert. Die vollständigen Regeln stehen in
 [RULES.md](RULES.md#code-1).
 
 ### Daten und Import
+
+Der Tab Finanzen ist standardmäßig mit Face ID oder dem Gerätecode gesperrt. Er bleibt offen, bis die App in den Hintergrund geht. Der Schalter liegt unter Einstellungen, Finanzen. Andere Tabs und die Einstellungen selbst sind nicht gesperrt.
 
 Alles liegt auf dem Gerät. Eine JSON-Sicherung enthält keine Mahlzeiten- oder Profilfotos, Übungsbilder, Kurs-Caches und nichts aus dem Schlüsselbund. JSON-Sicherungen sowie CSV- und
 einzelne CAMT-Dateien werden über den Dateidialog gewählt. Ein

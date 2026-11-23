@@ -19,6 +19,7 @@ struct RootView: View {
     @StateObject private var financeFilters = FinanceFilterStore()
     @State private var selectedTab = 0
     @State private var financePath = NavigationPath()
+    @State private var financeLock = FinanceLock()
     @State private var resumeLocked = false
     @State private var leftForeground = false
 
@@ -26,9 +27,11 @@ struct RootView: View {
     private func tabRoot(_ tab: AppTab) -> some View {
         switch tab.tag {
         case 1:
-            NavigationStack(path: $financePath) {
-                DashboardView(isMainTab: true, path: $financePath)
-                    .navigationDestination(for: FinanceRoute.self) { FinanceRouteScreen(route: $0) }
+            FinanceLockGate(isSelected: selectedTab == tab.tag) {
+                NavigationStack(path: $financePath) {
+                    DashboardView(isMainTab: true, path: $financePath)
+                        .navigationDestination(for: FinanceRoute.self) { FinanceRouteScreen(route: $0) }
+                }
             }
         case 2:
             NavigationStack { ChallengesView() }
@@ -60,6 +63,7 @@ struct RootView: View {
         .id(language)
         .environmentObject(workouts)
         .environmentObject(financeFilters)
+        .environment(financeLock)
         .preferredColorScheme(colorScheme)
         .appAccentTint()
         .task {
@@ -100,6 +104,9 @@ struct RootView: View {
         .task(id: scenePhase) {
             switch scenePhase {
             case .background, .inactive:
+                if scenePhase == .background { financeLock.lock() }
+                // The Face ID prompt makes the app inactive. That is not leaving the app.
+                guard scenePhase == .background || !financeLock.isAuthenticating else { break }
                 leftForeground = true
                 resumeLocked = true
             case .active:

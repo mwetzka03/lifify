@@ -423,6 +423,7 @@ private struct FinanceSettingsView: View {
 
     var body: some View {
         Form {
+            FinanceLockSection()
             Section {
                 NavigationLink {
                     AccountsSettingsView()

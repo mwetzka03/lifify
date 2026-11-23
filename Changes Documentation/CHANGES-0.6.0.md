@@ -89,6 +89,21 @@ Version 0.6.0 first improves the code base (part A) and then adds new features
   not restored. A backup made during a simulation contains the simulated
   bookings as normal data.
 
+### 0.6.0: Face ID for Finance (A7)
+
+- **What:** The Finance tab unlocks with Face ID or the device passcode and
+  locks again when the app goes to the background. The switch is under
+  Settings, Finance, and is on by default. A second switch decides whether
+  finance widgets may show amounts (off by default).
+- **Why:** Financial data should stay private when someone else holds the
+  unlocked phone.
+- **Effect:** While locked, the finance screens are not built at all.
+- **Added safeguards:** Turning the lock off or showing amounts in widgets asks
+  for Face ID. A backup never carries these switches.
+- **Limits:** Only the Finance tab is locked, as agreed. Home and the finance
+  settings still show their content. A device without a passcode cannot be
+  locked, so Finance stays open there.
+
 ## Deutsch
 
 ### Überblick
@@ -182,3 +197,19 @@ Funktionen (Teil B). Diese Datei wächst mit jedem abgeschlossenen Schritt.
   echte Buchung, die während der Simulation entfernt wird, kommt nicht zurück.
   Ein Backup aus einer laufenden Simulation enthält die simulierten Buchungen
   als normale Daten.
+
+### 0.6.0: Face ID für Finanzen (A7)
+
+- **Was:** Der Tab Finanzen wird mit Face ID oder dem Gerätecode entsperrt und
+  sperrt sich wieder, wenn die App in den Hintergrund geht. Der Schalter liegt
+  unter Einstellungen, Finanzen, und ist standardmäßig an. Ein zweiter Schalter
+  legt fest, ob Finanz-Widgets Beträge zeigen dürfen (standardmäßig aus).
+- **Warum:** Finanzdaten sollen privat bleiben, wenn jemand anderes das
+  entsperrte iPhone in der Hand hat.
+- **Auswirkung:** Solange gesperrt ist, werden die Finanz-Screens gar nicht
+  aufgebaut.
+- **Zusätzliche Absicherung:** Das Ausschalten der Sperre und das Anzeigen von
+  Beträgen in Widgets verlangen Face ID. Ein Backup enthält diese Schalter nie.
+- **Grenzen:** Gesperrt ist wie vereinbart nur der Tab Finanzen. Home und die
+  Finanz-Einstellungen zeigen ihre Inhalte weiter. Ein Gerät ohne Code lässt
+  sich nicht sperren, dort bleibt Finanzen offen.
