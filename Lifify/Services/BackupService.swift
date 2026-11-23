@@ -503,6 +503,7 @@ enum BackupService {
         UserBody.reset()
         MealLog.reset()
         MealFavorites.reset()
+        FundCompositionStore.removeAll()
     }
 
     /// Replaces all data with a full backup.

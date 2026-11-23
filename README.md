@@ -129,6 +129,8 @@ list their parameters and return value. The full rules are in
 
 ### Data and import
 
+For the depot's deep analysis, Lifify downloads public holdings files from Xtrackers (DWS) and VanEck at most once a week. Those requests contain only fund identifiers, never your holdings or amounts.
+
 The Finance tab is locked with Face ID or the device passcode by default. It stays open until the app goes to the background. The switch is under Settings, Finance. Other tabs and the settings themselves are not locked.
 
 Everything lives on the device. A JSON backup does not include meal or profile photos, exercise images, price caches, or anything in the Keychain. JSON backups, CSV files, and
@@ -312,6 +314,8 @@ Parameter und Rückgabewert. Die vollständigen Regeln stehen in
 [RULES.md](RULES.md#code-1).
 
 ### Daten und Import
+
+Für die Tiefenanalyse des Depots lädt Lifify höchstens einmal pro Woche öffentliche Bestandslisten von Xtrackers (DWS) und VanEck. Diese Abrufe enthalten nur Fonds-Kennungen, nie deine Bestände oder Beträge.
 
 Der Tab Finanzen ist standardmäßig mit Face ID oder dem Gerätecode gesperrt. Er bleibt offen, bis die App in den Hintergrund geht. Der Schalter liegt unter Einstellungen, Finanzen. Andere Tabs und die Einstellungen selbst sind nicht gesperrt.
 

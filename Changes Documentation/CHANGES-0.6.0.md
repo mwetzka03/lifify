@@ -184,6 +184,21 @@ Version 0.6.0 first improves the code base (part A) and then adds new features
 - **Limits:** Past returns are no guarantee. Returns come from Yahoo Finance in
   the listing's currency.
 
+### 0.6.0: Depot shares, design and deep analysis (B8)
+
+- **What:** The shares screen now uses the app's styles and has a switch between
+  Normal and Deep analysis. Deep analysis breaks ETFs into their companies and
+  shows each company's share of the whole depot.
+- **Data:** Xtrackers and VanEck files are downloaded at most once a week. Index
+  ETFs from iShares and Amundi use the Xtrackers fund on the same index. For
+  anything else, a CSV or Excel file can be imported by hand and takes priority.
+- **Deviation from the plan:** The iShares website no longer offers a direct
+  holdings download, so Xtrackers replaces iShares as the index stand-in.
+- **Open:** iShares MSCI World Small Cap and iShares Space Technologies have no
+  automatic source and need a manual import.
+- **Effect:** Entries below 0.1 % are combined into Other. Leveraged ETFs count
+  with their leverage, which is explained under the list.
+
 ## Deutsch
 
 ### Überblick
@@ -381,3 +396,19 @@ Funktionen (Teil B). Diese Datei wächst mit jedem abgeschlossenen Schritt.
   gekennzeichnet. Aktien, Krypto und Sonstiges bleiben beim heutigen Kurs.
 - **Grenzen:** Vergangene Renditen sind keine Garantie. Die Renditen stammen von
   Yahoo Finance in der Währung des Handelsplatzes.
+
+### 0.6.0: Depot-Anteile, Design und Tiefenanalyse (B8)
+
+- **Was:** Die Anteile-Ansicht nutzt jetzt die Stile der App und hat einen
+  Umschalter zwischen Normal und Tiefenanalyse. Die Tiefenanalyse bricht ETFs in
+  ihre Unternehmen auf und zeigt deren Anteil am gesamten Depot.
+- **Daten:** Dateien von Xtrackers und VanEck werden höchstens einmal pro Woche
+  geladen. Index-ETFs von iShares und Amundi nutzen den Xtrackers-Fonds auf
+  denselben Index. Für alles andere lässt sich eine CSV- oder Excel-Datei von
+  Hand importieren, sie hat Vorrang.
+- **Abweichung vom Plan:** Die iShares-Seite bietet keinen direkten Download der
+  Bestände mehr, deshalb ersetzt Xtrackers iShares als Index-Stellvertreter.
+- **Offen:** iShares MSCI World Small Cap und iShares Space Technologies haben
+  keine automatische Quelle und brauchen einen manuellen Import.
+- **Auswirkung:** Einträge unter 0,1 % stehen zusammen unter Sonstige. Hebel-ETFs
+  zählen mit ihrem Hebel, das wird unter der Liste erklärt.

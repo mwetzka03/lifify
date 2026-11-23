@@ -680,6 +680,19 @@ full to be right, the statement has to be imported again after a rule change.
 - An ETF is recognized from the market data and can be corrected by hand.
 - Leveraged ETFs use their own history without a special calculation.
 
+### Deep analysis of the depot
+
+- A fund contributes position value × leverage × weight to each holding.
+- A company's share is its direct holding plus its part of every fund, divided
+  by the depot value.
+- Holdings merge by ISIN, then ticker, then normalized company name, so share
+  classes such as Alphabet A and C count as one company.
+- Entries below 0.1 % of the depot are combined into Other.
+- A 2x ETF counts twice, so the sum can exceed 100 %.
+- Index ETFs without their own file use a fund on the same index. For swap ETFs
+  only the index is meaningful.
+- A fund without data stays one entry until a file is imported.
+
 ## Deutsch
 
 - Diese Datei beschreibt, wie Lifify Konten, Zeiträume, Einnahmen, Ausgaben,
@@ -1379,3 +1392,17 @@ Auszug nach einer Regeländerung neu importiert werden.
   künftige Sparplan-Betrag ab seiner Ausführung.
 - Ein ETF wird aus den Marktdaten erkannt und lässt sich von Hand korrigieren.
 - Hebel-ETFs nutzen ihre eigene Historie ohne Sonderrechnung.
+
+### Tiefenanalyse des Depots
+
+- Ein Fonds trägt zu jedem Einzelwert Positionswert × Hebel × Gewicht bei.
+- Der Anteil eines Unternehmens ist sein Direktbestand plus sein Teil aus jedem
+  Fonds, geteilt durch den Depotwert.
+- Einzelwerte werden über ISIN, dann Ticker, dann normalisierten Firmennamen
+  zusammengeführt, sodass Aktiengattungen wie Alphabet A und C ein Unternehmen
+  sind.
+- Einträge unter 0,1 % des Depots stehen zusammen unter Sonstige.
+- Ein 2x-ETF zählt doppelt, die Summe kann also über 100 % liegen.
+- Index-ETFs ohne eigene Datei nutzen einen Fonds auf denselben Index. Bei
+  Swap-ETFs ist nur der Index aussagekräftig.
+- Ein Fonds ohne Daten bleibt ein Eintrag, bis eine Datei importiert wird.
