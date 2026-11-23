@@ -248,6 +248,72 @@ extension LififyRuleTests {
             }
         }
 
+        /// Answers transfer questions by hand and links own-account bookings afterward.
+        private func bankLinks() async throws -> [String] {
+            try await scenario { store, dump in
+                let giro = Account(name: "Giro", isMain: true, iban: giroIBAN)
+                let savings = Account(name: "Spar", kind: .savings, iban: savingsIBAN)
+                let broker = Account(name: "Trade Republic", iban: "DE11100110012620000000")
+                [giro, savings, broker].forEach(store.context.insert)
+                let review = seedTransferAnswers(store, giro: giro, savings: savings)
+                try store.context.save()
+                try BankImportApplier.commitReview(review, context: store.context)
+                try dump.ledger("answers")
+                seedOwnAccountBookings(store, giro: giro, savings: savings, broker: broker)
+                try store.context.save()
+                BankImportApplier.relinkOwnAccounts(context: store.context)
+                try dump.ledger("linked")
+                BankImportApplier.relinkOwnAccounts(context: store.context)
+                try dump.ledger("linked again")
+            }
+        }
+
+        /// Adds bookings and answers: one accepted with a mirror, one already booked, one declined.
+        private func seedTransferAnswers(_ store: TestStore, giro: Account, savings: Account) -> ImportReview {
+            let moved = LedgerEntry(date: date(2026, 3, 2), title: "Übertrag", amountCents: -2_000, kind: .expense, accountID: giro.id)
+            let mirror = LedgerEntry(date: date(2026, 3, 1), title: "Eingang", amountCents: 2_000, kind: .income, accountID: savings.id)
+            let twice = LedgerEntry(date: date(2026, 3, 5), title: "Doppelt", amountCents: -3_000, kind: .expense, accountID: giro.id)
+            let booked = LedgerEntry(date: date(2026, 3, 5), title: "Umbuchung", amountCents: 3_000, kind: .transfer, fromAccountID: giro.id, toAccountID: savings.id)
+            let declined = LedgerEntry(date: date(2026, 3, 6), title: "Bleibt", amountCents: -1_111, kind: .expense, accountID: giro.id)
+            for row in [moved, mirror, twice, booked, declined] {
+                store.context.insert(row)
+                try? store.context.save()
+            }
+            let answer = { (entry: LedgerEntry, match: LedgerEntry, accept: Bool) in
+                ImportTransferChoice(
+                    entryID: entry.id, signedAmountCents: entry.amountCents, date: entry.date, title: entry.title,
+                    notes: entry.notes, checkingAccountID: giro.id, otherAccountID: savings.id, otherAccountName: savings.name,
+                    iban: savingsIBAN, matchedEntryID: match.id, matchedTitle: match.title, matchedDate: match.date,
+                    matchedAmountCents: match.amountCents, accept: accept
+                )
+            }
+            return ImportReview(
+                transfers: [answer(moved, mirror, true), answer(twice, booked, true), answer(declined, mirror, false)],
+                accountID: giro.id,
+                currentCents: 50_000
+            )
+        }
+
+        /// Adds payments between own accounts, by IBAN and by naming Trade Republic.
+        private func seedOwnAccountBookings(_ store: TestStore, giro: Account, savings: Account, broker: Account) {
+            let rows = [
+                LedgerEntry(date: date(2026, 3, 7), title: "An Spar", notes: "Empfänger-IBAN: \(savingsIBAN)", amountCents: -4_000, kind: .expense, accountID: giro.id),
+                LedgerEntry(date: date(2026, 3, 8), title: "Von Giro", notes: "Sender-IBAN: \(giroIBAN)", amountCents: 4_000, kind: .income, accountID: savings.id),
+                LedgerEntry(date: date(2026, 3, 9), title: "Schon da", notes: "Sender-IBAN: \(giroIBAN)", amountCents: 5_000, kind: .income, accountID: savings.id),
+                LedgerEntry(date: date(2026, 3, 9), title: "Umbuchung", amountCents: 5_000, kind: .transfer, fromAccountID: giro.id, toAccountID: savings.id),
+                LedgerEntry(date: date(2026, 3, 10), title: "Trade Republic Einzahlung", amountCents: -6_000, kind: .expense, accountID: giro.id),
+                LedgerEntry(date: date(2026, 3, 11), title: "Einzahlung", amountCents: 6_000, kind: .income, accountID: broker.id),
+                LedgerEntry(date: date(2026, 3, 12), title: "Trade Republic", amountCents: -7_000, kind: .expense, accountID: giro.id),
+                LedgerEntry(date: date(2026, 3, 12), title: "Umbuchung TR", amountCents: 7_000, kind: .transfer, fromAccountID: giro.id, toAccountID: broker.id),
+                LedgerEntry(date: date(2026, 3, 13), title: "Einzahlung", amountCents: 7_000, kind: .income, accountID: broker.id)
+            ]
+            // Saved one by one: when two rows mirror each other, the stored order decides which stays.
+            for row in rows {
+                store.context.insert(row)
+                try? store.context.save()
+            }
+        }
+
         /// Seeds a household for the budget and forecast calculations.
         private func seedPlan(_ store: TestStore) throws -> (giro: Account, salary: IncomeForecast) {
             let giro = Account(name: "Giro", isMain: true, iban: giroIBAN)
@@ -359,7 +425,7 @@ extension LififyRuleTests {
             var lines: [String] = []
             for (name, part) in [
                 ("BANK IMPORT", bankImport), ("STATEMENT", statementImport), ("LIVE SESSION", liveSession),
-                ("NOTICES", notices), ("PLANNING", planning)
+                ("NOTICES", notices), ("PLANNING", planning), ("BANK LINKS", bankLinks)
             ] as [(String, () async throws -> [String])] {
                 lines.append("##### \(name)")
                 lines += try await part()

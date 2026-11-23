@@ -366,8 +366,8 @@ automatischer Testlauf (CI).
   - VanEck Space Innovators (USD)
   - VanEck Quantum Computing (USD)
   - ein MSCI World Consumer Staples (Anbieter noch unbekannt)
-- **Datenquelle – Vorschlag, vor der Umsetzung mit dem Eigentümer
-  bestätigen:**
+- **Datenquelle – vom Eigentümer am 23.11.2026 bestätigt (1 und 2
+  automatisch, 3 als Rückfall):**
   1. **Adapter pro Anbieter**, automatisch abgerufen und zwischengespeichert:
      - iShares: Holdings-CSV der Fondsseite (`…ajax?fileType=csv…` bzw.
        `latest-holdings.csv`). Für UCITS-Fonds die deutsche oder britische
