@@ -30,6 +30,7 @@ public enum LinkKind: String, CaseIterable, Codable, Sendable {
     case budgetAccounts
     case bankCursor
     case bankCurrent
+    case dismissedNoticeTemplates
     case challengeDuration
     case challengeActual
     case challengeMembers
@@ -53,7 +54,7 @@ public enum LinkKind: String, CaseIterable, Codable, Sendable {
 
     public static let financeRecords: [LinkKind] = [
         .refund, .transferAssignment, .forecastSkip, .forecastPeriod, .matchRejection,
-        .budgetAccounts, .bankCursor, .bankCurrent
+        .budgetAccounts, .bankCursor, .bankCurrent, .dismissedNoticeTemplates
     ]
     public static let challengeRecords: [LinkKind] = [.pinnedChallenges, .pinnedGroups, .eventOffer, .fastFoodReward]
 }

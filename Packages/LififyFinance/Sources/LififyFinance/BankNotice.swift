@@ -36,19 +36,23 @@ public struct BookedNotice: Equatable {
     public var amountCents: Int
     public var direction: BankNoticeDirection
     public var date: Date
+    public var title: String?
 
-    public init(accountID: UUID, amountCents: Int, direction: BankNoticeDirection, date: Date) {
+    public init(accountID: UUID, amountCents: Int, direction: BankNoticeDirection, date: Date, title: String? = nil) {
         self.accountID = accountID
         self.amountCents = amountCents
         self.direction = direction
         self.date = date
+        self.title = title
     }
 }
 
 public enum BankNoticePlan: Equatable {
     case book(accountID: UUID, title: String, amountCents: Int, kind: LedgerKind)
+    case bookNoted(accountID: UUID, title: String, amountCents: Int, kind: LedgerKind, notes: String)
     case bookTransfer(fromAccountID: UUID, toAccountID: UUID, title: String, amountCents: Int)
     case duplicate
+    case ignored
     case unreadable
     case missingAccount
 }
@@ -56,6 +60,7 @@ public enum BankNoticePlan: Equatable {
 public enum BankNoticeCopy {
     public static var booked: String { L("Gebucht", "Booked") }
     public static var duplicate: String { L("Schon gebucht", "Already booked") }
+    public static var ignored: String { L("Nicht gebucht", "Not booked") }
     public static var unreadable: String { L("Die Mitteilung ließ sich nicht lesen.", "The notice could not be read.") }
     public static var missingSparkasse: String {
         L("Das Sparkassen-Girokonto fehlt.", "The Sparkasse checking account is missing.")
@@ -99,8 +104,11 @@ public enum BankNotice {
         templates: [NoticeTemplate] = []
     ) -> BankNoticePlan {
         guard let accountID = BankNoticeAccounts.resolve(bank, in: accounts) else { return .missingAccount }
-        guard let notice = parse(text, fallbackTitle: bank.fallbackTitle) else { return .unreadable }
-        if let template = NoticeTemplateStore.matching(text: text, accountID: accountID, in: templates) {
+        let template = NoticeTemplateStore.matching(text: text, accountID: accountID, in: templates)
+        if template?.action == .ignore { return .ignored }
+        let read = template?.format?.parse(text) ?? parse(text, fallbackTitle: bank.fallbackTitle)
+        guard let notice = read else { return .unreadable }
+        if let template {
             return planTemplate(
                 template,
                 notice: notice,
@@ -143,8 +151,34 @@ public enum BankNotice {
             return .book(accountID: accountID, title: notice.title, amountCents: booked.amountCents, kind: .expense)
         case .income:
             let booked = ParsedNotice(amountCents: abs(notice.amountCents), title: notice.title, direction: .in)
+            if template.format == .dividend {
+                if isSameTitledDuplicate(booked, accountID: accountID, existing: existing, now: now) { return .duplicate }
+                return .bookNoted(
+                    accountID: accountID,
+                    title: notice.title,
+                    amountCents: booked.amountCents,
+                    kind: .income,
+                    notes: "Typ: Ertrag"
+                )
+            }
             if isDuplicate(booked, accountID: accountID, existing: existing, now: now) { return .duplicate }
             return .book(accountID: accountID, title: notice.title, amountCents: booked.amountCents, kind: .income)
+        case .depotBuy:
+            let booked = ParsedNotice(amountCents: -abs(notice.amountCents), title: notice.title, direction: .out)
+            if isSameTitledDuplicate(booked, accountID: accountID, existing: existing, now: now) { return .duplicate }
+            guard let depot = depotID(for: accountID, in: accounts) else {
+                return .book(accountID: accountID, title: notice.title, amountCents: booked.amountCents, kind: .expense)
+            }
+            return .bookTransfer(fromAccountID: accountID, toAccountID: depot, title: notice.title, amountCents: abs(notice.amountCents))
+        case .depotSale:
+            let booked = ParsedNotice(amountCents: abs(notice.amountCents), title: notice.title, direction: .in)
+            if isSameTitledDuplicate(booked, accountID: accountID, existing: existing, now: now) { return .duplicate }
+            guard let depot = depotID(for: accountID, in: accounts) else {
+                return .book(accountID: accountID, title: notice.title, amountCents: booked.amountCents, kind: .income)
+            }
+            return .bookTransfer(fromAccountID: depot, toAccountID: accountID, title: notice.title, amountCents: abs(notice.amountCents))
+        case .ignore:
+            return .ignored
         case .transferIn:
             return planTransfer(
                 notice: ParsedNotice(amountCents: abs(notice.amountCents), title: notice.title, direction: .in),
@@ -180,6 +214,30 @@ public enum BankNotice {
         }
     }
 
+    private static func depotID(for accountID: UUID, in accounts: [NamedAccount]) -> UUID? {
+        if let linked = PortfolioLinkStore.portfolioID(for: accountID),
+           accounts.contains(where: { $0.id == linked }) {
+            return linked
+        }
+        return accounts.first { $0.kind == .portfolio }?.id
+    }
+
+    /// Two stocks can pay or cost the same amount on one day. A known title tells them apart.
+    private static func isSameTitledDuplicate(
+        _ notice: ParsedNotice,
+        accountID: UUID,
+        existing: [BookedNotice],
+        now: Date
+    ) -> Bool {
+        existing.contains { entry in
+            entry.accountID == accountID
+                && entry.direction == notice.direction
+                && abs(entry.amountCents) == abs(notice.amountCents)
+                && abs(entry.date.timeIntervalSince(now)) <= duplicateWindow
+                && (entry.title == nil || entry.title == notice.title)
+        }
+    }
+
     public static func isDuplicate(
         _ notice: ParsedNotice,
         accountID: UUID,
@@ -206,7 +264,8 @@ public enum BankNotice {
                     accountID: accountID,
                     amountCents: entry.amountCents,
                     direction: entry.kind == .income ? .in : .out,
-                    date: entry.date
+                    date: entry.date,
+                    title: entry.title
                 )
             ]
         }
@@ -214,10 +273,10 @@ public enum BankNotice {
         var rows: [BookedNotice] = []
         let cash = abs(entry.amountCents)
         if let from = entry.fromAccountID {
-            rows.append(BookedNotice(accountID: from, amountCents: -cash, direction: .out, date: entry.date))
+            rows.append(BookedNotice(accountID: from, amountCents: -cash, direction: .out, date: entry.date, title: entry.title))
         }
         if let to = entry.toAccountID {
-            rows.append(BookedNotice(accountID: to, amountCents: cash, direction: .in, date: entry.date))
+            rows.append(BookedNotice(accountID: to, amountCents: cash, direction: .in, date: entry.date, title: entry.title))
         }
         return rows
     }
@@ -404,6 +463,7 @@ public enum BankNoticeIntake {
         let entries = (try? context.fetch(FetchDescriptor<LedgerEntry>())) ?? []
         let named = accounts.map { NamedAccount(id: $0.id, name: $0.name, kind: $0.kind, isMain: $0.isMain) }
         let existing = entries.flatMap(BankNotice.records)
+        NoticeTemplateDefaults.install(accounts: named)
         switch BankNotice.plan(
             text: text,
             bank: bank,
@@ -416,6 +476,16 @@ public enum BankNoticeIntake {
             let entry = LedgerEntry(
                 date: now,
                 title: title,
+                amountCents: amountCents,
+                kind: kind,
+                accountID: accountID
+            )
+            return save(entry, context: context)
+        case .bookNoted(let accountID, let title, let amountCents, let kind, let notes):
+            let entry = LedgerEntry(
+                date: now,
+                title: title,
+                notes: notes,
                 amountCents: amountCents,
                 kind: kind,
                 accountID: accountID
@@ -437,6 +507,8 @@ public enum BankNoticeIntake {
             return message
         case .duplicate:
             return BankNoticeCopy.duplicate
+        case .ignored:
+            return BankNoticeCopy.ignored
         case .unreadable:
             return BankNoticeCopy.unreadable
         case .missingAccount:

@@ -21,6 +21,14 @@ unchanged and stay in [FINANZEN.md](../FINANZEN.md). What changed in 0.4.0 is in
 
 **Not covered yet.** Paths that write to the iOS calendar or schedule notifications are not run by the tests: the actual calendar rewrite after a resize, `WorkoutCalendarSync.apply`, abstinence bonuses through `settle`, and relapse. Their pure rules are tested. The full-app and Training backup restores are also not run, because they touch workout files.
 
+### 0.5.5: Built-in notice templates
+
+**What changed.** Settings, Finance, Shortcuts now includes templates for the Sparkasse balance alert (debit and credit) and for Trade Republic buys, sales, savings plans, dividends, card payments, and cancelled orders. Every template has an on/off switch. Built-in ones can be edited or deleted like your own, and a deleted one does not come back.
+
+**Why.** The common notices should work without setting up each template by hand.
+
+**Effect.** Your own templates win over built-in ones. A buy, sale, or savings plan moves cash to or from the depot, but adds no shares until the next Trade Republic import. A dividend books the euro amount as income. A cancelled order books nothing. The examples contain no real account number or balance.
+
 ### 0.5.5: Local Swift packages
 
 **What changed.** The logic moved into four local packages under `Packages`: `LififyCore` for shared models and storage, `LififyFinance` with Trade Republic, `LififyChallenges`, and `LififyHealth`. The app keeps the views, navigation, backup, and the wiring between packages.
@@ -160,6 +168,14 @@ bucht. Die Finanzrechnung ist unverändert und bleibt in
 **Fehlgeschlagene Prüfungen.** Vor diesem Schritt schlugen zwei In-App-Prüfgruppen fehl, wegen vier veralteter Bedingungen. Keine davon war ein App-Fehler, die Bedingungen entsprechen jetzt dem Code: Zwillingszeilen haben verschiedene alte Fingerabdrücke, weil der alte Titel der Verwendungszweck war. `XF000BTC0017` besteht die ISIN-Prüfsumme. Ein Kauf ohne Stückzahl wird über den Durchschnittspreis bemessen. Ein vollständiger Verkauf schließt die Position über ihre Lots, ohne eigenes Entfernen.
 
 **Noch nicht abgedeckt.** Wege, die in den iOS-Kalender schreiben oder Mitteilungen planen, laufen in den Tests nicht: das echte Umschreiben des Termins nach einer Größenänderung, `WorkoutCalendarSync.apply`, Abstinenz-Boni über `settle` und der Rückfall. Ihre reinen Regeln sind getestet. Auch die Wiederherstellung des Gesamt- und des Trainings-Backups läuft nicht, weil sie Trainingsdateien berührt.
+
+### 0.5.5: Mitgelieferte Mitteilungs-Vorlagen
+
+**Was sich geändert hat.** Unter Einstellungen, Finanzen, Kurzbefehle liegen jetzt Vorlagen für den Sparkassen-Umsatzwecker (Abbuchung und Gutschrift) und für Käufe, Verkäufe, Sparpläne, Dividenden, Kartenzahlungen und stornierte Orders von Trade Republic. Jede Vorlage hat einen Schalter. Mitgelieferte Vorlagen lassen sich wie eigene bearbeiten oder löschen, eine gelöschte kommt nicht zurück.
+
+**Warum.** Die häufigen Mitteilungen sollen funktionieren, ohne jede Vorlage von Hand anzulegen.
+
+**Auswirkung.** Eigene Vorlagen haben Vorrang. Kauf, Verkauf und Sparplan bewegen Geld zum oder vom Depot, Stücke kommen erst mit dem nächsten Trade-Republic-Import dazu. Eine Dividende bucht den Euro-Betrag als Ertrag. Eine stornierte Order bucht nichts. Die Beispiele enthalten keine echte Kontonummer und keinen echten Saldo.
 
 ### 0.5.5: Lokale Swift Packages
 

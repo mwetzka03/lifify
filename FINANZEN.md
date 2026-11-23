@@ -609,7 +609,7 @@ Finanzansicht, in den Buchungen und in den Listen für Einnahmen und Ausgaben.
   bleiben beide, auch mit unterschiedlicher End-to-End-Referenz. Unter Finanzen,
   Kurzbefehle, liegt pro Girokonto eine Vorlage: Beispielmitteilung und ob
   Ausgabe, Einnahme oder Umbuchung gebucht wird. Der Apple-Kurzbefehl schickt
-  den Text, Lifify bucht nach der Vorlage. Im aktuellen Zeitraum ist Gesamtvermögen der
+  den Text, Lifify bucht nach der Vorlage. Standardvorlagen buchen Depotkäufe und -verkäufe als Umbuchung mit dem Depot, Dividenden als Ertrag und stornierte Orders gar nicht. Im aktuellen Zeitraum ist Gesamtvermögen der
   Live-Cash. Sind in diesem Zeitraum keine Kosten mehr offen, ist der Endsaldo
   derselbe Stand, und der nächste Zeitraum startet damit. In einem vergangenen
   oder zukünftigen Zeitraum ist Gesamtvermögen der Endsaldo dieses Zeitraums.

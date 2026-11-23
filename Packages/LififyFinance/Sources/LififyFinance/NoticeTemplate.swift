@@ -7,6 +7,9 @@ public enum NoticeTemplateAction: String, Codable, CaseIterable, Equatable, Hash
     case income
     case transferIn
     case transferOut
+    case depotBuy
+    case depotSale
+    case ignore
 
     public var label: String {
         switch self {
@@ -14,6 +17,9 @@ public enum NoticeTemplateAction: String, Codable, CaseIterable, Equatable, Hash
         case .income: L("Einnahme", "Income")
         case .transferIn: L("Umbuchung auf dieses Konto", "Transfer onto this account")
         case .transferOut: L("Umbuchung von diesem Konto", "Transfer from this account")
+        case .depotBuy: L("Depotkauf", "Portfolio buy")
+        case .depotSale: L("Depotverkauf", "Portfolio sale")
+        case .ignore: L("Nicht buchen", "Do not book")
         }
     }
 }
@@ -25,6 +31,9 @@ public struct NoticeTemplate: Identifiable, Codable, Equatable {
     public var example: String
     public var action: NoticeTemplateAction
     public var counterpartyAccountID: UUID?
+    public var isEnabled: Bool
+    /// Set for a built-in layout. Such a template reads the notice with that layout's own rules.
+    public var format: NoticeFormat?
 
     public init(
         id: UUID = UUID(),
@@ -32,7 +41,9 @@ public struct NoticeTemplate: Identifiable, Codable, Equatable {
         name: String,
         example: String,
         action: NoticeTemplateAction,
-        counterpartyAccountID: UUID? = nil
+        counterpartyAccountID: UUID? = nil,
+        isEnabled: Bool = true,
+        format: NoticeFormat? = nil
     ) {
         self.id = id
         self.accountID = accountID
@@ -40,9 +51,28 @@ public struct NoticeTemplate: Identifiable, Codable, Equatable {
         self.example = example
         self.action = action
         self.counterpartyAccountID = counterpartyAccountID
+        self.isEnabled = isEnabled
+        self.format = format
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, accountID, name, example, action, counterpartyAccountID, isEnabled, format
+    }
+
+    public init(from decoder: Decoder) throws {
+        let box = try decoder.container(keyedBy: CodingKeys.self)
+        id = try box.decode(UUID.self, forKey: .id)
+        accountID = try box.decode(UUID.self, forKey: .accountID)
+        name = try box.decode(String.self, forKey: .name)
+        example = try box.decode(String.self, forKey: .example)
+        action = try box.decode(NoticeTemplateAction.self, forKey: .action)
+        counterpartyAccountID = try box.decodeIfPresent(UUID.self, forKey: .counterpartyAccountID)
+        isEnabled = try box.decodeIfPresent(Bool.self, forKey: .isEnabled) ?? true
+        format = try box.decodeIfPresent(NoticeFormat.self, forKey: .format)
     }
 
     public func matches(_ text: String) -> Bool {
+        if let format { return format.matches(text) }
         let needed = Self.markers(in: example)
         guard !needed.isEmpty else { return false }
         let folded = Self.folded(text)
@@ -121,12 +151,14 @@ public enum NoticeTemplateStore {
     }
 
     public static func matching(text: String, accountID: UUID, in templates: [NoticeTemplate]) -> NoticeTemplate? {
-        templates
-            .filter { $0.accountID == accountID && $0.matches(text) }
+        let hits = templates.filter { $0.isEnabled && $0.accountID == accountID && $0.matches(text) }
+        let own = hits.filter { $0.format == nil }
             .max { NoticeTemplate.markers(in: $0.example).count < NoticeTemplate.markers(in: $1.example).count }
+        return own ?? hits.first
     }
 
     public static func reset() {
         save([])
+        LinkTable.clear(.dismissedNoticeTemplates)
     }
 }

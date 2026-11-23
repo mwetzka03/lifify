@@ -11,6 +11,16 @@ struct ShortcutsSettingsView: View {
     @State private var edited: NoticeTemplate?
     @State private var creatingFor: UUID?
 
+    private var named: [NamedAccount] {
+        accounts.map { NamedAccount(id: $0.id, name: $0.name, kind: $0.kind, isMain: $0.isMain) }
+    }
+
+    private func setEnabled(_ enabled: Bool, for id: UUID) {
+        guard let index = templates.firstIndex(where: { $0.id == id }) else { return }
+        templates[index].isEnabled = enabled
+        NoticeTemplateStore.save(templates)
+    }
+
     private var checking: [Account] {
         accounts.filter { $0.kind == .checking }
     }
@@ -41,27 +51,37 @@ struct ShortcutsSettingsView: View {
                             .foregroundStyle(.secondary)
                     }
                     ForEach(rows) { template in
-                        Button {
-                            edited = template
-                        } label: {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(template.name.isEmpty ? template.action.label : template.name)
-                                    .foregroundStyle(.primary)
-                                Text(template.example)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                    .lineLimit(2)
-                                Text(template.action.label)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
+                        HStack(spacing: 12) {
+                            Button {
+                                edited = template
+                            } label: {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(template.name.isEmpty ? template.action.label : template.name)
+                                        .foregroundStyle(.primary)
+                                    Text(template.example)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                        .lineLimit(2)
+                                    Text(template.action.label)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .contentShape(Rectangle())
                             }
+                            .buttonStyle(.plain)
+                            .opacity(template.isEnabled ? 1 : 0.5)
+                            Toggle(L("Aktiv", "Active"), isOn: Binding(
+                                get: { template.isEnabled },
+                                set: { setEnabled($0, for: template.id) }
+                            ))
+                            .labelsHidden()
                         }
                         .appGlassRow()
                     }
                     .onDelete { offsets in
-                        let ids = offsets.map { rows[$0].id }
-                        templates.removeAll { ids.contains($0.id) }
-                        NoticeTemplateStore.save(templates)
+                        let ids = Set(offsets.map { rows[$0].id })
+                        templates = NoticeTemplateDefaults.delete(ids, from: templates)
                     }
                     Button {
                         creatingFor = account.id
@@ -93,8 +113,12 @@ struct ShortcutsSettingsView: View {
         .appGlassList()
         .navigationTitle(L("Kurzbefehle", "Shortcuts"))
         .navigationBarTitleDisplayMode(.inline)
+        .task(id: accounts.count) {
+            templates = NoticeTemplateDefaults.install(accounts: named)
+        }
         .sheet(item: $edited) { template in
-            NoticeTemplateForm(template: template, accounts: checking) { saved in
+            NoticeTemplateForm(template: template, accounts: checking) { edited in
+                let saved = NoticeTemplateDefaults.detachedIfEdited(edited)
                 if let index = templates.firstIndex(where: { $0.id == saved.id }) {
                     templates[index] = saved
                 } else {
@@ -208,13 +232,19 @@ private struct NoticeTemplateForm: View {
     }
 
     private var canSave: Bool {
-        !template.example.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            && !NoticeTemplate.markers(in: template.example).isEmpty
+        guard !template.example.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return false }
+        if let format = template.format, format.example == template.example { return true }
+        return !NoticeTemplate.markers(in: template.example).isEmpty
     }
 
     private var previewText: String? {
+        if template.action == .ignore {
+            return L("Diese Mitteilung wird nicht gebucht.", "This notice is not booked.")
+        }
         let accountName = accounts.first(where: { $0.id == template.accountID })?.name ?? ""
-        guard let notice = BankNotice.parse(template.example, fallbackTitle: accountName) else {
+        let unchanged = template.format?.example == template.example
+        let parsed = unchanged ? template.format?.parse(template.example) : BankNotice.parse(template.example, fallbackTitle: accountName)
+        guard let notice = parsed else {
             return L(
                 "Im Beispiel steht noch kein Betrag mit Richtung.",
                 "The example does not yet have an amount with a direction."

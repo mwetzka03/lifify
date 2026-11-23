@@ -790,20 +790,20 @@ enum SessionScenarios {
 
     private static func bookedAmount(_ plan: BankNoticePlan) -> Int? {
         switch plan {
-        case .book(_, _, let amount, _), .bookTransfer(_, _, _, let amount):
+        case .book(_, _, let amount, _), .bookNoted(_, _, let amount, _, _), .bookTransfer(_, _, _, let amount):
             return amount
-        case .duplicate, .unreadable, .missingAccount:
+        case .duplicate, .ignored, .unreadable, .missingAccount:
             return nil
         }
     }
 
     private static func bookedAccount(_ plan: BankNoticePlan) -> UUID? {
         switch plan {
-        case .book(let accountID, _, _, _):
+        case .book(let accountID, _, _, _), .bookNoted(let accountID, _, _, _, _):
             return accountID
         case .bookTransfer(_, let toAccountID, _, _):
             return toAccountID
-        case .duplicate, .unreadable, .missingAccount:
+        case .duplicate, .ignored, .unreadable, .missingAccount:
             return nil
         }
     }
@@ -815,11 +815,11 @@ enum SessionScenarios {
 
     private static func bookedKind(_ plan: BankNoticePlan) -> LedgerKind? {
         switch plan {
-        case .book(_, _, _, let kind):
+        case .book(_, _, _, let kind), .bookNoted(_, _, _, let kind, _):
             return kind
         case .bookTransfer:
             return .transfer
-        case .duplicate, .unreadable, .missingAccount:
+        case .duplicate, .ignored, .unreadable, .missingAccount:
             return nil
         }
     }

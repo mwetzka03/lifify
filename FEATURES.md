@@ -163,8 +163,9 @@ Symbolauswahl enthält ein Hanfblatt und eine Zigarette.
     gespeichert. Der PDF-Import bleibt.
 21. **Kurzbefehle:** Eine Mitteilung der Sparkasse oder von Trade Republic kann
     eine Buchung auf dem passenden Girokonto anlegen. Unter Finanzen liegen
-    Vorlagen mit Beispieltext und Buchungsart. Dieselbe Buchung im Fenster von
-    sechs Stunden zählt einmal.
+    Vorlagen mit Beispieltext und Buchungsart. Standardvorlagen für Sparkasse
+    und Trade Republic sind enthalten und lassen sich ausschalten, bearbeiten
+    oder löschen. Dieselbe Buchung im Fenster von sechs Stunden zählt einmal.
 
 ## Technische Leitplanken
 

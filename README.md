@@ -146,7 +146,10 @@ you to tap Run.
 
 Under Settings, Finance, Shortcuts you store an example notice per checking
 account and what to book. The Shortcut still sends the text; Lifify uses that
-template.
+template. Lifify already includes templates for the Sparkasse balance alert and
+for Trade Republic buys, sales, savings plans, dividends, card payments, and
+cancelled orders. You can switch each one off, edit it, or delete it. A buy or
+sale moves the cash. The share count updates with the next Trade Republic import.
 
 The same call is the URL `lifify://notice?account=sparkasse&text=` with the
 notification text in `text`. For Trade Republic the account is
@@ -312,7 +315,11 @@ trotzdem nach Tippen auf Ausführen fragen.
 
 Unter Einstellungen, Finanzen, Kurzbefehle hinterlegst du pro Girokonto eine
 Beispielmitteilung und was gebucht werden soll. Der Kurzbefehl schickt weiter
-den Text; Lifify nutzt diese Vorlage.
+den Text; Lifify nutzt diese Vorlage. Lifify bringt
+Vorlagen für den Sparkassen-Umsatzwecker und für Käufe, Verkäufe, Sparpläne,
+Dividenden, Kartenzahlungen und stornierte Orders von Trade Republic mit. Jede
+lässt sich ausschalten, bearbeiten oder löschen. Ein Kauf oder Verkauf bewegt
+das Geld. Die Stückzahl folgt mit dem nächsten Trade-Republic-Import.
 
 Derselbe Aufruf ist die URL `lifify://notice?account=sparkasse&text=` mit dem
 Mitteilungstext in `text`. Bei Trade Republic ist das Konto `traderepublic`.
