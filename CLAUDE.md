@@ -444,9 +444,10 @@ automatischer Testlauf (CI).
 - **Schlaf aus Apple Health:** Der Eigentümer möchte wissen, wie das
   funktioniert, und hat noch nicht entschieden. Nicht umsetzen, bis er
   zustimmt.
-- **Vorschläge, nicht freigegeben:** automatische Challenges aus
-  Health-Werten (z. B. „10.000 Schritte“ hakt sich selbst ab). Erst
-  vorschlagen.
+- **Schritt-Challenge (entschieden, 24.11.2026):** Ein Schrittziel aus
+  Einrichtung oder Einstellungen wird zur Challenge mit Coins, Streak, Freezes
+  und Abendmitteilung; sie hakt sich aus Apple Health selbst ab. Weitere
+  automatische Challenges aus Health-Werten erst vorschlagen.
 - Spätere Ideen des Eigentümers: Desktop-Version oder ein lokales Dashboard
   über localhost.
 

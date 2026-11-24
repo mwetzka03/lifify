@@ -80,6 +80,7 @@ Symbolauswahl enthält ein Hanfblatt und eine Zigarette.
   - Tiefenanalyse des Depots mit ETF-Zusammensetzungen
   - Apple Health nach Freigabe: Gewicht und Schritte lesen, Schritte mit
     Diagramm unter Training, beendete Trainings nach Apple Health schreiben
+  - Schrittziel mit eigener Challenge (Coins, Streak, Freezes, Abendmitteilung)
   - Progressive Overload, Mahlzeiten-Favoriten und „zuletzt gegessen“
   - Face ID für den Finanzen-Tab
 
