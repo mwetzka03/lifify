@@ -1,8 +1,8 @@
-# Rules
+# Lifify – Rules
 
 [English](#english) · [Deutsch](#deutsch)
 
-These rules apply to every change in Lifify. They replace the former CLAUDE.md.
+These rules apply to every change in Lifify. Claude Code reads this file at the start of every session.
 
 ## English
 
@@ -29,7 +29,7 @@ These rules apply to every change in Lifify. They replace the former CLAUDE.md.
   targets, `AppVersion.current`, README, and FEATURES.
 - Each version has its changelog in Changes Documentation: an overview, then
   one section per area, short bullets with what, why, and effect.
-- Update README, FEATURES, FINANZEN, ERNAEHRUNG, and RULES with every change
+- Update README, FEATURES, FINANZEN, ERNAEHRUNG, and this file with every change
   that affects them. New calculation rules belong in FINANZEN.md.
 - Business logic lives in the packages (`LififyCore`, `LififyFinance`,
   `LififyChallenges`, `LififyHealth`), never in views. Extensions such as the
@@ -262,7 +262,7 @@ own colors.
   Targets, `AppVersion.current`, README und FEATURES.
 - Jede Version hat ihren Changelog in Changes Documentation: Überblick, dann
   ein Abschnitt pro Bereich, kurze Aufzählungen mit was, warum und Auswirkung.
-- README, FEATURES, FINANZEN, ERNAEHRUNG und RULES bei jeder betroffenen
+- README, FEATURES, FINANZEN, ERNAEHRUNG und diese Datei bei jeder betroffenen
   Änderung anpassen. Neue Rechenregeln gehören nach FINANZEN.md.
 - Fachlogik liegt in den Packages (`LififyCore`, `LififyFinance`,
   `LififyChallenges`, `LififyHealth`), nie in Views. Erweiterungen wie die

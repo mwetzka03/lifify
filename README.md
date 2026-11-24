@@ -13,7 +13,7 @@ wash and the same card fill, and it keeps its tile arrangement. Positive
 amounts stay green and negative amounts stay red. The links under More are
 a step larger than the tile titles.
 
-The finance rules are in [FINANZEN.md](FINANZEN.md). What changed in 0.6.0 is in [CHANGES-0.6.0.md](Changes%20Documentation/CHANGES-0.6.0.md). What changed in 0.5.5 is in [CHANGES-0.5.5.md](Changes%20Documentation/CHANGES-0.5.5.md). What changed in 0.4.0 is in [CHANGES-0.4.0.md](Changes%20Documentation/CHANGES-0.4.0.md). What changed in 0.3.0 is in [CHANGES-0.3.0.md](Changes%20Documentation/CHANGES-0.3.0.md). Each file is in English and German. How changes, checks, and the visual style are kept is in [RULES.md](RULES.md).
+The finance rules are in [FINANZEN.md](FINANZEN.md). What changed in 0.6.0 is in [CHANGES-0.6.0.md](Changes%20Documentation/CHANGES-0.6.0.md). What changed in 0.5.5 is in [CHANGES-0.5.5.md](Changes%20Documentation/CHANGES-0.5.5.md). What changed in 0.4.0 is in [CHANGES-0.4.0.md](Changes%20Documentation/CHANGES-0.4.0.md). What changed in 0.3.0 is in [CHANGES-0.3.0.md](Changes%20Documentation/CHANGES-0.3.0.md). Each file is in English and German. How changes, checks, and the visual style are kept is in [CLAUDE.md](CLAUDE.md).
 
 ### Areas
 
@@ -141,7 +141,7 @@ call well-named helpers instead of growing; repeated logic is shared through
 protocols with default implementations, generics, and composition. Every type
 and method carries a `///` comment that says what it does; longer methods also
 list their parameters and return value. The full rules are in
-[RULES.md](RULES.md#code).
+[CLAUDE.md](CLAUDE.md#code).
 
 ### Data and import
 
@@ -211,7 +211,7 @@ rot. Die Links unter Weitere Bereiche sind eine Stufe größer als die Kacheltit
 Was sich in 0.6.0 geändert hat, steht in [CHANGES-0.6.0.md](Changes%20Documentation/CHANGES-0.6.0.md). Was sich in 0.5.5 geändert hat, steht in [CHANGES-0.5.5.md](Changes%20Documentation/CHANGES-0.5.5.md),
 was sich in 0.4.0 geändert hat in [CHANGES-0.4.0.md](Changes%20Documentation/CHANGES-0.4.0.md),
 was sich in 0.3.0 geändert hat in [CHANGES-0.3.0.md](Changes%20Documentation/CHANGES-0.3.0.md). Jede Datei auf Englisch und Deutsch.
-Wie Änderungen, Tests und der Stil gehalten werden, steht in [RULES.md](RULES.md).
+Wie Änderungen, Tests und der Stil gehalten werden, steht in [CLAUDE.md](CLAUDE.md).
 
 Die Finanzregeln stehen in [FINANZEN.md](FINANZEN.md).
 
@@ -349,7 +349,7 @@ wiederkehrende Logik wird über Protokolle mit Standard-Implementierungen,
 Generics und Komposition geteilt. Jeder Typ und jede Methode trägt einen
 `///`-Kommentar, der sagt, was sie tut; längere Methoden nennen zusätzlich
 Parameter und Rückgabewert. Die vollständigen Regeln stehen in
-[RULES.md](RULES.md#code-1).
+[CLAUDE.md](CLAUDE.md#code-1).
 
 ### Daten und Import
 

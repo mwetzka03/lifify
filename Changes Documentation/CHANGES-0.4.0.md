@@ -157,7 +157,7 @@ This file is in English and in German. The finance calculations stay in
   alphabetical too. Tapping a check opens a page that names the important
   files and the methods, explains what the measured line means, and shows that
   line once. Each step says what should happen and which file it reads.
-- [RULES.md](../RULES.md) records that changes are documented in English and in
+- [CLAUDE.md](../CLAUDE.md) records that changes are documented in English and in
   German, that new behavior gets a unit check and an integration check, and
   that the interface uses the selected style.
 
@@ -345,7 +345,7 @@ This file is in English and in German. The finance calculations stay in
   Tipp auf eine Prüfung öffnet eine Seite, die die wichtigen Dateien und die
   Methoden nennt, die gemessene Zeile in einem Satz erklärt und diese Zeile
   einmal zeigt. Jeder Schritt sagt, was passieren soll, und nennt die Datei.
-- [RULES.md](../RULES.md) hält fest, dass Änderungen auf Englisch und Deutsch
+- [CLAUDE.md](../CLAUDE.md) hält fest, dass Änderungen auf Englisch und Deutsch
   dokumentiert werden, neue Funktionen eine Unit- und eine Integrationsprüfung
   bekommen und die Oberfläche den gewählten Stil verwendet.
 

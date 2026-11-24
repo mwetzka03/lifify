@@ -355,11 +355,11 @@ of the method splitting are still open (see the last section).
 - **Why:** Requested by the owner; booked interest existed, forecast interest did not.
 - **Effect:** Off changes nothing. On, the forecast income, projected balance, and events contain "Interest (forecast)". Both settings are in the full backup. Test: `CashInterestTests`.
 
-### Owner decision: RULES.md replaces CLAUDE.md, app lock dropped
+### Owner decision: One rules file, app lock dropped
 
-- **What:** The lasting parts of CLAUDE.md (working together, workflow, technical guardrails, confirmed rules, decisions, open work) moved into RULES.md in both languages. CLAUDE.md is deleted. The planned app lock with Screen Time (B13) is dropped.
+- **What:** The lasting parts of the 0.6.0 work plan (working together, workflow, technical guardrails, confirmed rules, decisions, open work) joined the rules in both languages. The rules file is now CLAUDE.md (formerly RULES.md), so Claude Code reads it at every start; the finished plan is gone. The planned app lock with Screen Time (B13) is dropped.
 - **Why:** Most of the 0.6.0 plan is done. The app lock needs Family Controls, which the owner's free personal developer team cannot get.
-- **Effect:** No code change. RULES.md is the one place for project rules.
+- **Effect:** No code change. CLAUDE.md is the one place for project rules.
 
 ## Deutsch
 
@@ -734,8 +734,8 @@ Screens und ein Teil der Methoden-Zerlegung noch offen (siehe letzter Abschnitt)
 - **Warum:** Wunsch des Eigentümers; gebuchte Zinsen gab es, Prognosezinsen nicht.
 - **Auswirkung:** Aus ändert nichts. An enthalten Einnahmeprognose, prognostizierter Saldo und Ereignisse „Zinsen (Prognose)“. Beide Einstellungen sind im Gesamt-Backup. Test: `CashInterestTests`.
 
-### Entscheidung des Eigentümers: RULES.md ersetzt CLAUDE.md, App-Sperre verworfen
+### Entscheidung des Eigentümers: Eine Regeldatei, App-Sperre verworfen
 
-- **Was:** Die bleibenden Teile der CLAUDE.md (Zusammenarbeit, Arbeitsweise, technische Leitplanken, bestätigte Regeln, Entscheidungen, offene Arbeit) stehen zweisprachig in der RULES.md. Die CLAUDE.md ist gelöscht. Die geplante App-Sperre über Bildschirmzeit (B13) ist verworfen.
+- **Was:** Die bleibenden Teile des Arbeitsplans für 0.6.0 (Zusammenarbeit, Arbeitsweise, technische Leitplanken, bestätigte Regeln, Entscheidungen, offene Arbeit) stehen zweisprachig bei den Regeln. Die Regeldatei heißt jetzt CLAUDE.md (vorher RULES.md), damit Claude Code sie bei jedem Start liest; der erledigte Plan entfällt. Die geplante App-Sperre über Bildschirmzeit (B13) ist verworfen.
 - **Warum:** Der Plan für 0.6.0 ist weitgehend umgesetzt. Die App-Sperre braucht Family Controls, die das kostenlose persönliche Entwicklerteam des Eigentümers nicht bekommt.
-- **Auswirkung:** Keine Code-Änderung. Die RULES.md ist der eine Ort für Projektregeln.
+- **Auswirkung:** Keine Code-Änderung. Die CLAUDE.md ist der eine Ort für Projektregeln.
