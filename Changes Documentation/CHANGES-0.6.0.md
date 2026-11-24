@@ -344,6 +344,11 @@ of the method splitting are still open (see the last section).
 - **Why:** At midnight, every trade booked later that day was added to a stand that already contained it.
 - **Effect:** Only bookings after the reading change the stand. The money reference changed only in the time of that adjustment (00:00 to the fixed test time); all amounts are identical. Test: `LiveBalancePinTests`.
 
+### Owner feedback: Income and expense lists in the app style
+
+- **What:** The total and the booking rows under Income and Expenses sit in a styled section with the card color of the chosen style.
+- **Why:** They stood outside any section and showed the plain system color, black in dark mode.
+
 ## Deutsch
 
 ### Überblick
@@ -705,3 +710,8 @@ Screens und ein Teil der Methoden-Zerlegung noch offen (siehe letzter Abschnitt)
 - **Was:** Die Trade-Republic-Saldo-Korrektur (der aus der Sitzung gelesene Stand) wird auf den Zeitpunkt des Auslesens datiert, nicht auf Mitternacht.
 - **Warum:** Um Mitternacht kam jeder später am selben Tag gebuchte Handel noch auf einen Stand, der ihn schon enthielt.
 - **Auswirkung:** Nur Buchungen nach dem Auslesen ändern den Stand. Die Geld-Referenz änderte sich nur in der Uhrzeit dieser Korrektur (0:00 auf die feste Testzeit); alle Beträge sind gleich. Test: `LiveBalancePinTests`.
+
+### Rückmeldung des Eigentümers: Einnahmen- und Ausgabenlisten im App-Stil
+
+- **Was:** Summe und Buchungszeilen unter Einnahmen und Ausgaben stehen in einem gestylten Abschnitt mit der Kartenfarbe des gewählten Stils.
+- **Warum:** Sie standen außerhalb jedes Abschnitts und zeigten die Systemfarbe, im Dunkelmodus schwarz.

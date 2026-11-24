@@ -167,6 +167,7 @@ struct FilteredLedgerView: View {
                     }
                     .appGlassRow()
                 }
+                Section {
                 if preparedRows.isEmpty {
                     Text(emptyText)
                         .foregroundStyle(.secondary)
@@ -224,6 +225,8 @@ struct FilteredLedgerView: View {
                     }
                     .buttonStyle(.plain)
                 }
+                }
+                .appGlassRow()
             }
             .scrollContentBackground(.hidden)
             }
