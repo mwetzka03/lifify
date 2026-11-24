@@ -4,7 +4,7 @@
 
 ## English
 
-Lifify 0.5.5 is a local iPhone app for finance, challenges, and training. It
+Lifify 0.6.0 is a local iPhone app for finance, challenges, and training. It
 is built with SwiftUI and SwiftData, and it needs neither a backend nor a user
 account. German and English, and light, dark, and system appearance, can be
 switched in Settings. Style adds Green, Blue, Bordeaux, and Violet, each with
@@ -13,7 +13,7 @@ wash and the same card fill, and it keeps its tile arrangement. Positive
 amounts stay green and negative amounts stay red. The links under More are
 a step larger than the tile titles.
 
-The finance rules are in [FINANZEN.md](FINANZEN.md). What changed in 0.5.5 is in [CHANGES-0.5.5.md](Changes%20Documentation/CHANGES-0.5.5.md). What changed in 0.4.0 is in [CHANGES-0.4.0.md](Changes%20Documentation/CHANGES-0.4.0.md). What changed in 0.3.0 is in [CHANGES-0.3.0.md](Changes%20Documentation/CHANGES-0.3.0.md). Each file is in English and German. How changes, checks, and the visual style are kept is in [RULES.md](RULES.md).
+The finance rules are in [FINANZEN.md](FINANZEN.md). What changed in 0.6.0 is in [CHANGES-0.6.0.md](Changes%20Documentation/CHANGES-0.6.0.md). What changed in 0.5.5 is in [CHANGES-0.5.5.md](Changes%20Documentation/CHANGES-0.5.5.md). What changed in 0.4.0 is in [CHANGES-0.4.0.md](Changes%20Documentation/CHANGES-0.4.0.md). What changed in 0.3.0 is in [CHANGES-0.3.0.md](Changes%20Documentation/CHANGES-0.3.0.md). Each file is in English and German. How changes, checks, and the visual style are kept is in [RULES.md](RULES.md).
 
 ### Areas
 
@@ -69,7 +69,7 @@ briefing with its own time for each weekday, the workout chime, the default
 account and fee for the portfolio, accounts, import, backup, and calendar and
 reminders. Finance also holds the manual Trade Republic sign-in and the button
 that refreshes the depot from the saved session. The birthday pays 500 coins once that year. The version shown there
-is 0.5.5.
+is 0.6.0.
 
 ### First launch
 
@@ -114,6 +114,22 @@ starts setup again.
 
 The same app runs in the Simulator when the destination is an iPhone with iOS
 17 or newer.
+
+Since 0.6.0 the project has a second target, **LififyWidgets**, and uses
+capabilities that signing must know:
+
+1. Select your team under **Signing & Capabilities** for **Lifify** and for
+   **LififyWidgets**.
+2. In both targets, check that **App Groups** lists
+   `group.com.mwetzka03.lifify` and that it is ticked. If it is red, press the
+   refresh button next to it.
+3. In the **Lifify** target, check that **HealthKit** is listed.
+4. If Xcode reports that your team cannot use a capability, the account type
+   does not include it. Without the App Group the app runs, and widgets stay
+   empty.
+
+Widgets show the state of the last app update. A check-off in a widget is
+booked the next time the app runs.
 
 ### Code structure
 
@@ -179,7 +195,7 @@ notice do not both count.
 
 ## Deutsch
 
-Lifify 0.5.5 ist eine lokale iPhone-App für Finanzen, Challenges und Training.
+Lifify 0.6.0 ist eine lokale iPhone-App für Finanzen, Challenges und Training.
 Sie ist mit SwiftUI und SwiftData gebaut, braucht kein Backend und kein
 Benutzerkonto. Deutsch und Englisch sowie Hell, Dunkel und System lassen sich
 in den Einstellungen umschalten. Der Stil ergänzt Grün, Blau, Bordeaux und
@@ -187,7 +203,7 @@ Violett, jeweils mit eigener heller und dunkler Fläche. Die Karten behalten
 eine eigene Füllung. Finanzen nutzt dieselbe Fläche und dieselbe Kartenfarbe
 und behält die Anordnung der Kacheln. Positive Beträge bleiben grün, negative
 rot. Die Links unter Weitere Bereiche sind eine Stufe größer als die Kacheltitel.
-Was sich in 0.5.5 geändert hat, steht in [CHANGES-0.5.5.md](Changes%20Documentation/CHANGES-0.5.5.md),
+Was sich in 0.6.0 geändert hat, steht in [CHANGES-0.6.0.md](Changes%20Documentation/CHANGES-0.6.0.md). Was sich in 0.5.5 geändert hat, steht in [CHANGES-0.5.5.md](Changes%20Documentation/CHANGES-0.5.5.md),
 was sich in 0.4.0 geändert hat in [CHANGES-0.4.0.md](Changes%20Documentation/CHANGES-0.4.0.md),
 was sich in 0.3.0 geändert hat in [CHANGES-0.3.0.md](Changes%20Documentation/CHANGES-0.3.0.md). Jede Datei auf Englisch und Deutsch.
 Wie Änderungen, Tests und der Stil gehalten werden, steht in [RULES.md](RULES.md).
@@ -255,7 +271,7 @@ Trainingsklingelton, Standardkonto und Gebühr fürs Depot, Konten, Import,
 Sicherung sowie Kalender und Erinnerungen. Unter Finanzen liegt außerdem die
 manuelle Anmeldung bei Trade Republic und der Knopf, der das Depot aus der
 gespeicherten Sitzung aktualisiert. Am Geburtstag gibt es einmal im
-Jahr 500 Coins. Die angezeigte Version ist 0.5.5.
+Jahr 500 Coins. Die angezeigte Version ist 0.6.0.
 
 ### Ersteinrichtung
 
@@ -301,6 +317,21 @@ Einstellungen und startet die Einrichtung neu.
 
 Dieselbe App läuft im Simulator, wenn als Ziel ein iPhone mit iOS 17 oder
 neuer gewählt ist.
+
+Seit 0.6.0 hat das Projekt ein zweites Target, **LififyWidgets**, und nutzt
+Capabilities, die die Signatur kennen muss:
+
+1. Unter **Signing & Capabilities** für **Lifify** und **LififyWidgets** das
+   eigene Team wählen.
+2. In beiden Targets prüfen, dass unter **App Groups**
+   `group.com.mwetzka03.lifify` steht und angehakt ist. Ist der Eintrag rot,
+   den Aktualisieren-Knopf daneben drücken.
+3. Im Target **Lifify** prüfen, dass **HealthKit** aufgeführt ist.
+4. Meldet Xcode, dass das Team eine Capability nicht nutzen kann, enthält der
+   Kontotyp sie nicht. Ohne App Group läuft die App, die Widgets bleiben leer.
+
+Widgets zeigen den Stand der letzten App-Aktualisierung. Ein Haken im Widget
+wird gebucht, sobald die App das nächste Mal läuft.
 
 ### Code-Struktur
 

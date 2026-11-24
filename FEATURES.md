@@ -2,9 +2,12 @@
 
 ## English
 
-Lifify is version **0.5.5**. Finance, portfolio, and budget calculations are in
-[FINANZEN.md](FINANZEN.md) and are unchanged. The German list below is the
-feature set. In 0.5.5, setup can sign in to Trade Republic by hand and import
+Lifify is version **0.6.0**. Finance, portfolio, and budget calculations are in
+[FINANZEN.md](FINANZEN.md); existing rules are unchanged. The German list below
+is the feature set. New in 0.6.0: widgets, a workout Live Activity, Siri and
+Shortcuts actions, budget alerts, a period review, subscription detection,
+dividends, an optional return scenario, a depot deep analysis, Apple Health,
+progressive overload, meal favorites, and Face ID for Finance. In 0.5.5, setup can sign in to Trade Republic by hand and import
 the depot from that session, and a Shortcut can book a Sparkasse or Trade
 Republic notice. In 0.4.0, Home, Challenges, Health, Settings, and setup sit on
 a mint wash in light mode and a deep green wash in dark mode, with cards
@@ -17,8 +20,8 @@ challenge follows the body goal.
 
 # Lifify – Funktionsumfang und Annahmen
 
-Die App ist Version **0.5.5**. Wie Finanzen, Depot und Budget rechnen, steht
-in [FINANZEN.md](FINANZEN.md) und ist unverändert. Der Gesundheit-Tab ist kein
+Die App ist Version **0.6.0**. Wie Finanzen, Depot und Budget rechnen, steht
+in [FINANZEN.md](FINANZEN.md); die bestehenden Regeln sind unverändert. Der Gesundheit-Tab ist kein
 Platzhalter mehr: Training und Ernährung sind umgesetzt.
 Home, Challenges, Gesundheit, Einstellungen und die Einrichtung liegen im
 Hellen auf einem Minzgrund und im Dunkeln auf einem tiefen Grün. Finanzen nutzt dieselbe Fläche und behält die Anordnung der Kacheln. Die
@@ -68,6 +71,17 @@ Symbolauswahl enthält ein Hanfblatt und eine Zigarette.
   Dashboard-Zeitraum, Hauptkonto, optionalen Bankimport und Einnahmeprognosen
 - Lokal gespeicherte Bucketlist-Daten; die Oberfläche ist vorerst ausgeblendet
 - Optionaler Import aus iOS-Kalendern und Erinnerungen über EventKit
+- Neu in 0.6.0:
+  - Widgets für Home- und Sperrbildschirm, „Heute“ interaktiv abhakbar
+  - Live Activity für das laufende Training
+  - Siri und Kurzbefehle: Challenge abhaken, Mahlzeit eintragen, Restbudget
+  - Budget-Warnungen, Monatsrückblick und Abo-Erkennung
+  - Dividenden-Übersicht und -Prognose, optionales Renditeszenario
+  - Tiefenanalyse des Depots mit ETF-Zusammensetzungen
+  - Apple Health nach Freigabe (Gewicht, Schritte, aktive Energie, Ruhepuls,
+    Trainings schreiben)
+  - Progressive Overload, Mahlzeiten-Favoriten und „zuletzt gegessen“
+  - Face ID für den Finanzen-Tab
 
 ## Annahmen
 

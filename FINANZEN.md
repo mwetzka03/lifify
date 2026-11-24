@@ -6,7 +6,9 @@
 
 - This file describes how Lifify calculates accounts, periods, income, expenses,
   the portfolio, and the home budget.
-- The calculations are unchanged in 0.5.5.
+- The calculations are unchanged in 0.5.5. 0.6.0 keeps every existing rule and
+  adds optional ones, listed at the end of this file. A reference test guards
+  the existing amounts.
 - This is the 0.3.0 rule set, and it still applies.
 
 Period and account are one shared filter. A change applies in the finance
@@ -697,7 +699,9 @@ full to be right, the statement has to be imported again after a rule change.
 
 - Diese Datei beschreibt, wie Lifify Konten, Zeiträume, Einnahmen, Ausgaben,
   Depot und das Home-Budget rechnet.
-- Die Rechnung ist in 0.5.5 unverändert.
+- Die Rechnung ist in 0.5.5 unverändert. 0.6.0 behält jede bestehende Regel und
+  ergänzt optionale, die am Ende dieser Datei stehen. Ein Referenztest sichert
+  die bestehenden Beträge.
 - Das ist der Regelstand von 0.3.0, und er gilt weiter.
 
 Zeitraum und Konto sind ein gemeinsamer Filter. Eine Änderung gilt in der
