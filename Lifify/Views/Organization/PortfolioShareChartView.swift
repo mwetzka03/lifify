@@ -169,7 +169,7 @@ struct PortfolioShareChartView: View {
                     shareRow(share)
                 }
                 .buttonStyle(.plain)
-                .listRowBackground(displayed?.id == share.id ? accent.opacity(0.16) : nil)
+                .listRowBackground(rowFill(selected: displayed?.id == share.id))
             }
         } header: {
             Text(L("Anteile", "Shares"))
@@ -179,6 +179,17 @@ struct PortfolioShareChartView: View {
             }
         }
         .appGlassRow()
+    }
+
+    /// The card color of the style, tinted for the selected share.
+    ///
+    /// A row background replaces the list's card color, so it has to repeat it; without it the
+    /// rows fall back to the plain system color.
+    private func rowFill(selected: Bool) -> some View {
+        ZStack {
+            AppLook.cardFill(AppAppearance(scheme), palette: AppPalette.resolved(paletteRaw)).color()
+            if selected { accent.opacity(0.16) }
+        }
     }
 
     /// One share with its color, value, and percentage.

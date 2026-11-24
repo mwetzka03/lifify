@@ -333,6 +333,11 @@ of the method splitting are still open (see the last section).
 - **Why:** The 2 Nov Saveback of 15 € showed as "Kauf: MSCI World" and lowered the Trade Republic balance.
 - **Effect:** Trade Republic cash is no longer charged for Saveback. Until the next Trade Republic refresh, an existing balance adjustment can leave its stand 15 € higher; a refresh reconciles it. Test: `SavebackRepairTests`.
 
+### Owner feedback: Share list in the app style
+
+- **What:** The rows of the share list (normal and deep analysis) use the card color of the chosen style; the selected share adds a light tint.
+- **Why:** Each row set its own background only for the selection and left the others to the system color, so the list was black in dark mode.
+
 ## Deutsch
 
 ### Überblick
@@ -683,3 +688,8 @@ Screens und ein Teil der Methoden-Zerlegung noch offen (siehe letzter Abschnitt)
 - **Was:** Trade-Republic-Saveback wird als Cashback-Einnahme im Depot gebucht, nicht als Kauf vom Trade-Republic-Konto. Die Stücke haben keinen Einstand, wie ein Depotgeschenk, ihr ganzer Wert erscheint also grün. Die Sitzung liest Saveback weiter wie einen Kauf, um die Stücke zu bestimmen, und schreibt es vor dem Kontoabgleich um; bestehende Buchungen werden beim Start umgeschrieben (`SavebackRepair`).
 - **Warum:** Das Saveback vom 2. November über 15 € stand als „Kauf: MSCI World“ und senkte den Trade-Republic-Saldo.
 - **Auswirkung:** Das Trade-Republic-Konto wird für Saveback nicht mehr belastet. Bis zur nächsten Trade-Republic-Aktualisierung kann eine bestehende Saldo-Korrektur den Stand um 15 € zu hoch lassen; eine Aktualisierung gleicht das aus. Test: `SavebackRepairTests`.
+
+### Rückmeldung des Eigentümers: Anteile-Liste im App-Stil
+
+- **Was:** Die Zeilen der Anteile-Liste (Normal und Tiefenanalyse) nutzen die Kartenfarbe des gewählten Stils; der gewählte Anteil bekommt eine leichte Tönung.
+- **Warum:** Jede Zeile setzte ihren Hintergrund nur für die Auswahl und überließ die übrigen der Systemfarbe, deshalb war die Liste im Dunkelmodus schwarz.
