@@ -694,6 +694,12 @@ full to be right, the statement has to be imported again after a rule change.
   "Since purchase" is the forecast value minus that sum. "Today" is the growth
   from today's value plus the new money. Without the scenario both stay at
   today's gain, because new shares are bought at today's price.
+- With the scenario, each future plan execution of an ETF buys at the price
+  expected on its day: today's price grown to that day. A later execution buys
+  fewer shares. Without the scenario it stays today's price.
+- A position's details show only the lots held through the selected day. In a
+  future period the expected plan purchases follow as "Savings plan
+  (forecast)".
 
 ### Deep analysis of the depot
 
@@ -1428,6 +1434,13 @@ Auszug nach einer Regeländerung neu importiert werden.
   Zeitraumende. „Seit Kauf“ ist der Prognosewert minus diese Summe. „Heute“ ist
   das Wachstum ab dem heutigen Wert plus dem neuen Geld. Ohne Szenario bleiben
   beide beim heutigen Gewinn, weil neue Stücke zum heutigen Kurs gekauft werden.
+- Mit Szenario kauft jede künftige Sparplan-Ausführung eines ETFs zum Kurs,
+  der für ihren Tag erwartet wird: heutiger Kurs, bis zu diesem Tag gewachsen.
+  Eine spätere Ausführung kauft weniger Stücke. Ohne Szenario bleibt es der
+  heutige Kurs.
+- Die Details einer Position zeigen nur die Einzelpositionen bis zum gewählten
+  Tag. In einem künftigen Zeitraum folgen die erwarteten Sparplan-Käufe als
+  „Sparplan (Prognose)“.
 
 ### Tiefenanalyse des Depots
 

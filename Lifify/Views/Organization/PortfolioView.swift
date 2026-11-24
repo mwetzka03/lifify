@@ -23,13 +23,14 @@ struct PortfolioView: View {
     @State private var isRefreshing = false
     @State private var savingsPlans: [SavingsPlanRecord] = []
 
+    /// The last day of the selected period.
+    private var day: Date {
+        filters.projectionDay(entries: entries, forecasts: forecasts, accounts: accounts)
+    }
+
     /// The calculated depot for the selected period.
     private var snapshot: PortfolioSnapshot {
-        model.snapshot(
-            holdings: holdings,
-            through: filters.projectionDay(entries: entries, forecasts: forecasts, accounts: accounts),
-            sort: sort
-        )
+        model.snapshot(holdings: holdings, through: day, sort: sort)
     }
 
     var body: some View {
@@ -64,7 +65,7 @@ struct PortfolioView: View {
         }
         .sheet(isPresented: $showingNew) { HoldingForm(holding: nil) }
         .sheet(item: $edited) { HoldingForm(holding: $0) }
-        .sheet(item: $selected) { HoldingDetailView(holding: $0) }
+        .sheet(item: $selected) { HoldingDetailView(holding: $0, day: day, holdings: holdings) }
     }
 
     /// The depot value with its selected gain.
@@ -283,13 +284,14 @@ struct PortfolioElementsView: View {
         holdings.filter { accountID == nil || $0.accountID == accountID }
     }
 
+    /// The last day of the selected period.
+    private var day: Date {
+        filters.projectionDay(entries: entries, forecasts: forecasts, accounts: accounts)
+    }
+
     /// The calculated depot for the selected period and account.
     private var snapshot: PortfolioSnapshot {
-        model.snapshot(
-            holdings: scopedHoldings,
-            through: filters.projectionDay(entries: entries, forecasts: forecasts, accounts: accounts),
-            sort: sort
-        )
+        model.snapshot(holdings: scopedHoldings, through: day, sort: sort)
     }
 
     /// The savings plans of the shown account.
@@ -326,7 +328,7 @@ struct PortfolioElementsView: View {
         }
         .sheet(isPresented: $showingNew) { HoldingForm(holding: nil, preferredAccountID: accountID) }
         .sheet(item: $edited) { HoldingForm(holding: $0, preferredAccountID: accountID) }
-        .sheet(item: $selected) { HoldingDetailView(holding: $0) }
+        .sheet(item: $selected) { HoldingDetailView(holding: $0, day: day, holdings: scopedHoldings) }
     }
 
     /// The period, unit, and sort controls.
@@ -762,6 +764,9 @@ private enum LotKind: String, CaseIterable, Identifiable {
 /// Details of a position.
 private struct HoldingDetailView: View {
     let holding: PortfolioHolding
+    /// The last day of the selected period. Lots after it stay out; a future day adds the planned purchases.
+    let day: Date
+    let holdings: [PortfolioHolding]
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
     @AppStorage("portfolioPerformanceBasis") private var basis = PortfolioBasis.today.rawValue
@@ -771,14 +776,41 @@ private struct HoldingDetailView: View {
     @State private var lots: [HoldingLot] = []
     @State private var editedLot: HoldingLot?
 
+    /// Whether the selected period is not the running one.
+    private var timing: (isToday: Bool, isFuture: Bool) {
+        let calendar = Calendar.current
+        let target = calendar.startOfDay(for: day)
+        let today = calendar.startOfDay(for: FinanceClock.now)
+        return (target == today, target > today)
+    }
+
+    /// The lots held through the selected day.
+    private var shownLots: [HoldingLot] {
+        guard !timing.isToday else { return lots }
+        let end = Calendar.current.date(byAdding: .day, value: 1, to: Calendar.current.startOfDay(for: day)) ?? day
+        return lots.filter { $0.date < end }
+    }
+
+    /// The forecast savings plan purchases until a future day.
+    private var plannedPurchases: [PlannedPurchase] {
+        timing.isFuture ? HoldingMaintenance.plannedPurchases(of: holding, through: day, holdings: holdings) : []
+    }
+
     var body: some View {
-        let performance = holdingPerformance(holding)
+        let performance = projectedPerformance(holding, through: day, holdings: holdings)
         let selected = performance.selected(basis: basis, unit: unit)
+        let quantity = HoldingMaintenance.quantity(of: holding, through: day, holdings: holdings)
+        let value = timing.isToday ? performance.value : HoldingMaintenance.marketValue(of: holding, through: day, holdings: holdings)
         NavigationStack {
             Form {
                 Section {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(Money.string(cents: performance.value))
+                        if !timing.isToday {
+                            Text("\(L("Stand", "As of")) \(AppDate.numeric(day))\(timing.isFuture ? " (\(L("Prognose", "forecast")))" : "")")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Text(Money.string(cents: value))
                             .font(.title2.bold())
                         Text(selected.text)
                             .font(.subheadline.bold())
@@ -795,8 +827,11 @@ private struct HoldingDetailView: View {
                     }
                     .pickerStyle(.segmented)
                     .labelsHidden()
-                    LabeledContent(L("Stückzahl", "Quantity"), value: holding.quantity.formatted())
-                    LabeledContent(L("Kurs", "Price"), value: Money.string(cents: holding.currentPriceCents))
+                    LabeledContent(L("Stückzahl", "Quantity"), value: quantity.formatted())
+                    LabeledContent(
+                        timing.isFuture ? L("Kurs (Prognose)", "Price (forecast)") : L("Kurs", "Price"),
+                        value: Money.string(cents: timing.isToday || quantity <= 0 ? holding.currentPriceCents : Int((Double(value) / quantity).rounded()))
+                    )
                     LabeledContent(L("Kaufkurs", "Purchase price"), value: Money.string(cents: holding.purchasePriceCents))
                     if !holding.symbol.isEmpty {
                         LabeledContent("ISIN", value: holding.symbol)
@@ -807,9 +842,9 @@ private struct HoldingDetailView: View {
                     )
                 }
                 .appGlassRow()
-                if !lots.isEmpty {
+                if !shownLots.isEmpty || !plannedPurchases.isEmpty {
                     Section(L("Einzelpositionen", "Individual positions")) {
-                        ForEach(lots) { lot in
+                        ForEach(shownLots) { lot in
                             VStack(alignment: .leading, spacing: 2) {
                                 HStack {
                                     Text(lotTitle(lot))
@@ -834,6 +869,9 @@ private struct HoldingDetailView: View {
                                 }
                                 .appAccentTint()
                             }
+                        }
+                        ForEach(Array(plannedPurchases.enumerated()), id: \.offset) { _, purchase in
+                            plannedRow(purchase)
                         }
                     }
                     .appGlassRow()
@@ -876,6 +914,22 @@ private struct HoldingDetailView: View {
                 }
             }
         }
+    }
+
+    /// A forecast savings plan purchase. It cannot be edited because it has not happened.
+    private func plannedRow(_ purchase: PlannedPurchase) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack {
+                Text("\(L("Sparplan", "Savings plan")) (\(L("Prognose", "forecast")))")
+                Spacer()
+                Text(AppDate.numeric(purchase.date))
+                    .foregroundStyle(.secondary)
+            }
+            Text("\(purchase.quantity.formatted(.number.precision(.fractionLength(0...4)))) × \(Money.string(cents: purchase.unitPriceCents)) · \(Money.string(cents: purchase.amountCents))")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .foregroundStyle(.secondary)
     }
 
     /// Deletes a lot and its booking.

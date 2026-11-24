@@ -72,6 +72,24 @@ extension LififyRuleTests {
             }
         }
 
+        @Test func laterPlanPurchasesBuyAtTheForecastPrice() async throws {
+            try await fixed { store in
+                let holding = position(store)
+                plan(for: holding)
+                let flat = HoldingMaintenance.plannedPurchases(of: holding, through: date(2027, 3, 18), holdings: [holding])
+                #expect(flat.count == 12)
+                #expect(flat.allSatisfy { $0.unitPriceCents == 10_000 && $0.amountCents == 10_000 })
+                enable(store)
+                let grown = HoldingMaintenance.plannedPurchases(of: holding, through: date(2027, 3, 18), holdings: [holding])
+                #expect(grown.count == 12)
+                #expect(grown.last!.unitPriceCents > grown.first!.unitPriceCents)
+                #expect(grown.last!.quantity < grown.first!.quantity)
+                let shares = HoldingMaintenance.quantity(of: holding, through: date(2027, 3, 18), holdings: [holding])
+                #expect(abs(shares - 10 - grown.reduce(0) { $0 + $1.quantity }) < 0.000_001)
+                #expect(shares < 22)
+            }
+        }
+
         @Test func offLeavesTheForecastUnchanged() async throws {
             try await fixed { store in
                 let holding = position(store)

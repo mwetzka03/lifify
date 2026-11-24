@@ -297,6 +297,12 @@ of the method splitting are still open (see the last section).
 - **Why:** The owner wants the dividends in the forecast, but only after turning it on.
 - **Effect:** Off changes nothing; the money reference test is unchanged. On, the forecast and the projected balance grow by the expected dividends. The switch is in the backup.
 
+### Owner feedback: Position details per period, plan purchases at forecast price
+
+- **Details per period:** A position's details show value, quantity, and lots as of the selected period's last day. Past periods leave out later lots; future periods add each expected savings plan purchase as "Savings plan (forecast)", which cannot be edited.
+- **Forecast price:** With the return scenario, each future plan execution of an ETF buys at the price expected on its day, so later executions buy fewer shares. Without the scenario nothing changes.
+- **Why:** The details showed today's lots and value in every period, and plan shares were bought at today's price even when the forecast price had grown.
+
 ## Deutsch
 
 ### Überblick
@@ -611,3 +617,9 @@ Screens und ein Teil der Methoden-Zerlegung noch offen (siehe letzter Abschnitt)
 - **Was:** Ein Schalter „Dividenden in Einnahmeprognose“ unter Einstellungen, Finanzen, Depot, standardmäßig aus. Ist er an, zählt jede erwartete Dividende nach heute als geplante Einnahme in Einnahmen, prognostiziertem Saldo und Ereignissen des Zeitraums, auf dem Konto der letzten Zahlung dieser Position.
 - **Warum:** Der Eigentümer will die Dividenden in der Prognose, aber erst nach dem Einschalten.
 - **Auswirkung:** Aus ändert nichts; der Referenztest der Geldrechnung ist unverändert. An wachsen Prognose und prognostizierter Saldo um die erwarteten Dividenden. Der Schalter ist im Backup.
+
+### Rückmeldung des Eigentümers: Positionsdetails je Zeitraum, Sparplan zum Prognosekurs
+
+- **Details je Zeitraum:** Die Details einer Position zeigen Wert, Stückzahl und Einzelpositionen zum letzten Tag des gewählten Zeitraums. Vergangene Zeiträume lassen spätere Einzelpositionen weg; künftige zeigen zusätzlich jeden erwarteten Sparplan-Kauf als „Sparplan (Prognose)“, der nicht bearbeitbar ist.
+- **Prognosekurs:** Mit Renditeszenario kauft jede künftige Sparplan-Ausführung eines ETFs zum für ihren Tag erwarteten Kurs; spätere Ausführungen kaufen weniger Stücke. Ohne Szenario ändert sich nichts.
+- **Warum:** Die Details zeigten in jedem Zeitraum die heutigen Einzelpositionen und den heutigen Wert, und Sparplan-Stücke wurden zum heutigen Kurs gekauft, auch wenn der Prognosekurs gestiegen war.

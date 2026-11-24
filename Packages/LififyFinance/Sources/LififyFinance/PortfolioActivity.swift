@@ -290,6 +290,15 @@ public enum SavingsPlanStore {
 }
 
 /// Keeps holdings, lots, and their bookings consistent.
+/// One savings plan execution the forecast expects.
+public struct PlannedPurchase: Equatable, Sendable {
+    public let date: Date
+    public let quantity: Double
+    /// The price expected on that day, with the return scenario when it applies.
+    public let unitPriceCents: Int
+    public let amountCents: Int
+}
+
 @MainActor
 public enum HoldingMaintenance {
     /// Einstand is the cash paid divided by the shares still held, rounded once.
@@ -540,6 +549,8 @@ public enum HoldingMaintenance {
         var quantity: [UUID: Double] = [:]
         /// The money each position receives from future plan executions.
         var invested: [UUID: Int] = [:]
+        /// The single forecast purchases per position, oldest first.
+        var purchases: [UUID: [PlannedPurchase]] = [:]
         var unmatchedCents = 0
     }
 
@@ -559,6 +570,8 @@ public enum HoldingMaintenance {
         var dayKey: String
         var planRevision: Int
         var holdingStamp: Int
+        var scenarioRevision: Int
+        var scenarioApplies: Bool
     }
 
     private static var shareCacheKey: ShareCacheKey?
@@ -572,22 +585,23 @@ public enum HoldingMaintenance {
         shareCache = FutureShares()
     }
 
-    /// Each future execution buys `amount / current price` shares. The euro value of those
-    /// shares is the nominal plan amount, so it is not added a second time.
+    /// The forecast purchases of a position from today through a day, oldest first.
+    public static func plannedPurchases(of holding: PortfolioHolding, through day: Date, holdings: [PortfolioHolding]) -> [PlannedPurchase] {
+        futureShares(through: day, holdings: holdings).purchases[holding.id] ?? []
+    }
+
+    /// Each future execution buys `amount / price` shares, at the price expected on that day.
+    ///
+    /// Without the return scenario that is today's price. With it, an ETF's price grows from today
+    /// to the execution, so a later execution buys fewer shares. The euro value of those shares is
+    /// the plan amount, so it is not added a second time.
+    ///
+    /// - Parameters:
+    ///   - day: The forecast day.
+    ///   - holdings: The positions in scope, which decide each plan's target.
+    /// - Returns: Shares, money, and single purchases per position.
     private static func futureShares(through day: Date, holdings: [PortfolioHolding]) -> FutureShares {
-        let dayKey = Calendar.current.startOfDay(for: day).dayKey
-        var hasher = Hasher()
-        for holding in holdings.sorted(by: { $0.id.uuidString < $1.id.uuidString }) {
-            hasher.combine(holding.id)
-            hasher.combine(holding.accountID)
-            hasher.combine(holding.symbol)
-            hasher.combine(holding.currentPriceCents)
-        }
-        let key = ShareCacheKey(
-            dayKey: dayKey,
-            planRevision: SavingsPlanStore.cacheRevision,
-            holdingStamp: hasher.finalize()
-        )
+        let key = shareKey(through: day, holdings: holdings)
         if shareCacheKey == key { return shareCache }
         var result = FutureShares()
         let ordered = holdings.sorted {
@@ -595,20 +609,56 @@ public enum HoldingMaintenance {
         }
         var claimed = Set<UUID>()
         for plan in SavingsPlanStore.all() where plan.active {
-            let executions = futureExecutionCount(plan, through: day)
-            guard executions > 0 else { continue }
+            let dates = futureExecutionDates(plan, through: day)
+            guard !dates.isEmpty else { continue }
             guard let target = ordered.first(where: { matches($0, plan: plan) && $0.currentPriceCents > 0 }) else {
-                result.unmatchedCents += executions * abs(plan.amountCents)
+                result.unmatchedCents += dates.count * abs(plan.amountCents)
                 continue
             }
             guard claimed.insert(plan.id).inserted else { continue }
-            let shares = Double(executions) * Double(abs(plan.amountCents)) / Double(target.currentPriceCents)
-            result.quantity[target.id, default: 0] += shares
-            result.invested[target.id, default: 0] += executions * abs(plan.amountCents)
+            let bought = purchases(of: plan, on: dates, into: target, forecastDay: day)
+            result.purchases[target.id, default: []] += bought
+            result.quantity[target.id, default: 0] += bought.reduce(0) { $0 + $1.quantity }
+            result.invested[target.id, default: 0] += bought.reduce(0) { $0 + $1.amountCents }
         }
+        result.purchases = result.purchases.mapValues { $0.sorted { $0.date < $1.date } }
         shareCacheKey = key
         shareCache = result
         return result
+    }
+
+    /// The cache key of a forecast day.
+    private static func shareKey(through day: Date, holdings: [PortfolioHolding]) -> ShareCacheKey {
+        var hasher = Hasher()
+        for holding in holdings.sorted(by: { $0.id.uuidString < $1.id.uuidString }) {
+            hasher.combine(holding.id)
+            hasher.combine(holding.accountID)
+            hasher.combine(holding.symbol)
+            hasher.combine(holding.currentPriceCents)
+        }
+        return ShareCacheKey(
+            dayKey: Calendar.current.startOfDay(for: day).dayKey,
+            planRevision: SavingsPlanStore.cacheRevision,
+            holdingStamp: hasher.finalize(),
+            scenarioRevision: ReturnScenario.revision,
+            scenarioApplies: ReturnScenario.applies(on: day)
+        )
+    }
+
+    /// The single purchases of a plan, each at the price expected on its day.
+    private static func purchases(
+        of plan: SavingsPlanRecord,
+        on dates: [Date],
+        into target: PortfolioHolding,
+        forecastDay: Date
+    ) -> [PlannedPurchase] {
+        let now = FinanceClock.now
+        let annual = ReturnScenario.applies(on: forecastDay) ? ReturnScenario.annualReturn(for: target) : nil
+        let amount = abs(plan.amountCents)
+        return dates.map { date in
+            let price = Double(target.currentPriceCents) * (annual.map { ReturnScenario.growth(annual: $0, from: now, to: date) } ?? 1)
+            return PlannedPurchase(date: date, quantity: Double(amount) / price, unitPriceCents: Int(price.rounded()), amountCents: amount)
+        }
     }
 
     /// Says whether a plan buys this holding.
@@ -616,11 +666,6 @@ public enum HoldingMaintenance {
         if let holdingID = plan.holdingID { return holding.id == holdingID }
         return holding.accountID == plan.portfolioAccountID
             && holding.symbol.caseInsensitiveCompare(plan.isin) == .orderedSame
-    }
-
-    /// Executions after today and after the last booked execution, through `day`.
-    private static func futureExecutionCount(_ plan: SavingsPlanRecord, through day: Date) -> Int {
-        futureExecutionDates(plan, through: day).count
     }
 
     /// The executions after today and after the last booked one, through `day`.
