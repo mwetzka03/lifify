@@ -338,6 +338,12 @@ of the method splitting are still open (see the last section).
 - **What:** The rows of the share list (normal and deep analysis) use the card color of the chosen style; the selected share adds a light tint.
 - **Why:** Each row set its own background only for the selection and left the others to the system color, so the list was black in dark mode.
 
+### Owner feedback: Live balance pin at the moment of reading
+
+- **What:** The Trade Republic balance adjustment (the stand read from the session) is dated at the moment of reading, not at midnight.
+- **Why:** At midnight, every trade booked later that day was added to a stand that already contained it.
+- **Effect:** Only bookings after the reading change the stand. The money reference changed only in the time of that adjustment (00:00 to the fixed test time); all amounts are identical. Test: `LiveBalancePinTests`.
+
 ## Deutsch
 
 ### Überblick
@@ -693,3 +699,9 @@ Screens und ein Teil der Methoden-Zerlegung noch offen (siehe letzter Abschnitt)
 
 - **Was:** Die Zeilen der Anteile-Liste (Normal und Tiefenanalyse) nutzen die Kartenfarbe des gewählten Stils; der gewählte Anteil bekommt eine leichte Tönung.
 - **Warum:** Jede Zeile setzte ihren Hintergrund nur für die Auswahl und überließ die übrigen der Systemfarbe, deshalb war die Liste im Dunkelmodus schwarz.
+
+### Rückmeldung des Eigentümers: Saldo-Korrektur zum Auslesezeitpunkt
+
+- **Was:** Die Trade-Republic-Saldo-Korrektur (der aus der Sitzung gelesene Stand) wird auf den Zeitpunkt des Auslesens datiert, nicht auf Mitternacht.
+- **Warum:** Um Mitternacht kam jeder später am selben Tag gebuchte Handel noch auf einen Stand, der ihn schon enthielt.
+- **Auswirkung:** Nur Buchungen nach dem Auslesen ändern den Stand. Die Geld-Referenz änderte sich nur in der Uhrzeit dieser Korrektur (0:00 auf die feste Testzeit); alle Beträge sind gleich. Test: `LiveBalancePinTests`.

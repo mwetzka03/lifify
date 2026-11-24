@@ -129,7 +129,10 @@ public enum ImportBalance {
         return changed
     }
 
-    /// Absolute pin for callers that still need today's stand as the last adjustment.
+    /// Absolute pin of a stand read live, dated at the moment of reading.
+    ///
+    /// The stand already contains everything booked before that moment, so only later bookings
+    /// may change it. A pin at midnight counted the same day's trades a second time.
     @discardableResult
     public static func correction(
         account: Account,
@@ -138,14 +141,13 @@ public enum ImportBalance {
         date: Date,
         context: ModelContext
     ) -> LedgerEntry? {
-        let day = Calendar.current.startOfDay(for: date)
         let stale = entries.filter { isCurrentPin($0, accountID: account.id) }
         if let existing = stale.max(by: { $0.createdAt < $1.createdAt }) {
             for entry in stale where entry.id != existing.id {
                 context.delete(entry)
             }
             entries.removeAll { isCurrentPin($0, accountID: account.id) && $0.id != existing.id }
-            existing.date = day
+            existing.date = date
             existing.amountCents = currentCents
             existing.kind = .adjustment
             existing.title = L("Saldo-Korrektur", "Balance adjustment")
@@ -155,7 +157,7 @@ public enum ImportBalance {
             return existing
         }
         let entry = LedgerEntry(
-            date: day,
+            date: date,
             title: L("Saldo-Korrektur", "Balance adjustment"),
             notes: "Typ: Saldo-Korrektur",
             amountCents: currentCents,

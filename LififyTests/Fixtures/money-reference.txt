@@ -159,8 +159,8 @@ Trade Republic|checking|true|false||-
 2026-03-09 12:0|Apple|Typ: Ertrag⏎Ereignis: SSP_CORPORATE_ACTION_CASH|320|income|Trade Republic|-|-|tr-a9
 2026-03-10 12:0|Zinsen|Typ: Zinsen⏎Ereignis: INTEREST_PAYOUT|410|income|Trade Republic|-|-|tr-a10
 2026-03-11 12:0|Bäcker|Typ: Kartentransaktion⏎Ereignis: CARD_TRANSACTION|-350|expense|Trade Republic|-|-|tr-a11
-2026-03-18 0:0|Saldo-Korrektur|Typ: Saldo-Korrektur|41230|adjustment|Trade Republic|-|-|saldo-korrektur
 2026-03-18 0:0|Startsaldo|Typ: Startsaldo|41230|adjustment|Trade Republic|-|-|tr-startsaldo
+2026-03-18 12:0|Saldo-Korrektur|Typ: Saldo-Korrektur|41230|adjustment|Trade Republic|-|-|saldo-korrektur
 === first session: holdings
 Apple|US0378331005|Depot|2.000000|15000|0
 Apple|US0378331005|Depot|lot|2026-01-05 12:0|3.000000|15000|-45000|false|false||true
@@ -195,8 +195,8 @@ Trade Republic|checking|true|false||-
 2026-03-09 12:0|Apple|Typ: Ertrag⏎Ereignis: SSP_CORPORATE_ACTION_CASH|320|income|Trade Republic|-|-|tr-a9
 2026-03-10 12:0|Zinsen|Typ: Zinsen⏎Ereignis: INTEREST_PAYOUT|410|income|Trade Republic|-|-|tr-a10
 2026-03-11 12:0|Bäcker|Typ: Kartentransaktion⏎Ereignis: CARD_TRANSACTION|-350|expense|Trade Republic|-|-|tr-a11
-2026-03-18 0:0|Saldo-Korrektur|Typ: Saldo-Korrektur|41230|adjustment|Trade Republic|-|-|saldo-korrektur
 2026-03-18 0:0|Startsaldo|Typ: Startsaldo|41230|adjustment|Trade Republic|-|-|tr-startsaldo
+2026-03-18 12:0|Saldo-Korrektur|Typ: Saldo-Korrektur|41230|adjustment|Trade Republic|-|-|saldo-korrektur
 === second session: holdings
 Apple|US0378331005|Depot|2.000000|15000|0
 Apple|US0378331005|Depot|lot|2026-01-05 12:0|3.000000|15000|-45000|false|false||true

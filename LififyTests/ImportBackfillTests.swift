@@ -58,3 +58,30 @@ extension LififyRuleTests {
         }
     }
 }
+
+extension LififyRuleTests {
+    /// A live stand already contains the day's earlier bookings.
+    @Suite("Live balance pin")
+    @MainActor
+    struct LiveBalancePinTests {
+        @Test func bookingsBeforeTheReadingAreNotCountedTwice() async throws {
+            try await withTestStore { store in
+                let reading = date(2026, 11, 24, 18)
+                FinanceClock.fix(date(2026, 11, 24, 20))
+                defer { FinanceClock.fix(nil) }
+                let trade = Account(name: "Trade Republic")
+                store.context.insert(trade)
+                store.context.insert(LedgerEntry(date: date(2026, 11, 1), title: "Startsaldo", amountCents: 10_000, kind: .adjustment, accountID: trade.id))
+                store.context.insert(LedgerEntry(date: date(2026, 11, 24, 15), title: "Kauf", amountCents: -1_000, kind: .expense, accountID: trade.id))
+                try store.context.save()
+                var entries: [LedgerEntry] = try store.all()
+                _ = ImportBalance.correction(account: trade, entries: &entries, currentCents: 5_000, date: reading, context: store.context)
+                #expect(FinanceService.currentBalance(for: trade, entries: entries) == 5_000)
+                let later = LedgerEntry(date: date(2026, 11, 24, 19), title: "Verkauf", amountCents: 700, kind: .income, accountID: trade.id)
+                store.context.insert(later)
+                entries.append(later)
+                #expect(FinanceService.currentBalance(for: trade, entries: entries) == 5_700)
+            }
+        }
+    }
+}
