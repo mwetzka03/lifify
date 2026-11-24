@@ -243,6 +243,12 @@ of the method splitting are still open (see the last section).
 - **Why:** After editing, for example, the amount of a fixed cost, the summary kept the old value until another change happened.
 - **Effect:** The summary is current right after saving. The booking list reacts the same way to changed accounts. A rename alone does not trigger a recalculation.
 
+### Fix: Database stays in the app's folder
+
+- **What:** The database path is now fixed to the app's own folder (`Application Support/default.store`).
+- **Why:** Found on the iPhone. With the new App Group, SwiftData copied the database into the group container on its own and used that copy. The archive and recovery steps still looked in the app folder.
+- **Effect:** The app uses its original database again. A copy from the first 0.6.0 launch stays unused in the App Group; nothing was deleted. A test pins the path.
+
 ## Deutsch
 
 ### Überblick
@@ -503,3 +509,9 @@ Screens und ein Teil der Methoden-Zerlegung noch offen (siehe letzter Abschnitt)
 - **Was:** Die Finanzübersicht rechnet neu, wenn sich Betrag, Konto, Rhythmus oder Status einer Fixkosten, Einnahmeprognose, eines Budgets, Einkaufs, Splits oder Kontos ändert. Vorher bemerkte sie nur neue oder gelöschte Einträge.
 - **Warum:** Nach dem Bearbeiten, etwa des Betrags einer Fixkosten, zeigte die Übersicht den alten Wert, bis sich etwas anderes änderte.
 - **Auswirkung:** Die Übersicht ist direkt nach dem Speichern aktuell. Die Buchungsliste reagiert ebenso auf geänderte Konten. Eine reine Umbenennung löst keine Neuberechnung aus.
+
+### Fehlerbehebung: Datenbank bleibt im App-Ordner
+
+- **Was:** Der Pfad der Datenbank ist jetzt fest auf den eigenen App-Ordner gelegt (`Application Support/default.store`).
+- **Warum:** Auf dem iPhone gefunden. Mit der neuen App Group hat SwiftData die Datenbank selbstständig in den Gruppen-Container kopiert und diese Kopie genutzt. Archiv und Wiederherstellung suchten weiter im App-Ordner.
+- **Auswirkung:** Die App nutzt wieder ihre ursprüngliche Datenbank. Eine Kopie vom ersten Start von 0.6.0 bleibt ungenutzt in der App Group liegen; gelöscht wurde nichts. Ein Test sichert den Pfad.

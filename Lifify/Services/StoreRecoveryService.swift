@@ -33,11 +33,18 @@ enum StoreRecoveryService {
         AppDefaults.store.bool(forKey: "hasCompletedOnboarding")
     }
 
+    /// The database file in the app's own folder.
+    ///
+    /// The path is fixed on purpose. Without it SwiftData moves the store into the App Group as soon
+    /// as the app has one, and the archive and recovery steps here would look in the wrong folder.
+    static var storeURL: URL {
+        AppFiles.supportDirectory.appendingPathComponent("default.store")
+    }
+
     /// Opens the database with its upgrade path.
     static func makeContainer(url: URL? = nil) throws -> ModelContainer {
         let schema = Schema(versionedSchema: LififySchemaV4.self)
-        let configuration = url.map { ModelConfiguration(schema: schema, url: $0) }
-            ?? ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
+        let configuration = ModelConfiguration(schema: schema, url: url ?? storeURL)
         return try ModelContainer(
             for: schema,
             migrationPlan: LififyMigrationPlan.self,

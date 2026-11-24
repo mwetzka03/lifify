@@ -29,6 +29,15 @@ extension LififyRuleTests {
             try container.mainContext.save()
         }
 
+        @Test func theStoreStaysInTheAppFolderNotTheAppGroup() async throws {
+            try await withTestStore { _ in
+                let url = try storeURL()
+                #expect(StoreRecoveryService.storeURL == url)
+                let container = try StoreRecoveryService.makeContainer()
+                #expect(container.configurations.first?.url.standardizedFileURL == url.standardizedFileURL)
+            }
+        }
+
         @Test func storeFromVersionTwoOpensWithItsData() async throws {
             try await withTestStore { _ in
                 let url = try storeURL()
