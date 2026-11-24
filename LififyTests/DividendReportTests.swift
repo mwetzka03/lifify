@@ -137,3 +137,46 @@ extension LififyRuleTests {
         }
     }
 }
+
+extension LififyRuleTests {
+    /// Forecast interest on the depot's cash account compounds month by month.
+    @Suite("Cash interest forecast")
+    @MainActor
+    struct CashInterestTests {
+        @Test func interestIsPaidMonthlyAndCompounds() async throws {
+            try await withTestStore { store in
+                let now = date(2026, 3, 18, 12)
+                FinanceClock.fix(now)
+                defer { FinanceClock.fix(nil) }
+                let trade = Account(name: "Trade Republic")
+                store.context.insert(trade)
+                store.context.insert(LedgerEntry(date: date(2026, 3, 1), title: "Startsaldo", amountCents: 1_000_000, kind: .adjustment, accountID: trade.id))
+                try store.context.save()
+                let entries: [LedgerEntry] = try store.all()
+                let april = ForecastPeriod(start: date(2026, 4, 1), end: date(2026, 4, 30))
+                let may = ForecastPeriod(start: date(2026, 5, 1), end: date(2026, 5, 31))
+                @MainActor func income(_ period: ForecastPeriod) -> Int {
+                    FinanceService.periodForecast(
+                        period: period, periods: [april, may], accounts: [trade], entries: entries, holdings: [],
+                        fixedCosts: [], variableBudgets: [], splits: [], forecasts: [], shopping: [], now: now
+                    ).income
+                }
+                #expect(income(april) == 0)
+                store.defaults.set(true, forKey: CashInterest.enabledKey)
+                #expect(income(april) == 2_083)
+                #expect(income(may) == CashInterest.monthlyCents(on: 1_002_083, percent: 2.5))
+                #expect(income(may) == 2_088)
+                store.defaults.set(3.0, forKey: CashInterest.rateKey)
+                #expect(income(april) == 2_500)
+            }
+        }
+
+        @Test func monthEndsPayOnTheNextFirst() {
+            let payouts = CashInterest.payouts(after: date(2026, 3, 18), through: date(2026, 5, 31))
+            #expect(payouts.count == 2)
+            #expect(Calendar.current.isDate(payouts[0].payout, inSameDayAs: date(2026, 4, 1)))
+            #expect(Calendar.current.isDate(payouts[0].monthEnd, inSameDayAs: date(2026, 3, 31)))
+            #expect(CashInterest.monthlyCents(on: -500, percent: 2.5) == 0)
+        }
+    }
+}

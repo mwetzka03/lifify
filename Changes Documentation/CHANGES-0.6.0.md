@@ -349,6 +349,12 @@ of the method splitting are still open (see the last section).
 - **What:** The total and the booking rows under Income and Expenses sit in a styled section with the card color of the chosen style.
 - **Why:** They stood outside any section and showed the plain system color, black in dark mode.
 
+### Owner feedback: Interest forecast on the depot's cash account
+
+- **What:** A switch "Interest forecast on cash account" with a yearly rate (2.5 % unless changed) under Settings, Finance, Portfolio, off by default. When on, each future month end's projected balance of the trade checking account (else Trade Republic) earns a twelfth of the rate, paid on the next first; earlier payouts raise later balances, so it compounds.
+- **Why:** Requested by the owner; booked interest existed, forecast interest did not.
+- **Effect:** Off changes nothing. On, the forecast income, projected balance, and events contain "Interest (forecast)". Both settings are in the full backup. Test: `CashInterestTests`.
+
 ## Deutsch
 
 ### Überblick
@@ -715,3 +721,9 @@ Screens und ein Teil der Methoden-Zerlegung noch offen (siehe letzter Abschnitt)
 
 - **Was:** Summe und Buchungszeilen unter Einnahmen und Ausgaben stehen in einem gestylten Abschnitt mit der Kartenfarbe des gewählten Stils.
 - **Warum:** Sie standen außerhalb jedes Abschnitts und zeigten die Systemfarbe, im Dunkelmodus schwarz.
+
+### Rückmeldung des Eigentümers: Zinsprognose für das Depot-Verrechnungskonto
+
+- **Was:** Ein Schalter „Zinsprognose Verrechnungskonto“ mit Zinssatz pro Jahr (2,5 %, solange nicht geändert) unter Einstellungen, Finanzen, Depot, standardmäßig aus. Ist er an, bekommt der prognostizierte Monatsend-Stand des Girokontos für Käufe (sonst Trade Republic) ein Zwölftel des Satzes, ausgezahlt am nächsten Monatsersten; frühere Auszahlungen erhöhen spätere Stände, es entsteht Zinseszins.
+- **Warum:** Wunsch des Eigentümers; gebuchte Zinsen gab es, Prognosezinsen nicht.
+- **Auswirkung:** Aus ändert nichts. An enthalten Einnahmeprognose, prognostizierter Saldo und Ereignisse „Zinsen (Prognose)“. Beide Einstellungen sind im Gesamt-Backup. Test: `CashInterestTests`.

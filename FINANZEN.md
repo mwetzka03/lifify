@@ -685,6 +685,17 @@ full to be right, the statement has to be imported again after a rule change.
 - An expected dividend counts on the account of the last payment of that
   position, so it appears only when that account is in view.
 
+### Interest forecast
+
+- Switch "Interest forecast on cash account" in Settings, Finance, Portfolio;
+  off by default, yearly rate 2.5 % unless changed.
+- It applies to the checking account for trades, else to an account named
+  Trade Republic.
+- Each month end's projected balance of that account earns a twelfth of the
+  rate, paid on the next first. Earlier payouts are part of later balances, so
+  interest compounds. Only payouts after today count; booked interest stays.
+- A negative balance earns nothing.
+
 ### Return scenario
 
 - The scenario is off by default and is switched under Settings, Finance, Depot.
@@ -1432,6 +1443,18 @@ Auszug nach einer Regeländerung neu importiert werden.
   und in den Ereignissen des Zeitraums.
 - Eine erwartete Dividende zählt auf dem Konto der letzten Zahlung dieser
   Position, erscheint also nur, wenn dieses Konto in der Ansicht ist.
+
+### Zinsprognose
+
+- Schalter „Zinsprognose Verrechnungskonto“ unter Einstellungen, Finanzen,
+  Depot; standardmäßig aus, Zinssatz 2,5 % pro Jahr, solange nicht geändert.
+- Sie gilt für das Girokonto für Käufe, sonst für ein Konto namens Trade
+  Republic.
+- Der prognostizierte Monatsend-Stand dieses Kontos bekommt ein Zwölftel des
+  Satzes, ausgezahlt am nächsten Monatsersten. Frühere Auszahlungen sind Teil
+  späterer Stände, es entsteht also Zinseszins. Es zählen nur Auszahlungen nach
+  heute; gebuchte Zinsen bleiben.
+- Ein negativer Stand bekommt keine Zinsen.
 
 ### Renditeszenario
 

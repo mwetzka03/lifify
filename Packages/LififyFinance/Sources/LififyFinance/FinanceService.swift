@@ -284,7 +284,7 @@ public enum FinanceService {
             ? accounts.filter { $0.kind != .portfolio && $0.kind != .savingsGroup }.map(\.id)
             : householdCashAccountIDs
         let activeFixed = fixedCosts.filter(\.isActive)
-        let scope = ForecastScope(
+        var scope = ForecastScope(
             period: period,
             periods: periods,
             accounts: accounts,
@@ -313,6 +313,7 @@ public enum FinanceService {
                 now: now
             )
         )
+        scope.dividends += interestIncome(scope)
         let income = incomeFigures(scope, predicate: incomePredicate)
         let bookedExpenses = signedSum(entries: entries, kind: .expense, from: period.start, through: period.end)
         let fixedDates = fixedOccurrences(costs: activeFixed, from: period.start, through: period.end)
@@ -360,23 +361,23 @@ public enum FinanceService {
     private struct ForecastScope {
         let period: ForecastPeriod
         let periods: [ForecastPeriod]
-        let accounts: [Account]
+        var accounts: [Account]
         let entries: [LedgerEntry]
         let holdings: [PortfolioHolding]
-        let activeFixed: [FixedCost]
-        let cashFixed: [FixedCost]
-        let budgets: [VariableBudget]
+        var activeFixed: [FixedCost]
+        var cashFixed: [FixedCost]
+        var budgets: [VariableBudget]
         let splits: [TransactionSplit]
-        let forecasts: [IncomeForecast]
-        let shopping: [ShoppingItem]
+        var forecasts: [IncomeForecast]
+        var shopping: [ShoppingItem]
         let now: Date
         let today: Date
         let includePortfolioValue: Bool
-        let scopedCashAccountIDs: Set<UUID>?
-        let cashIDs: [UUID]
-        let variablePlan: Int
-        /// Expected dividends that count as income while their switch is on.
-        let dividends: [DividendForecastPayment]
+        var scopedCashAccountIDs: Set<UUID>?
+        var cashIDs: [UUID]
+        var variablePlan: Int
+        /// Expected dividends and interest that count as income while their switches are on.
+        var dividends: [DividendForecastPayment]
 
         /// The depot at its current prices.
         var holdingsValue: Int {
@@ -714,6 +715,53 @@ public enum FinanceService {
     }
 
     /// Lists income due dates in a period.
+    /// Forecast interest on the depot's cash account, compounded monthly.
+    ///
+    /// Each month end's projected balance of that account earns a twelfth of the yearly rate,
+    /// paid on the next first. Earlier payouts are part of later balances, so interest earns
+    /// interest. Only payouts after today count.
+    ///
+    /// - Parameter scope: The period's inputs.
+    /// - Returns: The payouts through the period end, or none while the switch is off.
+    private static func interestIncome(_ scope: ForecastScope) -> [DividendForecastPayment] {
+        guard CashInterest.isEnabled,
+              let accountID = CashInterest.accountID(in: scope.accounts),
+              let account = scope.accounts.first(where: { $0.id == accountID }) else { return [] }
+        var own = accountScope(scope, account: account)
+        var paid: [DividendForecastPayment] = []
+        for month in CashInterest.payouts(after: scope.now, through: scope.period.end) {
+            let balance = projectedCash(on: month.monthEnd, scope: own)
+            let cents = CashInterest.monthlyCents(on: balance, percent: CashInterest.annualPercent)
+            guard cents > 0 else { continue }
+            let payout = DividendForecastPayment(
+                key: account.id.uuidString,
+                name: L("Zinsen (Prognose)", "Interest (forecast)"),
+                date: month.payout,
+                cents: cents,
+                accountID: account.id
+            )
+            paid.append(payout)
+            own.dividends.append(payout)
+        }
+        return paid
+    }
+
+    /// The same inputs, narrowed to one cash account.
+    private static func accountScope(_ scope: ForecastScope, account: Account) -> ForecastScope {
+        var own = scope
+        own.accounts = [account]
+        own.activeFixed = scope.activeFixed.filter { $0.accountID == account.id }
+        own.cashFixed = scope.cashFixed.filter { $0.accountID == account.id }
+        own.budgets = scope.budgets.filter { $0.accountID == account.id }
+        own.forecasts = scope.forecasts.filter { $0.accountID == account.id }
+        own.shopping = []
+        own.scopedCashAccountIDs = [account.id]
+        own.cashIDs = [account.id]
+        own.variablePlan = VariableBudgetAccounts.planCents(budgets: own.budgets, scopedAccountIDs: [account.id], cashAccountIDs: [account.id])
+        own.dividends = scope.dividends.filter { $0.accountID == account.id }
+        return own
+    }
+
     /// Expected dividends in a range, shaped like income forecast dates.
     ///
     /// A projection always belongs to a held position, so its key is that position's identifier.
@@ -734,7 +782,7 @@ public enum FinanceService {
         return dividends
             .filter { calendar.startOfDay(for: $0.date) >= start && calendar.startOfDay(for: $0.date) <= end }
             .compactMap { item in
-                UUID(uuidString: item.key).map { (item.date, item.cents, "\(L("Dividende", "Dividend")) \(item.name)", $0) }
+                UUID(uuidString: item.key).map { (item.date, item.cents, item.name, $0) }
             }
     }
 

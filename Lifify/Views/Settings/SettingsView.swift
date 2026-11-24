@@ -436,6 +436,8 @@ private struct FinanceSettingsView: View {
     @AppStorage(PeriodReviewNotifier.enabledKey) private var reviewNotice = false
     @AppStorage(ReturnScenario.enabledKey) private var scenarioEnabled = false
     @AppStorage(DividendReportBuilder.incomeKey) private var dividendsAsIncome = false
+    @AppStorage(CashInterest.enabledKey) private var interestEnabled = false
+    @AppStorage(CashInterest.rateKey) private var interestPercent = CashInterest.standardPercent
 
     var body: some View {
         Form {
@@ -488,12 +490,24 @@ private struct FinanceSettingsView: View {
                     )
                 }
                 Toggle(L("Dividenden in Einnahmeprognose", "Dividends in income forecast"), isOn: $dividendsAsIncome)
+                Toggle(L("Zinsprognose Verrechnungskonto", "Interest forecast on cash account"), isOn: $interestEnabled)
+                if interestEnabled {
+                    HStack {
+                        Text(L("Zinssatz pro Jahr", "Yearly rate"))
+                        Spacer()
+                        TextField(CashInterest.standardPercent.formatted(), value: $interestPercent, format: .number.precision(.fractionLength(0...2)))
+                            .keyboardType(.decimalPad)
+                            .multilineTextAlignment(.trailing)
+                            .frame(maxWidth: 80)
+                        Text("%").foregroundStyle(.secondary)
+                    }
+                }
             } header: {
                 Text(L("Depot", "Portfolio"))
             } footer: {
                 Text(L(
-                    "Jedes Depot hängt an einem Girokonto. Die Gebühr gilt einmal pro Buchung, nicht pro Stück. Erwartete Dividenden zählen nur mit dem Schalter als geplante Einnahme, auf dem Konto der letzten Zahlung.",
-                    "Each portfolio is linked to one checking account. The fee applies once per booking, not per share. Expected dividends count as planned income only with the switch, on the account of the last payment."
+                    "Jedes Depot hängt an einem Girokonto. Die Gebühr gilt einmal pro Buchung, nicht pro Stück. Erwartete Dividenden zählen nur mit dem Schalter als geplante Einnahme, auf dem Konto der letzten Zahlung. Die Zinsprognose verzinst den prognostizierten Monatsend-Stand des Girokontos für Käufe monatlich, mit Zinseszins.",
+                    "Each portfolio is linked to one checking account. The fee applies once per booking, not per share. Expected dividends count as planned income only with the switch, on the account of the last payment. The interest forecast pays monthly interest on the projected month-end balance of the trade checking account, compounded."
                 ))
             }
             .appGlassRow()

@@ -1093,6 +1093,8 @@ struct DashboardView: View {
         hasher.combine(HistoricalPriceStore.cacheRevision)
         hasher.combine(ReturnScenario.revision)
         hasher.combine(DividendReportBuilder.countsAsIncome)
+        hasher.combine(CashInterest.isEnabled)
+        hasher.combine(CashInterest.annualPercent)
         hasher.combine(TransferForecastStore.all().count)
         FinanceRenderToken.mix(accounts, into: &hasher)
         FinanceRenderToken.mix(fixedCosts, into: &hasher)

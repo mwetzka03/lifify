@@ -38,6 +38,8 @@ enum BackupDefaults {
         PeriodReviewNotifier.enabledKey,
         ReturnScenario.enabledKey,
         DividendReportBuilder.incomeKey,
+        CashInterest.enabledKey,
+        CashInterest.rateKey,
         StepChallenge.goalKey,
         BudgetAlertSettings.enabledKey,
         BudgetAlertSettings.budgetsKey,

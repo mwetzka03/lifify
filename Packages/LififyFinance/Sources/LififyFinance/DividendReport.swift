@@ -98,6 +98,7 @@ public enum DividendReportBuilder {
         guard countsAsIncome else { return [] }
         return make(entries: entries, holdings: holdings, now: now).forecastPayments
             .filter { $0.date > now && $0.accountID.map(accountIDs.contains) == true }
+            .map { DividendForecastPayment(key: $0.key, name: "\(L("Dividende", "Dividend")) \($0.name)", date: $0.date, cents: $0.cents, accountID: $0.accountID) }
     }
 
     /// One received dividend, matched to its position when possible.
