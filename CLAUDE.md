@@ -485,10 +485,11 @@ Eigentümer will **alle** unten genannten Teile.
 
 *Entsperren kostet Coins, alles einstellbar*
 - **Alle Beträge und Zeiten stellt der Nutzer ein.** Nichts ist fest
-  verdrahtet. Vorschläge für Standardwerte, die Claude dem Eigentümer vor der
-  Umsetzung zur Bestätigung vorlegt: Freikauf 50 Coins für 15 Minuten,
-  Wartezeit 3 Minuten, Notfall-Entsperren im Commitment 500 Coins, Strafe für
-  Umgehung 300 Coins.
+  verdrahtet. Standardwerte (vom Eigentümer am 24.11.2026 bestätigt):
+  Freikauf **1 Coin pro Minute**, Wartezeit **3 Minuten**, Notfall-Entsperren
+  im Commitment **150 Coins**, Strafe für Umgehung **250 Coins**.
+- Xcode darf die Berechtigung „Family Controls“ beim Build per automatischer
+  Signierung im Entwicklerkonto eintragen (Freigabe 24.11.2026).
 - **Freikaufen:** gewählte Minuten gegen Coins. Bei negativem Wallet nicht
   möglich (gleiche Regel wie die Shop-Sperre). Danach greift die Sperre
   wieder automatisch.
