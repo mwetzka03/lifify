@@ -50,6 +50,11 @@ steht in `Changes Documentation/CHANGES-0.5.5.md`.
 - Modular bauen: Fachlogik in die Packages (`LififyCore`, `LififyFinance`,
   `LififyChallenges`, `LififyHealth`), keine Fachlogik in Views. Neue Targets
   (Widget-Extension) nutzen dieselben Packages.
+- **Kompatibilität ab 0.6.0 (RULES.md, Abschnitt „Kompatibilität ab 0.6.0“):**
+  Der Eigentümer richtet die App mit 0.6.0 neu ein. Jede spätere Version
+  öffnet ihre Datenbank per Migration ohne Verlust und liest jedes Backup seit
+  0.6.0; Export und Import ergeben dieselben Daten. Vor dem ersten Release
+  nach 0.6.0 eine Store-Datei und ein Backup von 0.6.0 als Fixtures ablegen.
 - **Code-Regeln aus RULES.md, Abschnitt „Code“, gelten für jede Zeile:**
   kleine Methoden, keine Doppelungen, Wiederverwendung über Protokolle,
   `///`-Doku über jedem Typ und jeder Methode, bei längeren Methoden mit

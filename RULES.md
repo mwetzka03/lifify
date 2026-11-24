@@ -68,6 +68,30 @@ is finished when the build and all tests pass.
 - Code that is touched for any reason is brought up to these rules in the
   same change.
 
+### Compatibility from 0.6.0
+
+Version 0.6.0 is the base the owner sets up anew. From then on, no version may
+damage or lose data, on update or through a backup.
+
+- **Database:** Every change to a stored model gets a new `VersionedSchema`
+  and a migration stage. The previous schema is kept as a frozen copy. A store
+  file written by the last released version is added as a test fixture and must
+  open with all its data.
+- **New fields** get a default value, so old stores and old backups fill them.
+  Fields are not renamed or reused for another meaning. A field that is no
+  longer used is removed only through a migration with a test.
+- **Backup format:** A newer app reads every backup written since 0.6.0. New
+  entries in a backup are optional when reading; a missing entry keeps today's
+  behavior. Existing record layouts, keys, and meanings stay as they are.
+- **Round trip:** Export and import of every scope (all, finance, challenges,
+  health) must give back the same data. A test covers each new stored value
+  in the round trip.
+- **Settings and side files:** A new `AppStorage` key or file has a default
+  that matches the behavior without it, and goes into the backup when the
+  person sets it.
+- **Changelog:** Every change to storage or backup names its migration and its
+  test in the changelog.
+
 ### Design
 
 The selected style is Green, Blue, Bordeaux, or Violet, and Appearance is
@@ -136,6 +160,33 @@ Tests grün sind.
   Code-Kommentare sind wie der übrige Code auf Englisch.
 - Code, der aus irgendeinem Grund angefasst wird, wird in derselben Änderung
   auf diese Regeln gebracht.
+
+### Kompatibilität ab 0.6.0
+
+Version 0.6.0 ist die Grundlage, die der Eigentümer neu einrichtet. Ab dann
+darf keine Version Daten beschädigen oder verlieren, weder beim Update noch
+über ein Backup.
+
+- **Datenbank:** Jede Änderung an einem gespeicherten Modell bekommt ein neues
+  `VersionedSchema` und eine Migrationsstufe. Das vorige Schema bleibt als
+  eingefrorene Kopie erhalten. Eine Store-Datei der zuletzt ausgelieferten
+  Version kommt als Test-Fixture dazu und muss mit allen Daten öffnen.
+- **Neue Felder** bekommen einen Standardwert, damit alte Stores und alte
+  Backups sie füllen. Felder werden nicht umbenannt und nicht für eine andere
+  Bedeutung wiederverwendet. Ein nicht mehr genutztes Feld entfällt nur über
+  eine Migration mit Test.
+- **Backup-Format:** Eine neuere App liest jedes Backup seit 0.6.0. Neue
+  Einträge im Backup sind beim Lesen optional; fehlt einer, bleibt das heutige
+  Verhalten. Bestehende Satzaufbauten, Schlüssel und Bedeutungen bleiben, wie
+  sie sind.
+- **Hin und zurück:** Export und Import jedes Bereichs (alles, Finanzen,
+  Challenges, Gesundheit) müssen dieselben Daten ergeben. Ein Test deckt jeden
+  neuen gespeicherten Wert in diesem Kreislauf ab.
+- **Einstellungen und Nebendateien:** Ein neuer `AppStorage`-Schlüssel oder eine
+  neue Datei hat einen Standard, der dem Verhalten ohne ihn entspricht, und
+  kommt ins Backup, sobald die Person ihn setzt.
+- **Changelog:** Jede Änderung an Speicher oder Backup nennt im Changelog ihre
+  Migration und ihren Test.
 
 ### Design
 
