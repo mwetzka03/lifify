@@ -273,6 +273,12 @@ of the method splitting are still open (see the last section).
 - **Why:** With the return scenario on, the value grew while the gain stayed at today's figure.
 - **Effect:** With the scenario, the gains grow with the forecast. Without it they stay at today's gain, as before. Today and past periods are unchanged.
 
+### Owner feedback: Step pages and the home activity card
+
+- **Step pages:** A swipe on the step chart, or its arrows, shows the 7 or 30 days before; the line shows that page's average. Lifify now reads one year of steps for this.
+- **Home:** Under the calendar, a card shows the steps and the planned trainings of the chosen day, week, or month. Week and month show the sum and the daily average. Trainings come from calendar events with linked plans, directly or through their challenge, and show a check once a session of that plan finished that day.
+- **Why:** The owner wants to look back and see activity next to the calendar. Effect: a moved or deleted event changes the card at once.
+
 ## Deutsch
 
 ### Überblick
@@ -563,3 +569,9 @@ Screens und ein Teil der Methoden-Zerlegung noch offen (siehe letzter Abschnitt)
 - **Was:** In einem künftigen Zeitraum ist der Gewinn einer Position der Prognosewert minus heutigem Einstand plus allen Sparplan-Beträgen bis zum Zeitraumende. „Heute“ zeigt das Wachstum ab dem heutigen Wert plus dem neuen Geld. Depot-Ansicht und Depot-Kachel nutzen beide diese Rechnung.
 - **Warum:** Mit Renditeszenario wuchs der Wert, der Gewinn blieb aber beim heutigen Stand.
 - **Auswirkung:** Mit Szenario wachsen die Gewinne mit der Prognose. Ohne Szenario bleiben sie wie bisher beim heutigen Gewinn. Heute und vergangene Zeiträume sind unverändert.
+
+### Rückmeldung des Eigentümers: Schritte blättern und Aktivität auf der Startseite
+
+- **Schritte blättern:** Ein Wisch über das Diagramm oder die Pfeile zeigt die 7 oder 30 Tage davor; die Linie zeigt den Durchschnitt dieser Seite. Dafür liest Lifify jetzt ein Jahr Schritte.
+- **Startseite:** Unter dem Kalender zeigt eine Karte Schritte und geplante Trainings des gewählten Tages, der Woche oder des Monats. Woche und Monat zeigen Summe und Tagesdurchschnitt. Trainings kommen aus Kalenderterminen mit verknüpftem Plan, direkt oder über die Challenge, und bekommen einen Haken, sobald an dem Tag eine Session des Plans beendet wurde.
+- **Warum:** Der Eigentümer will zurückblättern und die Aktivität neben dem Kalender sehen. Auswirkung: Ein verschobener oder gelöschter Termin ändert die Karte sofort.

@@ -8,9 +8,9 @@ struct StepsCard: View {
     @AppStorage(AppleHealthSync.enabledKey) private var isEnabled = false
     @AppStorage(AppPalette.storageKey) private var paletteRaw = AppPalette.green.rawValue
     @Environment(\.colorScheme) private var scheme
-    @Environment(\.scenePhase) private var scenePhase
     @State private var summary = HealthSummary()
     @State private var showsMonth = false
+    @State private var page = 0
 
     var body: some View {
         Group {
@@ -25,8 +25,12 @@ struct StepsCard: View {
                     }
                     .pickerStyle(.segmented)
                     .labelsHidden()
+                    .onChange(of: showsMonth) { page = 0 }
+                    pageHeader
                     chart
-                    Text(L("Durchschnitte ohne heute und ohne Tage ohne Daten.", "Averages leave out today and days without data."))
+                        .contentShape(Rectangle())
+                        .gesture(DragGesture(minimumDistance: 24).onEnded(swiped))
+                    Text(L("Wischen zeigt frühere Zeiträume. Durchschnitte ohne heute und ohne Tage ohne Daten.", "Swipe for earlier ranges. Averages leave out today and days without data."))
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
@@ -35,11 +39,8 @@ struct StepsCard: View {
                 .appGlassCard(radius: 18)
             }
         }
-        .task(id: "\(isEnabled)\(scenePhase == .active)") {
-            guard isEnabled, scenePhase == .active else { return }
-            await AppleHealthSync.refreshWeight()
-            summary = await AppleHealthSync.summary() ?? HealthSummary()
-        }
+        .loadsSteps(into: $summary)
+        .task { await AppleHealthSync.refreshWeight() }
     }
 
     private var stats: StepStats {
@@ -78,10 +79,46 @@ struct StepsCard: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    /// The bars of the chosen days with the matching average as a line.
+    private var pageLength: Int { showsMonth ? 30 : 7 }
+
+    private var pageDays: [HealthDayValue] {
+        StepStats.chartDays(summary.steps, count: pageLength, page: page, now: .now)
+    }
+
+    /// The shown range with arrows that page like the swipe.
+    private var pageHeader: some View {
+        let days = pageDays
+        return HStack {
+            Button { page += 1 } label: { Image(systemName: "chevron.left") }
+                .disabled(!StepStats.hasData(summary.steps, count: pageLength, page: page + 1, now: .now))
+            Spacer()
+            Text("\(AppDate.dayMonth(days.first?.date ?? .now)) – \(AppDate.dayMonth(days.last?.date ?? .now))")
+                .font(.caption.weight(.semibold))
+                .monospacedDigit()
+            Spacer()
+            Button { page -= 1 } label: { Image(systemName: "chevron.right") }
+                .disabled(page == 0)
+        }
+        .buttonStyle(.borderless)
+        .appAccentTint()
+    }
+
+    /// A swipe to the right shows older days, to the left newer ones.
+    private func swiped(_ value: DragGesture.Value) {
+        guard abs(value.translation.width) > abs(value.translation.height) else { return }
+        withAnimation {
+            if value.translation.width > 0, StepStats.hasData(summary.steps, count: pageLength, page: page + 1, now: .now) {
+                page += 1
+            } else if value.translation.width < 0, page > 0 {
+                page -= 1
+            }
+        }
+    }
+
+    /// The bars of the shown page with its average as a line.
     private var chart: some View {
-        let days = StepStats.chartDays(summary.steps, count: showsMonth ? 30 : 7, now: .now)
-        let average = showsMonth ? stats.monthAverage : stats.weekAverage
+        let days = pageDays
+        let average = StepStats.average(of: days, now: .now)
         return Chart {
             ForEach(days) { day in
                 BarMark(x: .value(L("Tag", "Day"), day.date, unit: .day), y: .value(L("Schritte", "Steps"), day.value))

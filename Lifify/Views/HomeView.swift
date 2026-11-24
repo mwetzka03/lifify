@@ -125,6 +125,8 @@ struct HomeView: View {
                     }
                 }
 
+                HomeActivityCard(start: periodRange.start, end: periodRange.end, isSingleDay: mode == .day)
+
                 periodBookings
             }
             .padding()

@@ -93,8 +93,7 @@ enum WidgetPublisher {
     /// The next calendar slot with a linked plan.
     private static func nextTraining(events: [ChallengeCalendarEvent], plans: [WorkoutPlan]) -> WidgetAppointment? {
         for event in events {
-            let linked = WorkoutLinkStore.planIDs(forEvent: event.id)
-                + (event.linkedChallengeID.map { WorkoutLinkStore.planIDs(forChallenge: $0) } ?? [])
+            let linked = TrainingAgenda.planIDs(for: event)
             if let plan = plans.first(where: { linked.contains($0.id) }) {
                 return WidgetAppointment(title: plan.name, date: event.startDate, planID: plan.id)
             }

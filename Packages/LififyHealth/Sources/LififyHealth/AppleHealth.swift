@@ -60,21 +60,70 @@ public struct StepStats: Equatable, Sendable {
         )
     }
 
-    /// The last days for a chart, oldest first. A day without data shows zero.
+    /// The days of one chart page, oldest first. A day without data shows zero.
+    ///
+    /// Page 0 ends today, page 1 ends the day before page 0 starts, and so on.
     ///
     /// - Parameters:
     ///   - days: The daily values in any order.
-    ///   - count: The number of days including today.
+    ///   - count: The number of days on a page.
+    ///   - page: How many pages back from today.
     ///   - now: The current time.
     ///   - calendar: The calendar of the days.
     /// - Returns: One value per day.
-    public static func chartDays(_ days: [HealthDayValue], count: Int, now: Date, calendar: Calendar = .current) -> [HealthDayValue] {
+    public static func chartDays(
+        _ days: [HealthDayValue],
+        count: Int,
+        page: Int = 0,
+        now: Date,
+        calendar: Calendar = .current
+    ) -> [HealthDayValue] {
         let today = calendar.startOfDay(for: now)
-        return (0..<count).reversed().compactMap { offset in
+        let end = count * max(page, 0)
+        return (end..<(end + count)).reversed().compactMap { offset in
             guard let day = calendar.date(byAdding: .day, value: -offset, to: today) else { return nil }
             let value = days.first { calendar.isDate($0.date, inSameDayAs: day) }?.value ?? 0
             return HealthDayValue(date: day, value: value)
         }
+    }
+
+    /// The average of a chart page, leaving out today and days without data.
+    ///
+    /// - Parameters:
+    ///   - page: The days of the page.
+    ///   - now: The current time.
+    ///   - calendar: The calendar of the days.
+    /// - Returns: The rounded mean, or `nil` when no finished day has data.
+    public static func average(of page: [HealthDayValue], now: Date, calendar: Calendar = .current) -> Int? {
+        let today = calendar.startOfDay(for: now)
+        let counted = page.filter { $0.value > 0 && calendar.startOfDay(for: $0.date) < today }
+        guard !counted.isEmpty else { return nil }
+        return Int((counted.reduce(0) { $0 + $1.value } / Double(counted.count)).rounded())
+    }
+
+    /// The total and the daily average of a date range.
+    ///
+    /// - Parameters:
+    ///   - days: The daily values in any order.
+    ///   - start: The first moment of the range.
+    ///   - end: The first moment after the range.
+    ///   - now: The current time, whose unfinished day the average leaves out.
+    ///   - calendar: The calendar of the days.
+    /// - Returns: The sum of all days and the average of the finished days with data.
+    public static func range(
+        _ days: [HealthDayValue],
+        from start: Date,
+        to end: Date,
+        now: Date,
+        calendar: Calendar = .current
+    ) -> (total: Int, average: Int?) {
+        let inside = days.filter { $0.date >= start && $0.date < end }
+        return (Int(inside.reduce(0) { $0 + $1.value }.rounded()), average(of: inside, now: now, calendar: calendar))
+    }
+
+    /// Says whether an older page still has any data.
+    public static func hasData(_ days: [HealthDayValue], count: Int, page: Int, now: Date, calendar: Calendar = .current) -> Bool {
+        chartDays(days, count: count, page: page, now: now, calendar: calendar).contains { $0.value > 0 }
     }
 
     /// The rounded mean of the days in a window before today.
@@ -194,8 +243,8 @@ public enum AppleHealthSync {
     public static let enabledKey = "lifify.appleHealth"
     public static let exportedKey = "lifify.appleHealthWorkouts"
     public static let weightDateKey = "lifify.appleHealthWeightDate"
-    /// The days read for the step chart and the month average.
-    public static let summaryDays = 31
+    /// The days read for the step chart, so older weeks and months can be paged through.
+    public static let summaryDays = 366
 
     /// The connection. Tests replace it.
     public static var source: any HealthDataSource = AppleHealthSource()

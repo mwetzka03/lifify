@@ -1,4 +1,5 @@
 import Foundation
+import LififyChallenges
 import LififyCore
 import LififyHealth
 import Testing
@@ -126,6 +127,17 @@ extension LififyRuleTests {
             #expect(stats.monthAverage == nil)
         }
 
+        @Test func olderPagesShowTheWeeksBefore() {
+            let values = [day(7, 1_000), day(13, 3_000), day(14, 9_000)]
+            let page = StepStats.chartDays(values, count: 7, page: 1, now: now)
+            #expect(page.count == 7)
+            #expect(Calendar.current.isDate(page.last!.date, inSameDayAs: days(-7, after: date(2026, 3, 18))))
+            #expect(page.first?.value == 3_000)
+            #expect(StepStats.average(of: page, now: now) == 2_000)
+            #expect(StepStats.hasData(values, count: 7, page: 2, now: now))
+            #expect(!StepStats.hasData(values, count: 7, page: 3, now: now))
+        }
+
         @Test func theChartFillsMissingDaysWithZero() {
             let chart = StepStats.chartDays([day(0, 500), day(2, 700)], count: 7, now: now)
             #expect(chart.count == 7)
@@ -133,6 +145,47 @@ extension LififyRuleTests {
             #expect(chart[4].value == 700)
             #expect(chart[5].value == 0)
             #expect(Calendar.current.isDate(chart[0].date, inSameDayAs: days(-6, after: date(2026, 3, 18))))
+        }
+    }
+}
+
+extension LififyRuleTests {
+    /// Home shows the trainings the calendar plans.
+    @Suite("Training agenda")
+    @MainActor
+    struct TrainingAgendaTests {
+        @Test func eventsWithLinkedPlansBecomeTrainings() async throws {
+            try await withTestStore { _ in
+                let push = WorkoutPlan(name: "Push")
+                let pull = WorkoutPlan(name: "Pull")
+                let monday = ChallengeCalendarEvent(title: "Sport", startDate: date(2026, 3, 16, 18), endDate: date(2026, 3, 16, 19))
+                let other = ChallengeCalendarEvent(title: "Zahnarzt", startDate: date(2026, 3, 17, 9), endDate: date(2026, 3, 17, 10))
+                WorkoutLinkStore.link(planID: push.id, eventID: monday.id, managed: false)
+                let challenge = UUID()
+                WorkoutLinkStore.link(planID: pull.id, challengeID: challenge)
+                let wednesday = ChallengeCalendarEvent(title: "Sport", startDate: date(2026, 3, 18, 7), endDate: date(2026, 3, 18, 8))
+                wednesday.linkedChallengeID = challenge
+                var session = WorkoutSession(plan: push, now: date(2026, 3, 16, 18))
+                session.finishedAt = date(2026, 3, 16, 19)
+                let items = TrainingAgenda.items(
+                    events: [wednesday, other, monday], plans: [push, pull], sessions: [session],
+                    from: date(2026, 3, 16), to: date(2026, 3, 23)
+                )
+                #expect(items.map(\.planName) == ["Push", "Pull"])
+                #expect(items.map(\.isDone) == [true, false])
+                #expect(TrainingAgenda.items(events: [monday], plans: [push], sessions: [], from: date(2026, 3, 17), to: date(2026, 3, 18)).isEmpty)
+            }
+        }
+
+        @Test func aRangeSumsStepsAndAveragesFinishedDays() {
+            let values = [
+                HealthDayValue(date: date(2026, 3, 16), value: 4_000),
+                HealthDayValue(date: date(2026, 3, 17), value: 6_000),
+                HealthDayValue(date: date(2026, 3, 18), value: 1_000)
+            ]
+            let week = StepStats.range(values, from: date(2026, 3, 16), to: date(2026, 3, 23), now: date(2026, 3, 18, 12))
+            #expect(week.total == 11_000)
+            #expect(week.average == 5_000)
         }
     }
 }
