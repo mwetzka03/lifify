@@ -5,7 +5,8 @@ Eigentümer (mwetzka03) vereinbart wurde.
 
 Stand: 24.11.2026. Version 0.5.5 ist in `main` gemergt. **Version 0.6.0** liegt
 auf dem Branch `version0.6.0` und ist noch nicht auf einem echten iPhone
-getestet. Teil B ist umgesetzt. Offen sind `DashboardView`, `TransactionsView`
+getestet. Teil B1–B12 ist umgesetzt. **Neu: B13 App-Sperre** (freigegeben
+am 24.11.2026, noch nicht begonnen). Offen sind `DashboardView`, `TransactionsView`
 und ein Teil der Methoden-Zerlegung aus A8.
 
 Die erste Code-Analyse liegt als Claude Doc im Projekt „Lifify“:
@@ -433,6 +434,108 @@ automatischer Testlauf (CI).
   gegessenen Mahlzeiten lassen sich mit einem Tipp erneut eintragen.
 - Favoriten kommen ins Gesundheits-Backup.
 - Kein Gewichts- oder Kalorien-Diagramm (ausdrücklich nicht gewünscht).
+
+**B13 – App-Sperre (Bildschirmzeit), freigegeben am 24.11.2026**
+
+Ziel: Lifify sperrt ausgewählte Apps, ähnlich wie Bildschirmzeit, aber mit
+eigenem Sperrbildschirm und so, dass Umgehen Aufwand und Coins kostet. Der
+Eigentümer will **alle** unten genannten Teile.
+
+*Technik*
+- Screen-Time-API: `FamilyControls` mit `.individual`-Autorisierung,
+  `ManagedSettings` (Abschirmen) und `DeviceActivity` (Zeitpläne, Limits).
+- Neue Erweiterungen: `ShieldConfiguration` (eigener Sperrbildschirm im
+  Lifify-Design), `ShieldAction` (Knöpfe auf dem Sperrbildschirm),
+  `DeviceActivityMonitor` (Zeitpläne und Limits starten und beenden). Alle
+  nutzen die App Group `group.com.mwetzka03.lifify`.
+- Berechtigung: Für das eigene iPhone reicht „Family Controls
+  (Development)“. Eine Freigabe von Apple braucht es erst für TestFlight oder
+  den App Store. Die nötigen Schritte im Developer-Konto beschreibt Claude dem
+  Eigentümer.
+- Ein `ShieldAction` kann die App nicht direkt öffnen. Entsperren läuft daher
+  so: Knopf auf dem Sperrbildschirm → lokale Mitteilung → Tipp öffnet Lifify
+  auf dem Entsperr-Bildschirm. Vorher prüfen, ob iOS 27 einen direkteren Weg
+  bietet.
+- Die Datenbank liegt im App-Ordner, nicht in der App Group. Was die
+  Erweiterungen brauchen (Sperrprofile, Zeitpläne, aktive Freikäufe,
+  Commitment-Ende), legt die App als kleinen Schnappschuss in die App Group,
+  so wie beim Widget (`WidgetSnapshot`). Coins werden nur in der App gebucht.
+- Bekanntes Risiko: Unter iOS 27 lösen `DeviceActivity`-Schwellen laut
+  Entwicklerberichten teils nicht aus. Tageslimits deshalb im Test am echten
+  Gerät prüfen und im Changelog festhalten, wenn sie unzuverlässig sind.
+
+*Einstellungen*
+- **Neuer Reiter „Bildschirmsperre“** in den Einstellungen, **zwischen
+  Gesundheit und Daten** (`SettingsDirectory`). Symbol z. B.
+  `hourglass` oder `lock.app.dashed`.
+- Dort: Autorisierung anfragen, Apps und Kategorien auswählen
+  (`FamilyActivityPicker`), Sperrprofile verwalten, alle Coin-Kosten und
+  Strafen einstellen, Verlauf von Freikäufen und Verstößen.
+- Lifify sieht keine App-Namen, nur die anonymen Kennungen der Auswahl. Die
+  Auswahl kommt ins Backup, soweit die Kennungen nach einer
+  Wiederherstellung gültig bleiben; sonst muss neu gewählt werden. Vorher
+  prüfen und im Changelog festhalten.
+
+*Sperrarten (Profile; mehrere gleichzeitig möglich)*
+- **Zeitplan:** Wochentage und Uhrzeit, z. B. 22–7 Uhr.
+- **Tageslimit:** Minuten pro Tag für die ausgewählten Apps, danach gesperrt
+  bis Mitternacht.
+- **Fokus-Block:** manuell gestartet, für eine gewählte Dauer.
+- **Commitment-Modus** (harter Modus): siehe unten.
+
+*Entsperren kostet Coins, alles einstellbar*
+- **Alle Beträge und Zeiten stellt der Nutzer ein.** Nichts ist fest
+  verdrahtet. Vorschläge für Standardwerte, die Claude dem Eigentümer vor der
+  Umsetzung zur Bestätigung vorlegt: Freikauf 50 Coins für 15 Minuten,
+  Wartezeit 3 Minuten, Notfall-Entsperren im Commitment 500 Coins, Strafe für
+  Umgehung 300 Coins.
+- **Freikaufen:** gewählte Minuten gegen Coins. Bei negativem Wallet nicht
+  möglich (gleiche Regel wie die Shop-Sperre). Danach greift die Sperre
+  wieder automatisch.
+- **Erst die Pflicht:** optional pro Profil. Gesperrte Apps lassen sich erst
+  freikaufen, wenn alle fälligen Challenges des Tages erledigt sind.
+- **Wartezeit:** Vor jedem Freikauf läuft ein Countdown. Der Bildschirm
+  zeigt dabei Streak, Coin-Stand und die Kosten.
+- Freikäufe sind Coin-Buchungen wie Shop-Käufe, mit eigener Kategorie, damit
+  sie im Wallet erkennbar sind.
+
+*Commitment-Modus*
+- Einmal gestartet, lässt er sich in Lifify **nicht beenden**, bis die Zeit
+  abgelaufen ist. Freikaufen ist im Commitment nicht möglich.
+- **Notfall-Entsperren:** beendet das Commitment sofort, kostet den
+  eingestellten (hohen) Betrag und bricht die mit der Sperre verknüpften
+  Streaks. Es wird im Verlauf protokolliert. Davor eine deutliche Rückfrage.
+- **Während ein Commitment läuft, sind seine Einstellungen gesperrt**
+  (Kosten, Dauer, App-Auswahl, Profil löschen, Bildschirmsperre-Reiter
+  zurücksetzen). Sonst ließe es sich durch Herabsetzen der Kosten auf 0
+  umgehen. Erhöhen der Notfall-Kosten bleibt erlaubt.
+
+*Umgehen wird bestraft*
+- Ein Widerruf des Bildschirmzeit-Zugriffs in den iOS-Einstellungen lässt
+  sich nicht verhindern und im Hintergrund nicht erkennen. Lifify prüft
+  `AuthorizationCenter.shared.authorizationStatus` beim Start und bei jeder
+  Rückkehr in den Vordergrund.
+- Ist der Zugriff weg, während ein Profil oder Commitment aktiv sein sollte:
+  einmalige Strafe (einstellbar), Bruch der verknüpften Streaks, Eintrag im
+  Verlauf, deutlicher Hinweis. Danach fordert Lifify die Autorisierung neu
+  an. Dieselbe Umgehung wird nicht doppelt bestraft.
+- Grenze, ehrlich dokumentieren: Wird Lifify gelöscht, sind auch Coins und
+  Verlauf weg. Das ist kein Schutz, sondern nur eine weitere Hürde.
+
+*Verknüpfung mit Challenges*
+- Optional pro Profil eine Abstinenz-Challenge (z. B.
+  „Social-Media-Abstinenz“): Jeder Tag ohne Freikauf, Notfall-Entsperren und
+  Umgehung zählt als eingehalten und zahlt wie die bestehende Abstinenz aus.
+  Ein Notfall-Entsperren oder eine Umgehung gilt als Rückfall.
+
+*Tests*
+- Die Regeln (Kosten, Pflicht-vor-Freikauf, Commitment-Sperre der
+  Einstellungen, Strafe genau einmal, Rückfall der Abstinenz) liegen in
+  `LififyChallenges` bzw. einem neuen Modul und werden mit Swift Testing
+  geprüft. `ManagedSettings` und `FamilyControls` liegen hinter einem
+  Protokoll mit Attrappe für Tests, wie bei EventKit (A1).
+- Doku: README (neuer Bereich), FEATURES, Changelog 0.6.0; Datenschutz:
+  Lifify sieht keine App-Namen und sendet nichts nach außen.
 
 ### Nicht gewünscht (nicht umsetzen)
 
