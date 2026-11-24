@@ -291,6 +291,12 @@ of the method splitting are still open (see the last section).
 - **Why:** Both needed a manual import before.
 - **Effect:** All of the owner's funds are split automatically. Only fund identifiers are sent. README names the new source under privacy.
 
+### Owner feedback: Dividends in the income forecast (switch)
+
+- **What:** A switch "Dividends in income forecast" under Settings, Finance, Portfolio, off by default. When on, each expected dividend after today counts as planned income in the period's income, projected balance, and events, on the account of the position's last payment.
+- **Why:** The owner wants the dividends in the forecast, but only after turning it on.
+- **Effect:** Off changes nothing; the money reference test is unchanged. On, the forecast and the projected balance grow by the expected dividends. The switch is in the backup.
+
 ## Deutsch
 
 ### Überblick
@@ -599,3 +605,9 @@ Screens und ein Teil der Methoden-Zerlegung noch offen (siehe letzter Abschnitt)
 - **Was:** iShares ist ein dritter Anbieter. Die Bestände kommen als CSV vom Produktdatendienst von BlackRock, dieselbe Datei, die die Fondsseite anbietet. iShares MSCI World Small Cap und iShares Space Technologies sind über die ISIN zugeordnet.
 - **Warum:** Beide brauchten bisher einen manuellen Import.
 - **Auswirkung:** Alle Fonds des Eigentümers werden automatisch aufgeteilt. Gesendet werden nur Fonds-Kennungen. Die README nennt die neue Quelle unter Datenschutz.
+
+### Rückmeldung des Eigentümers: Dividenden in der Einnahmeprognose (Schalter)
+
+- **Was:** Ein Schalter „Dividenden in Einnahmeprognose“ unter Einstellungen, Finanzen, Depot, standardmäßig aus. Ist er an, zählt jede erwartete Dividende nach heute als geplante Einnahme in Einnahmen, prognostiziertem Saldo und Ereignissen des Zeitraums, auf dem Konto der letzten Zahlung dieser Position.
+- **Warum:** Der Eigentümer will die Dividenden in der Prognose, aber erst nach dem Einschalten.
+- **Auswirkung:** Aus ändert nichts; der Referenztest der Geldrechnung ist unverändert. An wachsen Prognose und prognostizierter Saldo um die erwarteten Dividenden. Der Schalter ist im Backup.

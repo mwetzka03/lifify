@@ -305,6 +305,12 @@ public enum FinanceService {
                 budgets: variableBudgets,
                 scopedAccountIDs: scopedCashAccountIDs,
                 cashAccountIDs: cashIDs
+            ),
+            dividends: DividendReportBuilder.plannedIncome(
+                entries: entries,
+                holdings: holdings,
+                accountIDs: Set(accounts.map(\.id)),
+                now: now
             )
         )
         let income = incomeFigures(scope, predicate: incomePredicate)
@@ -344,7 +350,8 @@ public enum FinanceService {
                 accounts: accounts,
                 fixedCosts: activeFixed,
                 forecasts: forecasts,
-                shopping: shopping
+                shopping: shopping,
+                dividends: scope.dividends
             )
         )
     }
@@ -368,6 +375,8 @@ public enum FinanceService {
         let scopedCashAccountIDs: Set<UUID>?
         let cashIDs: [UUID]
         let variablePlan: Int
+        /// Expected dividends that count as income while their switch is on.
+        let dividends: [DividendForecastPayment]
 
         /// The depot at its current prices.
         var holdingsValue: Int {
@@ -381,7 +390,8 @@ public enum FinanceService {
         predicate: ((LedgerEntry) -> Bool)?
     ) -> (total: Int, booked: Int, open: Int) {
         let period = scope.period
-        let planned = incomeOccurrences(forecasts: scope.forecasts, from: period.start, through: period.end)
+        let planned = (incomeOccurrences(forecasts: scope.forecasts, from: period.start, through: period.end)
+            + dividendOccurrences(scope.dividends, from: period.start, through: period.end))
             .filter { item in
                 if ForecastSkipStore.isSkipped(.income, id: item.forecastID, on: item.date) { return false }
                 return !ForecastPeriodLinkStore.covers(.income, id: item.forecastID, entries: scope.entries, period: period)
@@ -459,7 +469,8 @@ public enum FinanceService {
             shopping: scope.shopping,
             variablePlan: scope.variablePlan,
             budgets: scope.budgets,
-            splits: scope.splits
+            splits: scope.splits,
+            dividends: scope.dividends
         )
     }
 
@@ -520,7 +531,8 @@ public enum FinanceService {
         shopping: [ShoppingItem],
         variablePlan: Int,
         budgets: [VariableBudget],
-        splits: [TransactionSplit]
+        splits: [TransactionSplit],
+        dividends: [DividendForecastPayment] = []
     ) -> Int {
         let calendar = Calendar.current
         let target = calendar.startOfDay(for: day)
@@ -534,7 +546,8 @@ public enum FinanceService {
             from: today,
             through: target,
             now: now,
-            periods: periods
+            periods: periods,
+            dividends: dividends
         )
         let fixed = fixedStillToPay(
             costs: fixedCosts,
@@ -598,9 +611,11 @@ public enum FinanceService {
         from: Date,
         through: Date,
         now: Date,
-        periods: [ForecastPeriod]
+        periods: [ForecastPeriod],
+        dividends: [DividendForecastPayment] = []
     ) -> Int {
-        let forecast = incomeOccurrences(forecasts: forecasts, from: from, through: through)
+        let forecast = (incomeOccurrences(forecasts: forecasts, from: from, through: through)
+            + dividendOccurrences(dividends, from: from, through: through))
             .filter { !forecastHidden(.income, id: $0.forecastID, on: $0.date, entries: entries, periods: periods) }
             .reduce(0) { $0 + $1.amount }
         let bookedThroughTarget = signedSum(entries: entries, kind: .income, from: from, through: through)
@@ -699,6 +714,30 @@ public enum FinanceService {
     }
 
     /// Lists income due dates in a period.
+    /// Expected dividends in a range, shaped like income forecast dates.
+    ///
+    /// A projection always belongs to a held position, so its key is that position's identifier.
+    ///
+    /// - Parameters:
+    ///   - dividends: The expected payments.
+    ///   - from: The first day.
+    ///   - through: The last day.
+    /// - Returns: The payments inside the range.
+    private static func dividendOccurrences(
+        _ dividends: [DividendForecastPayment],
+        from: Date,
+        through: Date
+    ) -> [(date: Date, amount: Int, title: String, forecastID: UUID)] {
+        let calendar = Calendar.current
+        let start = calendar.startOfDay(for: from)
+        let end = calendar.startOfDay(for: through)
+        return dividends
+            .filter { calendar.startOfDay(for: $0.date) >= start && calendar.startOfDay(for: $0.date) <= end }
+            .compactMap { item in
+                UUID(uuidString: item.key).map { (item.date, item.cents, "\(L("Dividende", "Dividend")) \(item.name)", $0) }
+            }
+    }
+
     private static func incomeOccurrences(
         forecasts: [IncomeForecast],
         from: Date,
@@ -1042,7 +1081,8 @@ public enum FinanceService {
         accounts: [Account],
         fixedCosts: [FixedCost],
         forecasts: [IncomeForecast],
-        shopping: [ShoppingItem]
+        shopping: [ShoppingItem],
+        dividends: [DividendForecastPayment] = []
     ) -> [ForecastLine] {
         let calendar = Calendar.current
         let start = calendar.startOfDay(for: period.start)
@@ -1066,7 +1106,8 @@ public enum FinanceService {
             lines.append(ForecastLine(id: entry.id.uuidString, date: entry.date, title: entry.title, amountCents: amount))
         }
         let bookedIncomeDays = Set(periodEntries.filter { $0.kind == .income }.map { calendar.startOfDay(for: $0.date) })
-        for item in incomeOccurrences(forecasts: forecasts, from: period.start, through: period.end) {
+        for item in incomeOccurrences(forecasts: forecasts, from: period.start, through: period.end)
+            + dividendOccurrences(dividends, from: period.start, through: period.end) {
             let day = calendar.startOfDay(for: item.date)
             if bookedIncomeDays.contains(day) { continue }
             lines.append(ForecastLine(

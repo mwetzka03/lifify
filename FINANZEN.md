@@ -669,9 +669,13 @@ full to be right, the statement has to be imported again after a rule change.
   year later: payment ÷ shares held then × shares held on the new date.
 - Shares on the new date include future savings plan executions.
 - A position that is no longer held has no forecast.
-- The dividends sit folded under the income forecasts in Income. They are only
-  shown and do not count in the income forecast. The list shows only positions
-  that still pay.
+- The dividends sit folded under the income forecasts in Income. The list
+  shows only positions that still pay.
+- With the switch "Dividends in income forecast" (Settings, Finance, Portfolio;
+  off by default) each expected payment after today counts as planned income:
+  in the period's income, the projected balance, and the period's events.
+- An expected dividend counts on the account of the last payment of that
+  position, so it appears only when that account is in view.
 
 ### Return scenario
 
@@ -1398,8 +1402,13 @@ Auszug nach einer Regeländerung neu importiert werden.
 - Der Bestand am neuen Datum enthält künftige Sparplan-Ausführungen.
 - Eine nicht mehr gehaltene Position hat keine Prognose.
 - Die Dividenden stehen eingeklappt unter den Einnahmeprognosen in Einnahmen.
-  Sie werden nur angezeigt und zählen nicht in die Einnahmeprognose. Die Liste
-  zeigt nur Positionen, die noch zahlen.
+  Die Liste zeigt nur Positionen, die noch zahlen.
+- Mit dem Schalter „Dividenden in Einnahmeprognose“ (Einstellungen, Finanzen,
+  Depot; standardmäßig aus) zählt jede erwartete Zahlung nach heute als
+  geplante Einnahme: in den Einnahmen des Zeitraums, im prognostizierten Saldo
+  und in den Ereignissen des Zeitraums.
+- Eine erwartete Dividende zählt auf dem Konto der letzten Zahlung dieser
+  Position, erscheint also nur, wenn dieses Konto in der Ansicht ist.
 
 ### Renditeszenario
 

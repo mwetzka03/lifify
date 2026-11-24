@@ -435,6 +435,7 @@ private struct FinanceSettingsView: View {
     @State private var importingTradeRepublic = false
     @AppStorage(PeriodReviewNotifier.enabledKey) private var reviewNotice = false
     @AppStorage(ReturnScenario.enabledKey) private var scenarioEnabled = false
+    @AppStorage(DividendReportBuilder.incomeKey) private var dividendsAsIncome = false
 
     var body: some View {
         Form {
@@ -486,12 +487,13 @@ private struct FinanceSettingsView: View {
                         value: scenarioEnabled ? L("An", "On") : L("Aus", "Off")
                     )
                 }
+                Toggle(L("Dividenden in Einnahmeprognose", "Dividends in income forecast"), isOn: $dividendsAsIncome)
             } header: {
                 Text(L("Depot", "Portfolio"))
             } footer: {
                 Text(L(
-                    "Jedes Depot hängt an einem Girokonto. Die Gebühr gilt einmal pro Buchung, nicht pro Stück.",
-                    "Each portfolio is linked to one checking account. The fee applies once per booking, not per share."
+                    "Jedes Depot hängt an einem Girokonto. Die Gebühr gilt einmal pro Buchung, nicht pro Stück. Erwartete Dividenden zählen nur mit dem Schalter als geplante Einnahme, auf dem Konto der letzten Zahlung.",
+                    "Each portfolio is linked to one checking account. The fee applies once per booking, not per share. Expected dividends count as planned income only with the switch, on the account of the last payment."
                 ))
             }
             .appGlassRow()

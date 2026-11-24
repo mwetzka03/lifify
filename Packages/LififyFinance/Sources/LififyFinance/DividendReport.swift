@@ -27,24 +27,38 @@ public struct DividendBucket: Identifiable, Equatable {
     public let cents: Int
 }
 
+/// One expected dividend payment.
+public struct DividendForecastPayment: Equatable, Sendable {
+    public let key: String
+    public let name: String
+    public let date: Date
+    public let cents: Int
+    /// The account the last payment of this position went to.
+    public let accountID: UUID?
+}
+
 /// Received dividends and the forecast of the next twelve months.
 public struct DividendReport: Equatable {
     public var positions: [DividendPosition] = []
     public var months: [DividendBucket] = []
     public var years: [DividendBucket] = []
     public var forecastMonths: [DividendBucket] = []
+    /// The single expected payments behind the forecast months.
+    public var forecastPayments: [DividendForecastPayment] = []
 
     /// Creates a report.
     public init(
         positions: [DividendPosition] = [],
         months: [DividendBucket] = [],
         years: [DividendBucket] = [],
-        forecastMonths: [DividendBucket] = []
+        forecastMonths: [DividendBucket] = [],
+        forecastPayments: [DividendForecastPayment] = []
     ) {
         self.positions = positions
         self.months = months
         self.years = years
         self.forecastMonths = forecastMonths
+        self.forecastPayments = forecastPayments
     }
 
     /// All received dividends.
@@ -59,6 +73,33 @@ public struct DividendReport: Equatable {
 /// Builds the dividend overview from the existing income bookings.
 @MainActor
 public enum DividendReportBuilder {
+    /// The switch that lets expected dividends count as income in the forecast. Off by default.
+    public nonisolated static let incomeKey = "lifify.dividendsInIncomeForecast"
+
+    /// Whether expected dividends count as planned income.
+    public static var countsAsIncome: Bool {
+        AppDefaults.store.bool(forKey: incomeKey)
+    }
+
+    /// The expected payments after now that the forecast counts, or none while the switch is off.
+    ///
+    /// - Parameters:
+    ///   - entries: All bookings.
+    ///   - holdings: The open depot positions.
+    ///   - accountIDs: The accounts in scope.
+    ///   - now: The current time.
+    /// - Returns: The payments of positions whose dividends reach one of these accounts.
+    public static func plannedIncome(
+        entries: [LedgerEntry],
+        holdings: [PortfolioHolding],
+        accountIDs: Set<UUID>,
+        now: Date
+    ) -> [DividendForecastPayment] {
+        guard countsAsIncome else { return [] }
+        return make(entries: entries, holdings: holdings, now: now).forecastPayments
+            .filter { $0.date > now && $0.accountID.map(accountIDs.contains) == true }
+    }
+
     /// One received dividend, matched to its position when possible.
     private struct Payment {
         let date: Date
@@ -66,6 +107,7 @@ public enum DividendReportBuilder {
         let key: String
         let name: String
         let holding: PortfolioHolding?
+        let accountID: UUID?
     }
 
     /// Builds the report.
@@ -94,7 +136,11 @@ public enum DividendReportBuilder {
             positions: positions(payments, recent: recent, projected: projected),
             months: buckets(payments.map { ($0.date, $0.cents) }, format: "yyyy-MM", calendar: calendar).reversed(),
             years: buckets(payments.map { ($0.date, $0.cents) }, format: "yyyy", calendar: calendar).reversed(),
-            forecastMonths: buckets(projected.map { ($0.date, $0.cents) }, format: "yyyy-MM", calendar: calendar)
+            forecastMonths: buckets(projected.map { ($0.date, $0.cents) }, format: "yyyy-MM", calendar: calendar),
+            forecastPayments: projected.map { item in
+                let source = recent.first { $0.key == item.key }
+                return DividendForecastPayment(key: item.key, name: source?.name ?? item.key, date: item.date, cents: item.cents, accountID: source?.accountID)
+            }
         )
     }
 
@@ -109,7 +155,8 @@ public enum DividendReportBuilder {
             cents: abs(entry.amountCents),
             key: match?.id.uuidString ?? normalized(entry.title),
             name: name,
-            holding: match
+            holding: match,
+            accountID: entry.accountID
         )
     }
 

@@ -4,7 +4,7 @@ import SwiftUI
 
 /// Received dividends and the forecast of the next twelve months, folded under the income forecasts.
 ///
-/// It only shows figures. The forecast does not enter the period forecast or any balance.
+/// It shows figures. The forecast enters the period forecast only while its switch is on.
 struct DividendSection: View {
     let entries: [LedgerEntry]
     let holdings: [PortfolioHolding]
@@ -19,8 +19,8 @@ struct DividendSection: View {
             } footer: {
                 if isOpen {
                     Text(L(
-                        "Die Prognose wiederholt die Zahlungen der letzten 12 Monate je Stück mit dem künftigen Bestand, inklusive Sparplänen. Sie zählt nicht in die Einnahmeprognose. Verkaufte Positionen stehen nur im Erhaltenen.",
-                        "The forecast repeats the last 12 months' payments per share with the future holding, including savings plans. It does not count in the income forecast. Sold positions appear only in the received total."
+                        "Die Prognose wiederholt die Zahlungen der letzten 12 Monate je Stück mit dem künftigen Bestand, inklusive Sparplänen. Sie zählt nur mit dem Schalter unter Einstellungen, Finanzen, Depot in die Einnahmeprognose. Verkaufte Positionen stehen nur im Erhaltenen.",
+                        "The forecast repeats the last 12 months' payments per share with the future holding, including savings plans. It counts in the income forecast only with the switch under Settings, Finance, Portfolio. Sold positions appear only in the received total."
                     ))
                 }
             }

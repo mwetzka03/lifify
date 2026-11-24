@@ -37,6 +37,7 @@ enum BackupDefaults {
         AppleHealthSync.exportedKey,
         PeriodReviewNotifier.enabledKey,
         ReturnScenario.enabledKey,
+        DividendReportBuilder.incomeKey,
         BudgetAlertSettings.enabledKey,
         BudgetAlertSettings.budgetsKey,
         BudgetAlertSettings.dailyKey,

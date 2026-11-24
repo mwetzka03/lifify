@@ -85,6 +85,39 @@ extension LififyRuleTests {
             }
         }
 
+        @Test func expectedDividendsCountAsIncomeOnlyWithTheSwitch() async throws {
+            try await withTestStore { store in
+                FinanceClock.fix(now)
+                defer { FinanceClock.fix(nil) }
+                let giro = Account(name: "Giro", isMain: true)
+                let other = Account(name: "Tagesgeld")
+                store.context.insert(giro)
+                store.context.insert(other)
+                let apple = holding(store, "Apple", isin: "US0378331005", shares: 10)
+                let paid = LedgerEntry(date: date(2026, 2, 10), title: "Apple", notes: "Typ: Ertrag", amountCents: 120, kind: .income)
+                paid.accountID = giro.id
+                store.context.insert(paid)
+                try store.context.save()
+                let entries: [LedgerEntry] = try store.all()
+                let february = ForecastPeriod(start: date(2027, 2, 1), end: date(2027, 2, 28))
+                @MainActor func income(_ accounts: [Account]) -> Int {
+                    FinanceService.periodForecast(
+                        period: february, periods: [february], accounts: accounts, entries: entries, holdings: [apple],
+                        fixedCosts: [], variableBudgets: [], splits: [], forecasts: [], shopping: [], now: now
+                    ).income
+                }
+                #expect(income([giro]) == 0)
+                store.defaults.set(true, forKey: DividendReportBuilder.incomeKey)
+                #expect(income([giro]) == 120)
+                #expect(income([other]) == 0)
+                let lines = FinanceService.periodForecast(
+                    period: february, periods: [february], accounts: [giro], entries: entries, holdings: [apple],
+                    fixedCosts: [], variableBudgets: [], splits: [], forecasts: [], shopping: [], now: now
+                ).events
+                #expect(lines.contains { $0.amountCents == 120 && $0.title.contains("Apple") })
+            }
+        }
+
         @Test func accumulatingFundsDoNotAppear() async throws {
             try await withTestStore { store in
                 let etf = holding(store, "Thesaurierer", isin: "IE00B4L5Y983", shares: 10)
