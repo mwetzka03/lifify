@@ -18,6 +18,25 @@ enum WidgetPublisher {
         WidgetCenter.shared.reloadAllTimelines()
     }
 
+    /// Updates only the amounts, for a booking made without the app on screen.
+    ///
+    /// The rest of the snapshot, such as the next training, stays as the app last wrote it.
+    static func refreshFinance(context: ModelContext, now: Date = .now) {
+        guard let folder = WidgetStore.directory, var snapshot = WidgetStore.read(in: folder) else { return }
+        snapshot.finance = FinanceLockSettings.widgetsMayShowAmounts ? finance(context: context, now: now) : nil
+        snapshot.generatedAt = now
+        WidgetStore.write(snapshot, in: folder)
+        WidgetCenter.shared.reloadAllTimelines()
+    }
+
+    /// Updates only today's steps, for a step update while the app is not on screen.
+    static func refreshSteps(now: Date = .now) {
+        guard let folder = WidgetStore.directory, var snapshot = WidgetStore.read(in: folder) else { return }
+        snapshot.steps = AppleHealthSync.cachedTodaySteps(now: now).map { WidgetSteps(count: $0.count, readAt: $0.readAt) }
+        WidgetStore.write(snapshot, in: folder)
+        WidgetCenter.shared.reloadAllTimelines()
+    }
+
     /// Books the widget's check-offs with the app's rules.
     ///
     /// - Parameters:

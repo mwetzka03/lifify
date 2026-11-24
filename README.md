@@ -170,14 +170,19 @@ through the system. It does not store passwords for that.
 
 ### Shortcuts
 
-On the iPhone, create two shortcuts in the Shortcuts app. iOS may still ask
-you to tap Run.
+The Lifify action **Bankmitteilung buchen** books in the background and
+answers, for example, "12,50 € gebucht: REWE". Lifify does not come to the
+front. iOS offers no automation for another app's push notification, so use
+one of these triggers:
 
-1. **Sparkasse.** When a notification from Sparkasse arrives, run the Lifify
-   action **Bankmitteilung buchen**. Set **Konto** to Sparkasse and
-   **Mitteilung** to the notification text.
-2. **Trade Republic.** Do the same for a notification from Trade Republic, and
-   set **Konto** to Trade Republic.
+1. **Wallet (card payments).** Automation **Wallet** (transaction) for your
+   card, run immediately. Add a **Text** action such as "[amount] bei
+   [merchant] ausgegeben", then **Bankmitteilung buchen** with that text and
+   the matching **Konto**.
+2. **SMS or email.** If the bank sends notices this way, use the **Message**
+   or **Email** automation and pass the content to **Bankmitteilung buchen**.
+3. **Push only.** Copy the notification text and run a shortcut that books the
+   clipboard.
 
 Under Settings, Finance, Shortcuts you store an example notice per checking
 account and what to book. The Shortcut still sends the text; Lifify uses that
@@ -374,14 +379,20 @@ das System. Dafür werden keine Passwörter gespeichert.
 
 ### Kurzbefehle
 
-Auf dem iPhone legst du in der Kurzbefehle-App zwei Kurzbefehle an. iOS kann
-trotzdem nach Tippen auf Ausführen fragen.
+Die Lifify-Aktion **Bankmitteilung buchen** bucht im Hintergrund und
+antwortet etwa mit „12,50 € gebucht: REWE“. Lifify kommt dabei nicht nach
+vorn. iOS bietet keine Automation für die Push-Mitteilung einer anderen App,
+deshalb einen dieser Auslöser nutzen:
 
-1. **Sparkasse.** Kommt eine Mitteilung der Sparkasse, führe die Lifify-Aktion
-   **Bankmitteilung buchen** aus. Setze **Konto** auf Sparkasse und
-   **Mitteilung** auf den Text der Mitteilung.
-2. **Trade Republic.** Dasselbe für eine Mitteilung von Trade Republic, und
-   setze **Konto** auf Trade Republic.
+1. **Wallet (Kartenzahlungen).** Automation **Wallet** (Transaktion) für deine
+   Karte, sofort ausführen. Eine Aktion **Text** wie „[Betrag] bei [Händler]
+   ausgegeben“ einfügen, dann **Bankmitteilung buchen** mit diesem Text und dem
+   passenden **Konto**.
+2. **SMS oder E-Mail.** Schickt die Bank Mitteilungen so, die Automation
+   **Nachricht** oder **E-Mail** nutzen und den Inhalt an **Bankmitteilung
+   buchen** geben.
+3. **Nur Push.** Den Mitteilungstext kopieren und einen Kurzbefehl starten, der
+   die Zwischenablage bucht.
 
 Unter Einstellungen, Finanzen, Kurzbefehle hinterlegst du pro Girokonto eine
 Beispielmitteilung und was gebucht werden soll. Der Kurzbefehl schickt weiter

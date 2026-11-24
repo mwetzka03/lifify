@@ -309,6 +309,12 @@ of the method splitting are still open (see the last section).
 - **Why:** Requested by the owner; this settles the open proposal of automatic challenges from Health values for steps.
 - **Effect:** The app reads the steps when it comes to the front and books every reached day since the challenge began, so a day is booked late if the app was not opened. The goal is in the full backup.
 
+### Owner feedback: Booking and steps in the background
+
+- **Bank notices:** The Shortcuts action no longer opens Lifify. It books in the background, updates budget alerts and widget amounts before it ends, and answers like "12,50 € gebucht: REWE". The booking rules are unchanged.
+- **Steps:** Lifify watches the step count through Apple Health's background delivery, about once an hour. Each update books reached step-challenge days, refreshes the widget's steps, and reschedules the evening note. New entitlement: HealthKit background delivery, already in the owner's profile.
+- **README:** The Shortcuts guide now says which triggers iOS offers (Wallet, message, email) instead of a push trigger that does not exist.
+
 ## Deutsch
 
 ### Überblick
@@ -635,3 +641,9 @@ Screens und ein Teil der Methoden-Zerlegung noch offen (siehe letzter Abschnitt)
 - **Was:** Ein tägliches Schrittziel in der Einrichtung und unter Einstellungen, Gesundheit (0 = aus). Mit Apple Health wird daraus eine tägliche Challenge über 20 Coins mit Streak und Freezes. Sie hakt sich selbst ab, wenn Apple Health das Ziel meldet, und lässt sich weder von Hand abhaken noch in einen Termin legen. Um 20:00 Uhr nennt eine Mitteilung die zuletzt gelesenen Schritte und den Rest bis zum Ziel.
 - **Warum:** Wunsch des Eigentümers; damit ist der offene Vorschlag automatischer Challenges aus Health-Werten für Schritte entschieden.
 - **Auswirkung:** Die App liest die Schritte beim Öffnen und bucht jeden erreichten Tag seit Beginn der Challenge nach; ohne Öffnen wird ein Tag also später gebucht. Das Ziel ist im Gesamt-Backup.
+
+### Rückmeldung des Eigentümers: Buchen und Schritte im Hintergrund
+
+- **Bankmitteilungen:** Die Kurzbefehl-Aktion öffnet Lifify nicht mehr. Sie bucht im Hintergrund, aktualisiert Budget-Warnungen und Widget-Beträge, bevor sie endet, und antwortet etwa mit „12,50 € gebucht: REWE“. Die Buchungsregeln sind unverändert.
+- **Schritte:** Lifify beobachtet die Schritte über die Hintergrund-Zustellung von Apple Health, etwa einmal pro Stunde. Jede Meldung bucht erreichte Tage der Schritt-Challenge, aktualisiert die Schritte im Widget und plant die Abendmitteilung neu. Neues Entitlement: HealthKit-Hintergrund-Zustellung, im Profil des Eigentümers schon enthalten.
+- **README:** Die Kurzbefehl-Anleitung nennt jetzt die Auslöser, die iOS anbietet (Wallet, Nachricht, E-Mail), statt eines Push-Auslösers, den es nicht gibt.

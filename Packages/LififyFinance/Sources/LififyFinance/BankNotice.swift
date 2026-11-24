@@ -65,6 +65,11 @@ public enum BankNoticePlan: Equatable {
 /// Texts for notice results.
 public enum BankNoticeCopy {
     public static var booked: String { L("Gebucht", "Booked") }
+
+    /// The short confirmation of a booked notice, like "12,50 € gebucht: REWE".
+    public static func booked(_ entry: LedgerEntry) -> String {
+        L("\(Money.string(cents: abs(entry.amountCents))) gebucht: \(entry.title)", "\(Money.string(cents: abs(entry.amountCents))) booked: \(entry.title)")
+    }
     public static var duplicate: String { L("Schon gebucht", "Already booked") }
     public static var ignored: String { L("Nicht gebucht", "Not booked") }
     public static var unreadable: String { L("Die Mitteilung ließ sich nicht lesen.", "The notice could not be read.") }
@@ -486,7 +491,8 @@ public enum BankNoticeIntake {
         text: String,
         bank: BankNoticeBank,
         context: ModelContext,
-        now: Date = FinanceClock.now
+        now: Date = FinanceClock.now,
+        onBooked: ((LedgerEntry) -> Void)? = nil
     ) -> String {
         let accounts = (try? context.fetch(FetchDescriptor<Account>())) ?? []
         let entries = (try? context.fetch(FetchDescriptor<LedgerEntry>())) ?? []
@@ -509,7 +515,7 @@ public enum BankNoticeIntake {
                 kind: kind,
                 accountID: accountID
             )
-            return save(entry, context: context)
+            return save(entry, context: context, onBooked: onBooked)
         case .bookNoted(let accountID, let title, let amountCents, let kind, let notes):
             let entry = LedgerEntry(
                 date: now,
@@ -519,7 +525,7 @@ public enum BankNoticeIntake {
                 kind: kind,
                 accountID: accountID
             )
-            return save(entry, context: context)
+            return save(entry, context: context, onBooked: onBooked)
         case .bookTransfer(let fromAccountID, let toAccountID, let title, let amountCents):
             let entry = LedgerEntry(
                 date: now,
@@ -529,7 +535,7 @@ public enum BankNoticeIntake {
                 fromAccountID: fromAccountID,
                 toAccountID: toAccountID
             )
-            let message = save(entry, context: context)
+            let message = save(entry, context: context, onBooked: onBooked)
             if message == BankNoticeCopy.booked {
                 BankImportApplier.relinkOwnAccounts(context: context)
             }
@@ -553,7 +559,7 @@ public enum BankNoticeIntake {
     }
 
     /// Saves a booking and returns the result text.
-    private static func save(_ entry: LedgerEntry, context: ModelContext) -> String {
+    private static func save(_ entry: LedgerEntry, context: ModelContext, onBooked: ((LedgerEntry) -> Void)?) -> String {
         context.insert(entry)
         do {
             try context.save()
@@ -561,6 +567,7 @@ public enum BankNoticeIntake {
             context.delete(entry)
             return BankNoticeCopy.unavailable
         }
+        onBooked?(entry)
         return BankNoticeCopy.booked
     }
 }

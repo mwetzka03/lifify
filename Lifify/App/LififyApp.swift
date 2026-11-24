@@ -21,6 +21,7 @@ struct LififyApp: App {
             LififyDatabase.container = container
             LegacyDataMigration.run()
             SimulatedDayLedger.rollbackIfOnRealDay(context: container.mainContext)
+            StepUpdates.install()
         }
     }
 

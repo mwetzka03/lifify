@@ -21,6 +21,8 @@ private final class FakeHealthSource: HealthDataSource {
         saved.append((start, end))
         return true
     }
+    var stepHandler: (@MainActor @Sendable () async -> Void)?
+    func observeSteps(onChange: @escaping @MainActor @Sendable () async -> Void) { stepHandler = onChange }
 }
 
 extension LififyRuleTests {
@@ -98,6 +100,18 @@ extension LififyRuleTests {
                 await AppleHealthSync.refreshTodaySteps(now: date(2026, 3, 18, 9))
                 #expect(AppleHealthSync.cachedTodaySteps(now: date(2026, 3, 18, 10))?.count == 9_000)
                 #expect(AppleHealthSync.cachedTodaySteps(now: date(2026, 3, 19, 10)) == nil)
+            }
+        }
+
+        @Test func stepUpdatesStartOnlyAfterPermission() async throws {
+            try await withSource { _, fake in
+                let previous = AppleHealthSync.onStepChange
+                defer { AppleHealthSync.onStepChange = previous }
+                AppleHealthSync.onStepChange = {}
+                AppleHealthSync.startStepUpdates()
+                #expect(fake.stepHandler == nil)
+                _ = await AppleHealthSync.enable()
+                #expect(fake.stepHandler != nil)
             }
         }
 

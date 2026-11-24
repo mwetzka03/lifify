@@ -36,7 +36,8 @@ struct RecordBankNoticeIntent: AppIntent {
     static var description: IntentDescription {
         IntentDescription("Bucht den Text einer Mitteilung auf das Sparkassen- oder Trade-Republic-Konto.")
     }
-    static var openAppWhenRun: Bool { true }
+    /// Books in the background, so a notice never pulls Lifify to the front.
+    static var openAppWhenRun: Bool { false }
 
     @Parameter(title: "Mitteilung")
     var notification: String
@@ -44,7 +45,8 @@ struct RecordBankNoticeIntent: AppIntent {
     @Parameter(title: "Konto")
     var account: BankNoticeAccountChoice
 
-    /// Books the notice and speaks the result.
+    /// Books the notice and shows the result, like "12,50 € gebucht: REWE".
+    @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
         let message = await BankNoticeIntake.commitFromShortcut(text: notification, bank: account.bank)
         return .result(dialog: IntentDialog(stringLiteral: message))
@@ -53,13 +55,23 @@ struct RecordBankNoticeIntent: AppIntent {
 
 /// Shortcut access to the notice intake.
 extension BankNoticeIntake {
-    /// Books a notice into the shared database.
-    static func commitFromShortcut(text: String, bank: BankNoticeBank) -> String {
-        guard let container = LififyDatabase.container else { return BankNoticeCopy.unavailable }
-        let context = ModelContext(container)
-        let message = commit(text: text, bank: bank, context: context)
-        Task { await BudgetAlertService.check(context: context) }
-        return message
+    /// Books a notice into the shared database, also when the system started Lifify without a screen.
+    ///
+    /// Budget alerts and widgets are updated before the action ends, because a background run
+    /// may stop right after it.
+    ///
+    /// - Parameters:
+    ///   - text: The notice.
+    ///   - bank: The bank it came from.
+    /// - Returns: The confirmation shown by Shortcuts.
+    static func commitFromShortcut(text: String, bank: BankNoticeBank) async -> String {
+        guard let context = try? IntentStore.context() else { return BankNoticeCopy.unavailable }
+        var booked: LedgerEntry?
+        let message = commit(text: text, bank: bank, context: context) { booked = $0 }
+        guard let booked else { return message }
+        await BudgetAlertService.check(context: context)
+        WidgetPublisher.refreshFinance(context: context)
+        return BankNoticeCopy.booked(booked)
     }
 }
 

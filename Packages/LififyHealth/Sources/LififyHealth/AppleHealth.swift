@@ -148,12 +148,15 @@ public protocol HealthDataSource: AnyObject {
     func summary(days: Int) async -> HealthSummary
     /// Saves a finished training as a workout.
     func saveWorkout(start: Date, end: Date) async -> Bool
+    /// Calls back when new steps arrive, also by waking the app in the background.
+    func observeSteps(onChange: @escaping @MainActor @Sendable () async -> Void)
 }
 
 /// The real connection to Apple Health.
 @MainActor
 public final class AppleHealthSource: HealthDataSource {
     private let store = HKHealthStore()
+    private var stepObserver: HKObserverQuery?
 
     /// Creates the source.
     public init() {}
@@ -187,6 +190,28 @@ public final class AppleHealthSource: HealthDataSource {
     /// Returns the recent days, newest first.
     public func summary(days: Int) async -> HealthSummary {
         HealthSummary(steps: await daily(.stepCount, unit: .count(), options: .cumulativeSum, days: days))
+    }
+
+    /// Watches the step count and asks Apple Health to wake the app about once an hour.
+    ///
+    /// The handler runs before the query is told it is done, so iOS keeps the app awake for it.
+    public func observeSteps(onChange: @escaping @MainActor @Sendable () async -> Void) {
+        guard isAvailable, stepObserver == nil else { return }
+        let type = HKQuantityType(.stepCount)
+        let query = HKObserverQuery(sampleType: type, predicate: nil) { _, completion, error in
+            guard error == nil else {
+                completion()
+                return
+            }
+            let done = QueryCompletion(call: completion)
+            Task { @MainActor in
+                await onChange()
+                done.call()
+            }
+        }
+        stepObserver = query
+        store.execute(query)
+        store.enableBackgroundDelivery(for: type, frequency: .hourly) { _, _ in }
     }
 
     /// Saves a finished training as a strength workout.
@@ -237,6 +262,11 @@ public final class AppleHealthSource: HealthDataSource {
     }
 }
 
+/// Carries Apple Health's completion call to the main actor. Apple Health allows calling it from any thread.
+private struct QueryCompletion: @unchecked Sendable {
+    let call: () -> Void
+}
+
 /// Keeps body data and workouts in step with Apple Health after the person allowed it.
 @MainActor
 public enum AppleHealthSync {
@@ -248,6 +278,14 @@ public enum AppleHealthSync {
 
     /// The connection. Tests replace it.
     public static var source: any HealthDataSource = AppleHealthSource()
+    /// What runs when Apple Health reports new steps. The app sets it at launch.
+    public static var onStepChange: (@MainActor @Sendable () async -> Void)?
+
+    /// Starts watching the steps once the person allowed Apple Health and a handler is set.
+    public static func startStepUpdates() {
+        guard isEnabled, let onStepChange else { return }
+        source.observeSteps(onChange: onStepChange)
+    }
 
     /// Whether the person turned the connection on. It is off by default.
     public static var isEnabled: Bool {
@@ -261,6 +299,7 @@ public enum AppleHealthSync {
         guard source.isAvailable, await source.requestAccess() else { return false }
         AppDefaults.store.set(true, forKey: enabledKey)
         await refreshWeight()
+        startStepUpdates()
         return true
     }
 
@@ -274,9 +313,9 @@ public enum AppleHealthSync {
     }
 
     /// Reads the values for the Health tab.
-    public static func summary() async -> HealthSummary? {
+    public static func summary(days: Int = summaryDays) async -> HealthSummary? {
         guard isEnabled else { return nil }
-        return await source.summary(days: summaryDays)
+        return await source.summary(days: days)
     }
 
     /// The key of today's last read step count.
