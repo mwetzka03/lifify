@@ -1,8 +1,54 @@
-# Finance rules
+# Lifify – Finance
 
 [English](#english) · [Deutsch](#deutsch)
 
 ## English
+
+### What you can do
+
+- **Accounts:** checking, savings pot, savings group, and portfolio, with a
+  required main account, liquidity, IBAN, and parent account.
+- **Bookings:** income, expense, transfer, and balance adjustment; full-text
+  search; assignment to fixed costs, variable costs, and shopping items; splits
+  for variable costs and budget pools.
+- **Period filter:** calendar month or salary period, for all accounts, one
+  account, or the portfolio. The same filter applies everywhere in Finance.
+- **Income:** income forecasts and the real income of the period. Below the
+  forecasts, folded: dividends received, the next twelve months, and the
+  positions that still pay. With a switch, expected dividends count as planned
+  income.
+- **Expenses:** forecast expenses and the real expenses of the period.
+- **Fixed costs** with weekly, biweekly, monthly, or yearly repeats, due on a
+  calendar day or the first or last bank working day (Rhineland-Palatinate,
+  with public holidays). Subscription suggestions sit folded on top: repeated
+  payments to the same payee that are not fixed costs yet. One tap makes a
+  fixed cost; a dismissed suggestion does not come back.
+- **Variable costs and budget pools** per calendar month or year; "scalable"
+  carries the rest, even a negative one, into the next period.
+- **Shopping list, debts, expense groups, transfer forecasts, savings plans.**
+- **Portfolio:** positions with ISIN and automatic prices from Yahoo Finance,
+  gain today or since purchase, in percent or euros, sorted by value, purchase
+  date, or name. Future periods show the forecast value; with the return
+  scenario, each ETF grows by its own historic return, and gains count all
+  money put in. A position's details show only the lots held through the
+  selected day, plus forecast savings plan purchases.
+- **Shares and deep analysis:** a pie and a list of the portfolio, normally by
+  position, or broken down into single companies through the ETF holdings
+  (Xtrackers, VanEck, iShares). The pie combines slices below 0.5 %, the list
+  below 0.1 %.
+- **Trade Republic:** sign in by hand to read positions, trades, cashback, and
+  cash; or import a PDF statement. Saveback counts as cashback. The PIN and the
+  session are not stored.
+- **Bank import:** CSV and CAMT files. Known rows are skipped, the last day and
+  days with extra rows are reviewed, and older months can be added later.
+- **Period review:** spending per category against the average of earlier
+  periods, largest differences first.
+- **Forecasts:** optional interest on the depot's cash account (2.5 % a year
+  unless changed), compounded monthly.
+- **Face ID:** the Finance tab can be locked; it unlocks until the app goes to
+  the background.
+
+### How Lifify calculates
 
 - This file describes how Lifify calculates accounts, periods, income, expenses,
   the portfolio, and the home budget.
@@ -739,6 +785,55 @@ full to be right, the statement has to be imported again after a rule change.
 - A fund without data stays one entry until a file is imported.
 
 ## Deutsch
+
+### Was möglich ist
+
+- **Konten:** Giro, Spartopf, Oberspartopf und Depot, mit Pflicht-Hauptkonto,
+  Liquidität, IBAN und Elternkonto.
+- **Buchungen:** Einnahme, Ausgabe, Umbuchung und Saldo-Korrektur; Volltextsuche;
+  Zuordnung zu Fixkosten, variablen Kosten und Einkäufen; Splits für variable
+  Kosten und Budgetpools.
+- **Zeitraumfilter:** Kalendermonat oder Gehaltszeitraum, für alle Konten, ein
+  Konto oder das Depot. Derselbe Filter gilt überall in Finanzen.
+- **Einnahmen:** Einnahmeprognosen und die echten Einnahmen des Zeitraums. Unter
+  den Prognosen, eingeklappt: erhaltene Dividenden, die nächsten zwölf Monate
+  und die Positionen, die noch zahlen. Mit einem Schalter zählen erwartete
+  Dividenden als geplante Einnahme.
+- **Ausgaben:** Prognoseausgaben und die echten Ausgaben des Zeitraums.
+- **Fixkosten** mit wöchentlicher, zweiwöchentlicher, monatlicher oder
+  jährlicher Wiederholung, fällig am Kalendertag oder am ersten oder letzten
+  Bankarbeitstag (Rheinland-Pfalz, mit Feiertagen). Oben stehen eingeklappt die
+  Abo-Vorschläge: wiederkehrende Zahlungen an denselben Empfänger, die noch
+  keine Fixkosten sind. Ein Tipp legt sie an; ein abgelehnter Vorschlag kommt
+  nicht wieder.
+- **Variable Kosten und Budgetpools** pro Kalendermonat oder Jahr; „skalierbar“
+  überträgt den Rest, auch einen negativen, in den nächsten Zeitraum.
+- **Einkaufszettel, Schulden, Ausgabengruppen, Umbuchungsprognosen, Sparpläne.**
+- **Depot:** Positionen mit ISIN und automatischem Kurs von Yahoo Finance,
+  Veränderung heute oder seit Kauf, in Prozent oder Euro, sortiert nach Wert,
+  Kaufdatum oder Name. Künftige Zeiträume zeigen den Prognosewert; mit dem
+  Renditeszenario wächst jeder ETF mit seiner eigenen historischen Rendite, und
+  der Gewinn rechnet alles Eingezahlte mit. Die Details einer Position zeigen
+  nur die Einzelpositionen bis zum gewählten Tag, dazu die erwarteten
+  Sparplan-Käufe.
+- **Anteile und Tiefenanalyse:** Grafik und Liste des Depots, normal nach
+  Position oder über die ETF-Zusammensetzungen in einzelne Unternehmen
+  aufgeteilt (Xtrackers, VanEck, iShares). Die Grafik fasst Anteile unter
+  0,5 % zusammen, die Liste unter 0,1 %.
+- **Trade Republic:** Anmeldung von Hand, um Positionen, Käufe, Cashback und
+  Guthaben zu lesen; oder Import einer PDF-Abrechnung. Saveback zählt als
+  Cashback. PIN und Sitzung werden nicht gespeichert.
+- **Bankimport:** CSV- und CAMT-Dateien. Bekannte Zeilen werden übersprungen,
+  der letzte Tag und Tage mit zusätzlichen Zeilen werden geprüft, und ältere
+  Monate lassen sich später ergänzen.
+- **Monatsrückblick:** Ausgaben je Kategorie gegen den Durchschnitt früherer
+  Zeiträume, größte Abweichungen zuerst.
+- **Prognosen:** optionale Zinsen auf das Depot-Verrechnungskonto (2,5 % pro
+  Jahr, solange nicht geändert), monatlich mit Zinseszins.
+- **Face ID:** Der Finanzen-Tab lässt sich sperren; er bleibt entsperrt, bis
+  die App in den Hintergrund geht.
+
+### Wie Lifify rechnet
 
 - Diese Datei beschreibt, wie Lifify Konten, Zeiträume, Einnahmen, Ausgaben,
   Depot und das Home-Budget rechnet.

@@ -65,7 +65,7 @@ of the method splitting are still open (see the last section).
 
 ### 0.6.0: Readable documents (A5)
 
-- **What:** Long passages in `FINANZEN.md` are now lists. The setup screen says
+- **What:** Long passages in `FINANCE.md` are now lists. The setup screen says
   Health (workouts and meals) instead of Training for a partial restore.
 - **Why:** The rules were hard to scan, and the area has been called Health
   since 0.5.5.
@@ -361,10 +361,10 @@ of the method splitting are still open (see the last section).
 - **Why:** Most of the 0.6.0 plan is done. The app lock needs Family Controls, which the owner's free personal developer team cannot get.
 - **Effect:** No code change. CLAUDE.md is the one place for project rules.
 
-### Owner decision: All documents in Doku
+### Owner decision: All documents in Documentation, one file per area
 
-- **What:** The folder Changes Documentation is now Doku, and FEATURES.md, FINANZEN.md, and ERNAEHRUNG.md moved into it. Only README.md and CLAUDE.md stay at the top. FEATURES.md is rewritten in both languages as the guide to everything the app can do; the old German-only assumptions are folded into it or covered by FINANZEN.md.
-- **Why:** One place for documentation, and one complete, bilingual description of the app.
+- **What:** The folder Changes Documentation is now Documentation, with English file names. FINANZEN.md is FINANCE.md, ERNAEHRUNG.md is HEALTH.md (now with training, steps, and Apple Health), and CHALLENGES.md and GENERAL.md are new. Each explains what its area can do and how it works, in both languages. FEATURES.md is gone; its content is split into these files. Only README.md and CLAUDE.md stay at the top.
+- **Why:** One place for documentation, sorted by the app's areas.
 - **Effect:** All links in README, CLAUDE.md, and the changelogs point to the new paths.
 
 ## Deutsch
@@ -434,7 +434,7 @@ Screens und ein Teil der Methoden-Zerlegung noch offen (siehe letzter Abschnitt)
 
 ### 0.6.0: Lesbare Dokumente (A5)
 
-- **Was:** Lange Passagen in `FINANZEN.md` sind jetzt Listen. Die Einrichtung
+- **Was:** Lange Passagen in `FINANCE.md` sind jetzt Listen. Die Einrichtung
   nennt beim teilweisen Wiederherstellen Gesundheit (Trainings und Mahlzeiten)
   statt Training.
 - **Warum:** Die Regeln waren schwer zu überblicken, und der Bereich heißt seit
@@ -746,8 +746,8 @@ Screens und ein Teil der Methoden-Zerlegung noch offen (siehe letzter Abschnitt)
 - **Warum:** Der Plan für 0.6.0 ist weitgehend umgesetzt. Die App-Sperre braucht Family Controls, die das kostenlose persönliche Entwicklerteam des Eigentümers nicht bekommt.
 - **Auswirkung:** Keine Code-Änderung. Die CLAUDE.md ist der eine Ort für Projektregeln.
 
-### Entscheidung des Eigentümers: Alle Dokumente in Doku
+### Entscheidung des Eigentümers: Alle Dokumente in Documentation, eine Datei je Bereich
 
-- **Was:** Der Ordner Changes Documentation heißt jetzt Doku, und FEATURES.md, FINANZEN.md und ERNAEHRUNG.md liegen darin. Nur README.md und CLAUDE.md bleiben oben. FEATURES.md ist zweisprachig neu geschrieben, als Übersicht über alles, was die App kann; die alten, nur deutschen Annahmen sind darin aufgegangen oder stehen in FINANZEN.md.
-- **Warum:** Ein Ort für die Doku und eine vollständige, zweisprachige Beschreibung der App.
+- **Was:** Der Ordner Changes Documentation heißt jetzt Documentation, mit englischen Dateinamen. FINANZEN.md heißt FINANCE.md, ERNAEHRUNG.md heißt HEALTH.md (jetzt mit Training, Schritten und Apple Health), und CHALLENGES.md und GENERAL.md sind neu. Jede erklärt zweisprachig, was ihr Bereich kann und wie er funktioniert. FEATURES.md entfällt; ihr Inhalt ist auf diese Dateien verteilt. Nur README.md und CLAUDE.md bleiben oben.
+- **Warum:** Ein Ort für die Doku, nach den Bereichen der App sortiert.
 - **Auswirkung:** Alle Links in README, CLAUDE.md und den Changelogs zeigen auf die neuen Pfade.

@@ -1,12 +1,34 @@
-# Nutrition
+# Lifify – Health
 
 [English](#english) · [Deutsch](#deutsch)
+
+## English
+
+Health has two parts: training with steps and Apple Health, and nutrition.
+
+### What you can do
+
+- **Training:** plans from a local exercise database, plus your own
+  exercises. A session runs a timer with sets and rest. A weight suggestion
+  rises by a set step after all target reps were reached. History, records, and
+  volume per exercise.
+- **Live Activity:** the running workout on the Lock Screen and in the Dynamic
+  Island, with exercise, set, time, and rest.
+- **Steps:** a chart of 7 or 30 days that pages back by swipe, today, averages,
+  and the best day. A daily step goal becomes a challenge with coins, streak,
+  freezes, and an evening note.
+- **Nutrition:** a day board of meals with calories and nutrients, favorites,
+  and "recently eaten". A photo can be read by Gemini with your own key. The
+  calorie challenge follows the body goal and sends an evening note with the
+  day's calories.
+- **Apple Health** (after you allow it): reads weight and steps, writes each
+  finished workout, and updates steps in the background about once an hour.
+
+### Nutrition
 
 This is what the nutrition board is for. The board itself is in the app.
 Photo recognition calls Gemini 2.5 Flash when a key is saved under Settings,
 Health. Without that key, the photo stays on the device.
-
-## English
 
 ### What is in the app
 
@@ -136,6 +158,31 @@ output tokens, or $0.40 and $1.60 for GPT-4.1 mini. ChatGPT Plus does not
 pay the API.
 
 ## Deutsch
+
+Gesundheit hat zwei Teile: Training mit Schritten und Apple Health, und Ernährung.
+
+### Was möglich ist
+
+- **Training:** Pläne aus einer lokalen Übungsdatenbank, dazu eigene Übungen.
+  Eine Session läuft mit Timer, Sätzen und Pausen. Ein Gewichtsvorschlag steigt
+  um eine eingestellte Stufe, wenn alle Zielwiederholungen geschafft wurden.
+  Verlauf, Bestleistungen und Volumen je Übung.
+- **Live Activity:** das laufende Training auf Sperrbildschirm und Dynamic
+  Island, mit Übung, Satz, Zeit und Pause.
+- **Schritte:** ein Diagramm über 7 oder 30 Tage, per Wisch zurückblätterbar,
+  heute, Durchschnitte und bester Tag. Ein tägliches Schrittziel wird zur
+  Challenge mit Coins, Streak, Freezes und Abendmitteilung.
+- **Ernährung:** eine Tagesansicht der Mahlzeiten mit Kalorien und Nährwerten,
+  Favoriten und „zuletzt gegessen“. Ein Foto kann mit eigenem Schlüssel von
+  Gemini gelesen werden. Die Kalorien-Challenge folgt dem Körperziel und schickt
+  abends eine Mitteilung mit dem Tagesstand.
+- **Apple Health** (nach Freigabe): liest Gewicht und Schritte, schreibt jedes
+  beendete Training und aktualisiert die Schritte im Hintergrund etwa einmal pro
+  Stunde.
+
+### Ernährung
+
+Dafür ist die Ernährungsansicht da. Die Bilderkennung ruft Gemini 2.5 Flash auf, wenn unter Einstellungen, Gesundheit ein Schlüssel gespeichert ist. Ohne Schlüssel bleibt das Foto auf dem Gerät.
 
 ### Was in der App ist
 

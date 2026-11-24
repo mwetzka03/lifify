@@ -26,11 +26,12 @@ These rules apply to every change in Lifify. Claude Code reads this file at the 
   both are green.
 - Push and delete files outside the agreed work only after asking.
 - A new version sets the version everywhere: `MARKETING_VERSION` of both
-  targets, `AppVersion.current`, README, and FEATURES.
-- Each version has its changelog in Doku: an overview, then
+  targets, `AppVersion.current`, README, and GENERAL.md.
+- Each version has its changelog in Documentation: an overview, then
   one section per area, short bullets with what, why, and effect.
-- Update README, FEATURES, FINANZEN, ERNAEHRUNG, and this file with every change
-  that affects them. New calculation rules belong in FINANZEN.md.
+- Update README, this file, and the area documents (FINANCE, CHALLENGES,
+  HEALTH, GENERAL) with every change that affects them. New calculation rules
+  belong in FINANCE.md.
 - Business logic lives in the packages (`LififyCore`, `LififyFinance`,
   `LififyChallenges`, `LififyHealth`), never in views. Extensions such as the
   widgets use the same packages.
@@ -107,7 +108,7 @@ Apple developer account are described to the owner, never guessed.
 
 - Each future savings plan execution buys amount ÷ today's price. Without the
   return scenario there is no price movement; that stays the default view. The
-  return scenario is an extra switch (FINANZEN.md).
+  return scenario is an extra switch (FINANCE.md).
 
 **Trade Republic**
 
@@ -141,10 +142,13 @@ Apple developer account are described to the owner, never guessed.
 ### Language
 
 Document a change in English and in German. English comes first. Each version
-has its own changelog, as [CHANGES-0.6.0.md](Doku/CHANGES-0.6.0.md) does for 0.6.0.
+has its own changelog, as [CHANGES-0.6.0.md](Documentation/CHANGES-0.6.0.md) does for 0.6.0.
 Only README.md and CLAUDE.md stay at the top. Every other document lives in
-the Doku folder: the changelogs, FEATURES.md (what the app can do), FINANZEN.md,
-and ERNAEHRUNG.md. All of them are bilingual in the same way.
+the Documentation folder and has an English name: the changelogs, and one file
+per area that explains what it can do and how it works: FINANCE.md,
+CHALLENGES.md, HEALTH.md (training, steps, and nutrition), and GENERAL.md (home,
+widgets, Siri, notifications, settings, data, privacy). All of them are
+bilingual in the same way.
 
 ### Tests
 
@@ -260,11 +264,12 @@ own colors.
 - Pushen und Löschen von Dateien außerhalb der vereinbarten Arbeit nur nach
   Rückfrage.
 - Eine neue Version setzt die Version überall: `MARKETING_VERSION` beider
-  Targets, `AppVersion.current`, README und FEATURES.
-- Jede Version hat ihren Changelog in Doku: Überblick, dann
+  Targets, `AppVersion.current`, README und GENERAL.md.
+- Jede Version hat ihren Changelog in Documentation: Überblick, dann
   ein Abschnitt pro Bereich, kurze Aufzählungen mit was, warum und Auswirkung.
-- README, FEATURES, FINANZEN, ERNAEHRUNG und diese Datei bei jeder betroffenen
-  Änderung anpassen. Neue Rechenregeln gehören nach FINANZEN.md.
+- README, diese Datei und die Bereichsdokumente (FINANCE, CHALLENGES, HEALTH,
+  GENERAL) bei jeder betroffenen Änderung anpassen. Neue Rechenregeln gehören
+  nach FINANCE.md.
 - Fachlogik liegt in den Packages (`LififyCore`, `LififyFinance`,
   `LififyChallenges`, `LififyHealth`), nie in Views. Erweiterungen wie die
   Widgets nutzen dieselben Packages.
@@ -339,7 +344,7 @@ geraten.
 - Jede künftige Sparplan-Ausführung kauft Betrag ÷ heutiger Kurs. Ohne
   Renditeszenario gibt es keine Kursentwicklung; das bleibt die
   Standardansicht. Das Renditeszenario ist ein zusätzlicher Schalter
-  (FINANZEN.md).
+  (FINANCE.md).
 
 **Trade Republic**
 
@@ -377,10 +382,13 @@ geraten.
 
 Eine Änderung wird auf Englisch und auf Deutsch dokumentiert. Englisch steht
 zuerst. Jede Version hat ihr eigenes Änderungsprotokoll, so wie
-[CHANGES-0.6.0.md](Doku/CHANGES-0.6.0.md) für 0.6.0. Nur README.md und
-CLAUDE.md bleiben oben. Alle übrigen Dokumente liegen im Ordner Doku: die
-Changelogs, FEATURES.md (was die App kann), FINANZEN.md und ERNAEHRUNG.md. Alle
-sind auf dieselbe Weise zweisprachig.
+[CHANGES-0.6.0.md](Documentation/CHANGES-0.6.0.md) für 0.6.0. Nur README.md und
+CLAUDE.md bleiben oben. Alle übrigen Dokumente liegen im Ordner Documentation
+und haben englische Namen: die Changelogs und je Bereich eine Datei, die
+erklärt, was er kann und wie er funktioniert: FINANCE.md, CHALLENGES.md,
+HEALTH.md (Training, Schritte und Ernährung) und GENERAL.md (Home, Widgets,
+Siri, Mitteilungen, Einstellungen, Daten, Datenschutz). Alle sind auf dieselbe
+Weise zweisprachig.
 
 ### Tests
 
