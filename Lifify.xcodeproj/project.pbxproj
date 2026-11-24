@@ -11,6 +11,8 @@
 		A50000000000000000000002 /* LififyFinance in Frameworks */ = {isa = PBXBuildFile; productRef = A40000000000000000000002 /* LififyFinance */; };
 		A50000000000000000000003 /* LififyChallenges in Frameworks */ = {isa = PBXBuildFile; productRef = A40000000000000000000003 /* LififyChallenges */; };
 		A50000000000000000000004 /* LififyHealth in Frameworks */ = {isa = PBXBuildFile; productRef = A40000000000000000000004 /* LififyHealth */; };
+		A60000000000000000000001 /* LififyCore in Frameworks */ = {isa = PBXBuildFile; productRef = A60000000000000000000002 /* LififyCore */; };
+		A60000000000000000000003 /* LififyWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = A60000000000000000000004 /* LififyWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -21,11 +23,33 @@
 			remoteGlobalIDString = A10000000000000000000008;
 			remoteInfo = Lifify;
 		};
+		A60000000000000000000005 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A1000000000000000000000A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A60000000000000000000008;
+			remoteInfo = LififyWidgets;
+		};
 /* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		A60000000000000000000006 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				A60000000000000000000003 /* LififyWidgets.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		A10000000000000000000004 /* Lifify.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Lifify.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A20000000000000000000004 /* LififyTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = LififyTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		A60000000000000000000004 /* LififyWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = LififyWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -36,11 +60,19 @@
 			);
 			target = A10000000000000000000008 /* Lifify */;
 		};
+		A60000000000000000000009 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = A60000000000000000000008 /* LififyWidgets */;
+		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		A10000000000000000000001 /* Lifify */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (A100000000000000000000F1 /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = Lifify; sourceTree = "<group>"; };
 		A20000000000000000000001 /* LififyTests */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = LififyTests; sourceTree = "<group>"; };
+		A6000000000000000000000A /* LififyWidgets */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (A60000000000000000000009 /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = LififyWidgets; sourceTree = "<group>"; };
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -62,6 +94,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		A6000000000000000000000B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A60000000000000000000001 /* LififyCore in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -70,6 +110,7 @@
 			children = (
 				A10000000000000000000001 /* Lifify */,
 				A20000000000000000000001 /* LififyTests */,
+				A6000000000000000000000A /* LififyWidgets */,
 				A10000000000000000000003 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -79,6 +120,7 @@
 			children = (
 				A10000000000000000000004 /* Lifify.app */,
 				A20000000000000000000004 /* LififyTests.xctest */,
+				A60000000000000000000004 /* LififyWidgets.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -93,10 +135,12 @@
 				A10000000000000000000005 /* Sources */,
 				A10000000000000000000006 /* Frameworks */,
 				A10000000000000000000007 /* Resources */,
+				A60000000000000000000006 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				A6000000000000000000000C /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				A10000000000000000000001 /* Lifify */,
@@ -135,6 +179,29 @@
 			productReference = A20000000000000000000004 /* LififyTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
+		A60000000000000000000008 /* LififyWidgets */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A6000000000000000000000D /* Build configuration list for PBXNativeTarget "LififyWidgets" */;
+			buildPhases = (
+				A6000000000000000000000E /* Sources */,
+				A6000000000000000000000B /* Frameworks */,
+				A6000000000000000000000F /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				A6000000000000000000000A /* LififyWidgets */,
+			);
+			name = LififyWidgets;
+			packageProductDependencies = (
+				A60000000000000000000002 /* LififyCore */,
+			);
+			productName = LififyWidgets;
+			productReference = A60000000000000000000004 /* LififyWidgets.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -149,6 +216,9 @@
 						CreatedOnToolsVersion = 26.0;
 					};
 					A20000000000000000000008 = {
+						CreatedOnToolsVersion = 26.0;
+					};
+					A60000000000000000000008 = {
 						CreatedOnToolsVersion = 26.0;
 					};
 				};
@@ -176,6 +246,7 @@
 			targets = (
 				A10000000000000000000008 /* Lifify */,
 				A20000000000000000000008 /* LififyTests */,
+				A60000000000000000000008 /* LififyWidgets */,
 			);
 		};
 /* End PBXProject section */
@@ -189,6 +260,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		A20000000000000000000007 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A6000000000000000000000F /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -212,6 +290,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		A6000000000000000000000E /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -219,6 +304,11 @@
 			isa = PBXTargetDependency;
 			target = A10000000000000000000008 /* Lifify */;
 			targetProxy = A20000000000000000000002 /* PBXContainerItemProxy */;
+		};
+		A6000000000000000000000C /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A60000000000000000000008 /* LififyWidgets */;
+			targetProxy = A60000000000000000000005 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -373,6 +463,56 @@
 			};
 			name = Release;
 		};
+		A60000000000000000000010 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = LififyWidgets.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = LififyWidgets/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Lifify;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 0.5.5;
+				PRODUCT_BUNDLE_IDENTIFIER = com.mwetzka03.lifify.widgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		A60000000000000000000011 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = LififyWidgets.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = LififyWidgets/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Lifify;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 0.5.5;
+				PRODUCT_BUNDLE_IDENTIFIER = com.mwetzka03.lifify.widgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -399,6 +539,15 @@
 			buildConfigurations = (
 				A2000000000000000000000E /* Debug */,
 				A2000000000000000000000F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A6000000000000000000000D /* Build configuration list for PBXNativeTarget "LififyWidgets" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A60000000000000000000010 /* Debug */,
+				A60000000000000000000011 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -440,6 +589,10 @@
 		A40000000000000000000004 /* LififyHealth */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = LififyHealth;
+		};
+		A60000000000000000000002 /* LififyCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = LififyCore;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

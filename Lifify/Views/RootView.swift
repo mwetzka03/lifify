@@ -21,6 +21,7 @@ struct RootView: View {
     @StateObject private var financeFilters = FinanceFilterStore()
     @State private var selectedTab = 0
     @State private var financePath = NavigationPath()
+    @State private var healthPath = NavigationPath()
     @State private var financeLock = FinanceLock()
     @State private var resumeLocked = false
     @State private var leftForeground = false
@@ -39,7 +40,7 @@ struct RootView: View {
         case 2:
             NavigationStack { ChallengesView() }
         case 3:
-            NavigationStack { HealthView() }
+            NavigationStack(path: $healthPath) { HealthView() }
         case 4:
             NavigationStack { SettingsView() }
         default:
@@ -73,6 +74,7 @@ struct RootView: View {
             SavingsPlanRunner.bookDue(context: context)
             SavingsPlanFixedCosts.sync(context: context)
             NutritionLedger.settle(context: context, sessions: workouts.sessions)
+            WidgetPublisher.refresh(context: context, plans: workouts.plans)
             await MarketDataService.refresh(holdings: holdings, context: context)
         }
         .onAppear {
@@ -87,6 +89,7 @@ struct RootView: View {
                 .debounce(for: .seconds(2), scheduler: DispatchQueue.main)
         ) { _ in
             Task { await BudgetAlertService.check(context: context) }
+            WidgetPublisher.refresh(context: context, plans: workouts.plans)
         }
         .onChange(of: developerMode) { BirthdayBonusService.settle(context: context) }
         .onChange(of: developerDay) { BirthdayBonusService.settle(context: context) }
@@ -144,9 +147,20 @@ struct RootView: View {
 
     /// Opens the screen of a tapped notification. Finance stays behind its lock.
     private func openNotificationRoute() {
-        guard NotificationRoute.take() == PeriodReviewNotifier.route else { return }
-        selectedTab = 1
-        financePath.append(FinanceRoute.periodReview)
+        let route = NotificationRoute.take()
+        if let plan = WidgetRoute.plan(in: route) {
+            openTraining(plan)
+        } else if route == PeriodReviewNotifier.route {
+            selectedTab = 1
+            financePath.append(FinanceRoute.periodReview)
+        }
+    }
+
+    /// Opens a training from a widget. A session already on screen is never replaced.
+    private func openTraining(_ plan: UUID) {
+        selectedTab = 3
+        guard healthPath.isEmpty else { return }
+        healthPath.append(HealthRoute.session(plan))
     }
 
     /// Announces a newly finished period, when that is turned on.
@@ -166,6 +180,7 @@ struct RootView: View {
 
     /// Refreshes calendar, bonuses, and notifications on return.
     private func resumeForegroundWork() async {
+        WidgetPublisher.refresh(context: context, plans: workouts.plans)
         await announcePeriodReview()
         await EventKitSyncService().sync(
             context: context,

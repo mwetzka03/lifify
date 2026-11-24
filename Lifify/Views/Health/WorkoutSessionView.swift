@@ -22,6 +22,7 @@ struct WorkoutSessionView: View {
     @State private var showDiscard = false
     @State private var didApplyFrequent = false
     @State private var finishSummary: WorkoutFinishSummary?
+    @State private var liveActivity = WorkoutActivityController()
 
     init(plan: WorkoutPlan) {
         self.plan = plan
@@ -117,11 +118,16 @@ struct WorkoutSessionView: View {
         }
         .onAppear {
             UIApplication.shared.isIdleTimerDisabled = true
+            liveActivity.start(planName: plan.name, startedAt: draft.startedAt, state: activityState)
             guard !didApplyFrequent else { return }
             didApplyFrequent = true
             applyFrequentWeights()
         }
-        .onDisappear { UIApplication.shared.isIdleTimerDisabled = false }
+        .onDisappear {
+            UIApplication.shared.isIdleTimerDisabled = false
+            if finishSummary == nil { liveActivity.end() }
+        }
+        .onChange(of: activityState) { liveActivity.update(activityState) }
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
                 Button { requestClose() } label: { Image(systemName: "xmark") }
@@ -152,6 +158,11 @@ struct WorkoutSessionView: View {
         .sheet(item: $finishSummary, onDismiss: { dismiss() }) { summary in
             WorkoutFinishSheet(summary: summary)
         }
+    }
+
+    /// What the Live Activity shows right now.
+    private var activityState: WorkoutActivityAttributes.ContentState {
+        WorkoutActivityProgress.state(of: draft, restEndsAt: restEndsAt)
     }
 
     private var hasCompletedSet: Bool {
@@ -461,6 +472,7 @@ struct WorkoutSessionView: View {
         let records = WorkoutProgress.personalRecords(in: draft, sessions: store.sessions)
         let phrase = WorkoutProgress.motivation(for: grade, seed: draft.id.hashValue)
         store.save(session: draft)
+        liveActivity.end()
         let finished = draft
         let sessions = store.sessions
         Task {

@@ -220,6 +220,16 @@ Version 0.6.0 first improves the code base (part A) and then adds new features
   the Apple Developer account.
 - **Not built:** Sleep stays out until the owner decides.
 
+### B1 and B9: Widgets and workout Live Activity
+
+- **Widgets:** Daily budget, Today (interactive), Coins & Streak, Portfolio, Next workout, Overview, and three Lock Screen widgets. Why: the plan for 0.6.0. Effect: key values are visible without opening the app.
+- **Data path changed from the plan:** the database stays where it is. The app writes a small snapshot file into the App Group. Why: moving the store risks real data, and a widget writing to it could bypass the booking rules. Effect: no migration; widgets show the state of the last app update.
+- **Check-off in a widget:** the tap is queued and disappears from the widget at once. The app books it with all rules the next time it runs. Effect: coins and streak change only after the app was opened.
+- **Finance lock:** with the lock on, amounts are not even written to the snapshot unless "show finance values in widgets" is on.
+- **Sport with a linked training** cannot be checked off in a widget. A tap opens the training and never replaces a running session.
+- **Live Activity:** plan, exercise, set, session time, and rest timer on the Lock Screen and in the Dynamic Island, for running workouts only.
+- **Setup:** the App Group `group.com.mwetzka03.lifify` and the target `com.mwetzka03.lifify.widgets` must exist in the Apple Developer account for a device build.
+
 ## Deutsch
 
 ### Überblick
@@ -457,3 +467,13 @@ Funktionen (Teil B). Diese Datei wächst mit jedem abgeschlossenen Schritt.
 - **Einrichtung:** Die App braucht jetzt die HealthKit-Berechtigung. Siehe die
   Schritte für das Apple-Developer-Konto.
 - **Nicht gebaut:** Schlaf bleibt draußen, bis der Eigentümer entschieden hat.
+
+### B1 und B9: Widgets und Live Activity fürs Training
+
+- **Widgets:** Tagesbudget, Heute (interaktiv), Coins & Streak, Depot, Nächstes Training, Überblick und drei Widgets für den Sperrbildschirm. Warum: Plan für 0.6.0. Auswirkung: Die wichtigsten Werte sind ohne Öffnen der App sichtbar.
+- **Datenweg abweichend vom Plan:** Die Datenbank bleibt, wo sie ist. Die App schreibt eine kleine Snapshot-Datei in die App Group. Warum: Der Umzug des Stores gefährdet echte Daten, und ein schreibendes Widget könnte die Buchungsregeln umgehen. Auswirkung: keine Migration; Widgets zeigen den Stand der letzten App-Aktualisierung.
+- **Abhaken im Widget:** Der Tipp wird vorgemerkt und verschwindet sofort aus dem Widget. Die App bucht ihn mit allen Regeln, sobald sie das nächste Mal läuft. Auswirkung: Coins und Streak ändern sich erst nach dem Öffnen der App.
+- **Finanzsperre:** Bei aktiver Sperre landen Beträge gar nicht erst im Snapshot, außer „Finanzwerte in Widgets zeigen“ ist an.
+- **Sport mit verknüpftem Training** ist im Widget nicht abhakbar. Ein Tipp öffnet das Training und ersetzt nie eine laufende Session.
+- **Live Activity:** Plan, Übung, Satz, Trainingszeit und Pausen-Timer auf Sperrbildschirm und Dynamic Island, nur für laufende Trainings.
+- **Einrichtung:** Die App Group `group.com.mwetzka03.lifify` und das Target `com.mwetzka03.lifify.widgets` müssen für den Build aufs iPhone im Apple-Developer-Konto vorhanden sein.
