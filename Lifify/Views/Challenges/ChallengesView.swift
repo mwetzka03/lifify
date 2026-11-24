@@ -818,14 +818,14 @@ struct ChallengesView: View {
         )
         let gray = ChallengeActivity.dimsActiveRow(recurrence: challenge.recurrence, completedToday: doneToday)
         let workouts = WorkoutLinkStore.planIDs(forChallenge: challenge.id).count
-        let followsNutrition = ChallengeCheckoff.followsNutrition(challenge.externalIdentifier)
+        let followsNutrition = ChallengeCheckoff.isAutomatic(challenge.externalIdentifier)
         let handLocked = !ChallengeCheckoff.allowsHand(
             category: challenge.category,
             linkedWorkouts: workouts,
             followsNutrition: followsNutrition
         )
         let pinned = ChallengePinStore.contains(challenge.id)
-        let note = ChallengeCheckoff.lockCaption(followsNutrition: followsNutrition, linkedWorkouts: workouts)
+        let note = ChallengeCheckoff.lockCaption(identifier: challenge.externalIdentifier, linkedWorkouts: workouts)
         return VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .center, spacing: 10) {
                 AppSymbolImage(name: IconPreferenceStore.icon(for: challenge.id, fallback: "target"))
@@ -1619,7 +1619,7 @@ private struct ChallengeGroupForm: View {
             if selected.contains(challenge.id) { return true }
             guard linkedEvent != nil else { return true }
             return ChallengeTimeRules.allowsTime(challenge.category)
-                && !ChallengeCheckoff.followsNutrition(challenge.externalIdentifier)
+                && !ChallengeCheckoff.isAutomatic(challenge.externalIdentifier)
                 && EventRewrite.acceptsSharedEvent(challenge.recurrence)
         }
     }
@@ -1710,7 +1710,7 @@ private struct ChallengeGroupForm: View {
                 guard selected.contains(challenge.id) else { return false }
                 if already.contains(challenge.id) { return true }
                 return ChallengeTimeRules.allowsTime(challenge.category)
-                    && !ChallengeCheckoff.followsNutrition(challenge.externalIdentifier)
+                    && !ChallengeCheckoff.isAutomatic(challenge.externalIdentifier)
                     && EventRewrite.acceptsSharedEvent(challenge.recurrence)
             }
             ChallengeTimeStore.setMembers(timed.map(\.id), for: event.id)

@@ -267,12 +267,13 @@ struct OnboardingView: View {
             Picker(L("Ziel", "Goal"), selection: $goal) {
                 ForEach(BodyGoal.allCases) { Text($0.label).tag($0) }
             }
+            StepGoalField()
         } header: {
             Text(OnboardingSteps.welcome)
         } footer: {
             Text(L(
-                "Der Name wird nur lokal für deine Begrüßung verwendet. Stell das Geburtsdatum auf deinen Tag, dann geht es weiter. Größe, Gewicht und Ziel kannst du auch später unter Nutzereinstellungen setzen. Sie bestimmen das Kalorienziel. Am Geburtstag gibt es einmal im Jahr 500 Coins.",
-                "The name is stored locally only for your greeting. Set the date of birth to your day, then you can continue. Height, weight, and the goal can also be set later under User settings. They set the calorie target. Your birthday pays 500 coins once each year."
+                "Der Name wird nur lokal für deine Begrüßung verwendet. Stell das Geburtsdatum auf deinen Tag, dann geht es weiter. Größe, Gewicht und Ziel kannst du auch später unter Nutzereinstellungen setzen. Sie bestimmen das Kalorienziel. Das Schrittziel wird zur Challenge, sobald Apple Health unter Einstellungen, Gesundheit an ist. Am Geburtstag gibt es einmal im Jahr 500 Coins.",
+                "The name is stored locally only for your greeting. Set the date of birth to your day, then you can continue. Height, weight, and the goal can also be set later under User settings. They set the calorie target. The step goal becomes a challenge once Apple Health is on under Settings, Health. Your birthday pays 500 coins once each year."
             ))
         }
         .appGlassRow()

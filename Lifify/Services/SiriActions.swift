@@ -27,7 +27,7 @@ enum SiriActions {
             && ChallengeCheckoff.allowsHand(
                 category: challenge.category,
                 linkedWorkouts: WorkoutLinkStore.planIDs(forChallenge: challenge.id).count,
-                followsNutrition: ChallengeCheckoff.followsNutrition(challenge.externalIdentifier)
+                followsNutrition: ChallengeCheckoff.isAutomatic(challenge.externalIdentifier)
             )
     }
 

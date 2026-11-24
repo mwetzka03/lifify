@@ -263,7 +263,7 @@ private struct DayAgendaCard: View {
                             .font(.caption)
                             .foregroundStyle(.orange)
                         }
-                        let followsNutrition = ChallengeCheckoff.followsNutrition(challenge.externalIdentifier)
+                        let followsNutrition = ChallengeCheckoff.isAutomatic(challenge.externalIdentifier)
                         let allowsHand = ChallengeCheckoff.allowsHand(
                             category: challenge.category,
                             linkedWorkouts: WorkoutLinkStore.planIDs(forChallenge: challenge.id).count,

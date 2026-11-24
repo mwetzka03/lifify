@@ -19,7 +19,7 @@ struct EventChallengeTimeSection: View {
         challenges.filter {
             !$0.isArchived
                 && ChallengeTimeRules.allowsTime($0.category)
-                && !ChallengeCheckoff.followsNutrition($0.externalIdentifier)
+                && !ChallengeCheckoff.isAutomatic($0.externalIdentifier)
                 && (EventRewrite.acceptsSharedEvent($0.recurrence) || memberIDs.contains($0.id))
         }
     }

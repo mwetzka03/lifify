@@ -249,7 +249,7 @@ struct HomeView: View {
                                 Spacer()
                                 CoinAmountView(amount: challenge.rewardCoins, showsPlus: true)
                                     .font(.caption)
-                                let followsNutrition = ChallengeCheckoff.followsNutrition(challenge.externalIdentifier)
+                                let followsNutrition = ChallengeCheckoff.isAutomatic(challenge.externalIdentifier)
                                 let allowsHand = ChallengeCheckoff.allowsHand(
                                     category: challenge.category,
                                     linkedWorkouts: WorkoutLinkStore.planIDs(forChallenge: challenge.id).count,
@@ -647,7 +647,7 @@ struct HomeView: View {
                       ChallengeCheckoff.allowsHand(
                           category: challenge.category,
                           linkedWorkouts: WorkoutLinkStore.planIDs(forChallenge: challenge.id).count,
-                          followsNutrition: ChallengeCheckoff.followsNutrition(challenge.externalIdentifier)
+                          followsNutrition: ChallengeCheckoff.isAutomatic(challenge.externalIdentifier)
                       ),
                       !ChallengeService.isCompleted(challenge, on: AppClock.now, completions: completions)
                 else { return nil }

@@ -303,6 +303,12 @@ of the method splitting are still open (see the last section).
 - **Forecast price:** With the return scenario, each future plan execution of an ETF buys at the price expected on its day, so later executions buy fewer shares. Without the scenario nothing changes.
 - **Why:** The details showed today's lots and value in every period, and plan shares were bought at today's price even when the forecast price had grown.
 
+### Owner feedback: Step goal with its own challenge
+
+- **What:** A daily step goal in setup and under Settings, Health (0 = off). With Apple Health on, it becomes a daily challenge worth 20 coins with streak and freezes. It checks itself off when Apple Health reports the goal and cannot be checked by hand or put into a time slot. At 20:00 a note says the steps read last and how many are left.
+- **Why:** Requested by the owner; this settles the open proposal of automatic challenges from Health values for steps.
+- **Effect:** The app reads the steps when it comes to the front and books every reached day since the challenge began, so a day is booked late if the app was not opened. The goal is in the full backup.
+
 ## Deutsch
 
 ### Überblick
@@ -623,3 +629,9 @@ Screens und ein Teil der Methoden-Zerlegung noch offen (siehe letzter Abschnitt)
 - **Details je Zeitraum:** Die Details einer Position zeigen Wert, Stückzahl und Einzelpositionen zum letzten Tag des gewählten Zeitraums. Vergangene Zeiträume lassen spätere Einzelpositionen weg; künftige zeigen zusätzlich jeden erwarteten Sparplan-Kauf als „Sparplan (Prognose)“, der nicht bearbeitbar ist.
 - **Prognosekurs:** Mit Renditeszenario kauft jede künftige Sparplan-Ausführung eines ETFs zum für ihren Tag erwarteten Kurs; spätere Ausführungen kaufen weniger Stücke. Ohne Szenario ändert sich nichts.
 - **Warum:** Die Details zeigten in jedem Zeitraum die heutigen Einzelpositionen und den heutigen Wert, und Sparplan-Stücke wurden zum heutigen Kurs gekauft, auch wenn der Prognosekurs gestiegen war.
+
+### Rückmeldung des Eigentümers: Schrittziel mit eigener Challenge
+
+- **Was:** Ein tägliches Schrittziel in der Einrichtung und unter Einstellungen, Gesundheit (0 = aus). Mit Apple Health wird daraus eine tägliche Challenge über 20 Coins mit Streak und Freezes. Sie hakt sich selbst ab, wenn Apple Health das Ziel meldet, und lässt sich weder von Hand abhaken noch in einen Termin legen. Um 20:00 Uhr nennt eine Mitteilung die zuletzt gelesenen Schritte und den Rest bis zum Ziel.
+- **Warum:** Wunsch des Eigentümers; damit ist der offene Vorschlag automatischer Challenges aus Health-Werten für Schritte entschieden.
+- **Auswirkung:** Die App liest die Schritte beim Öffnen und bucht jeden erreichten Tag seit Beginn der Challenge nach; ohne Öffnen wird ein Tag also später gebucht. Das Ziel ist im Gesamt-Backup.

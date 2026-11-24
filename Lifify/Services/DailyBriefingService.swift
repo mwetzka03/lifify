@@ -55,6 +55,8 @@ enum DailyBriefingService {
             for challenge in challenges where !challenge.isArchived {
                 if ChallengeCheckoff.followsNutrition(challenge.externalIdentifier) {
                     if let item = nutritionItem(challenge, on: day, sessions: sessions, calendar: calendar) { items.append(item) }
+                } else if ChallengeCheckoff.followsSteps(challenge.externalIdentifier) {
+                    if let item = stepItem(challenge, on: day, calendar: calendar) { items.append(item) }
                 } else if challenge.category != .abstinence {
                     let due = ChallengeService.isDue(challenge, on: day)
                     let done = ChallengeService.isCompleted(challenge, on: day, completions: completions)
@@ -148,6 +150,19 @@ enum DailyBriefingService {
         let key = NutritionPlan.dayKey(day, calendar: calendar)
         let eaten = NutritionPlan.rounded(.calories, meals: NutritionPlan.onDay(key, meals: MealLog.all()).filter { $0.status == .confirmed })
         guard let note = CalorieNudge.note(goal: measures.goal, target: target, eaten: eaten) else { return nil }
+        return ChallengeNudgeItem(id: challenge.id, title: challenge.title, clocks: [], eveningTitle: note.title, eveningBody: note.body)
+    }
+
+    /// The evening note of the step challenge with the steps read last on that day.
+    ///
+    /// - Parameters:
+    ///   - challenge: The step challenge.
+    ///   - day: The day of the note.
+    ///   - calendar: The calendar of the day.
+    /// - Returns: The note, or `nil` without a goal.
+    private static func stepItem(_ challenge: ChallengeItem, on day: Date, calendar: Calendar) -> ChallengeNudgeItem? {
+        let cached = AppleHealthSync.cachedTodaySteps(now: day)
+        guard let note = StepChallenge.note(steps: cached?.count, readAt: cached?.readAt) else { return nil }
         return ChallengeNudgeItem(id: challenge.id, title: challenge.title, clocks: [], eveningTitle: note.title, eveningBody: note.body)
     }
 

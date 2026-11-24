@@ -143,9 +143,25 @@ public enum ChallengeCheckoff {
         identifier == "nutrition:calories"
     }
 
+    /// Says whether the challenge follows the steps from Apple Health.
+    public static func followsSteps(_ identifier: String?) -> Bool {
+        identifier == "health:steps"
+    }
+
+    /// Says whether the app checks the challenge off by itself, so it takes no hand check or time slot.
+    public static func isAutomatic(_ identifier: String?) -> Bool {
+        followsNutrition(identifier) || followsSteps(identifier)
+    }
+
     /// The note that explains a locked check mark.
-    public static func lockCaption(followsNutrition: Bool, linkedWorkouts: Int) -> String? {
-        if followsNutrition {
+    public static func lockCaption(identifier: String?, linkedWorkouts: Int) -> String? {
+        if followsSteps(identifier) {
+            return L(
+                "Zählt, wenn Apple Health das Schrittziel meldet.",
+                "Counts when Apple Health reports the step goal."
+            )
+        }
+        if followsNutrition(identifier) {
             return L(
                 "Zählt mit den Mahlzeiten dieses Tages.",
                 "Counts from the meals of that day."

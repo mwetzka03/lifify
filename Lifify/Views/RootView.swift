@@ -184,6 +184,9 @@ struct RootView: View {
     /// Refreshes calendar, bonuses, and notifications on return.
     private func resumeForegroundWork() async {
         await AppleHealthSync.refreshTodaySteps()
+        if StepChallenge.goal > 0, let steps = await AppleHealthSync.summary() {
+            StepChallenge.settle(days: steps.steps, context: context)
+        }
         WidgetPublisher.refresh(context: context, plans: workouts.plans)
         await announcePeriodReview()
         await EventKitSyncService().sync(

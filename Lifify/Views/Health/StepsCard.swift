@@ -150,7 +150,9 @@ struct StepsCard: View {
 
 /// The switch of the Apple Health connection.
 struct AppleHealthSection: View {
+    @Environment(\.modelContext) private var context
     @AppStorage(AppleHealthSync.enabledKey) private var isEnabled = false
+    @AppStorage(StepChallenge.goalKey) private var stepGoal = 0
     @State private var failed = false
 
     var body: some View {
@@ -165,14 +167,35 @@ struct AppleHealthSection: View {
                     Task { failed = !(await AppleHealthSync.enable()) }
                 }
             ))
+            StepGoalField()
         } footer: {
             Text(failed
                 ? L("Apple Health ist auf diesem Gerät nicht verfügbar.", "Apple Health is not available on this device.")
                 : L(
-                    "Liest Gewicht und Schritte und schreibt jedes beendete Training als Workout nach Apple Health. Die Daten bleiben auf dem Gerät.",
-                    "Reads weight and steps and writes each finished workout to Apple Health. The data stays on this device."
+                    "Liest Gewicht und Schritte und schreibt jedes beendete Training als Workout nach Apple Health. Mit einem Schrittziel gibt es eine Challenge mit \(StepChallenge.rewardCoins) Coins pro Tag, Streak und Freezes; 0 schaltet sie ab. Die Daten bleiben auf dem Gerät.",
+                    "Reads weight and steps and writes each finished workout to Apple Health. A step goal adds a challenge with \(StepChallenge.rewardCoins) coins a day, streak, and freezes; 0 turns it off. The data stays on this device."
                 ))
         }
         .appGlassRow()
+        .onChange(of: isEnabled) { StepChallenge.sync(context: context) }
+        .onChange(of: stepGoal) { StepChallenge.sync(context: context) }
+    }
+}
+
+/// The daily step goal, shared by setup and settings. 0 means no goal.
+struct StepGoalField: View {
+    @AppStorage(StepChallenge.goalKey) private var stepGoal = 0
+
+    var body: some View {
+        HStack {
+            Text(L("Schrittziel", "Step goal"))
+            Spacer()
+            TextField(StepChallenge.suggestedGoal.formatted(), value: $stepGoal, format: .number)
+                .keyboardType(.numberPad)
+                .multilineTextAlignment(.trailing)
+                .frame(maxWidth: 110)
+            Text(L("pro Tag", "a day"))
+                .foregroundStyle(.secondary)
+        }
     }
 }
