@@ -367,6 +367,12 @@ of the method splitting are still open (see the last section).
 - **Why:** One place for documentation, sorted by the app's areas.
 - **Effect:** All links in README, CLAUDE.md, and the changelogs point to the new paths.
 
+### Owner feedback: Reminders list for challenges
+
+- **What:** New challenges are created as reminders in a list chosen under Settings, Calendar sync. Automatic picks a list named To-Do, else the system default. Existing reminders keep their list. The choice is in the full backup.
+- **Why:** Challenges landed in the shopping list, the system default on the owner's devices.
+- **Effect:** With a To-Do list present, nothing needs to be set. Test: `ReminderListChoiceTests`.
+
 ## Deutsch
 
 ### Überblick
@@ -751,3 +757,9 @@ Screens und ein Teil der Methoden-Zerlegung noch offen (siehe letzter Abschnitt)
 - **Was:** Der Ordner Changes Documentation heißt jetzt Documentation, mit englischen Dateinamen. FINANZEN.md heißt FINANCE.md, ERNAEHRUNG.md heißt HEALTH.md (jetzt mit Training, Schritten und Apple Health), und CHALLENGES.md und GENERAL.md sind neu. Jede erklärt zweisprachig, was ihr Bereich kann und wie er funktioniert. FEATURES.md entfällt; ihr Inhalt ist auf diese Dateien verteilt. Nur README.md und CLAUDE.md bleiben oben.
 - **Warum:** Ein Ort für die Doku, nach den Bereichen der App sortiert.
 - **Auswirkung:** Alle Links in README, CLAUDE.md und den Changelogs zeigen auf die neuen Pfade.
+
+### Rückmeldung des Eigentümers: Erinnerungsliste für Challenges
+
+- **Was:** Neue Challenges entstehen als Erinnerung in der Liste, die unter Einstellungen, Kalender-Sync gewählt ist. Automatisch nimmt eine Liste namens To-Do, sonst die Standardliste. Bestehende Erinnerungen bleiben in ihrer Liste. Die Wahl ist im Gesamt-Backup.
+- **Warum:** Challenges landeten in der Einkaufsliste, der Standardliste auf den Geräten des Eigentümers.
+- **Auswirkung:** Gibt es eine To-Do-Liste, muss nichts eingestellt werden. Test: `ReminderListChoiceTests`.

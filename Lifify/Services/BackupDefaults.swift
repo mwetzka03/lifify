@@ -41,6 +41,7 @@ enum BackupDefaults {
         CashInterest.enabledKey,
         CashInterest.rateKey,
         StepChallenge.goalKey,
+        ReminderListChoice.storageKey,
         BudgetAlertSettings.enabledKey,
         BudgetAlertSettings.budgetsKey,
         BudgetAlertSettings.dailyKey,

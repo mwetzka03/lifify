@@ -156,6 +156,8 @@ public protocol CalendarGateway: AnyObject {
     func setReminderCompleted(identifier: String, isCompleted: Bool) async
     /// Creates or updates a reminder and returns its system identifier, or `nil` on failure.
     func saveReminder(_ draft: CalendarReminderDraft) async -> String?
+    /// Returns the Reminders lists that can take new reminders.
+    func reminderLists() async -> [ReminderListOption]
 }
 
 /// Holds the gateway that all calendar code goes through.

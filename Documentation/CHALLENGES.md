@@ -20,6 +20,13 @@
   take them; their done state is written back.
 - Up to four challenges can be pinned. Symbols can be chosen freely.
 
+### Reminders list
+
+- Challenges made in Lifify are also created as reminders in the Reminders app.
+  New ones go into the list chosen under Settings, Calendar sync. Automatic
+  means a list named To-Do, else the default list. Existing reminders stay in
+  their list.
+
 ### Time slots and groups
 
 - A challenge can have an estimated duration in minutes.
@@ -87,6 +94,13 @@
 - iPhone-Erinnerungen erscheinen als Empfehlungen und werden erst durch
   Übernahme zu Challenges; ihr Erledigt-Status wird zurückgeschrieben.
 - Bis zu vier Challenges lassen sich anheften. Symbole sind frei wählbar.
+
+### Erinnerungsliste
+
+- In Lifify angelegte Challenges entstehen auch als Erinnerung in der
+  Erinnerungen-App. Neue landen in der Liste, die unter Einstellungen,
+  Kalender-Sync gewählt ist. Automatisch heißt: eine Liste namens To-Do, sonst
+  die Standardliste. Bestehende Erinnerungen bleiben in ihrer Liste.
 
 ### Zeit-Slots und Gruppen
 

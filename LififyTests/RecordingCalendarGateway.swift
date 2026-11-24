@@ -65,6 +65,12 @@ final class RecordingCalendarGateway: CalendarGateway {
         return draft.identifier ?? makeIdentifier()
     }
 
+    /// The scripted Reminders lists.
+    var lists: [ReminderListOption] = []
+
+    /// Returns the scripted lists.
+    func reminderLists() async -> [ReminderListOption] { grantsAccess ? lists : [] }
+
     /// Creates a unique system identifier.
     private func makeIdentifier() -> String {
         nextIdentifier += 1

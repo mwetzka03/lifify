@@ -111,7 +111,7 @@ public final class EventKitCalendarGateway: CalendarGateway {
             let reminder = draft.identifier.flatMap {
                 store.calendarItem(withIdentifier: $0) as? EKReminder
             } ?? EKReminder(eventStore: store)
-            if reminder.calendar == nil { reminder.calendar = store.defaultCalendarForNewReminders() }
+            if reminder.calendar == nil { reminder.calendar = Self.newReminderList(in: store) }
             guard reminder.calendar != nil else { return nil }
             reminder.title = draft.title
             reminder.notes = draft.notes
@@ -122,6 +122,28 @@ public final class EventKitCalendarGateway: CalendarGateway {
         } catch {
             return nil
         }
+    }
+
+    /// Returns the Reminders lists that can take new reminders.
+    public func reminderLists() async -> [ReminderListOption] {
+        let store = EKEventStore()
+        guard (try? await store.requestFullAccessToReminders()) == true else { return [] }
+        return Self.writableLists(in: store).map { ReminderListOption(id: $0.calendarIdentifier, title: $0.title) }
+    }
+
+    /// The lists a new reminder can go into.
+    private static func writableLists(in store: EKEventStore) -> [EKCalendar] {
+        store.calendars(for: .reminder).filter(\.allowsContentModifications)
+    }
+
+    /// The chosen list, else a To-Do list, else the system default.
+    private static func newReminderList(in store: EKEventStore) -> EKCalendar? {
+        let lists = writableLists(in: store)
+        let options = lists.map { ReminderListOption(id: $0.calendarIdentifier, title: $0.title) }
+        if let id = ReminderListChoice.pick(from: options), let list = lists.first(where: { $0.calendarIdentifier == id }) {
+            return list
+        }
+        return store.defaultCalendarForNewReminders()
     }
 
     /// Copies the draft's values onto an event. An end before the start falls back to a default length.
