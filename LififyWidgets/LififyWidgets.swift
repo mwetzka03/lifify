@@ -312,6 +312,23 @@ private struct TrainingBlock: View {
     }
 }
 
+/// Today's steps with the time they were read, because the widget cannot read Apple Health itself.
+private struct StepsLine: View {
+    let steps: WidgetSteps
+    let snapshot: WidgetSnapshot?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 1) {
+            Label(steps.count.formatted(), systemImage: "figure.walk")
+                .font(.subheadline.weight(.semibold))
+                .monospacedDigit()
+            Text("\(text(snapshot, "Schritte, Stand", "steps as of")) \(steps.readAt.formatted(date: .omitted, time: .shortened))")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+        }
+    }
+}
+
 /// The next training, opened with a tap.
 struct TrainingWidget: Widget {
     var body: some WidgetConfiguration {
@@ -341,7 +358,12 @@ struct OverviewWidget: Widget {
                         }
                     }
                     .frame(width: 104, height: 104)
-                    TrainingBlock(snapshot: entry.snapshot)
+                    VStack(alignment: .leading, spacing: 10) {
+                        TrainingBlock(snapshot: entry.snapshot)
+                        if let steps = entry.snapshot?.steps, Calendar.current.isDate(steps.readAt, inSameDayAs: entry.date) {
+                            StepsLine(steps: steps, snapshot: entry.snapshot)
+                        }
+                    }
                     Spacer(minLength: 0)
                 }
                 ChallengeList(entry: entry, limit: 7)

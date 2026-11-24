@@ -58,7 +58,8 @@ enum WidgetPublisher {
                 .map { WidgetAppointment(title: $0.title, date: $0.startDate) },
             nextTraining: nextTraining(events: events, plans: plans),
             coins: ChallengeService.walletBalance(transactions: (try? context.fetch(FetchDescriptor<CoinTransaction>())) ?? []),
-            longestStreak: longestStreak(context: context, now: now)
+            longestStreak: longestStreak(context: context, now: now),
+            steps: AppleHealthSync.cachedTodaySteps(now: now).map { WidgetSteps(count: $0.count, readAt: $0.readAt) }
         )
     }
 

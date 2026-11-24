@@ -90,6 +90,17 @@ extension LififyRuleTests {
             }
         }
 
+        @Test func todaysStepsAreKeptForTheWidgetOnlyThatDay() async throws {
+            try await withSource { _, _ in
+                await AppleHealthSync.refreshTodaySteps(now: date(2026, 3, 18, 9))
+                #expect(AppleHealthSync.cachedTodaySteps(now: date(2026, 3, 18, 10)) == nil)
+                _ = await AppleHealthSync.enable()
+                await AppleHealthSync.refreshTodaySteps(now: date(2026, 3, 18, 9))
+                #expect(AppleHealthSync.cachedTodaySteps(now: date(2026, 3, 18, 10))?.count == 9_000)
+                #expect(AppleHealthSync.cachedTodaySteps(now: date(2026, 3, 19, 10)) == nil)
+            }
+        }
+
         @Test func theSummaryComesFromTheSource() async throws {
             try await withSource { _, _ in
                 _ = await AppleHealthSync.enable()

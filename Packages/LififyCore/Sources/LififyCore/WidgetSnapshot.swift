@@ -71,6 +71,8 @@ public struct WidgetSnapshot: Codable, Equatable, Sendable {
     public var nextTraining: WidgetAppointment?
     public var coins: Int
     public var longestStreak: Int
+    /// Today's steps and when Apple Health was last read, or `nil` while it is off.
+    public var steps: WidgetSteps?
 
     /// Creates a snapshot.
     public init(
@@ -83,7 +85,8 @@ public struct WidgetSnapshot: Codable, Equatable, Sendable {
         nextSlot: WidgetAppointment?,
         nextTraining: WidgetAppointment?,
         coins: Int,
-        longestStreak: Int
+        longestStreak: Int,
+        steps: WidgetSteps? = nil
     ) {
         self.generatedAt = generatedAt
         self.isGerman = isGerman
@@ -95,6 +98,7 @@ public struct WidgetSnapshot: Codable, Equatable, Sendable {
         self.nextTraining = nextTraining
         self.coins = coins
         self.longestStreak = longestStreak
+        self.steps = steps
     }
 
     /// A negative wallet locks the shop.
@@ -103,6 +107,18 @@ public struct WidgetSnapshot: Codable, Equatable, Sendable {
     /// The open challenges of a day.
     public func challenges(on date: Date) -> [WidgetChallenge] {
         challengesByDay[date.dayKey] ?? []
+    }
+}
+
+/// The step count a widget shows, with the time it was read.
+public struct WidgetSteps: Codable, Equatable, Sendable {
+    public var count: Int
+    public var readAt: Date
+
+    /// Creates a step count.
+    public init(count: Int, readAt: Date) {
+        self.count = count
+        self.readAt = readAt
     }
 }
 

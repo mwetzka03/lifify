@@ -279,6 +279,26 @@ public enum AppleHealthSync {
         return await source.summary(days: summaryDays)
     }
 
+    /// The key of today's last read step count.
+    public static let todayStepsKey = "lifify.appleHealthTodaySteps"
+    /// The key of the time of that reading.
+    public static let todayStepsDateKey = "lifify.appleHealthTodayStepsDate"
+
+    /// Reads today's steps and keeps them for the widgets.
+    public static func refreshTodaySteps(now: Date = .now) async {
+        guard isEnabled else { return }
+        let today = await source.summary(days: 1).steps.first { Calendar.current.isDate($0.date, inSameDayAs: now) }
+        AppDefaults.store.set(Int(today?.value.rounded() ?? 0), forKey: todayStepsKey)
+        AppDefaults.store.set(now, forKey: todayStepsDateKey)
+    }
+
+    /// Today's last read steps with their time, or `nil` while Apple Health is off or not read today.
+    public static func cachedTodaySteps(now: Date = .now) -> (count: Int, readAt: Date)? {
+        guard isEnabled, let readAt = AppDefaults.store.object(forKey: todayStepsDateKey) as? Date,
+              Calendar.current.isDate(readAt, inSameDayAs: now) else { return nil }
+        return (AppDefaults.store.integer(forKey: todayStepsKey), readAt)
+    }
+
     /// Writes a finished training once.
     public static func export(_ session: WorkoutSession) async {
         guard isEnabled, session.finishedAt > session.startedAt else { return }

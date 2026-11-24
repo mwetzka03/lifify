@@ -279,6 +279,12 @@ of the method splitting are still open (see the last section).
 - **Home:** Under the calendar, a card shows the steps and the planned trainings of the chosen day, week, or month. Week and month show the sum and the daily average. Trainings come from calendar events with linked plans, directly or through their challenge, and show a check once a session of that plan finished that day.
 - **Why:** The owner wants to look back and see activity next to the calendar. Effect: a moved or deleted event changes the card at once.
 
+### Owner feedback: Steps in the Overview widget
+
+- **What:** The large Overview widget shows today's steps under the next training, with the time they were read.
+- **Why:** Requested by the owner. A widget cannot read Apple Health itself, so the app reads today's steps whenever it comes to the front and writes them into the widget data.
+- **Effect:** The number is as fresh as the last app start; the time says so. With Apple Health off, or on a new day before the app ran, the line stays away.
+
 ## Deutsch
 
 ### Überblick
@@ -575,3 +581,9 @@ Screens und ein Teil der Methoden-Zerlegung noch offen (siehe letzter Abschnitt)
 - **Schritte blättern:** Ein Wisch über das Diagramm oder die Pfeile zeigt die 7 oder 30 Tage davor; die Linie zeigt den Durchschnitt dieser Seite. Dafür liest Lifify jetzt ein Jahr Schritte.
 - **Startseite:** Unter dem Kalender zeigt eine Karte Schritte und geplante Trainings des gewählten Tages, der Woche oder des Monats. Woche und Monat zeigen Summe und Tagesdurchschnitt. Trainings kommen aus Kalenderterminen mit verknüpftem Plan, direkt oder über die Challenge, und bekommen einen Haken, sobald an dem Tag eine Session des Plans beendet wurde.
 - **Warum:** Der Eigentümer will zurückblättern und die Aktivität neben dem Kalender sehen. Auswirkung: Ein verschobener oder gelöschter Termin ändert die Karte sofort.
+
+### Rückmeldung des Eigentümers: Schritte im Widget Überblick
+
+- **Was:** Das große Widget Überblick zeigt unter dem nächsten Training die heutigen Schritte mit der Uhrzeit, zu der sie gelesen wurden.
+- **Warum:** Wunsch des Eigentümers. Ein Widget kann Apple Health nicht selbst lesen. Deshalb liest die App die heutigen Schritte bei jedem Öffnen und schreibt sie in die Widget-Daten.
+- **Auswirkung:** Die Zahl ist so aktuell wie der letzte App-Start; die Uhrzeit zeigt das. Ist Apple Health aus oder lief die App an einem neuen Tag noch nicht, fehlt die Zeile.
