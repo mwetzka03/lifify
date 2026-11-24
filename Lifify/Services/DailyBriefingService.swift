@@ -39,7 +39,7 @@ enum DailyBriefingService {
 
     /// Evening nudges, clock-time nudges, streak warnings, and the birthday note.
     /// These follow the real clock, so a developer day does not move Notification Center.
-    static func scheduleFollowUps(context: ModelContext) async {
+    static func scheduleFollowUps(context: ModelContext, sessions: [WorkoutSession] = []) async {
         guard await LififyNotifications.requestAccess() else { return }
         let calendar = Calendar.autoupdatingCurrent
         let now = Date()
@@ -53,7 +53,9 @@ enum DailyBriefingService {
         for day in days {
             var items: [ChallengeNudgeItem] = []
             for challenge in challenges where !challenge.isArchived {
-                if challenge.category != .abstinence {
+                if ChallengeCheckoff.followsNutrition(challenge.externalIdentifier) {
+                    if let item = nutritionItem(challenge, on: day, sessions: sessions, calendar: calendar) { items.append(item) }
+                } else if challenge.category != .abstinence {
                     let due = ChallengeService.isDue(challenge, on: day)
                     let done = ChallengeService.isCompleted(challenge, on: day, completions: completions)
                     if due && !done {
@@ -117,6 +119,38 @@ enum DailyBriefingService {
         )
     }
 
+    /// The evening note of the calorie challenge with the day's numbers instead of a plain reminder.
+    ///
+    /// It comes on every day of the challenge, also when the goal is already met, because it reports
+    /// how the day stands. Future days know no meals yet and say the target.
+    ///
+    /// - Parameters:
+    ///   - challenge: The calorie challenge.
+    ///   - day: The day of the note.
+    ///   - sessions: The finished workouts, which raise the target.
+    ///   - calendar: The calendar of the day.
+    /// - Returns: The note, or `nil` without body data or on a day the challenge does not run.
+    private static func nutritionItem(
+        _ challenge: ChallengeItem,
+        on day: Date,
+        sessions: [WorkoutSession],
+        calendar: Calendar
+    ) -> ChallengeNudgeItem? {
+        guard ChallengeService.isDue(challenge, on: day) else { return nil }
+        let measures = UserBody.current()
+        let target = NutritionPlan.dayTarget(
+            measures: measures,
+            birth: UserProfile.birth(),
+            on: day,
+            trained: NutritionPlan.trained(on: day, sessions: sessions, calendar: calendar),
+            calendar: calendar
+        )
+        let key = NutritionPlan.dayKey(day, calendar: calendar)
+        let eaten = NutritionPlan.rounded(.calories, meals: NutritionPlan.onDay(key, meals: MealLog.all()).filter { $0.status == .confirmed })
+        guard let note = CalorieNudge.note(goal: measures.goal, target: target, eaten: eaten) else { return nil }
+        return ChallengeNudgeItem(id: challenge.id, title: challenge.title, clocks: [], eveningTitle: note.title, eveningBody: note.body)
+    }
+
     /// Schedules the upcoming abstinence milestones.
     static func scheduleAbstinence(context: ModelContext) async {
         guard await LififyNotifications.requestAccess() else { return }
@@ -167,8 +201,6 @@ enum DailyBriefingService {
             else { return nil }
             return DailyBriefingLine(title: reward.title, detail: "\(reward.price) · \(days)d")
         }.prefix(3)
-        let forecasts = (try? context.fetch(FetchDescriptor<IncomeForecast>())) ?? []
-        let salary = nextSalary(in: forecasts, after: day, calendar: calendar).map(AppDate.numeric)
         let costs = ((try? context.fetch(FetchDescriptor<FixedCost>())) ?? [])
             .filter { $0.isActive && occurs($0, on: day, calendar: calendar) }
             .prefix(4)
@@ -177,26 +209,8 @@ enum DailyBriefingService {
             events: events,
             challenges: Array(challenges),
             rewards: Array(rewards),
-            salary: salary,
             expenses: Array(costs)
         )
-    }
-
-    /// Finds the next salary after a day.
-    private static func nextSalary(in forecasts: [IncomeForecast], after day: Date, calendar: Calendar) -> Date? {
-        guard let limit = calendar.date(byAdding: .year, value: 1, to: day) else { return nil }
-        let active = forecasts.filter(\.isActive)
-        let primaryID = IncomeAssignmentStore.primaryForecastID
-        let chosen = active.first { $0.id == primaryID } ?? active.first
-        guard let chosen else { return nil }
-        return CalendarService.nextOccurrences(
-            firstDate: chosen.firstPaymentDate,
-            cadence: chosen.cadence,
-            rule: chosen.dueRule,
-            day: chosen.dayOfMonth,
-            endDate: chosen.endPaymentDate,
-            through: limit
-        ).first { calendar.startOfDay(for: $0) >= calendar.startOfDay(for: day) }
     }
 
     /// Says whether a fixed cost falls on a day.

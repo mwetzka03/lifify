@@ -88,7 +88,10 @@ struct RootView: View {
             NotificationCenter.default.publisher(for: ModelContext.didSave)
                 .debounce(for: .seconds(2), scheduler: DispatchQueue.main)
         ) { _ in
-            Task { await BudgetAlertService.check(context: context) }
+            Task {
+                await BudgetAlertService.check(context: context)
+                await DailyBriefingService.scheduleFollowUps(context: context, sessions: workouts.sessions)
+            }
             WidgetPublisher.refresh(context: context, plans: workouts.plans)
         }
         .onChange(of: developerMode) { BirthdayBonusService.settle(context: context) }
@@ -98,7 +101,7 @@ struct RootView: View {
             Task {
                 await DailyBriefingService.refresh(context: context)
                 await DailyBriefingService.scheduleAbstinence(context: context)
-                await DailyBriefingService.scheduleFollowUps(context: context)
+                await DailyBriefingService.scheduleFollowUps(context: context, sessions: workouts.sessions)
             }
         }
         .overlay {
@@ -192,6 +195,6 @@ struct RootView: View {
         BirthdayBonusService.settle(context: context)
         await DailyBriefingService.refresh(context: context)
         await DailyBriefingService.scheduleAbstinence(context: context)
-        await DailyBriefingService.scheduleFollowUps(context: context)
+        await DailyBriefingService.scheduleFollowUps(context: context, sessions: workouts.sessions)
     }
 }

@@ -43,11 +43,17 @@ public struct ChallengeNudgeItem: Equatable, Identifiable {
     public var id: UUID
     public var title: String
     public var clocks: [NudgeClock]
+    /// Replaces the plain evening reminder, for example with the day's calories.
+    public var eveningTitle: String?
+    public var eveningBody: String?
 
-    public init(id: UUID, title: String, clocks: [NudgeClock]) {
+    /// Creates an item. Without an own evening text the reminder says the challenge is open.
+    public init(id: UUID, title: String, clocks: [NudgeClock], eveningTitle: String? = nil, eveningBody: String? = nil) {
         self.id = id
         self.title = title
         self.clocks = clocks
+        self.eveningTitle = eveningTitle
+        self.eveningBody = eveningBody
     }
 }
 
@@ -81,8 +87,8 @@ public enum ChallengeNudgePlan {
                 if let fire = fire(on: plan.day, clock: evening, calendar: calendar), fire > now {
                     result.append(ChallengeNudgeRequest(
                         id: "\(nudgePrefix)evening.\(item.id.uuidString).\(stamp)",
-                        title: L("Noch offen", "Still open"),
-                        body: L(
+                        title: item.eveningTitle ?? L("Noch offen", "Still open"),
+                        body: item.eveningBody ?? L(
                             "\(item.title) wartet noch auf den Haken.",
                             "\(item.title) is still waiting for a check."
                         ),

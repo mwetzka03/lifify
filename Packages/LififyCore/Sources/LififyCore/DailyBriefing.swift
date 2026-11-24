@@ -19,14 +19,12 @@ public enum DailyBriefing {
     ///   - events: Today's events.
     ///   - challenges: Today's open challenges.
     ///   - rewards: Rewards to mention.
-    ///   - salary: A salary note, if one is due.
     ///   - expenses: Today's expected expenses.
     /// - Returns: The notification text.
     public static func text(
         events: [DailyBriefingLine],
         challenges: [DailyBriefingLine],
         rewards: [DailyBriefingLine],
-        salary: String?,
         expenses: [DailyBriefingLine]
     ) -> String {
         var lines: [String] = []
@@ -38,9 +36,6 @@ public enum DailyBriefing {
         }
         if !rewards.isEmpty {
             lines.append(labeled(L("Belohnungen", "Rewards"), rewards))
-        }
-        if let salary, !salary.isEmpty {
-            lines.append("\(L("Gehalt", "Salary")): \(salary)")
         }
         if !expenses.isEmpty {
             lines.append(labeled(L("Ausgaben", "Expenses"), expenses))

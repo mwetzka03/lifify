@@ -262,6 +262,11 @@ of the method splitting are still open (see the last section).
 - **Deep analysis chart:** The chart combines everything below 0.5 % into Other; the list keeps 0.1 %. Why: the pie was unreadable with many thin slices.
 - **Missing fund splits:** Trade Republic names funds without the provider, for example "Rare Earth & Strategic Metals USD (Acc)". Funds are now found by ISIN first. Effect: AI & Big Data, Rare Earth, Space Innovators, and World ex USA are split again. iShares World Small Cap and Space Technologies still need a manual import.
 
+### Owner feedback: Calorie note and daily briefing
+
+- **Calorie note:** At 20:00 the calorie challenge reports the day against the goal instead of "still waiting for a check": under the deficit target it praises and says the kcal left, when building muscle it says the kcal still missing. It is rescheduled after each change of the meals.
+- **Daily briefing:** The salary line is gone. Why: the owner finds it useless every day.
+
 ## Deutsch
 
 ### Überblick
@@ -541,3 +546,8 @@ Screens und ein Teil der Methoden-Zerlegung noch offen (siehe letzter Abschnitt)
 - **Dividenden:** Sie stehen nicht mehr unter Weitere Bereiche, sondern eingeklappt unter den Einnahmeprognosen in Einnahmen. Die Liste zeigt nur Positionen, die noch zahlen; verkaufte Fonds stehen nur im Erhaltenen. Die Prognose wird nur angezeigt und zählt in keine Prognose und keinen Saldo.
 - **Grafik der Tiefenanalyse:** Die Grafik fasst alles unter 0,5 % zu Sonstige zusammen; die Liste bleibt bei 0,1 %. Warum: Mit vielen dünnen Stücken war die Grafik nicht lesbar.
 - **Fehlende Aufteilungen:** Trade Republic benennt Fonds ohne Anbieter, etwa „Rare Earth & Strategic Metals USD (Acc)“. Fonds werden jetzt zuerst über die ISIN gefunden. Auswirkung: AI & Big Data, Rare Earth, Space Innovators und World ex USA werden wieder aufgeteilt. iShares World Small Cap und Space Technologies brauchen weiter einen manuellen Import.
+
+### Rückmeldung des Eigentümers: Kalorien-Mitteilung und Tagesbriefing
+
+- **Kalorien-Mitteilung:** Um 20:00 Uhr meldet die Kalorien-Challenge den Stand gegenüber dem Ziel statt „wartet noch auf den Haken“: Im Defizit lobt sie und nennt die verbleibenden kcal, beim Aufbau die noch fehlenden. Sie wird nach jeder Änderung der Mahlzeiten neu geplant.
+- **Tagesbriefing:** Die Zeile zum Gehalt entfällt. Warum: Sie bringt dem Eigentümer täglich nichts.

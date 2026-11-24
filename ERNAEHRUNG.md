@@ -91,6 +91,16 @@ The result does not go under a floor: 1200 for female, 1500 for male, and
 floor. Example: a woman of 30 years, 165 cm, and 70 kg who wants to lose fat
 lands on 1448 kcal, or 1698 kcal if she trained that day.
 
+### Evening note
+
+- At 20:00 the calorie challenge sends how the day stands, not a plain reminder.
+- Lose fat: under the target it praises and says how many kcal are left; over
+  it says by how much.
+- Build muscle: it says how many kcal are still missing until the target.
+- Maintain: it compares with the range of 90 to 110 percent.
+- Without a meal it names the day's target. The note follows each change of the
+  meals.
+
 ### What recognition does
 
 The main path is a photo of the plate. Gemini names the meal, picks a kind,
@@ -213,6 +223,17 @@ männlich und 1350 ohne Angabe. Ein abgeschlossenes Training gibt danach
 250 kcal dazu. Beispiel: eine Frau, 30 Jahre, 165 cm und 70 kg, die Fett
 verlieren will, landet bei 1448 kcal, oder bei 1698 kcal, wenn sie an dem
 Tag trainiert hat.
+
+### Abendmitteilung
+
+- Um 20:00 Uhr meldet die Kalorien-Challenge den Stand des Tages statt einer
+  einfachen Erinnerung.
+- Fett verlieren: Unter dem Ziel lobt sie und nennt die verbleibenden kcal,
+  darüber nennt sie den Überschuss.
+- Muskeln aufbauen: Sie nennt die kcal, die bis zum Ziel noch fehlen.
+- Halten: Sie vergleicht mit dem Bereich von 90 bis 110 Prozent.
+- Ohne Mahlzeit nennt sie das Tagesziel. Die Mitteilung folgt jeder Änderung
+  der Mahlzeiten.
 
 ### Was die Erkennung tut
 

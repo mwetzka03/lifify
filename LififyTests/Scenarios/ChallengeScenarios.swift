@@ -758,7 +758,6 @@ enum ChallengeScenarios {
             events: [DailyBriefingLine(title: "Fokus", detail: "10:00")],
             challenges: [DailyBriefingLine(title: "Lesen", detail: "+10")],
             rewards: [DailyBriefingLine(title: "Kino", detail: "200 · 3d")],
-            salary: "25.11.",
             expenses: [DailyBriefingLine(title: "Miete", detail: "800 €")]
         )
         let early = DailyBriefing.shouldDeliverBonusNow(
@@ -777,9 +776,9 @@ enum ChallengeScenarios {
             alreadyQueued: false
         )
         let passed = text.contains("Fokus") && text.contains("Lesen") && text.contains("Kino")
-            && text.contains("25.11.") && text.contains("Miete")
+            && !text.contains("Gehalt") && !text.contains("Salary") && text.contains("Miete")
             && early && !queued && missed
-        return result("Das Tagesbriefing nennt Termine, Coins, Belohnung, Gehalt und Ausgaben", .challenge, .unit, passed, text)
+        return result("Das Tagesbriefing nennt Termine, Coins, Belohnung und Ausgaben, aber kein Gehalt", .challenge, .unit, passed, text)
     }
 
     static func todaysAbstinenceNoticeOnly() -> RuleScenario {
