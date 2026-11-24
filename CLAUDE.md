@@ -490,6 +490,11 @@ Eigentümer will **alle** unten genannten Teile.
   im Commitment **150 Coins**, Strafe für Umgehung **250 Coins**.
 - Xcode darf die Berechtigung „Family Controls“ beim Build per automatischer
   Signierung im Entwicklerkonto eintragen (Freigabe 24.11.2026).
+- **Blocker (geprüft 24.11.2026):** Xcode meldet „Personal development teams
+  … do not support the Family Controls (Development) capability“. Das Konto
+  des Eigentümers ist ein kostenloses persönliches Team (Profile laufen 7
+  Tage). Für B13 auf dem Gerät braucht es das kostenpflichtige Apple
+  Developer Program. Entscheidung des Eigentümers steht aus.
 - **Freikaufen:** gewählte Minuten gegen Coins. Bei negativem Wallet nicht
   möglich (gleiche Regel wie die Shop-Sperre). Danach greift die Sperre
   wieder automatisch.
