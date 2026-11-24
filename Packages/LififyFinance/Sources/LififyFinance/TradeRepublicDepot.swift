@@ -43,6 +43,8 @@ public enum TradeRepublicDepotApplier {
             if try applyMove(move, run: run, known: &known, dropping: &dropping) { count += 1 }
         }
         try context.save()
+        // Saveback arrives sized like a buy; it becomes cashback before the cash is reconciled.
+        SavebackRepair.run(context: context)
         let fresh = try context.fetch(FetchDescriptor<PortfolioHolding>()).filter { $0.accountID == portfolio.id }
         relabelUnboughtOpenings(holdings: fresh, positions: snapshot.positions, activities: snapshot.activities, portfolio: portfolio, known: &known, context: context)
         scaleWholeLotsToLive(holdings: fresh, positions: snapshot.positions, activities: snapshot.activities, context: context)

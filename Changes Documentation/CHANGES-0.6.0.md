@@ -327,6 +327,12 @@ of the method splitting are still open (see the last section).
 - **Why:** The owner imported a 90-day export in setup and then the full year. The 658 older rows ended up as review questions, and the opening stayed in August.
 - **Effect:** Older months can be added at any time; every later balance and today's stand stay the same. Days inside the known range keep the duplicate review. Test: `ImportBackfillTests`.
 
+### Owner feedback: Saveback is cashback
+
+- **What:** Trade Republic Saveback is booked as cashback income on the depot, not as a purchase from the Trade Republic account. Its shares carry no purchase cost, like a portfolio gift, so their whole value shows green. The session still reads Saveback like a buy to size the shares and rewrites it before the cash is reconciled; existing bookings are rewritten at launch (`SavebackRepair`).
+- **Why:** The 2 Nov Saveback of 15 € showed as "Kauf: MSCI World" and lowered the Trade Republic balance.
+- **Effect:** Trade Republic cash is no longer charged for Saveback. Until the next Trade Republic refresh, an existing balance adjustment can leave its stand 15 € higher; a refresh reconciles it. Test: `SavebackRepairTests`.
+
 ## Deutsch
 
 ### Überblick
@@ -671,3 +677,9 @@ Screens und ein Teil der Methoden-Zerlegung noch offen (siehe letzter Abschnitt)
 - **Was:** Ein Import aus den Einstellungen bucht Zeilen vor der ältesten Buchung des Kontos direkt. Der Eröffnungssaldo jedes betroffenen Kontos rückt auf den neuen ersten Tag und sinkt um genau diese Buchungen.
 - **Warum:** Der Eigentümer hatte in der Einrichtung einen 90-Tage-Export und danach das ganze Jahr importiert. Die 658 älteren Zeilen landeten als Rückfragen, und der Eröffnungssaldo blieb im August.
 - **Auswirkung:** Ältere Monate lassen sich jederzeit ergänzen; jeder spätere Stand und der heutige Kontostand bleiben gleich. Tage im bekannten Zeitraum behalten die Duplikat-Prüfung. Test: `ImportBackfillTests`.
+
+### Rückmeldung des Eigentümers: Saveback ist Cashback
+
+- **Was:** Trade-Republic-Saveback wird als Cashback-Einnahme im Depot gebucht, nicht als Kauf vom Trade-Republic-Konto. Die Stücke haben keinen Einstand, wie ein Depotgeschenk, ihr ganzer Wert erscheint also grün. Die Sitzung liest Saveback weiter wie einen Kauf, um die Stücke zu bestimmen, und schreibt es vor dem Kontoabgleich um; bestehende Buchungen werden beim Start umgeschrieben (`SavebackRepair`).
+- **Warum:** Das Saveback vom 2. November über 15 € stand als „Kauf: MSCI World“ und senkte den Trade-Republic-Saldo.
+- **Auswirkung:** Das Trade-Republic-Konto wird für Saveback nicht mehr belastet. Bis zur nächsten Trade-Republic-Aktualisierung kann eine bestehende Saldo-Korrektur den Stand um 15 € zu hoch lassen; eine Aktualisierung gleicht das aus. Test: `SavebackRepairTests`.

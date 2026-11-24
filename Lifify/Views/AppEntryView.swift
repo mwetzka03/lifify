@@ -39,6 +39,7 @@ struct AppEntryView: View {
                 }
             }
             PortfolioConsolidation.consolidate(context: modelContext)
+            SavebackRepair.run(context: modelContext)
             TradeRepublicSample.purgeLegacyPreferences()
             didCheckExistingInstallation = true
         }
