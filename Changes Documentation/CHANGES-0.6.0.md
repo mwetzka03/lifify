@@ -355,6 +355,12 @@ of the method splitting are still open (see the last section).
 - **Why:** Requested by the owner; booked interest existed, forecast interest did not.
 - **Effect:** Off changes nothing. On, the forecast income, projected balance, and events contain "Interest (forecast)". Both settings are in the full backup. Test: `CashInterestTests`.
 
+### Owner decision: RULES.md replaces CLAUDE.md, app lock dropped
+
+- **What:** The lasting parts of CLAUDE.md (working together, workflow, technical guardrails, confirmed rules, decisions, open work) moved into RULES.md in both languages. CLAUDE.md is deleted. The planned app lock with Screen Time (B13) is dropped.
+- **Why:** Most of the 0.6.0 plan is done. The app lock needs Family Controls, which the owner's free personal developer team cannot get.
+- **Effect:** No code change. RULES.md is the one place for project rules.
+
 ## Deutsch
 
 ### Überblick
@@ -727,3 +733,9 @@ Screens und ein Teil der Methoden-Zerlegung noch offen (siehe letzter Abschnitt)
 - **Was:** Ein Schalter „Zinsprognose Verrechnungskonto“ mit Zinssatz pro Jahr (2,5 %, solange nicht geändert) unter Einstellungen, Finanzen, Depot, standardmäßig aus. Ist er an, bekommt der prognostizierte Monatsend-Stand des Girokontos für Käufe (sonst Trade Republic) ein Zwölftel des Satzes, ausgezahlt am nächsten Monatsersten; frühere Auszahlungen erhöhen spätere Stände, es entsteht Zinseszins.
 - **Warum:** Wunsch des Eigentümers; gebuchte Zinsen gab es, Prognosezinsen nicht.
 - **Auswirkung:** Aus ändert nichts. An enthalten Einnahmeprognose, prognostizierter Saldo und Ereignisse „Zinsen (Prognose)“. Beide Einstellungen sind im Gesamt-Backup. Test: `CashInterestTests`.
+
+### Entscheidung des Eigentümers: RULES.md ersetzt CLAUDE.md, App-Sperre verworfen
+
+- **Was:** Die bleibenden Teile der CLAUDE.md (Zusammenarbeit, Arbeitsweise, technische Leitplanken, bestätigte Regeln, Entscheidungen, offene Arbeit) stehen zweisprachig in der RULES.md. Die CLAUDE.md ist gelöscht. Die geplante App-Sperre über Bildschirmzeit (B13) ist verworfen.
+- **Warum:** Der Plan für 0.6.0 ist weitgehend umgesetzt. Die App-Sperre braucht Family Controls, die das kostenlose persönliche Entwicklerteam des Eigentümers nicht bekommt.
+- **Auswirkung:** Keine Code-Änderung. Die RULES.md ist der eine Ort für Projektregeln.
