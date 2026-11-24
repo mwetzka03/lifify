@@ -361,6 +361,12 @@ of the method splitting are still open (see the last section).
 - **Why:** Most of the 0.6.0 plan is done. The app lock needs Family Controls, which the owner's free personal developer team cannot get.
 - **Effect:** No code change. CLAUDE.md is the one place for project rules.
 
+### Owner decision: All documents in Doku
+
+- **What:** The folder Changes Documentation is now Doku, and FEATURES.md, FINANZEN.md, and ERNAEHRUNG.md moved into it. Only README.md and CLAUDE.md stay at the top. FEATURES.md is rewritten in both languages as the guide to everything the app can do; the old German-only assumptions are folded into it or covered by FINANZEN.md.
+- **Why:** One place for documentation, and one complete, bilingual description of the app.
+- **Effect:** All links in README, CLAUDE.md, and the changelogs point to the new paths.
+
 ## Deutsch
 
 ### Überblick
@@ -739,3 +745,9 @@ Screens und ein Teil der Methoden-Zerlegung noch offen (siehe letzter Abschnitt)
 - **Was:** Die bleibenden Teile des Arbeitsplans für 0.6.0 (Zusammenarbeit, Arbeitsweise, technische Leitplanken, bestätigte Regeln, Entscheidungen, offene Arbeit) stehen zweisprachig bei den Regeln. Die Regeldatei heißt jetzt CLAUDE.md (vorher RULES.md), damit Claude Code sie bei jedem Start liest; der erledigte Plan entfällt. Die geplante App-Sperre über Bildschirmzeit (B13) ist verworfen.
 - **Warum:** Der Plan für 0.6.0 ist weitgehend umgesetzt. Die App-Sperre braucht Family Controls, die das kostenlose persönliche Entwicklerteam des Eigentümers nicht bekommt.
 - **Auswirkung:** Keine Code-Änderung. Die CLAUDE.md ist der eine Ort für Projektregeln.
+
+### Entscheidung des Eigentümers: Alle Dokumente in Doku
+
+- **Was:** Der Ordner Changes Documentation heißt jetzt Doku, und FEATURES.md, FINANZEN.md und ERNAEHRUNG.md liegen darin. Nur README.md und CLAUDE.md bleiben oben. FEATURES.md ist zweisprachig neu geschrieben, als Übersicht über alles, was die App kann; die alten, nur deutschen Annahmen sind darin aufgegangen oder stehen in FINANZEN.md.
+- **Warum:** Ein Ort für die Doku und eine vollständige, zweisprachige Beschreibung der App.
+- **Auswirkung:** Alle Links in README, CLAUDE.md und den Changelogs zeigen auf die neuen Pfade.

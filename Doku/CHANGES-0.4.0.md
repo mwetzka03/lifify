@@ -3,7 +3,7 @@
 [English](#english) · [Deutsch](#deutsch)
 
 This file is in English and in German. The finance calculations stay in
-[FINANZEN.md](../FINANZEN.md) and are unchanged. What changed in 0.3.0 is in
+[FINANZEN.md](FINANZEN.md) and are unchanged. What changed in 0.3.0 is in
 [CHANGES-0.3.0.md](CHANGES-0.3.0.md). The displayed version is 0.4.0.
 
 ## English
@@ -167,7 +167,7 @@ This file is in English and in German. The finance calculations stay in
 - An empty challenge list can still overlap the recommendations.
 - The week strip on Home can stop responding after one tap.
 - OpenAI is not connected. The wired reader is Gemini, and only when a key is
-  saved. The requirements are in [ERNAEHRUNG.md](../ERNAEHRUNG.md).
+  saved. The requirements are in [ERNAEHRUNG.md](ERNAEHRUNG.md).
 - There is no snapshot test, because this environment has no Xcode.
 - Possible later work: abstinence templates, an iPad layout, widgets, and one
   shared calendar for Home and Challenges.
@@ -356,7 +356,7 @@ This file is in English and in German. The finance calculations stay in
 - Die Wochenleiste auf Home kann nach einem Tippen aufhören zu reagieren.
 - OpenAI ist nicht verbunden. Der angeschlossene Leser ist Gemini, und nur mit
   einem gespeicherten Schlüssel. Die Anforderungen stehen in
-  [ERNAEHRUNG.md](../ERNAEHRUNG.md).
+  [ERNAEHRUNG.md](ERNAEHRUNG.md).
 - Es gibt keinen Snapshot-Test, weil diese Umgebung kein Xcode hat.
 - Möglich später: Abstinenz-Vorlagen, ein iPad-Layout, Widgets und ein
   gemeinsamer Kalender für Home und Challenges.

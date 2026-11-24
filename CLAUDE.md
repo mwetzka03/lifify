@@ -27,7 +27,7 @@ These rules apply to every change in Lifify. Claude Code reads this file at the 
 - Push and delete files outside the agreed work only after asking.
 - A new version sets the version everywhere: `MARKETING_VERSION` of both
   targets, `AppVersion.current`, README, and FEATURES.
-- Each version has its changelog in Changes Documentation: an overview, then
+- Each version has its changelog in Doku: an overview, then
   one section per area, short bullets with what, why, and effect.
 - Update README, FEATURES, FINANZEN, ERNAEHRUNG, and this file with every change
   that affects them. New calculation rules belong in FINANZEN.md.
@@ -141,9 +141,10 @@ Apple developer account are described to the owner, never guessed.
 ### Language
 
 Document a change in English and in German. English comes first. Each version
-has its own changelog, as [CHANGES-0.6.0.md](Changes%20Documentation/CHANGES-0.6.0.md) does for 0.6.0.
-Those version files live in Changes Documentation. The README and the other
-documents stay at the top and stay bilingual in the same way.
+has its own changelog, as [CHANGES-0.6.0.md](Doku/CHANGES-0.6.0.md) does for 0.6.0.
+Only README.md and CLAUDE.md stay at the top. Every other document lives in
+the Doku folder: the changelogs, FEATURES.md (what the app can do), FINANZEN.md,
+and ERNAEHRUNG.md. All of them are bilingual in the same way.
 
 ### Tests
 
@@ -260,7 +261,7 @@ own colors.
   Rückfrage.
 - Eine neue Version setzt die Version überall: `MARKETING_VERSION` beider
   Targets, `AppVersion.current`, README und FEATURES.
-- Jede Version hat ihren Changelog in Changes Documentation: Überblick, dann
+- Jede Version hat ihren Changelog in Doku: Überblick, dann
   ein Abschnitt pro Bereich, kurze Aufzählungen mit was, warum und Auswirkung.
 - README, FEATURES, FINANZEN, ERNAEHRUNG und diese Datei bei jeder betroffenen
   Änderung anpassen. Neue Rechenregeln gehören nach FINANZEN.md.
@@ -376,9 +377,10 @@ geraten.
 
 Eine Änderung wird auf Englisch und auf Deutsch dokumentiert. Englisch steht
 zuerst. Jede Version hat ihr eigenes Änderungsprotokoll, so wie
-[CHANGES-0.6.0.md](Changes%20Documentation/CHANGES-0.6.0.md) für 0.6.0. Diese
-Versionsdateien liegen in Changes Documentation. Die README und die übrigen
-Dokumente bleiben oben und auf dieselbe Weise zweisprachig.
+[CHANGES-0.6.0.md](Doku/CHANGES-0.6.0.md) für 0.6.0. Nur README.md und
+CLAUDE.md bleiben oben. Alle übrigen Dokumente liegen im Ordner Doku: die
+Changelogs, FEATURES.md (was die App kann), FINANZEN.md und ERNAEHRUNG.md. Alle
+sind auf dieselbe Weise zweisprachig.
 
 ### Tests
 

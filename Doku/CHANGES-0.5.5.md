@@ -6,7 +6,7 @@
 
 Lifify 0.5.5 is one release after 0.4.0. There was no separate 0.5.0
 release. What changed in 0.4.0 is in [CHANGES-0.4.0.md](CHANGES-0.4.0.md).
-The finance calculations are in [FINANZEN.md](../FINANZEN.md). The displayed
+The finance calculations are in [FINANZEN.md](FINANZEN.md). The displayed
 version is 0.5.5.
 
 ### Overview
@@ -277,7 +277,7 @@ Create two shortcuts on the iPhone. iOS may still ask you to tap Run.
 Lifify 0.5.5 ist ein Release nach 0.4.0. Ein eigenes Release 0.5.0 gab es
 nicht. Was sich in 0.4.0 geändert hat, steht in
 [CHANGES-0.4.0.md](CHANGES-0.4.0.md). Die Finanzrechnung steht in
-[FINANZEN.md](../FINANZEN.md). Die angezeigte Version ist 0.5.5.
+[FINANZEN.md](FINANZEN.md). Die angezeigte Version ist 0.5.5.
 
 ### Überblick
 

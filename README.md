@@ -13,7 +13,7 @@ wash and the same card fill, and it keeps its tile arrangement. Positive
 amounts stay green and negative amounts stay red. The links under More are
 a step larger than the tile titles.
 
-The finance rules are in [FINANZEN.md](FINANZEN.md). What changed in 0.6.0 is in [CHANGES-0.6.0.md](Changes%20Documentation/CHANGES-0.6.0.md). What changed in 0.5.5 is in [CHANGES-0.5.5.md](Changes%20Documentation/CHANGES-0.5.5.md). What changed in 0.4.0 is in [CHANGES-0.4.0.md](Changes%20Documentation/CHANGES-0.4.0.md). What changed in 0.3.0 is in [CHANGES-0.3.0.md](Changes%20Documentation/CHANGES-0.3.0.md). Each file is in English and German. How changes, checks, and the visual style are kept is in [CLAUDE.md](CLAUDE.md).
+What the app can do is in [FEATURES.md](Doku/FEATURES.md). The finance rules are in [FINANZEN.md](Doku/FINANZEN.md). What changed in 0.6.0 is in [CHANGES-0.6.0.md](Doku/CHANGES-0.6.0.md). What changed in 0.5.5 is in [CHANGES-0.5.5.md](Doku/CHANGES-0.5.5.md). What changed in 0.4.0 is in [CHANGES-0.4.0.md](Doku/CHANGES-0.4.0.md). What changed in 0.3.0 is in [CHANGES-0.3.0.md](Doku/CHANGES-0.3.0.md). Each file is in English and German. How changes, checks, and the visual style are kept is in [CLAUDE.md](CLAUDE.md).
 
 ### Areas
 
@@ -44,7 +44,7 @@ is read and classified. Without a key it stays on the device. Fast food buys
 the Fast Food reward for 25 coins. The pinned nutrition challenge follows the
 goal: Calorie deficit, Hold calories, or Build muscle. It cannot be checked
 off by hand, and a later meal can take the coins back below zero. The requirements are in
-[ERNAEHRUNG.md](ERNAEHRUNG.md). Abstinence lives with the challenges. A sport
+[ERNAEHRUNG.md](Doku/ERNAEHRUNG.md). Abstinence lives with the challenges. A sport
 challenge linked to a workout is completed only by finishing that workout.
 Up to four challenges can be pinned above the filter on the challenges page.
 The event picker opens on today. Groups have their own section, fold open on
@@ -208,12 +208,12 @@ Violett, jeweils mit eigener heller und dunkler Fläche. Die Karten behalten
 eine eigene Füllung. Finanzen nutzt dieselbe Fläche und dieselbe Kartenfarbe
 und behält die Anordnung der Kacheln. Positive Beträge bleiben grün, negative
 rot. Die Links unter Weitere Bereiche sind eine Stufe größer als die Kacheltitel.
-Was sich in 0.6.0 geändert hat, steht in [CHANGES-0.6.0.md](Changes%20Documentation/CHANGES-0.6.0.md). Was sich in 0.5.5 geändert hat, steht in [CHANGES-0.5.5.md](Changes%20Documentation/CHANGES-0.5.5.md),
-was sich in 0.4.0 geändert hat in [CHANGES-0.4.0.md](Changes%20Documentation/CHANGES-0.4.0.md),
-was sich in 0.3.0 geändert hat in [CHANGES-0.3.0.md](Changes%20Documentation/CHANGES-0.3.0.md). Jede Datei auf Englisch und Deutsch.
+Was sich in 0.6.0 geändert hat, steht in [CHANGES-0.6.0.md](Doku/CHANGES-0.6.0.md). Was sich in 0.5.5 geändert hat, steht in [CHANGES-0.5.5.md](Doku/CHANGES-0.5.5.md),
+was sich in 0.4.0 geändert hat in [CHANGES-0.4.0.md](Doku/CHANGES-0.4.0.md),
+was sich in 0.3.0 geändert hat in [CHANGES-0.3.0.md](Doku/CHANGES-0.3.0.md). Jede Datei auf Englisch und Deutsch.
 Wie Änderungen, Tests und der Stil gehalten werden, steht in [CLAUDE.md](CLAUDE.md).
 
-Die Finanzregeln stehen in [FINANZEN.md](FINANZEN.md).
+Was die App kann, steht in [FEATURES.md](Doku/FEATURES.md). Die Finanzregeln stehen in [FINANZEN.md](Doku/FINANZEN.md).
 
 ### Bereiche
 
@@ -246,7 +246,7 @@ Gesundheit, wird das Foto gelesen und eingeordnet. Ohne Schlüssel bleibt es
 auf dem Gerät. Fast Food kauft die Belohnung Fast Food für 25 Coins. Die
 angepinnte Ernährungs-Challenge folgt dem Ziel: Kaloriendefizit, Kalorien
 halten oder Muskelaufbau. Sie lässt sich nicht von Hand abhaken, und eine
-spätere Mahlzeit kann die Coins wieder unter null abziehen. Die Anforderungen stehen in [ERNAEHRUNG.md](ERNAEHRUNG.md).
+spätere Mahlzeit kann die Coins wieder unter null abziehen. Die Anforderungen stehen in [ERNAEHRUNG.md](Doku/ERNAEHRUNG.md).
 Abstinenz liegt bei den Challenges. Eine Sport-Challenge mit einem verknüpften
 Training gilt nur als erledigt, wenn dieses Training beendet wurde. Bis zu
 vier Challenges lassen sich über dem Filter auf der Challenges-Seite anpinnen.
