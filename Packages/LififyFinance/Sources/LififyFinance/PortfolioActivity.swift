@@ -437,6 +437,11 @@ public enum HoldingMaintenance {
         return value
     }
 
+    /// The money future savings plan executions put into a holding from today through a day.
+    public static func futureContributionCents(of holding: PortfolioHolding, through day: Date, holdings: [PortfolioHolding]) -> Int {
+        futureShares(through: day, holdings: holdings).invested[holding.id] ?? 0
+    }
+
     /// Returns a holding's value at the end of a day.
     public static func marketValue(of holding: PortfolioHolding, through day: Date, holdings: [PortfolioHolding]) -> Int {
         if ReturnScenario.applies(on: day), let annual = ReturnScenario.annualReturn(for: holding) {
@@ -533,6 +538,8 @@ public enum HoldingMaintenance {
     /// Shares that future savings plans will buy.
     private struct FutureShares {
         var quantity: [UUID: Double] = [:]
+        /// The money each position receives from future plan executions.
+        var invested: [UUID: Int] = [:]
         var unmatchedCents = 0
     }
 
@@ -597,6 +604,7 @@ public enum HoldingMaintenance {
             guard claimed.insert(plan.id).inserted else { continue }
             let shares = Double(executions) * Double(abs(plan.amountCents)) / Double(target.currentPriceCents)
             result.quantity[target.id, default: 0] += shares
+            result.invested[target.id, default: 0] += executions * abs(plan.amountCents)
         }
         shareCacheKey = key
         shareCache = result

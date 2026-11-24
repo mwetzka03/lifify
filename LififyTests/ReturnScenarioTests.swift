@@ -43,6 +43,35 @@ extension LififyRuleTests {
             }
         }
 
+        /// A monthly plan of 100 euros into the position.
+        private func plan(for holding: PortfolioHolding) {
+            SavingsPlanStore.upsert(SavingsPlanRecord(
+                id: UUID(), isin: isin, name: "World", amountCents: 10_000, cadenceRaw: Cadence.monthly.rawValue,
+                checkingAccountID: UUID(), portfolioAccountID: UUID(), holdingID: holding.id,
+                lastExecution: date(2026, 3, 2), historyThrough: date(2026, 3, 2), active: true
+            ))
+        }
+
+        @Test func aFuturePeriodCountsPlanMoneyIntoThePurchaseCost() async throws {
+            try await fixed { store in
+                let holding = position(store)
+                plan(for: holding)
+                let flat = projectedPerformance(holding, through: date(2027, 3, 18), holdings: [holding])
+                #expect(flat.value == 220_000)
+                #expect(flat.purchaseBase == 220_000)
+                #expect(flat.purchaseCents == 0)
+                #expect(flat.dayCents == 0)
+                enable(store)
+                let grown = projectedPerformance(holding, through: date(2027, 3, 18), holdings: [holding])
+                #expect(grown.purchaseBase == 220_000)
+                #expect(grown.purchaseCents == grown.value - 220_000)
+                #expect(grown.purchaseCents > 12_000)
+                #expect(grown.dayCents == grown.purchaseCents)
+                let today = projectedPerformance(holding, through: now, holdings: [holding])
+                #expect(today.purchaseBase == 100_000)
+            }
+        }
+
         @Test func offLeavesTheForecastUnchanged() async throws {
             try await fixed { store in
                 let holding = position(store)

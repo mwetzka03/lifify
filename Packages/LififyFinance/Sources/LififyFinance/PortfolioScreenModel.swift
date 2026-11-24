@@ -156,6 +156,30 @@ public func holdingPerformance(_ holding: PortfolioHolding) -> HoldingPerformanc
     return performance
 }
 
+/// The performance of a position on a day of the selected period.
+///
+/// For today and the past it is the current performance. For a future day the value is the
+/// forecast value, with the return scenario when it applies, and the purchase cost grows by
+/// every savings plan amount until then. So "since purchase" is the forecast value minus all
+/// money put in, and "today" is the growth from today's value plus the new money.
+///
+/// - Parameters:
+///   - holding: The position.
+///   - day: The day of the selected period.
+///   - holdings: The positions in scope, which decide a plan's target.
+/// - Returns: Value and gains on that day.
+@MainActor
+public func projectedPerformance(_ holding: PortfolioHolding, through day: Date, holdings: [PortfolioHolding]) -> HoldingPerformance {
+    let current = holdingPerformance(holding)
+    let calendar = Calendar.current
+    guard calendar.startOfDay(for: day) > calendar.startOfDay(for: FinanceClock.now) else { return current }
+    let value = HoldingMaintenance.marketValue(of: holding, through: day, holdings: holdings)
+    let invested = HoldingMaintenance.futureContributionCents(of: holding, through: day, holdings: holdings)
+    let start = current.value + invested
+    let cost = current.purchaseBase + invested
+    return HoldingPerformance(value: value, dayCents: value - start, dayBase: start, purchaseCents: value - cost, purchaseBase: cost)
+}
+
 /// One open position with everything its row shows.
 public struct PortfolioRow: Identifiable {
     public let holding: PortfolioHolding
@@ -269,7 +293,7 @@ public final class PortfolioScreenModel {
             quantity: quantity,
             valueCents: value,
             shownPriceCents: Int((Double(value) / quantity).rounded()),
-            performance: holdingPerformance(holding)
+            performance: projectedPerformance(holding, through: day, holdings: holdings)
         )
     }
 

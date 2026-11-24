@@ -850,7 +850,8 @@ struct DashboardView: View {
     }
 
     private var portfolioChange: (text: String, cents: Int) {
-        let total = scopedHoldings.reduce(HoldingPerformance()) { $0.adding(holdingPerformance($1)) }
+        let day = selectedPeriod?.end ?? FinanceClock.now
+        let total = scopedHoldings.reduce(HoldingPerformance()) { $0.adding(projectedPerformance($1, through: day, holdings: scopedHoldings)) }
         return total.selected(basis: portfolioBasis, unit: portfolioUnit)
     }
 

@@ -685,6 +685,11 @@ full to be right, the statement has to be imported again after a rule change.
   plan amount from its execution date.
 - An ETF is recognized from the market data and can be corrected by hand.
 - Leveraged ETFs use their own history without a special calculation.
+- In a future period the depot shows its gain against everything put in:
+  purchase cost today plus every savings plan amount until the period end.
+  "Since purchase" is the forecast value minus that sum. "Today" is the growth
+  from today's value plus the new money. Without the scenario both stay at
+  today's gain, because new shares are bought at today's price.
 
 ### Deep analysis of the depot
 
@@ -1407,6 +1412,11 @@ Auszug nach einer Regeländerung neu importiert werden.
   künftige Sparplan-Betrag ab seiner Ausführung.
 - Ein ETF wird aus den Marktdaten erkannt und lässt sich von Hand korrigieren.
 - Hebel-ETFs nutzen ihre eigene Historie ohne Sonderrechnung.
+- In einem künftigen Zeitraum zeigt das Depot den Gewinn gegenüber allem
+  Eingezahlten: heutiger Einstand plus jeder Sparplan-Betrag bis zum
+  Zeitraumende. „Seit Kauf“ ist der Prognosewert minus diese Summe. „Heute“ ist
+  das Wachstum ab dem heutigen Wert plus dem neuen Geld. Ohne Szenario bleiben
+  beide beim heutigen Gewinn, weil neue Stücke zum heutigen Kurs gekauft werden.
 
 ### Tiefenanalyse des Depots
 

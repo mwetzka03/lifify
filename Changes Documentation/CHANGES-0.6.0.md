@@ -267,6 +267,12 @@ of the method splitting are still open (see the last section).
 - **Calorie note:** At 20:00 the calorie challenge reports the day against the goal instead of "still waiting for a check": under the deficit target it praises and says the kcal left, when building muscle it says the kcal still missing. It is rescheduled after each change of the meals.
 - **Daily briefing:** The salary line is gone. Why: the owner finds it useless every day.
 
+### Owner feedback: Depot gains in future periods
+
+- **What:** In a future period, a position's gain is the forecast value minus today's purchase cost plus every savings plan amount until the period end. "Today" shows the growth from today's value plus the new money. Depot screen and the depot tile both use it.
+- **Why:** With the return scenario on, the value grew while the gain stayed at today's figure.
+- **Effect:** With the scenario, the gains grow with the forecast. Without it they stay at today's gain, as before. Today and past periods are unchanged.
+
 ## Deutsch
 
 ### Überblick
@@ -551,3 +557,9 @@ Screens und ein Teil der Methoden-Zerlegung noch offen (siehe letzter Abschnitt)
 
 - **Kalorien-Mitteilung:** Um 20:00 Uhr meldet die Kalorien-Challenge den Stand gegenüber dem Ziel statt „wartet noch auf den Haken“: Im Defizit lobt sie und nennt die verbleibenden kcal, beim Aufbau die noch fehlenden. Sie wird nach jeder Änderung der Mahlzeiten neu geplant.
 - **Tagesbriefing:** Die Zeile zum Gehalt entfällt. Warum: Sie bringt dem Eigentümer täglich nichts.
+
+### Rückmeldung des Eigentümers: Depot-Gewinne in künftigen Zeiträumen
+
+- **Was:** In einem künftigen Zeitraum ist der Gewinn einer Position der Prognosewert minus heutigem Einstand plus allen Sparplan-Beträgen bis zum Zeitraumende. „Heute“ zeigt das Wachstum ab dem heutigen Wert plus dem neuen Geld. Depot-Ansicht und Depot-Kachel nutzen beide diese Rechnung.
+- **Warum:** Mit Renditeszenario wuchs der Wert, der Gewinn blieb aber beim heutigen Stand.
+- **Auswirkung:** Mit Szenario wachsen die Gewinne mit der Prognose. Ohne Szenario bleiben sie wie bisher beim heutigen Gewinn. Heute und vergangene Zeiträume sind unverändert.
