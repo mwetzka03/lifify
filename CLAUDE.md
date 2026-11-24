@@ -3,9 +3,10 @@
 Diese Datei liest Claude Code bei jedem Start. Sie hält fest, was mit dem
 Eigentümer (mwetzka03) vereinbart wurde.
 
-Stand: 23.11.2026. Version 0.5.5 ist fertig und in `main` gemergt. Als
-Nächstes kommt **Version 0.6.0** auf dem Branch `version0.6.0`. Er wird von
-`main` abgezweigt.
+Stand: 24.11.2026. Version 0.5.5 ist in `main` gemergt. **Version 0.6.0** liegt
+auf dem Branch `version0.6.0` und ist noch nicht auf einem echten iPhone
+getestet. Teil B ist umgesetzt. Offen sind `DashboardView`, `TransactionsView`
+und ein Teil der Methoden-Zerlegung aus A8.
 
 Die erste Code-Analyse liegt als Claude Doc im Projekt „Lifify“:
 „Lifify 0.5.0 – Code-Analyse und Rückfragen“. Was in 0.5.5 umgesetzt wurde,
@@ -260,10 +261,10 @@ automatischer Testlauf (CI).
 - Finanz-Widgets folgen der Regel aus A7.
 - Widgets aktualisieren sich nach jeder relevanten Änderung in der App
   (`WidgetCenter.reloadTimelines`) und zum Tageswechsel.
-- Voraussetzung: Der SwiftData-Store zieht in einen App-Group-Container um,
-  damit App und Widget dieselben Daten lesen. Das ist eine Migration des
-  Speicherorts. Sie muss mit Test und Rückfallweg gebaut werden und darf
-  keine Daten verlieren.
+- Umsetzung (abweichend vom ursprünglichen Plan, Freigabe des Eigentümers
+  steht aus): Der SwiftData-Store bleibt am alten Ort. Die App schreibt einen
+  Snapshot in die App Group, Haken aus Widgets warten dort, bis die App sie
+  bucht. So ist keine Migration des Speicherorts nötig.
 - Die Schritte im Apple-Developer-Konto (App Group, Widget-Extension)
   beschreibt Claude dem Eigentümer.
 

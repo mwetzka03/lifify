@@ -47,14 +47,14 @@ extension MealRecognition {
               let jpeg = MealPhotoFit.jpeg(image)
         else { return nil }
         let prompt = prompt(person: person, correction: correction)
-        if let reading = await send(prompt: prompt, jpeg: jpeg, key: key, thinking: true) {
+        if let reading = await send(prompt: prompt, jpeg: jpeg, key: key, disablesThinking: true) {
             return reading
         }
-        return await send(prompt: prompt, jpeg: jpeg, key: key, thinking: false)
+        return await send(prompt: prompt, jpeg: jpeg, key: key, disablesThinking: false)
     }
 
     /// Sends one request and reads its answer.
-    private static func send(prompt: String, jpeg: Data, key: String, thinking: Bool) async -> MealReading? {
+    private static func send(prompt: String, jpeg: Data, key: String, disablesThinking: Bool) async -> MealReading? {
         guard let url = URL(string: "https://generativelanguage.googleapis.com/v1beta/models/\(model):generateContent") else {
             return nil
         }
@@ -67,7 +67,7 @@ extension MealRecognition {
             "temperature": 0.2,
             "responseMimeType": "application/json"
         ]
-        if thinking {
+        if disablesThinking {
             generation["thinkingConfig"] = ["thinkingBudget": 0]
         }
         let payload: [String: Any] = [

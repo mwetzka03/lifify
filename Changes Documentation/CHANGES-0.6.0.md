@@ -7,7 +7,8 @@
 ### Overview
 
 Version 0.6.0 first improves the code base (part A) and then adds new features
-(part B). This file grows with each finished step.
+(part B). Part B is complete. From part A, the rebuild of two screens and part
+of the method splitting are still open (see the last section).
 
 ### 0.6.0: Testable calendar access (A1)
 
@@ -230,12 +231,19 @@ Version 0.6.0 first improves the code base (part A) and then adds new features
 - **Live Activity:** plan, exercise, set, session time, and rest timer on the Lock Screen and in the Dynamic Island, for running workouts only.
 - **Setup:** the App Group `group.com.mwetzka03.lifify` and the target `com.mwetzka03.lifify.widgets` must exist in the Apple Developer account for a device build.
 
+### A8: Data screen, naming, and what is still open
+
+- **Data screen:** it no longer keeps 20 live queries. It reads the data only when a backup is made. Why: the queries served only the export. Effect: same backup, lighter screen.
+- **Meal recognition:** `thinking` is now `disablesThinking`, which is what the flag does. The request is unchanged.
+- **Still open from A8 and A2:** `DashboardView` and `TransactionsView` are not rebuilt, and about 160 methods stay over 30 lines, mostly in Trade Republic, backup, and views. Why: they touch money and backup paths and should change only after the first test on a real iPhone.
+
 ## Deutsch
 
 ### Überblick
 
 Version 0.6.0 verbessert zuerst die Codebasis (Teil A) und ergänzt danach neue
-Funktionen (Teil B). Diese Datei wächst mit jedem abgeschlossenen Schritt.
+Funktionen (Teil B). Teil B ist fertig. Aus Teil A sind der Umbau von zwei
+Screens und ein Teil der Methoden-Zerlegung noch offen (siehe letzter Abschnitt).
 
 ### 0.6.0: Testbarer Kalenderzugriff (A1)
 
@@ -477,3 +485,9 @@ Funktionen (Teil B). Diese Datei wächst mit jedem abgeschlossenen Schritt.
 - **Sport mit verknüpftem Training** ist im Widget nicht abhakbar. Ein Tipp öffnet das Training und ersetzt nie eine laufende Session.
 - **Live Activity:** Plan, Übung, Satz, Trainingszeit und Pausen-Timer auf Sperrbildschirm und Dynamic Island, nur für laufende Trainings.
 - **Einrichtung:** Die App Group `group.com.mwetzka03.lifify` und das Target `com.mwetzka03.lifify.widgets` müssen für den Build aufs iPhone im Apple-Developer-Konto vorhanden sein.
+
+### A8: Daten-Screen, Benennung und was noch offen ist
+
+- **Daten-Screen:** Er hält keine 20 Live-Abfragen mehr, sondern liest die Daten erst beim Erstellen einer Sicherung. Warum: Die Abfragen dienten nur dem Export. Auswirkung: gleiche Sicherung, leichterer Screen.
+- **Mahlzeitenerkennung:** `thinking` heißt jetzt `disablesThinking`, denn genau das tut der Schalter. Die Anfrage ist unverändert.
+- **Offen aus A8 und A2:** `DashboardView` und `TransactionsView` sind nicht umgebaut, und rund 160 Methoden bleiben über 30 Zeilen, vor allem bei Trade Republic, Backup und in Views. Warum: Sie betreffen Geld- und Backup-Pfade und sollen sich erst nach dem ersten Test auf einem echten iPhone ändern.

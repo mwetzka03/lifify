@@ -9,26 +9,6 @@ import UniformTypeIdentifiers
 /// Backups, imports, and deletion.
 struct DataManagementView: View {
     @Environment(\.modelContext) private var context
-    @Query(sort: \Account.name) private var accounts: [Account]
-    @Query private var entries: [LedgerEntry]
-    @Query private var splits: [TransactionSplit]
-    @Query private var fixedCosts: [FixedCost]
-    @Query private var variableBudgets: [VariableBudget]
-    @Query private var pools: [BudgetPool]
-    @Query private var forecasts: [IncomeForecast]
-    @Query private var shopping: [ShoppingItem]
-    @Query private var debts: [DebtEntry]
-    @Query private var groups: [ExpenseGroup]
-    @Query private var lines: [ExpenseGroupLine]
-    @Query private var holdings: [PortfolioHolding]
-    @Query private var calendarEvents: [ChallengeCalendarEvent]
-    @Query private var challenges: [ChallengeItem]
-    @Query private var completions: [ChallengeCompletion]
-    @Query private var challengeGroups: [ChallengeGroup]
-    @Query private var coinTransactions: [CoinTransaction]
-    @Query private var rewards: [RewardItem]
-    @Query private var purchases: [RewardPurchase]
-    @Query private var bucketItems: [BucketListItem]
     @StateObject private var viewModel = DataImportViewModel()
     @EnvironmentObject private var workouts: WorkoutStore
     @State private var importingBackup = false
@@ -170,31 +150,31 @@ struct DataManagementView: View {
         }
     }
 
-    /// Writes a backup and opens the exporter.
+    /// Reads the data only when a backup is made, so this screen stays light, and opens the exporter.
     private func createBackup(_ scope: BackupScope) {
         do {
             let snapshot = try workouts.exportSnapshotData()
             backupDocument = BackupDocument(data: try BackupService.exportData(
-                accounts: accounts,
-                entries: entries,
-                splits: splits,
-                fixedCosts: fixedCosts,
-                variableBudgets: variableBudgets,
-                pools: pools,
-                forecasts: forecasts,
-                shopping: shopping,
-                debts: debts,
-                groups: groups,
-                lines: lines,
-                holdings: holdings,
-                calendarEvents: calendarEvents,
-                challenges: challenges,
-                completions: completions,
-                challengeGroups: challengeGroups,
-                coinTransactions: coinTransactions,
-                rewards: rewards,
-                purchases: purchases,
-                bucketItems: bucketItems,
+                accounts: try context.fetch(FetchDescriptor<Account>(sortBy: [SortDescriptor(\.name)])),
+                entries: try context.fetch(FetchDescriptor<LedgerEntry>()),
+                splits: try context.fetch(FetchDescriptor<TransactionSplit>()),
+                fixedCosts: try context.fetch(FetchDescriptor<FixedCost>()),
+                variableBudgets: try context.fetch(FetchDescriptor<VariableBudget>()),
+                pools: try context.fetch(FetchDescriptor<BudgetPool>()),
+                forecasts: try context.fetch(FetchDescriptor<IncomeForecast>()),
+                shopping: try context.fetch(FetchDescriptor<ShoppingItem>()),
+                debts: try context.fetch(FetchDescriptor<DebtEntry>()),
+                groups: try context.fetch(FetchDescriptor<ExpenseGroup>()),
+                lines: try context.fetch(FetchDescriptor<ExpenseGroupLine>()),
+                holdings: try context.fetch(FetchDescriptor<PortfolioHolding>()),
+                calendarEvents: try context.fetch(FetchDescriptor<ChallengeCalendarEvent>()),
+                challenges: try context.fetch(FetchDescriptor<ChallengeItem>()),
+                completions: try context.fetch(FetchDescriptor<ChallengeCompletion>()),
+                challengeGroups: try context.fetch(FetchDescriptor<ChallengeGroup>()),
+                coinTransactions: try context.fetch(FetchDescriptor<CoinTransaction>()),
+                rewards: try context.fetch(FetchDescriptor<RewardItem>()),
+                purchases: try context.fetch(FetchDescriptor<RewardPurchase>()),
+                bucketItems: try context.fetch(FetchDescriptor<BucketListItem>()),
                 scope: scope,
                 workoutSnapshot: snapshot
             ))
