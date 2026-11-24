@@ -702,6 +702,8 @@ full to be right, the statement has to be imported again after a rule change.
   chart combines everything below 0.5 %.
 - A fund is found by its ISIN first, so broker names without the provider
   still work, and by its name otherwise.
+- Sources are the official files of Xtrackers, VanEck, and iShares. iShares
+  files come from BlackRock's product data service.
 - A 2x ETF counts twice, so the sum can exceed 100 %.
 - Index ETFs without their own file use a fund on the same index. For swap ETFs
   only the index is meaningful.
@@ -1430,6 +1432,8 @@ Auszug nach einer Regeländerung neu importiert werden.
   Die Grafik fasst alles unter 0,5 % zusammen.
 - Ein Fonds wird zuerst über seine ISIN gefunden, damit auch Broker-Namen ohne
   Anbieter passen, sonst über den Namen.
+- Quellen sind die offiziellen Dateien von Xtrackers, VanEck und iShares. Die
+  iShares-Dateien kommen vom Produktdatendienst von BlackRock.
 - Ein 2x-ETF zählt doppelt, die Summe kann also über 100 % liegen.
 - Index-ETFs ohne eigene Datei nutzen einen Fonds auf denselben Index. Bei
   Swap-ETFs ist nur der Index aussagekräftig.

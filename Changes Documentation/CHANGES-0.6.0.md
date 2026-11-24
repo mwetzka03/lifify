@@ -285,6 +285,12 @@ of the method splitting are still open (see the last section).
 - **Why:** Requested by the owner. A widget cannot read Apple Health itself, so the app reads today's steps whenever it comes to the front and writes them into the widget data.
 - **Effect:** The number is as fresh as the last app start; the time says so. With Apple Health off, or on a new day before the app ran, the line stays away.
 
+### Owner feedback: iShares holdings load by themselves
+
+- **What:** iShares is a third provider. Its holdings come as CSV from BlackRock's product data service, the same file the fund page offers. iShares MSCI World Small Cap and iShares Space Technologies are mapped by ISIN.
+- **Why:** Both needed a manual import before.
+- **Effect:** All of the owner's funds are split automatically. Only fund identifiers are sent. README names the new source under privacy.
+
 ## Deutsch
 
 ### Überblick
@@ -587,3 +593,9 @@ Screens und ein Teil der Methoden-Zerlegung noch offen (siehe letzter Abschnitt)
 - **Was:** Das große Widget Überblick zeigt unter dem nächsten Training die heutigen Schritte mit der Uhrzeit, zu der sie gelesen wurden.
 - **Warum:** Wunsch des Eigentümers. Ein Widget kann Apple Health nicht selbst lesen. Deshalb liest die App die heutigen Schritte bei jedem Öffnen und schreibt sie in die Widget-Daten.
 - **Auswirkung:** Die Zahl ist so aktuell wie der letzte App-Start; die Uhrzeit zeigt das. Ist Apple Health aus oder lief die App an einem neuen Tag noch nicht, fehlt die Zeile.
+
+### Rückmeldung des Eigentümers: iShares-Zusammensetzungen laden automatisch
+
+- **Was:** iShares ist ein dritter Anbieter. Die Bestände kommen als CSV vom Produktdatendienst von BlackRock, dieselbe Datei, die die Fondsseite anbietet. iShares MSCI World Small Cap und iShares Space Technologies sind über die ISIN zugeordnet.
+- **Warum:** Beide brauchten bisher einen manuellen Import.
+- **Auswirkung:** Alle Fonds des Eigentümers werden automatisch aufgeteilt. Gesendet werden nur Fonds-Kennungen. Die README nennt die neue Quelle unter Datenschutz.

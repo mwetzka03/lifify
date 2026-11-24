@@ -20,6 +20,15 @@ extension LififyRuleTests {
             #expect(items.last?.name == "Kleinwert")
         }
 
+        @Test func readsAnISharesHoldingsFile() throws {
+            let url = try #require(Bundle(for: HoldingsBundleMarker.self).url(forResource: "ishares-holdings-sample", withExtension: "csv"))
+            let items = try FundCompositionParser.parse(Data(contentsOf: url), fileExtension: "csv")
+            #expect(items.count == 9)
+            #expect(items[0].name == "THALES SA")
+            #expect(items[0].ticker == "HO")
+            #expect(abs(items[0].weight - 0.0595) < 0.000001)
+        }
+
         @Test func readsGermanPercentsFromCSV() throws {
             let csv = "Alle Fondspositionen\n\nPosition;Bezeichnung der Position;Ticker;ISIN;% des Fondsvolumens\n1;Ionq Inc;IONQ US;US46222L1089;6,03%\n2;Synopsys Inc;SNPS US;US8716071076;5,60%\n"
             let items = try FundCompositionParser.parse(Data(csv.utf8), fileExtension: "csv")

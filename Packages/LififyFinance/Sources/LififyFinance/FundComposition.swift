@@ -158,13 +158,22 @@ public enum FundCompositionParser {
 public enum FundSource: Equatable, Sendable {
     case xtrackers(isin: String)
     case vanEck(slug: String)
+    /// An iShares fund by its BlackRock portfolio number.
+    case iShares(portfolioID: String)
 
     /// The file name of the cached composition.
     public var cacheKey: String {
         switch self {
         case .xtrackers(let isin): "xtrackers-\(isin)"
         case .vanEck(let slug): "vaneck-\(slug)"
+        case .iShares(let id): "ishares-\(id)"
         }
+    }
+
+    /// The format of the official file.
+    public var fileExtension: String {
+        if case .iShares = self { return "csv" }
+        return "xlsx"
     }
 
     /// The official download.
@@ -174,6 +183,10 @@ public enum FundSource: Equatable, Sendable {
             URL(string: "https://etf.deutsche-am.com/etfdata/export/DEU/DEU/excel/product/constituent/\(isin)/")
         case .vanEck(let slug):
             URL(string: "https://www.vaneck.com/de/de/investments/\(slug)/downloads/holdings/")
+        case .iShares(let id):
+            URL(string: "https://www.blackrock.com/varnish-api/uk-retail01-product-data/product-data/api/v1/get-fund-document"
+                + "?appType=PRODUCT_PAGE&appSubType=ISHARES&targetSite=ishares-uk&locale=en_GB&userType=individual"
+                + "&component=holdings&portfolioId=\(id)")
         }
     }
 
@@ -201,7 +214,9 @@ public enum FundSource: Equatable, Sendable {
         "IE00BGV5VN51": .xtrackers(isin: "IE00BGV5VN51"),
         "IE0002PG6CA6": .vanEck(slug: "rare-earth-etf"),
         "IE000YU9K6K2": .vanEck(slug: "space-etf"),
-        "IE0006WW1TQ4": .xtrackers(isin: "IE0006WW1TQ4")
+        "IE0006WW1TQ4": .xtrackers(isin: "IE0006WW1TQ4"),
+        "IE00BF4RFH31": .iShares(portfolioID: "296576"),
+        "IE000A9G9R73": .iShares(portfolioID: "351117")
     ]
 
     /// The leverage factor of a fund, read from its name.
@@ -334,6 +349,6 @@ public enum FundCompositionLoader {
         guard let http = response as? HTTPURLResponse, 200..<300 ~= http.statusCode else {
             throw URLError(.badServerResponse)
         }
-        return try FundCompositionParser.parse(data, fileExtension: "xlsx")
+        return try FundCompositionParser.parse(data, fileExtension: source.fileExtension)
     }
 }

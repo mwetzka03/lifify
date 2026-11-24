@@ -14,7 +14,9 @@ extension LififyRuleTests {
             #expect(FundSource.resolve(isin: "IE0002PG6CA6", name: "Rare Earth & Strategic Metals USD (Acc)") == .vanEck(slug: "rare-earth-etf"))
             #expect(FundSource.resolve(isin: "IE000YU9K6K2", name: "Space Innovators USD (Acc)") == .vanEck(slug: "space-etf"))
             #expect(FundSource.resolve(isin: "IE0006WW1TQ4", name: "MSCI World Ex-USA USD (Acc)") == .xtrackers(isin: "IE0006WW1TQ4"))
-            #expect(FundSource.resolve(isin: "IE000A9G9R73", name: "Space Technologies USD (Acc)") == nil)
+            #expect(FundSource.resolve(isin: "IE000A9G9R73", name: "Space Technologies USD (Acc)") == .iShares(portfolioID: "351117"))
+            #expect(FundSource.resolve(isin: "IE00BF4RFH31", name: "MSCI World Small Cap USD (Acc)") == .iShares(portfolioID: "296576"))
+            #expect(FundSource.iShares(portfolioID: "351117").fileExtension == "csv")
             #expect(FundSource.resolve(isin: "FR0010755611", name: "MSCI USA Daily (2x) Leveraged EUR (Acc)") == .xtrackers(isin: "IE00BJ0KDR00"))
             #expect(FundSource.leverage(name: "MSCI USA Daily (2x) Leveraged EUR (Acc)") == 2)
         }
