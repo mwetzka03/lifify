@@ -237,6 +237,12 @@ of the method splitting are still open (see the last section).
 - **Meal recognition:** `thinking` is now `disablesThinking`, which is what the flag does. The request is unchanged.
 - **Still open from A8 and A2:** `DashboardView` and `TransactionsView` are not rebuilt, and about 160 methods stay over 30 lines, mostly in Trade Republic, backup, and views. Why: they touch money and backup paths and should change only after the first test on a real iPhone.
 
+### Fix: Finance summary after editing a plan row
+
+- **What:** The finance summary now recalculates when the amount, account, schedule, or state of a fixed cost, income forecast, budget, shopping item, split, or account changes. Before, it noticed only a new or removed row.
+- **Why:** After editing, for example, the amount of a fixed cost, the summary kept the old value until another change happened.
+- **Effect:** The summary is current right after saving. The booking list reacts the same way to changed accounts. A rename alone does not trigger a recalculation.
+
 ## Deutsch
 
 ### Überblick
@@ -491,3 +497,9 @@ Screens und ein Teil der Methoden-Zerlegung noch offen (siehe letzter Abschnitt)
 - **Daten-Screen:** Er hält keine 20 Live-Abfragen mehr, sondern liest die Daten erst beim Erstellen einer Sicherung. Warum: Die Abfragen dienten nur dem Export. Auswirkung: gleiche Sicherung, leichterer Screen.
 - **Mahlzeitenerkennung:** `thinking` heißt jetzt `disablesThinking`, denn genau das tut der Schalter. Die Anfrage ist unverändert.
 - **Offen aus A8 und A2:** `DashboardView` und `TransactionsView` sind nicht umgebaut, und rund 160 Methoden bleiben über 30 Zeilen, vor allem bei Trade Republic, Backup und in Views. Warum: Sie betreffen Geld- und Backup-Pfade und sollen sich erst nach dem ersten Test auf einem echten iPhone ändern.
+
+### Fehlerbehebung: Finanzübersicht nach dem Bearbeiten
+
+- **Was:** Die Finanzübersicht rechnet neu, wenn sich Betrag, Konto, Rhythmus oder Status einer Fixkosten, Einnahmeprognose, eines Budgets, Einkaufs, Splits oder Kontos ändert. Vorher bemerkte sie nur neue oder gelöschte Einträge.
+- **Warum:** Nach dem Bearbeiten, etwa des Betrags einer Fixkosten, zeigte die Übersicht den alten Wert, bis sich etwas anderes änderte.
+- **Auswirkung:** Die Übersicht ist direkt nach dem Speichern aktuell. Die Buchungsliste reagiert ebenso auf geänderte Konten. Eine reine Umbenennung löst keine Neuberechnung aus.

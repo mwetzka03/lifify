@@ -1072,6 +1072,7 @@ struct DashboardView: View {
         return (income, expenses)
     }
 
+    /// Changes whenever a value the summary is calculated from changes.
     private var forecastToken: Int {
         var hasher = Hasher()
         hasher.combine(filters.showsDepot)
@@ -1091,12 +1092,12 @@ struct DashboardView: View {
         hasher.combine(HistoricalPriceStore.cacheRevision)
         hasher.combine(ReturnScenario.revision)
         hasher.combine(TransferForecastStore.all().count)
-        hasher.combine(accounts.count)
-        hasher.combine(fixedCosts.count)
-        hasher.combine(forecasts.count)
-        hasher.combine(variableBudgets.count)
-        hasher.combine(shopping.count)
-        hasher.combine(splits.count)
+        FinanceRenderToken.mix(accounts, into: &hasher)
+        FinanceRenderToken.mix(fixedCosts, into: &hasher)
+        FinanceRenderToken.mix(forecasts, into: &hasher)
+        FinanceRenderToken.mix(variableBudgets, into: &hasher)
+        FinanceRenderToken.mix(shopping, into: &hasher)
+        FinanceRenderToken.mix(splits, into: &hasher)
         FinanceRenderToken.mix(entries: entries, into: &hasher)
         FinanceRenderToken.mix(holdings: holdings, into: &hasher)
         return hasher.finalize()

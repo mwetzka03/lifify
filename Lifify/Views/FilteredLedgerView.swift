@@ -403,7 +403,7 @@ struct FilteredLedgerView: View {
         hasher.combine(selectedPeriod?.id)
         hasher.combine(RefundLinkStore.fingerprint())
         hasher.combine(HoldingLotStore.cacheRevision)
-        hasher.combine(accounts.count)
+        FinanceRenderToken.mix(accounts, into: &hasher)
         FinanceRenderToken.mix(entries: entries, into: &hasher)
         FinanceRenderToken.mix(holdings: holdings, into: &hasher)
         return hasher.finalize()

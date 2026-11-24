@@ -184,6 +184,92 @@ public enum FinanceRenderToken {
         hasher.combine(holdings.first?.id)
         hasher.combine(holdings.last?.id)
     }
+
+    /// Adds the values of planning rows, so an edit without a new row still counts as a change.
+    public static func mix<Item: FinanceTokenItem>(_ items: [Item], into hasher: inout Hasher) {
+        hasher.combine(items.count)
+        for item in items {
+            item.mixTokenValues(into: &hasher)
+        }
+    }
+}
+
+/// A row whose values the finance screens recalculate from.
+public protocol FinanceTokenItem {
+    /// Adds the values that change a finance result.
+    func mixTokenValues(into hasher: inout Hasher)
+}
+
+extension FixedCost: FinanceTokenItem {
+    /// Amount, account, schedule, and state.
+    public func mixTokenValues(into hasher: inout Hasher) {
+        hasher.combine(id)
+        hasher.combine(amountCents)
+        hasher.combine(accountID)
+        hasher.combine(cadenceRaw)
+        hasher.combine(firstChargeDate)
+        hasher.combine(endChargeDate)
+        hasher.combine(dueRuleRaw)
+        hasher.combine(dayOfMonth)
+        hasher.combine(isActive)
+    }
+}
+
+extension IncomeForecast: FinanceTokenItem {
+    /// Amount, account, schedule, and state.
+    public func mixTokenValues(into hasher: inout Hasher) {
+        hasher.combine(id)
+        hasher.combine(amountCents)
+        hasher.combine(accountID)
+        hasher.combine(cadenceRaw)
+        hasher.combine(firstPaymentDate)
+        hasher.combine(endPaymentDate)
+        hasher.combine(dueRuleRaw)
+        hasher.combine(dayOfMonth)
+        hasher.combine(isActive)
+    }
+}
+
+extension VariableBudget: FinanceTokenItem {
+    /// Amount and account.
+    public func mixTokenValues(into hasher: inout Hasher) {
+        hasher.combine(id)
+        hasher.combine(monthlyAmountCents)
+        hasher.combine(accountID)
+    }
+}
+
+extension ShoppingItem: FinanceTokenItem {
+    /// Amount, date, and purchase state.
+    public func mixTokenValues(into hasher: inout Hasher) {
+        hasher.combine(id)
+        hasher.combine(amountCents)
+        hasher.combine(plannedDate)
+        hasher.combine(isPurchased)
+    }
+}
+
+extension TransactionSplit: FinanceTokenItem {
+    /// Booking, target, period, and amount.
+    public func mixTokenValues(into hasher: inout Hasher) {
+        hasher.combine(id)
+        hasher.combine(transactionID)
+        hasher.combine(targetID)
+        hasher.combine(kindRaw)
+        hasher.combine(periodKey)
+        hasher.combine(amountCents)
+    }
+}
+
+extension Account: FinanceTokenItem {
+    /// Kind, liquidity, role, and parent.
+    public func mixTokenValues(into hasher: inout Hasher) {
+        hasher.combine(id)
+        hasher.combine(kindRaw)
+        hasher.combine(isLiquid)
+        hasher.combine(isMain)
+        hasher.combine(parentAccountID)
+    }
 }
 
 /// The default checking account for trades.
