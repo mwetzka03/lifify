@@ -55,6 +55,9 @@ view, in transactions, and in the income and expense lists.
     count already matches.
   - On the last booking day and on days where the file has extra rows, Lifify
     asks whether to import.
+  - Days before the oldest existing booking are booked without a question. The
+    opening balance moves to the new first day and drops by exactly those
+    bookings, so every later stand and today's balance stay the same.
   - Missing second payments are on by default.
   - The entered cash is applied after you confirm the review.
   - On the current period, net worth is the live cash.
@@ -609,6 +612,11 @@ What is read is the transaction overview, with date, type, description, money
 in, money out, and balance.
 
 - A trade changes the portfolio and the linked checking account.
+- Saveback is cashback, not a trade: its shares arrive in the depot as income,
+  the checking account is not charged, and the shares carry no purchase cost,
+  like a portfolio gift. The session reads Saveback like a buy to size the
+  shares and rewrites it into cashback before the cash is reconciled; bookings
+  from earlier versions are rewritten at launch.
 - A card transaction is an expense of the checking account. A refund that
   increases the balance stays positive.
 - Yield and interest are income of the checking account, not a portfolio
@@ -776,6 +784,10 @@ Finanzansicht, in den Buchungen und in den Listen für Einnahmen und Ausgaben.
     Tage, deren Buchungsanzahl schon zur Datei passt.
   - Am letzten Buchungstag und an Tagen, an denen die Datei mehr Zeilen hat als
     das Konto, erscheint die Prüfung.
+  - Tage vor der ältesten vorhandenen Buchung werden ohne Prüfung gebucht. Der
+    Eröffnungssaldo rückt auf den neuen ersten Tag und sinkt um genau diese
+    Buchungen, damit jeder spätere Stand und der heutige Kontostand gleich
+    bleiben.
   - Fehlende Zweit-Zahlungen stehen angeschaltet.
   - Der angegebene Kontostand wird erst nach Übernehmen gesetzt.
   - Zwei Buchungen am selben Tag mit demselben Betrag bleiben beide, auch mit
@@ -1345,6 +1357,11 @@ Gelesen wird die Umsatzübersicht mit Datum, Typ, Beschreibung, Zahlungseingang,
 Zahlungsausgang und Saldo.
 
 - Handel verändert das Depot und das verknüpfte Girokonto.
+- Saveback ist Cashback, kein Handel: Die Stücke kommen als Einnahme ins Depot,
+  das Girokonto wird nicht belastet, und die Stücke haben keinen Einstand, wie
+  ein Depotgeschenk. Die Sitzung liest Saveback wie einen Kauf, um die Stücke zu
+  bestimmen, und schreibt es vor dem Kontoabgleich in Cashback um; Buchungen
+  früherer Versionen werden beim Start umgeschrieben.
 - Kartentransaktion ist eine Ausgabe des Girokontos. Eine Erstattung, die den
   Saldo erhöht, bleibt positiv.
 - Ertrag und Zinsen sind Einnahmen des Girokontos, keine Depotbuchung.

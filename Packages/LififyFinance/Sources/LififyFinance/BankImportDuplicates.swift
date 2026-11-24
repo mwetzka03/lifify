@@ -3,6 +3,7 @@ import LififyCore
 
 /// Settings import: skip older days that already have the same number of bookings.
 /// Ask about the last booking day, and about days where the file has extra rows.
+/// Days before the account's first booking cannot hold duplicates and are booked.
 public enum BankImportDuplicates {
     /// The decisions for one import.
     public struct Plan {
@@ -32,9 +33,10 @@ public enum BankImportDuplicates {
         case review(include: Bool)
     }
 
-    /// `day` and `lastExistingDay` are start-of-day values.
+    /// `day`, `firstExistingDay`, and `lastExistingDay` are start-of-day values.
     public static func action(
         day: Date,
+        firstExistingDay: Date? = nil,
         lastExistingDay: Date?,
         existingCount: Int,
         importCount: Int,
@@ -42,6 +44,7 @@ public enum BankImportDuplicates {
         matchedExisting: Bool
     ) -> Action {
         if identical { return .skip }
+        if let first = firstExistingDay, day < first { return .ingest }
         guard let last = lastExistingDay else { return .ingest }
         if day > last { return .ingest }
         if matchedExisting {
@@ -68,6 +71,7 @@ public enum BankImportDuplicates {
                     || entry.fromAccountID == accountID
                     || entry.toAccountID == accountID)
         }
+        let firstDay = existing.map { day($0.date) }.min()
         let lastDay = existing.map { day($0.date) }.max()
         var existingByDay: [Date: [LedgerEntry]] = [:]
         for entry in existing {
@@ -92,6 +96,7 @@ public enum BankImportDuplicates {
                     let match = unused.remove(at: index)
                     switch action(
                         day: date,
+                        firstExistingDay: firstDay,
                         lastExistingDay: lastDay,
                         existingCount: existingCount,
                         importCount: importCount,
@@ -115,6 +120,7 @@ public enum BankImportDuplicates {
                 }
                 switch action(
                     day: date,
+                    firstExistingDay: firstDay,
                     lastExistingDay: lastDay,
                     existingCount: existingCount,
                     importCount: importCount,

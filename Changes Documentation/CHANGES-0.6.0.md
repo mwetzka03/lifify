@@ -321,6 +321,12 @@ of the method splitting are still open (see the last section).
 - **Why:** The import had not asked it for a long time; own-account transfers are linked automatically. The owner confirmed he only knows the duplicate-booking question.
 - **Effect:** No visible change. The money reference was re-recorded; the diff contains only the removed count fields, the empty section header, and the hand-made answers of the removed path. All other amounts and bookings are identical. Nothing stored or in a backup changed.
 
+### Owner feedback: Importing older months later
+
+- **What:** An import from Settings books rows dated before the account's oldest booking directly. The opening balance of every touched account moves to the new first day and drops by exactly those bookings.
+- **Why:** The owner imported a 90-day export in setup and then the full year. The 658 older rows ended up as review questions, and the opening stayed in August.
+- **Effect:** Older months can be added at any time; every later balance and today's stand stay the same. Days inside the known range keep the duplicate review. Test: `ImportBackfillTests`.
+
 ## Deutsch
 
 ### Überblick
@@ -659,3 +665,9 @@ Screens und ein Teil der Methoden-Zerlegung noch offen (siehe letzter Abschnitt)
 - **Was:** Die Import-Rückfrage „Ist das eine Umbuchung?“ ist entfernt: `ImportTransferChoice`, die Umbuchungsliste im Prüfbogen, ihr Abschnitt in der Prüfansicht, der Code, der die Antworten anwendete, und die beiden Bausteine `transferChoice` und `transferMatch`.
 - **Warum:** Der Import stellte sie seit Langem nicht mehr; Umbuchungen zwischen eigenen Konten werden automatisch verknüpft. Der Eigentümer kennt nur die Rückfrage zu doppelten Buchungen.
 - **Auswirkung:** Sichtbar ändert sich nichts. Die Geld-Referenz wurde neu aufgezeichnet; der Unterschied enthält nur die entfernten Zählerfelder, die leere Abschnittsüberschrift und die von Hand gebauten Antworten des entfernten Wegs. Alle übrigen Beträge und Buchungen sind identisch. Am Speicher und am Backup ändert sich nichts.
+
+### Rückmeldung des Eigentümers: Ältere Monate nachträglich importieren
+
+- **Was:** Ein Import aus den Einstellungen bucht Zeilen vor der ältesten Buchung des Kontos direkt. Der Eröffnungssaldo jedes betroffenen Kontos rückt auf den neuen ersten Tag und sinkt um genau diese Buchungen.
+- **Warum:** Der Eigentümer hatte in der Einrichtung einen 90-Tage-Export und danach das ganze Jahr importiert. Die 658 älteren Zeilen landeten als Rückfragen, und der Eröffnungssaldo blieb im August.
+- **Auswirkung:** Ältere Monate lassen sich jederzeit ergänzen; jeder spätere Stand und der heutige Kontostand bleiben gleich. Tage im bekannten Zeitraum behalten die Duplikat-Prüfung. Test: `ImportBackfillTests`.

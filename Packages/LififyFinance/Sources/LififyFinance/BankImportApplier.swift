@@ -191,6 +191,46 @@ public enum ImportBalance {
             .first
     }
 
+    /// Moves each touched account's opening back before newly imported older bookings.
+    ///
+    /// The opening drops by exactly what those bookings add, so every later balance and today's
+    /// stand stay the same. Bookings after the opening are not affected.
+    ///
+    /// - Parameters:
+    ///   - inserted: The bookings this import added.
+    ///   - accounts: All accounts.
+    ///   - entries: The ledger, already containing the new bookings.
+    ///   - context: The database context.
+    /// - Returns: Whether an opening moved.
+    @discardableResult
+    public static func moveOpeningsBack(
+        before inserted: [LedgerEntry],
+        accounts: [Account],
+        entries: inout [LedgerEntry],
+        context: ModelContext
+    ) -> Bool {
+        var moved = false
+        for account in accounts where account.kind != .portfolio && account.kind != .savingsGroup {
+            guard let opening = firstOpening(accountID: account.id, in: entries) else { continue }
+            let start = Calendar.current.startOfDay(for: opening.date)
+            let older = inserted.filter { entry in
+                entry.date < start && entry.kind != .adjustment
+                    && (entry.accountID == account.id || entry.fromAccountID == account.id || entry.toAccountID == account.id)
+            }
+            guard let earliest = older.map(\.date).min() else { continue }
+            let olderIDs = Set(older.map(\.id))
+            let day = Calendar.current.startOfDay(for: earliest)
+            // The balance starts at the opening, so it moves first and then both sums see the older bookings.
+            opening.date = day
+            opening.createdAt = day
+            let effect = FinanceService.currentBalance(for: account, entries: entries)
+                - FinanceService.currentBalance(for: account, entries: entries.filter { !olderIDs.contains($0.id) })
+            opening.amountCents -= effect
+            moved = true
+        }
+        return moved
+    }
+
     /// Creates an opening balance booking.
     private static func makeOpening(
         account: Account,
@@ -482,6 +522,14 @@ public enum BankImportApplier {
                 run.entryIDs[row.fingerprint] = entry.id
                 run.imported += 1
             }
+        }
+        if document.tradeRepublic == nil {
+            ImportBalance.moveOpeningsBack(
+                before: run.insertedEntries,
+                accounts: accounts + checking.created,
+                entries: &run.entries,
+                context: context
+            )
         }
         if checking.account.iban.isEmpty, let iban = document.tradeRepublic?.iban, !iban.isEmpty {
             checking.account.iban = iban
