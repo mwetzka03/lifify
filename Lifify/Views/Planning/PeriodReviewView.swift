@@ -94,32 +94,40 @@ struct PeriodReviewView: View {
     }
 }
 
-/// Repeated payments that can become fixed costs.
-struct SubscriptionSuggestionsView: View {
+/// Repeated payments that can become fixed costs, at the top of the fixed costs.
+///
+/// The section starts folded so it never pushes the costs out of view.
+struct SubscriptionSuggestionSection: View {
     @Environment(\.modelContext) private var context
-    @Query private var entries: [LedgerEntry]
-    @Query private var costs: [FixedCost]
+    let entries: [LedgerEntry]
+    let costs: [FixedCost]
+    @State private var isOpen = false
     @State private var revision = 0
 
     var body: some View {
         let _ = revision
         let suggestions = SubscriptionDetector.suggestions(entries: entries, costs: costs)
-        List {
-            ForEach(suggestions) { suggestionRow($0) }
-                .appGlassRow()
-        }
-        .overlay {
-            if suggestions.isEmpty {
-                ContentUnavailableView(
-                    L("Keine Vorschläge", "No suggestions"),
-                    systemImage: "repeat",
-                    description: Text(L("Hier erscheinen wiederkehrende Zahlungen, die noch keine Fixkosten sind.", "Repeated payments that are not fixed costs yet appear here."))
-                )
+        if !suggestions.isEmpty {
+            Section {
+                Button {
+                    withAnimation { isOpen.toggle() }
+                } label: {
+                    HStack {
+                        Label("\(L("Abo-Vorschläge", "Subscriptions")) (\(suggestions.count))", systemImage: "repeat")
+                            .foregroundStyle(.primary)
+                        Spacer()
+                        Image(systemName: isOpen ? "chevron.up" : "chevron.down")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .buttonStyle(.plain)
+                if isOpen {
+                    ForEach(suggestions) { suggestionRow($0) }
+                }
             }
+            .appGlassRow()
         }
-        .appGlassList()
-        .navigationTitle(L("Abo-Vorschläge", "Subscriptions"))
-        .navigationBarTitleDisplayMode(.inline)
     }
 
     /// One suggestion with its two answers.

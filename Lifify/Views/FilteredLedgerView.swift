@@ -151,6 +151,7 @@ struct FilteredLedgerView: View {
                         Text(L("Einnahmeprognosen", "Income forecasts"))
                     }
                     .appGlassRow()
+                    DividendSection(entries: entries, holdings: holdings)
                 }
                 if kind == .expense && !filters.showsDepot {
                     Section {

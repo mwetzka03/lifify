@@ -49,6 +49,7 @@ struct FixedCostsView: View {
 
     var body: some View {
         List {
+            SubscriptionSuggestionSection(entries: entries, costs: costs)
             if let period = filters.period(in: periods) {
                 Text("\(L("Offen im Zeitraum", "Open in")) \(AppDate.range(from: period.start, to: period.end))")
                     .font(.caption)

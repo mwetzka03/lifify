@@ -91,7 +91,7 @@ struct PortfolioShareChartView: View {
 
     var body: some View {
         let content = content
-        let displayed = content.shares.first { $0.id == selectedID }
+        let displayed = content.pieShares.first { $0.id == selectedID } ?? content.shares.first { $0.id == selectedID }
         List {
             if content.shares.isEmpty {
                 ContentUnavailableView(
@@ -101,7 +101,7 @@ struct PortfolioShareChartView: View {
                 )
                 .appGlassRow()
             } else {
-                chartSection(content.shares, displayed: displayed)
+                chartSection(content.pieShares, displayed: displayed)
                 modeSection
                 listSection(content, displayed: displayed)
                 if mode == .deep { fundSection }
@@ -376,15 +376,24 @@ struct PortfolioShareChartView: View {
         }
         let funds = Set(fundHoldings.map(\.symbol))
         let result = DepotLookThrough.analyze(positions, otherTitle: L("Sonstige", "Other"), funds: funds)
-        let shares = result.lines.enumerated().map { index, line in
+        let pie = DepotLookThrough.chartLines(result.lines, otherTitle: L("Sonstige", "Other"))
+        let pieShares = pie.enumerated().map { index, line in
             PortfolioShare(id: line.id, label: line.label, cents: line.cents, fraction: line.fraction, colorIndex: index)
         }
-        return ShareContent(shares: shares, notes: deepNotes(result))
+        let otherColor = pie.count - 1
+        let shares = result.lines.map { line in
+            let index = pie.firstIndex { !$0.isOther && $0.id == line.id } ?? otherColor
+            return PortfolioShare(id: line.id, label: line.label, cents: line.cents, fraction: line.fraction, colorIndex: index)
+        }
+        return ShareContent(shares: shares, chartShares: pieShares, notes: deepNotes(result))
     }
 
     /// Explains leverage and funds without data.
     private func deepNotes(_ result: LookThroughResult) -> [String] {
-        var notes = [L("Einträge unter 0,1 % stehen unter Sonstige.", "Entries below 0.1 % are listed under Other.")]
+        var notes = [L(
+            "In der Liste stehen Einträge unter 0,1 % unter Sonstige, in der Grafik alles unter 0,5 %.",
+            "The list combines entries below 0.1 % into Other, the chart everything below 0.5 %."
+        )]
         if result.hasLeverage {
             notes.append(L(
                 "Hebel-ETFs zählen mit ihrem Hebel, deshalb kann die Summe über 100 % liegen (\(SharePercent.string(result.totalFraction))).",
@@ -404,7 +413,12 @@ struct PortfolioShareChartView: View {
 /// The calculated list with its explanations.
 private struct ShareContent {
     var shares: [PortfolioShare] = []
+    /// The pie's slices when they differ from the list.
+    var chartShares: [PortfolioShare]?
     var notes: [String] = []
+
+    /// The slices the pie draws.
+    var pieShares: [PortfolioShare] { chartShares ?? shares }
 }
 
 /// Keeps the calculated shares between renders.

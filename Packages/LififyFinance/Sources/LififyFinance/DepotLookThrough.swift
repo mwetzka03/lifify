@@ -27,6 +27,15 @@ public struct LookThroughLine: Identifiable, Equatable, Sendable {
     /// The share of the depot, where 1 is 100 %.
     public let fraction: Double
     public let isOther: Bool
+
+    /// Creates a line.
+    public init(id: String, label: String, cents: Int, fraction: Double, isOther: Bool) {
+        self.id = id
+        self.label = label
+        self.cents = cents
+        self.fraction = fraction
+        self.isOther = isOther
+    }
 }
 
 /// The depot broken down into its single companies.
@@ -42,6 +51,23 @@ public struct LookThroughResult: Equatable, Sendable {
 public enum DepotLookThrough {
     /// Lines below this share of the depot are combined into Other.
     public static let minimumFraction = 0.001
+    /// Slices below this share join Other in the pie, so it stays readable. The list keeps them.
+    public static let chartMinimumFraction = 0.005
+
+    /// The lines of the pie: everything below half a percent joins the Other line.
+    ///
+    /// - Parameters:
+    ///   - lines: The list lines, Other last.
+    ///   - otherTitle: The label of the combined line.
+    /// - Returns: The larger lines, then one Other line when anything was combined.
+    public static func chartLines(_ lines: [LookThroughLine], otherTitle: String) -> [LookThroughLine] {
+        let kept = lines.filter { !$0.isOther && $0.fraction >= chartMinimumFraction }
+        let merged = lines.filter { $0.isOther || $0.fraction < chartMinimumFraction }
+        guard !merged.isEmpty else { return kept }
+        let cents = merged.reduce(0) { $0 + $1.cents }
+        let fraction = merged.reduce(0) { $0 + $1.fraction }
+        return kept + [LookThroughLine(id: "other", label: otherTitle, cents: cents, fraction: fraction, isOther: true)]
+    }
 
     /// A company while its parts are being added up.
     private struct Group {

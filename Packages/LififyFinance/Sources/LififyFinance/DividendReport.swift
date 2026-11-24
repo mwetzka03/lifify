@@ -8,6 +8,15 @@ public struct DividendPosition: Identifiable, Equatable {
     public let totalCents: Int
     public let lastYearCents: Int
     public let forecastCents: Int
+
+    /// Creates a position's dividends.
+    public init(id: String, name: String, totalCents: Int, lastYearCents: Int, forecastCents: Int) {
+        self.id = id
+        self.name = name
+        self.totalCents = totalCents
+        self.lastYearCents = lastYearCents
+        self.forecastCents = forecastCents
+    }
 }
 
 /// A sum of dividends in one month or year.
@@ -25,10 +34,26 @@ public struct DividendReport: Equatable {
     public var years: [DividendBucket] = []
     public var forecastMonths: [DividendBucket] = []
 
+    /// Creates a report.
+    public init(
+        positions: [DividendPosition] = [],
+        months: [DividendBucket] = [],
+        years: [DividendBucket] = [],
+        forecastMonths: [DividendBucket] = []
+    ) {
+        self.positions = positions
+        self.months = months
+        self.years = years
+        self.forecastMonths = forecastMonths
+    }
+
     /// All received dividends.
     public var totalCents: Int { positions.reduce(0) { $0 + $1.totalCents } }
     /// The expected dividends of the next twelve months.
     public var forecastCents: Int { forecastMonths.reduce(0) { $0 + $1.cents } }
+
+    /// The positions that still pay, so sold funds do not crowd the list.
+    public var payingPositions: [DividendPosition] { positions.filter { $0.forecastCents > 0 } }
 }
 
 /// Builds the dividend overview from the existing income bookings.

@@ -255,6 +255,13 @@ of the method splitting are still open (see the last section).
 - **Why:** The owner found the card unhelpful and wants the steps where training is.
 - **Effect:** Averages leave out today and days without data. Lifify now reads only weight and steps; active energy and resting pulse are no longer read. Writing finished workouts to Apple Health is unchanged and is now named in the switch's text.
 
+### Owner feedback: Subscriptions, dividends, and the deep analysis
+
+- **Subscriptions:** The suggestions moved from More to the top of the fixed costs, folded by default. Why: they belong where fixed costs are made.
+- **Dividends:** They moved from More into Income, folded under the income forecasts. The list shows only positions that still pay; sold funds appear only in the received total. The forecast is only shown and does not count in any forecast or balance.
+- **Deep analysis chart:** The chart combines everything below 0.5 % into Other; the list keeps 0.1 %. Why: the pie was unreadable with many thin slices.
+- **Missing fund splits:** Trade Republic names funds without the provider, for example "Rare Earth & Strategic Metals USD (Acc)". Funds are now found by ISIN first. Effect: AI & Big Data, Rare Earth, Space Innovators, and World ex USA are split again. iShares World Small Cap and Space Technologies still need a manual import.
+
 ## Deutsch
 
 ### Überblick
@@ -527,3 +534,10 @@ Screens und ein Teil der Methoden-Zerlegung noch offen (siehe letzter Abschnitt)
 - **Was:** Ein Bereich Schritte unter Training, zwischen den Plänen und dem Verlauf: heute, Durchschnitt über 7 und 30 Tage, bester Tag und ein Balkendiagramm über 7 oder 30 Tage mit dem Durchschnitt als Linie. Er ersetzt die Apple-Health-Karte über den Tabs.
 - **Warum:** Der Eigentümer fand die Karte wenig hilfreich und will die Schritte beim Training.
 - **Auswirkung:** Durchschnitte lassen heute und Tage ohne Daten weg. Lifify liest nur noch Gewicht und Schritte; aktive Energie und Ruhepuls werden nicht mehr gelesen. Das Schreiben beendeter Trainings nach Apple Health bleibt und steht jetzt im Text des Schalters.
+
+### Rückmeldung des Eigentümers: Abos, Dividenden und Tiefenanalyse
+
+- **Abo-Vorschläge:** Sie stehen nicht mehr unter Weitere Bereiche, sondern oben in den Fixkosten, standardmäßig eingeklappt. Warum: Dort entstehen Fixkosten.
+- **Dividenden:** Sie stehen nicht mehr unter Weitere Bereiche, sondern eingeklappt unter den Einnahmeprognosen in Einnahmen. Die Liste zeigt nur Positionen, die noch zahlen; verkaufte Fonds stehen nur im Erhaltenen. Die Prognose wird nur angezeigt und zählt in keine Prognose und keinen Saldo.
+- **Grafik der Tiefenanalyse:** Die Grafik fasst alles unter 0,5 % zu Sonstige zusammen; die Liste bleibt bei 0,1 %. Warum: Mit vielen dünnen Stücken war die Grafik nicht lesbar.
+- **Fehlende Aufteilungen:** Trade Republic benennt Fonds ohne Anbieter, etwa „Rare Earth & Strategic Metals USD (Acc)“. Fonds werden jetzt zuerst über die ISIN gefunden. Auswirkung: AI & Big Data, Rare Earth, Space Innovators und World ex USA werden wieder aufgeteilt. iShares World Small Cap und Space Technologies brauchen weiter einen manuellen Import.

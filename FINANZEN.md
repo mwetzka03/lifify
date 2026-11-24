@@ -659,6 +659,7 @@ full to be right, the statement has to be imported again after a rule change.
   358 to 372 days.
 - A pattern is dropped when its last payment is more than one and a half
   rhythms old, or when a fixed cost with that payee exists.
+- Suggestions sit folded at the top of the fixed costs.
 
 ### Dividends
 
@@ -668,6 +669,9 @@ full to be right, the statement has to be imported again after a rule change.
   year later: payment ÷ shares held then × shares held on the new date.
 - Shares on the new date include future savings plan executions.
 - A position that is no longer held has no forecast.
+- The dividends sit folded under the income forecasts in Income. They are only
+  shown and do not count in the income forecast. The list shows only positions
+  that still pay.
 
 ### Return scenario
 
@@ -689,7 +693,10 @@ full to be right, the statement has to be imported again after a rule change.
   by the depot value.
 - Holdings merge by ISIN, then ticker, then normalized company name, so share
   classes such as Alphabet A and C count as one company.
-- Entries below 0.1 % of the depot are combined into Other.
+- Entries below 0.1 % of the depot are combined into Other in the list. The
+  chart combines everything below 0.5 %.
+- A fund is found by its ISIN first, so broker names without the provider
+  still work, and by its name otherwise.
 - A 2x ETF counts twice, so the sum can exceed 100 %.
 - Index ETFs without their own file use a fund on the same index. For swap ETFs
   only the index is meaningful.
@@ -1373,6 +1380,7 @@ Auszug nach einer Regeländerung neu importiert werden.
   358 bis 372 Tage.
 - Ein Muster entfällt, wenn die letzte Zahlung älter als anderthalb Rhythmen ist
   oder Fixkosten mit diesem Empfänger bestehen.
+- Die Vorschläge stehen eingeklappt oben in den Fixkosten.
 
 ### Dividenden
 
@@ -1382,6 +1390,9 @@ Auszug nach einer Regeländerung neu importiert werden.
   Zahlung ÷ damaliger Bestand × Bestand am neuen Datum.
 - Der Bestand am neuen Datum enthält künftige Sparplan-Ausführungen.
 - Eine nicht mehr gehaltene Position hat keine Prognose.
+- Die Dividenden stehen eingeklappt unter den Einnahmeprognosen in Einnahmen.
+  Sie werden nur angezeigt und zählen nicht in die Einnahmeprognose. Die Liste
+  zeigt nur Positionen, die noch zahlen.
 
 ### Renditeszenario
 
@@ -1405,7 +1416,10 @@ Auszug nach einer Regeländerung neu importiert werden.
 - Einzelwerte werden über ISIN, dann Ticker, dann normalisierten Firmennamen
   zusammengeführt, sodass Aktiengattungen wie Alphabet A und C ein Unternehmen
   sind.
-- Einträge unter 0,1 % des Depots stehen zusammen unter Sonstige.
+- In der Liste stehen Einträge unter 0,1 % des Depots zusammen unter Sonstige.
+  Die Grafik fasst alles unter 0,5 % zusammen.
+- Ein Fonds wird zuerst über seine ISIN gefunden, damit auch Broker-Namen ohne
+  Anbieter passen, sonst über den Namen.
 - Ein 2x-ETF zählt doppelt, die Summe kann also über 100 % liegen.
 - Index-ETFs ohne eigene Datei nutzen einen Fonds auf denselben Index. Bei
   Swap-ETFs ist nur der Index aussagekräftig.

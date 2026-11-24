@@ -187,11 +187,22 @@ public enum FundSource: Equatable, Sendable {
     ///   - name: The fund's name.
     /// - Returns: The source, or `nil` when only a manual import can help.
     public static func resolve(isin: String, name: String) -> FundSource? {
+        if let known = knownFunds[isin.uppercased()] { return known }
         let text = name.lowercased()
         if text.contains("vaneck") { return vanEckSource(text) }
         if text.contains("xtrackers"), !text.contains("2x") { return .xtrackers(isin: isin.uppercased()) }
         return indexStandIn(text).map { .xtrackers(isin: $0) }
     }
+
+    /// Funds whose broker name leaves out the provider, so only the ISIN finds them.
+    ///
+    /// Trade Republic names, for example, "Rare Earth & Strategic Metals USD (Acc)" without VanEck.
+    private static let knownFunds: [String: FundSource] = [
+        "IE00BGV5VN51": .xtrackers(isin: "IE00BGV5VN51"),
+        "IE0002PG6CA6": .vanEck(slug: "rare-earth-etf"),
+        "IE000YU9K6K2": .vanEck(slug: "space-etf"),
+        "IE0006WW1TQ4": .xtrackers(isin: "IE0006WW1TQ4")
+    ]
 
     /// The leverage factor of a fund, read from its name.
     public static func leverage(name: String) -> Double {
