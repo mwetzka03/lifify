@@ -410,9 +410,10 @@ automatischer Testlauf (CI).
   schreiben.
 - Nur nach ausdrücklicher Freigabe, Texte für die Berechtigungen in
   Info.plist. Ohne Freigabe funktioniert alles wie bisher.
-- Zusätzlich lesen (entschieden): **Schritte**, **aktive Energie** und
-  **Ruhepuls**. Anzeige im Gesundheit-Tab, Tageswerte und kurzer Verlauf als
-  Zahlen (kein Diagramm-Zwang).
+- Zusätzlich lesen: **Schritte**. Anzeige als eigener Bereich unter Training,
+  zwischen Trainingsplänen und Trainingsverlauf, mit Balkendiagramm und
+  Durchschnitt über 7 und 30 Tage (Wunsch des Eigentümers, 24.11.2026). Aktive
+  Energie und Ruhepuls werden nicht mehr gelesen.
 - **Schlaf** (`sleepAnalysis`) ist noch nicht entschieden, siehe unten.
 
 **B11 – Progressive Overload**

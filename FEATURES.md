@@ -78,8 +78,8 @@ Symbolauswahl enthält ein Hanfblatt und eine Zigarette.
   - Budget-Warnungen, Monatsrückblick und Abo-Erkennung
   - Dividenden-Übersicht und -Prognose, optionales Renditeszenario
   - Tiefenanalyse des Depots mit ETF-Zusammensetzungen
-  - Apple Health nach Freigabe (Gewicht, Schritte, aktive Energie, Ruhepuls,
-    Trainings schreiben)
+  - Apple Health nach Freigabe: Gewicht und Schritte lesen, Schritte mit
+    Diagramm unter Training, beendete Trainings nach Apple Health schreiben
   - Progressive Overload, Mahlzeiten-Favoriten und „zuletzt gegessen“
   - Face ID für den Finanzen-Tab
 

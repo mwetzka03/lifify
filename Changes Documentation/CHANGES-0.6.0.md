@@ -249,6 +249,12 @@ of the method splitting are still open (see the last section).
 - **Why:** Found on the iPhone. With the new App Group, SwiftData copied the database into the group container on its own and used that copy. The archive and recovery steps still looked in the app folder.
 - **Effect:** The app uses its original database again. A copy from the first 0.6.0 launch stays unused in the App Group; nothing was deleted. A test pins the path.
 
+### Owner feedback: Steps under Training
+
+- **What:** A Steps area under Training, between the plans and the history: today, average of 7 and 30 days, best day, and a bar chart of 7 or 30 days with the average as a line. It replaces the Apple Health card above the tabs.
+- **Why:** The owner found the card unhelpful and wants the steps where training is.
+- **Effect:** Averages leave out today and days without data. Lifify now reads only weight and steps; active energy and resting pulse are no longer read. Writing finished workouts to Apple Health is unchanged and is now named in the switch's text.
+
 ## Deutsch
 
 ### Überblick
@@ -515,3 +521,9 @@ Screens und ein Teil der Methoden-Zerlegung noch offen (siehe letzter Abschnitt)
 - **Was:** Der Pfad der Datenbank ist jetzt fest auf den eigenen App-Ordner gelegt (`Application Support/default.store`).
 - **Warum:** Auf dem iPhone gefunden. Mit der neuen App Group hat SwiftData die Datenbank selbstständig in den Gruppen-Container kopiert und diese Kopie genutzt. Archiv und Wiederherstellung suchten weiter im App-Ordner.
 - **Auswirkung:** Die App nutzt wieder ihre ursprüngliche Datenbank. Eine Kopie vom ersten Start von 0.6.0 bleibt ungenutzt in der App Group liegen; gelöscht wurde nichts. Ein Test sichert den Pfad.
+
+### Rückmeldung des Eigentümers: Schritte unter Training
+
+- **Was:** Ein Bereich Schritte unter Training, zwischen den Plänen und dem Verlauf: heute, Durchschnitt über 7 und 30 Tage, bester Tag und ein Balkendiagramm über 7 oder 30 Tage mit dem Durchschnitt als Linie. Er ersetzt die Apple-Health-Karte über den Tabs.
+- **Warum:** Der Eigentümer fand die Karte wenig hilfreich und will die Schritte beim Training.
+- **Auswirkung:** Durchschnitte lassen heute und Tage ohne Daten weg. Lifify liest nur noch Gewicht und Schritte; aktive Energie und Ruhepuls werden nicht mehr gelesen. Das Schreiben beendeter Trainings nach Apple Health bleibt und steht jetzt im Text des Schalters.

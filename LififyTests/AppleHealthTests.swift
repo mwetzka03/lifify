@@ -98,3 +98,41 @@ extension LififyRuleTests {
         }
     }
 }
+
+extension LififyRuleTests {
+    /// The step card's numbers leave out the unfinished day and days without data.
+    @Suite("Step statistics")
+    struct StepStatsTests {
+        private let now = date(2026, 3, 18, 15)
+
+        /// A value some days before `now`.
+        private func day(_ offset: Int, _ steps: Double) -> HealthDayValue {
+            HealthDayValue(date: days(-offset, after: date(2026, 3, 18)), value: steps)
+        }
+
+        @Test func averagesLeaveOutTodayAndEmptyDays() {
+            let values = [day(0, 2_000), day(1, 8_000), day(2, 10_000), day(10, 6_000)]
+            let stats = StepStats.make(values, now: now)
+            #expect(stats.today == 2_000)
+            #expect(stats.weekAverage == 9_000)
+            #expect(stats.monthAverage == 8_000)
+            #expect(stats.best?.value == 10_000)
+        }
+
+        @Test func withoutDataThereIsNoAverage() {
+            let stats = StepStats.make([], now: now)
+            #expect(stats.today == 0)
+            #expect(stats.weekAverage == nil)
+            #expect(stats.monthAverage == nil)
+        }
+
+        @Test func theChartFillsMissingDaysWithZero() {
+            let chart = StepStats.chartDays([day(0, 500), day(2, 700)], count: 7, now: now)
+            #expect(chart.count == 7)
+            #expect(chart.last?.value == 500)
+            #expect(chart[4].value == 700)
+            #expect(chart[5].value == 0)
+            #expect(Calendar.current.isDate(chart[0].date, inSameDayAs: days(-6, after: date(2026, 3, 18))))
+        }
+    }
+}

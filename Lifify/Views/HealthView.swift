@@ -80,7 +80,6 @@ struct HealthView: View {
 
     @ViewBuilder
     private var selectedBoard: some View {
-        AppleHealthCard()
         if selectedTile == 1 {
             NutritionBoard()
         } else {
@@ -104,6 +103,7 @@ struct HealthView: View {
                     .foregroundStyle(.secondary)
             }
             trainingPlans
+            StepsCard()
             workoutHistory
         }
     }

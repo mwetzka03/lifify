@@ -17,17 +17,72 @@ public struct HealthDayValue: Identifiable, Equatable, Sendable {
     }
 }
 
-/// The recent values shown in the Health tab, newest first.
+/// The recent daily steps from Apple Health, newest first.
 public struct HealthSummary: Equatable, Sendable {
     public var steps: [HealthDayValue] = []
-    public var activeEnergy: [HealthDayValue] = []
-    public var restingHeartRate: [HealthDayValue] = []
 
     /// Creates a summary.
-    public init(steps: [HealthDayValue] = [], activeEnergy: [HealthDayValue] = [], restingHeartRate: [HealthDayValue] = []) {
+    public init(steps: [HealthDayValue] = []) {
         self.steps = steps
-        self.activeEnergy = activeEnergy
-        self.restingHeartRate = restingHeartRate
+    }
+}
+
+/// Averages and chart days of the step count.
+public struct StepStats: Equatable, Sendable {
+    /// The steps so far today.
+    public var today: Int
+    /// The average of the last 7 complete days. `nil` without data.
+    public var weekAverage: Int?
+    /// The average of the last 30 complete days. `nil` without data.
+    public var monthAverage: Int?
+    /// The day with the most steps in the last 30 days.
+    public var best: HealthDayValue?
+
+    /// Reads the figures from the daily values.
+    ///
+    /// Averages leave out today, which is not over yet, and days without any data, which mean the
+    /// phone was not carried rather than zero steps.
+    ///
+    /// - Parameters:
+    ///   - days: The daily values in any order.
+    ///   - now: The current time.
+    ///   - calendar: The calendar of the days.
+    /// - Returns: The figures.
+    public static func make(_ days: [HealthDayValue], now: Date, calendar: Calendar = .current) -> StepStats {
+        let today = calendar.startOfDay(for: now)
+        let past = days.filter { calendar.startOfDay(for: $0.date) < today }
+        return StepStats(
+            today: Int(days.first { calendar.isDate($0.date, inSameDayAs: today) }?.value.rounded() ?? 0),
+            weekAverage: average(past, within: 7, before: today, calendar: calendar),
+            monthAverage: average(past, within: 30, before: today, calendar: calendar),
+            best: days.filter { $0.date >= (calendar.date(byAdding: .day, value: -29, to: today) ?? today) }
+                .max { $0.value < $1.value }
+        )
+    }
+
+    /// The last days for a chart, oldest first. A day without data shows zero.
+    ///
+    /// - Parameters:
+    ///   - days: The daily values in any order.
+    ///   - count: The number of days including today.
+    ///   - now: The current time.
+    ///   - calendar: The calendar of the days.
+    /// - Returns: One value per day.
+    public static func chartDays(_ days: [HealthDayValue], count: Int, now: Date, calendar: Calendar = .current) -> [HealthDayValue] {
+        let today = calendar.startOfDay(for: now)
+        return (0..<count).reversed().compactMap { offset in
+            guard let day = calendar.date(byAdding: .day, value: -offset, to: today) else { return nil }
+            let value = days.first { calendar.isDate($0.date, inSameDayAs: day) }?.value ?? 0
+            return HealthDayValue(date: day, value: value)
+        }
+    }
+
+    /// The rounded mean of the days in a window before today.
+    private static func average(_ days: [HealthDayValue], within count: Int, before today: Date, calendar: Calendar) -> Int? {
+        guard let start = calendar.date(byAdding: .day, value: -count, to: today) else { return nil }
+        let window = days.filter { $0.date >= start }
+        guard !window.isEmpty else { return nil }
+        return Int((window.reduce(0) { $0 + $1.value } / Double(window.count)).rounded())
     }
 }
 
@@ -57,13 +112,10 @@ public final class AppleHealthSource: HealthDataSource {
     /// Says whether this device has Apple Health.
     public var isAvailable: Bool { HKHealthStore.isHealthDataAvailable() }
 
-    /// Asks for weight, steps, active energy, and resting pulse, and for writing workouts.
+    /// Asks for weight and steps, and for writing workouts.
     public func requestAccess() async -> Bool {
         guard isAvailable else { return false }
-        let read: Set<HKObjectType> = [
-            HKQuantityType(.bodyMass), HKQuantityType(.stepCount),
-            HKQuantityType(.activeEnergyBurned), HKQuantityType(.restingHeartRate)
-        ]
+        let read: Set<HKObjectType> = [HKQuantityType(.bodyMass), HKQuantityType(.stepCount)]
         do {
             try await store.requestAuthorization(toShare: [HKObjectType.workoutType()], read: read)
             return true
@@ -85,11 +137,7 @@ public final class AppleHealthSource: HealthDataSource {
 
     /// Returns the recent days, newest first.
     public func summary(days: Int) async -> HealthSummary {
-        HealthSummary(
-            steps: await daily(.stepCount, unit: .count(), options: .cumulativeSum, days: days),
-            activeEnergy: await daily(.activeEnergyBurned, unit: .kilocalorie(), options: .cumulativeSum, days: days),
-            restingHeartRate: await daily(.restingHeartRate, unit: HKUnit.count().unitDivided(by: .minute()), options: .discreteAverage, days: days)
-        )
+        HealthSummary(steps: await daily(.stepCount, unit: .count(), options: .cumulativeSum, days: days))
     }
 
     /// Saves a finished training as a strength workout.
@@ -146,8 +194,8 @@ public enum AppleHealthSync {
     public static let enabledKey = "lifify.appleHealth"
     public static let exportedKey = "lifify.appleHealthWorkouts"
     public static let weightDateKey = "lifify.appleHealthWeightDate"
-    /// The days shown in the Health tab.
-    public static let summaryDays = 7
+    /// The days read for the step chart and the month average.
+    public static let summaryDays = 31
 
     /// The connection. Tests replace it.
     public static var source: any HealthDataSource = AppleHealthSource()

@@ -14,7 +14,7 @@
 		</dict>
 	</array>
 	<key>NSHealthShareUsageDescription</key>
-	<string>Lifify liest Gewicht, Schritte, aktive Energie und Ruhepuls, um sie im Bereich Gesundheit zu zeigen und dein Kalorienziel aktuell zu halten.</string>
+	<string>Lifify liest Gewicht und Schritte, um die Schritte unter Training zu zeigen und dein Kalorienziel aktuell zu halten.</string>
 	<key>NSHealthUpdateUsageDescription</key>
 	<string>Lifify sichert deine beendeten Trainings als Workouts in Apple Health.</string>
 	<key>NSSupportsLiveActivities</key>
