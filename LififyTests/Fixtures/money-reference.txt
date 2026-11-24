@@ -1,6 +1,6 @@
 ##### BANK IMPORT
 === first import
-8|0|Giro|0|0
+8|0|Giro|0
 === first: accounts
 Giro|checking|true|true|DE89370400440532013000|-
 Spar|savings|true|false|DE12500105170648489890|-
@@ -19,7 +19,7 @@ Spar|savings|true|false|DE12500105170648489890|-
 === first: closed
 === first: links
 === repeat import
-0|0|0
+0|0
 === repeat: accounts
 Giro|checking|true|true|DE89370400440532013000|-
 Spar|savings|true|false|DE12500105170648489890|-
@@ -65,7 +65,6 @@ Spar|savings|true|false|DE12500105170648489890|-
 === similar accepted: links
 === direct row
 false|["Tanken"]
-=== transfer questions
 === transfer accepted: accounts
 Giro|checking|true|true|DE89370400440532013000|-
 Spar|savings|true|false|DE12500105170648489890|-
@@ -333,28 +332,11 @@ item|2026-05-01 0:0|Miete|-80000|false
 item|2026-05-25 0:0|Strom|-7000|false
 item|2026-05-28 0:0|Essen|-40000|false
 ##### BANK LINKS
-=== answers: accounts
-Giro|checking|true|true|DE89370400440532013000|-
-Spar|savings|true|false|DE12500105170648489890|-
-Trade Republic|checking|true|false|DE11100110012620000000|-
-=== answers: entries
-2026-03-01 0:0|Eröffnungssaldo||56111|adjustment|Giro|-|-|-
-2026-03-01 12:0|Übertrag||2000|transfer|-|Giro|Spar|-
-2026-03-05 12:0|Umbuchung||3000|transfer|-|Giro|Spar|-
-2026-03-06 12:0|Bleibt||-1111|expense|Giro|-|-|-
-=== answers: holdings
-=== answers: plans
-=== answers: closed
-=== answers: links
 === linked: accounts
 Giro|checking|true|true|DE89370400440532013000|-
 Spar|savings|true|false|DE12500105170648489890|-
 Trade Republic|checking|true|false|DE11100110012620000000|-
 === linked: entries
-2026-03-01 0:0|Eröffnungssaldo||56111|adjustment|Giro|-|-|-
-2026-03-01 12:0|Übertrag||2000|transfer|-|Giro|Spar|-
-2026-03-05 12:0|Umbuchung||3000|transfer|-|Giro|Spar|-
-2026-03-06 12:0|Bleibt||-1111|expense|Giro|-|-|-
 2026-03-07 12:0|An Spar|Empfänger-IBAN: DE12500105170648489890|4000|transfer|-|Giro|Spar|-
 2026-03-09 12:0|Umbuchung||5000|transfer|-|Giro|Spar|-
 2026-03-10 12:0|Trade Republic Einzahlung||6000|transfer|-|Giro|Trade Republic|-
@@ -368,10 +350,6 @@ Giro|checking|true|true|DE89370400440532013000|-
 Spar|savings|true|false|DE12500105170648489890|-
 Trade Republic|checking|true|false|DE11100110012620000000|-
 === linked again: entries
-2026-03-01 0:0|Eröffnungssaldo||56111|adjustment|Giro|-|-|-
-2026-03-01 12:0|Übertrag||2000|transfer|-|Giro|Spar|-
-2026-03-05 12:0|Umbuchung||3000|transfer|-|Giro|Spar|-
-2026-03-06 12:0|Bleibt||-1111|expense|Giro|-|-|-
 2026-03-07 12:0|An Spar|Empfänger-IBAN: DE12500105170648489890|4000|transfer|-|Giro|Spar|-
 2026-03-09 12:0|Umbuchung||5000|transfer|-|Giro|Spar|-
 2026-03-10 12:0|Trade Republic Einzahlung||6000|transfer|-|Giro|Trade Republic|-

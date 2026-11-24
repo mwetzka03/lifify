@@ -18,34 +18,6 @@ struct ImportReviewSheet: View {
     var body: some View {
         NavigationStack {
             List {
-                if !review.transfers.isEmpty {
-                    Section {
-                        ForEach($review.transfers) { $choice in
-                            VStack(alignment: .leading, spacing: 6) {
-                                Text(choice.title.isEmpty ? L("Umbuchung", "Transfer") : choice.title)
-                                    .font(.body.weight(.semibold))
-                                Text("\(Money.string(cents: abs(choice.signedAmountCents))) · \(AppDate.numeric(choice.date))")
-                                    .font(.subheadline)
-                                Text("\(choice.otherAccountName) · \(choice.iban)")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                Text("\(L("Passende Buchung", "Matching transaction")): \(choice.matchedTitle) · \(AppDate.numeric(choice.matchedDate)) · \(Money.string(cents: abs(choice.matchedAmountCents)))")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                Toggle(L("Als Umbuchung buchen", "Book as a transfer"), isOn: $choice.accept)
-                            }
-                            .padding(.vertical, 4)
-                        }
-                    } header: {
-                        Text(L("Mögliche Umbuchung", "Possible transfer"))
-                    } footer: {
-                        Text(L(
-                            "Gleicher Betrag und bekannte IBAN. Nur angeschaltete Zeilen werden eine Umbuchung.",
-                            "Same amount and a known IBAN. Only enabled rows become a transfer."
-                        ))
-                    }
-                    .appGlassRow()
-                }
                 if review.similar.contains(where: \.isExtra) {
                     Section {
                         ForEach($review.similar) { $choice in

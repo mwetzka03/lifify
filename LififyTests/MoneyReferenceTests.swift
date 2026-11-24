@@ -127,11 +127,11 @@ extension LififyRuleTests {
                     row(date(2026, 3, 10), "Dividende", 120, purpose: "Ertrag")
                 ])
                 let result = try BankImportApplier.apply(document: first, to: .account(giro.id), currentBalanceCents: 123_456, context: store.context)
-                dump.section("first import", ["\(result.importedCount)|\(result.holdingCount)|\(result.accountName)|\(result.review.transfers.count)|\(result.review.similar.count)"])
+                dump.section("first import", ["\(result.importedCount)|\(result.holdingCount)|\(result.accountName)|\(result.review.similar.count)"])
                 try dump.ledger("first")
 
                 let again = try BankImportApplier.apply(document: first, to: .account(giro.id), currentBalanceCents: 123_456, context: store.context)
-                dump.section("repeat import", ["\(again.importedCount)|\(again.review.transfers.count)|\(again.review.similar.count)"])
+                dump.section("repeat import", ["\(again.importedCount)|\(again.review.similar.count)"])
                 try dump.ledger("repeat")
 
                 let similar = BankImportDocument(rows: [
@@ -156,9 +156,7 @@ extension LififyRuleTests {
                 )
                 dump.section("direct row", ["\(booked != nil)|\(direct.similar.map(\.existingTitle))"])
                 let other = BankImportDocument(rows: [row(date(2026, 3, 4), "Sparen", 10_000, sender: giroIBAN, recipient: savingsIBAN)])
-                var transfer = try BankImportApplier.apply(document: other, to: .account(savings.id), currentBalanceCents: 10_000, context: store.context).review
-                dump.section("transfer questions", transfer.transfers.map { "\($0.title)|\($0.signedAmountCents)|\($0.otherAccountName)|\($0.matchedTitle)" }.sorted())
-                for index in transfer.transfers.indices { transfer.transfers[index].accept = true }
+                let transfer = try BankImportApplier.apply(document: other, to: .account(savings.id), currentBalanceCents: 10_000, context: store.context).review
                 try BankImportApplier.commitReview(transfer, context: store.context)
                 try dump.ledger("transfer accepted")
             }
@@ -248,17 +246,13 @@ extension LififyRuleTests {
             }
         }
 
-        /// Answers transfer questions by hand and links own-account bookings afterward.
+        /// Links own-account bookings, and does so only once.
         private func bankLinks() async throws -> [String] {
             try await scenario { store, dump in
                 let giro = Account(name: "Giro", isMain: true, iban: giroIBAN)
                 let savings = Account(name: "Spar", kind: .savings, iban: savingsIBAN)
                 let broker = Account(name: "Trade Republic", iban: "DE11100110012620000000")
                 [giro, savings, broker].forEach(store.context.insert)
-                let review = seedTransferAnswers(store, giro: giro, savings: savings)
-                try store.context.save()
-                try BankImportApplier.commitReview(review, context: store.context)
-                try dump.ledger("answers")
                 seedOwnAccountBookings(store, giro: giro, savings: savings, broker: broker)
                 try store.context.save()
                 BankImportApplier.relinkOwnAccounts(context: store.context)
@@ -266,32 +260,6 @@ extension LififyRuleTests {
                 BankImportApplier.relinkOwnAccounts(context: store.context)
                 try dump.ledger("linked again")
             }
-        }
-
-        /// Adds bookings and answers: one accepted with a mirror, one already booked, one declined.
-        private func seedTransferAnswers(_ store: TestStore, giro: Account, savings: Account) -> ImportReview {
-            let moved = LedgerEntry(date: date(2026, 3, 2), title: "Übertrag", amountCents: -2_000, kind: .expense, accountID: giro.id)
-            let mirror = LedgerEntry(date: date(2026, 3, 1), title: "Eingang", amountCents: 2_000, kind: .income, accountID: savings.id)
-            let twice = LedgerEntry(date: date(2026, 3, 5), title: "Doppelt", amountCents: -3_000, kind: .expense, accountID: giro.id)
-            let booked = LedgerEntry(date: date(2026, 3, 5), title: "Umbuchung", amountCents: 3_000, kind: .transfer, fromAccountID: giro.id, toAccountID: savings.id)
-            let declined = LedgerEntry(date: date(2026, 3, 6), title: "Bleibt", amountCents: -1_111, kind: .expense, accountID: giro.id)
-            for row in [moved, mirror, twice, booked, declined] {
-                store.context.insert(row)
-                try? store.context.save()
-            }
-            let answer = { (entry: LedgerEntry, match: LedgerEntry, accept: Bool) in
-                ImportTransferChoice(
-                    entryID: entry.id, signedAmountCents: entry.amountCents, date: entry.date, title: entry.title,
-                    notes: entry.notes, checkingAccountID: giro.id, otherAccountID: savings.id, otherAccountName: savings.name,
-                    iban: savingsIBAN, matchedEntryID: match.id, matchedTitle: match.title, matchedDate: match.date,
-                    matchedAmountCents: match.amountCents, accept: accept
-                )
-            }
-            return ImportReview(
-                transfers: [answer(moved, mirror, true), answer(twice, booked, true), answer(declined, mirror, false)],
-                accountID: giro.id,
-                currentCents: 50_000
-            )
         }
 
         /// Adds payments between own accounts, by IBAN and by naming Trade Republic.

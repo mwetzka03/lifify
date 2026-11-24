@@ -1123,9 +1123,6 @@ public enum BankImportApplier {
     public static func commitReview(_ review: ImportReview, context: ModelContext) throws {
         var entries = try context.fetch(FetchDescriptor<LedgerEntry>())
         let accounts = try context.fetch(FetchDescriptor<Account>())
-        for choice in review.transfers where choice.accept {
-            applyTransferAnswer(choice, accounts: accounts, entries: &entries, context: context)
-        }
         for choice in review.similar where choice.include {
             let entry = LedgerEntry(
                 date: choice.date,
@@ -1149,53 +1146,6 @@ public enum BankImportApplier {
         if let accountID = review.accountID, let cents = review.currentCents {
             BankImportCursor.mark(accountID, currentCents: cents)
         }
-    }
-
-    /// Turns an accepted booking into a transfer, or removes it when the transfer already exists.
-    private static func applyTransferAnswer(
-        _ choice: ImportTransferChoice,
-        accounts: [Account],
-        entries: inout [LedgerEntry],
-        context: ModelContext
-    ) {
-        guard let entry = entries.first(where: { $0.id == choice.entryID }),
-              let checking = accounts.first(where: { $0.id == choice.checkingAccountID })
-        else { return }
-        guard !transferExists(
-            on: choice.date,
-            amount: choice.signedAmountCents,
-            first: choice.checkingAccountID,
-            second: choice.otherAccountID,
-            entries: entries
-        ) else {
-            context.delete(entry)
-            entries.removeAll { $0.id == entry.id }
-            return
-        }
-        let inbound = choice.signedAmountCents >= 0
-        let row = ImportedTransaction(
-            date: choice.date,
-            title: choice.title,
-            notes: choice.notes,
-            amountCents: choice.signedAmountCents,
-            iban: choice.iban,
-            senderIBAN: inbound ? choice.iban : "",
-            recipientIBAN: inbound ? "" : choice.iban,
-            fingerprint: entry.importFingerprint ?? choice.entryID.uuidString
-        )
-        bookTransfer(entry, row: row, checkingID: choice.checkingAccountID, otherID: choice.otherAccountID, entries: &entries)
-        var earliest = choice.date
-        if let mirror = entries.first(where: { $0.id == choice.matchedEntryID }),
-           mirror.id != entry.id,
-           mirror.kind == .income || mirror.kind == .expense {
-            earliest = min(earliest, mirror.date)
-            context.delete(mirror)
-            entries.removeAll { $0.id == mirror.id }
-        }
-        if let mirrorDate = removeMirror(of: row, on: choice.otherAccountID, checking: checking, entries: &entries, context: context, windowDays: 3) {
-            earliest = min(earliest, mirrorDate)
-        }
-        entry.date = earliest
     }
 
     /// Own-account transfers can land a banking day or two later than they left.
@@ -1422,32 +1372,6 @@ public enum BankImportApplier {
         }
     }
 
-    /// Builds a transfer question.
-    private static func transferChoice(
-        entry: LedgerEntry,
-        row: ImportedTransaction,
-        checking: Account,
-        other: Account,
-        match: LedgerEntry
-    ) -> ImportTransferChoice {
-        let iban = normalizedIBAN(row.amountCents >= 0 ? row.senderIBAN : row.recipientIBAN)
-        return ImportTransferChoice(
-            entryID: entry.id,
-            signedAmountCents: row.amountCents,
-            date: row.date,
-            title: row.title,
-            notes: row.notes,
-            checkingAccountID: checking.id,
-            otherAccountID: other.id,
-            otherAccountName: other.name,
-            iban: iban,
-            matchedEntryID: match.id,
-            matchedTitle: match.title,
-            matchedDate: match.date,
-            matchedAmountCents: match.amountCents
-        )
-    }
-
     /// Builds a question about a similar booking.
     private static func similarChoice(
         row: ImportedTransaction,
@@ -1466,23 +1390,6 @@ public enum BankImportApplier {
             existingDate: existing.date,
             existingAmountCents: existing.amountCents
         )
-    }
-
-    /// Finds a booking that could be the other side of a transfer.
-    private static func transferMatch(
-        row: ImportedTransaction,
-        other: Account,
-        entries: [LedgerEntry]
-    ) -> LedgerEntry? {
-        let amount = abs(row.amountCents)
-        return entries.first { entry in
-            guard abs(entry.amountCents) == amount else { return false }
-            guard withinDays(entry.date, of: row.date, days: 3) else { return false }
-            if entry.accountID == other.id || entry.fromAccountID == other.id || entry.toAccountID == other.id {
-                return true
-            }
-            return sharesIBAN(row, entry: entry)
-        }
     }
 
     /// Finds a booking similar to the row.

@@ -315,6 +315,12 @@ of the method splitting are still open (see the last section).
 - **Steps:** Lifify watches the step count through Apple Health's background delivery, about once an hour. Each update books reached step-challenge days, refreshes the widget's steps, and reschedules the evening note. New entitlement: HealthKit background delivery, already in the owner's profile.
 - **README:** The Shortcuts guide now says which triggers iOS offers (Wallet, message, email) instead of a push trigger that does not exist.
 
+### Owner decision: The unused transfer question is gone
+
+- **What:** The import question "Is this a transfer?" is removed: `ImportTransferChoice`, the review's transfer list, its section in the review sheet, the code that applied the answers, and the two builders `transferChoice` and `transferMatch`.
+- **Why:** The import had not asked it for a long time; own-account transfers are linked automatically. The owner confirmed he only knows the duplicate-booking question.
+- **Effect:** No visible change. The money reference was re-recorded; the diff contains only the removed count fields, the empty section header, and the hand-made answers of the removed path. All other amounts and bookings are identical. Nothing stored or in a backup changed.
+
 ## Deutsch
 
 ### Überblick
@@ -647,3 +653,9 @@ Screens und ein Teil der Methoden-Zerlegung noch offen (siehe letzter Abschnitt)
 - **Bankmitteilungen:** Die Kurzbefehl-Aktion öffnet Lifify nicht mehr. Sie bucht im Hintergrund, aktualisiert Budget-Warnungen und Widget-Beträge, bevor sie endet, und antwortet etwa mit „12,50 € gebucht: REWE“. Die Buchungsregeln sind unverändert.
 - **Schritte:** Lifify beobachtet die Schritte über die Hintergrund-Zustellung von Apple Health, etwa einmal pro Stunde. Jede Meldung bucht erreichte Tage der Schritt-Challenge, aktualisiert die Schritte im Widget und plant die Abendmitteilung neu. Neues Entitlement: HealthKit-Hintergrund-Zustellung, im Profil des Eigentümers schon enthalten.
 - **README:** Die Kurzbefehl-Anleitung nennt jetzt die Auslöser, die iOS anbietet (Wallet, Nachricht, E-Mail), statt eines Push-Auslösers, den es nicht gibt.
+
+### Entscheidung des Eigentümers: Die ungenutzte Umbuchungs-Rückfrage ist entfernt
+
+- **Was:** Die Import-Rückfrage „Ist das eine Umbuchung?“ ist entfernt: `ImportTransferChoice`, die Umbuchungsliste im Prüfbogen, ihr Abschnitt in der Prüfansicht, der Code, der die Antworten anwendete, und die beiden Bausteine `transferChoice` und `transferMatch`.
+- **Warum:** Der Import stellte sie seit Langem nicht mehr; Umbuchungen zwischen eigenen Konten werden automatisch verknüpft. Der Eigentümer kennt nur die Rückfrage zu doppelten Buchungen.
+- **Auswirkung:** Sichtbar ändert sich nichts. Die Geld-Referenz wurde neu aufgezeichnet; der Unterschied enthält nur die entfernten Zählerfelder, die leere Abschnittsüberschrift und die von Hand gebauten Antworten des entfernten Wegs. Alle übrigen Beträge und Buchungen sind identisch. Am Speicher und am Backup ändert sich nichts.
