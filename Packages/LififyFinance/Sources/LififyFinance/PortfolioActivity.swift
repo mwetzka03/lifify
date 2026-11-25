@@ -290,6 +290,24 @@ public enum SavingsPlanStore {
 }
 
 /// Keeps holdings, lots, and their bookings consistent.
+/// The gain of one lot at a price.
+public enum HoldingLotGain {
+    /// The lot's value at the price minus what was paid. Cashback and gifts were free, so their
+    /// whole value is gain. A sale has no gain here.
+    ///
+    /// - Parameters:
+    ///   - lot: The lot.
+    ///   - priceCents: The price per share.
+    /// - Returns: The gain in cents, or `nil` for a sale or without a price.
+    public static func cents(of lot: HoldingLot, priceCents: Int) -> Int? {
+        guard !lot.isSale, priceCents > 0 else { return nil }
+        let value = Int((lot.quantity * Double(priceCents)).rounded())
+        let free = lot.source == "gift" || lot.source == "cashback"
+        let paid = free ? 0 : (lot.amountCents != 0 ? abs(lot.amountCents) : Int((lot.quantity * Double(lot.unitPriceCents)).rounded()))
+        return value - paid
+    }
+}
+
 /// One savings plan execution the forecast expects.
 public struct PlannedPurchase: Equatable, Sendable {
     public let date: Date

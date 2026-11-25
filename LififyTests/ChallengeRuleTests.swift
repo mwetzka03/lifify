@@ -170,6 +170,14 @@ extension LififyRuleTests {
             }
         }
 
+        @Test func aZeroStreakSpendsNoFreeze() async throws {
+            try await withTestStore { _ in
+                let result = status(daily(), done: [], through: 3)
+                #expect(result.count == 0)
+                #expect(result.freezeKeys.isEmpty)
+            }
+        }
+
         @Test func thirdMissResetsWithoutPurchasedFreeze() async throws {
             try await withTestStore { _ in
                 let result = status(daily(), done: [0], through: 4)

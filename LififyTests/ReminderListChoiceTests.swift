@@ -40,3 +40,42 @@ extension LififyRuleTests {
         }
     }
 }
+
+extension LififyRuleTests {
+    /// Pins of deleted challenges must not block the four pin slots.
+    @Suite("Challenge pins")
+    @MainActor
+    struct ChallengePinPruneTests {
+        @Test func pinsOfGoneChallengesAreDropped() async throws {
+            try await withTestStore { _ in
+                let ghosts = (0..<4).map { _ in UUID() }
+                ghosts.forEach(ChallengePinStore.pin)
+                let real = UUID()
+                ChallengePinStore.pin(real)
+                #expect(!ChallengePinStore.contains(real))
+                ChallengePinStore.prune(keeping: [real, ghosts[0]])
+                #expect(ChallengePinStore.ids() == [ghosts[0]])
+                ChallengePinStore.pin(real)
+                #expect(ChallengePinStore.contains(real))
+            }
+        }
+    }
+}
+
+extension LififyRuleTests {
+    /// A dismissed challenge suggestion does not come back.
+    @Suite("Recommendation rejection")
+    @MainActor
+    struct RecommendationRejectionTests {
+        @Test func aDismissedReminderStaysAway() async throws {
+            try await withTestStore { _ in
+                let event = ChallengeCalendarEvent(title: "Coach", startDate: .now, endDate: .now, externalIdentifier: "reminder:abc")
+                #expect(!RecommendationRejection.isRejected(event))
+                RecommendationRejection.reject(event)
+                #expect(RecommendationRejection.isRejected(event))
+                let again = ChallengeCalendarEvent(title: "Coach", startDate: .now, endDate: .now, externalIdentifier: "reminder:abc")
+                #expect(RecommendationRejection.isRejected(again))
+            }
+        }
+    }
+}

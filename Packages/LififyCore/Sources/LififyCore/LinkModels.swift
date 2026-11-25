@@ -60,6 +60,8 @@ public enum LinkKind: String, CaseIterable, Codable, Sendable {
     case subscriptionRejection
     /// Favorite meals. The Health backup carries them as one record.
     case mealFavorites
+    /// Reminders whose challenge suggestion was dismissed.
+    case recommendationRejection
     /// Changes made on a simulated day. Never part of a backup.
     case simulatedEffects
     case fastFoodReward
@@ -68,7 +70,7 @@ public enum LinkKind: String, CaseIterable, Codable, Sendable {
         .refund, .transferAssignment, .forecastSkip, .forecastPeriod, .matchRejection,
         .budgetAccounts, .bankCursor, .bankCurrent, .dismissedNoticeTemplates, .subscriptionRejection, .etfOverride
     ]
-    public static let challengeRecords: [LinkKind] = [.pinnedChallenges, .pinnedGroups, .eventOffer, .fastFoodReward]
+    public static let challengeRecords: [LinkKind] = [.pinnedChallenges, .pinnedGroups, .eventOffer, .fastFoodReward, .recommendationRejection]
     /// Temporary developer data that a backup must never carry.
     public static let neverBackedUp: Set<LinkKind> = [.simulatedEffects, .etfReturn]
 }

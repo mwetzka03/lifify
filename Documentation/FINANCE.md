@@ -257,6 +257,9 @@ another checking account do not appear.
 
 - Each buy of the same ISIN stays its own position, with date, share count,
   and price.
+- In the holding's details each buy shows its gain: shares × today's price
+  minus what was paid, in whole cents. Gifts and cashback count from zero;
+  sales show no gain (`HoldingLotGain`).
 - The cost basis is the sum of the payments divided by the remaining shares,
   rounded once.
 - The unit price of an imported buy is the payment amount divided by the
@@ -1056,6 +1059,9 @@ anderen Girokontos erscheinen nicht.
 
 - Jeder Kauf derselben ISIN bleibt eine eigene Position mit Datum, Stückzahl
   und Kurs.
+- In der Detailansicht der Position zeigt jeder Kauf seinen Gewinn: Stücke ×
+  heutiger Kurs minus gezahlter Betrag, in ganzen Cent. Geschenke und Cashback
+  zählen ab null; Verkäufe zeigen keinen Gewinn (`HoldingLotGain`).
 - Der Einstand ist die Summe der Zahlungen geteilt durch die verbleibenden
   Stücke, einmal gerundet.
 - Der Stückpreis eines importierten Kaufs ist der Zahlungsbetrag geteilt durch

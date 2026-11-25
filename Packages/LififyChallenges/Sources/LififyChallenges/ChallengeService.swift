@@ -180,7 +180,8 @@ public enum ChallengeService {
             }
             if done >= required {
                 streak += done
-            } else if freezesLeft > 0 {
+            } else if streak + done > 0, freezesLeft > 0 {
+                // A freeze protects a running or started streak; with nothing to protect it is kept.
                 freezesLeft -= 1
                 used.append(period.key)
                 streak += done

@@ -13,6 +13,8 @@ struct ChallengesView: View {
     @Query(sort: \ChallengeCalendarEvent.startDate) private var calendarEvents: [ChallengeCalendarEvent]
     @Query private var completions: [ChallengeCompletion]
     @Query private var transactions: [CoinTransaction]
+    /// Changes when a suggestion is dismissed, so the list refreshes.
+    @State private var recommendationRevision = 0
     @State private var model = ChallengeBoardModel()
     @State private var completedTab = false
     @State private var filter = ChallengeFilter.all
@@ -309,6 +311,11 @@ struct ChallengesView: View {
                             acceptedRecommendation = recommendation
                         }
                         .buttonStyle(.bordered)
+                        Button(L("Ablehnen", "Dismiss"), role: .destructive) {
+                            RecommendationRejection.reject(recommendation)
+                            recommendationRevision += 1
+                        }
+                        .buttonStyle(.borderless)
                     }
                     .padding(.vertical, 12)
                     if recommendation.id != recommendations.last?.id {
@@ -709,7 +716,8 @@ struct ChallengesView: View {
     }
 
     private var recommendations: [ChallengeCalendarEvent] {
-        calendarEvents.filter(\.isReminderSuggestion)
+        let _ = recommendationRevision
+        return calendarEvents.filter { $0.isReminderSuggestion && !RecommendationRejection.isRejected($0) }
     }
 
     /// Says whether a one-time challenge is done.
@@ -795,8 +803,9 @@ struct ChallengesView: View {
     /// The pin button of a challenge.
     private func pinButton(_ challenge: ChallengeItem) -> some View {
         let pinned = ChallengePinStore.contains(challenge.id)
-        let full = ChallengePinStore.ids().count >= ChallengePinStore.limit
+        let full = pinnedChallenges.count >= ChallengePinStore.limit
         return Button {
+            ChallengePinStore.prune(keeping: Set(challenges.filter { !$0.isArchived }.map(\.id)))
             ChallengePinStore.toggle(challenge.id)
         } label: {
             Label(

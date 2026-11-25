@@ -37,6 +37,8 @@ struct PortfolioShareChartView: View {
     @State private var mode = ShareMode.normal
     @State private var compositionRevision = 0
     @State private var isLoadingFunds = false
+    /// Set once the deep view had a frame to show its spinner before the heavy calculation.
+    @State private var deepReady = false
     @State private var fundMessage: String?
     @State private var importTarget: PortfolioHolding?
     @State private var showsImporter = false
@@ -90,10 +92,14 @@ struct PortfolioShareChartView: View {
     }
 
     var body: some View {
-        let content = content
+        let waiting = mode == .deep && !deepReady
+        let content = waiting ? ShareContent() : content
         let displayed = content.pieShares.first { $0.id == selectedID } ?? content.shares.first { $0.id == selectedID }
         List {
-            if content.shares.isEmpty {
+            if waiting || (mode == .deep && isLoadingFunds && content.shares.isEmpty) {
+                loadingSection
+                modeSection
+            } else if content.shares.isEmpty {
                 ContentUnavailableView(
                     L("Keine Depotpositionen", "No holdings"),
                     systemImage: "chart.pie",
@@ -107,12 +113,26 @@ struct PortfolioShareChartView: View {
                 if mode == .deep { fundSection }
             }
         }
+        .overlay(alignment: .top) {
+            if mode == .deep && isLoadingFunds && deepReady {
+                Label(L("Zusammensetzungen werden geladen", "Loading fund holdings"), systemImage: "arrow.triangle.2.circlepath")
+                    .font(.caption.weight(.semibold))
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(.ultraThinMaterial, in: Capsule())
+                    .padding(.top, 4)
+            }
+        }
         .appGlassList()
         .navigationTitle(L("Anteile", "Shares"))
         .navigationBarTitleDisplayMode(.inline)
         .task(id: mode) {
             selectedID = nil
-            if mode == .deep { await loadFunds(force: false) }
+            deepReady = false
+            guard mode == .deep else { return }
+            try? await Task.sleep(for: .milliseconds(60))
+            deepReady = true
+            await loadFunds(force: false)
         }
         .fileImporter(isPresented: $showsImporter, allowedContentTypes: Self.importTypes) { result in
             importHoldings(result)
@@ -125,6 +145,21 @@ struct PortfolioShareChartView: View {
         } message: {
             Text(fundMessage ?? "")
         }
+    }
+
+    /// Shown while the deep analysis prepares, so the screen never looks frozen.
+    private var loadingSection: some View {
+        Section {
+            VStack(spacing: 12) {
+                ProgressView()
+                    .controlSize(.large)
+                Text(L("Tiefenanalyse wird berechnet", "Calculating the deep analysis"))
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity, minHeight: 220)
+        }
+        .listRowBackground(Color.clear)
     }
 
     /// The file types of a manual holdings import.

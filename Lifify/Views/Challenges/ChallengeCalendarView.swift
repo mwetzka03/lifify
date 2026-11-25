@@ -339,6 +339,8 @@ private struct ChallengeEventForm: View {
     @State private var linkedGroupID: UUID?
     @State private var linkedRewardID: UUID?
     @State private var adoptedChallengeID: UUID?
+    /// The challenge just made from the event, opened in the full form for coins, category, and streak.
+    @State private var adoptedForEditing: ChallengeItem?
     @State private var isSaving = false
     @State private var statusMessage: String?
     @State private var showsMoreSettings: Bool
@@ -493,6 +495,7 @@ private struct ChallengeEventForm: View {
                 memberIDs.append(linked)
                 linkedChallengeID = nil
             }
+            .sheet(item: $adoptedForEditing) { ChallengeForm(challenge: $0) }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button(L("Schließen", "Close")) { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
@@ -519,8 +522,8 @@ private struct ChallengeEventForm: View {
             )
         }
         return L(
-            "Das legt eine Challenge aus diesem Termin an. Eine Wiederholung verknüpft die Serie. Danach lassen sich keine vorhandenen Challenges mehr zuweisen.",
-            "This creates a challenge from this event. A repeat links the series. Existing challenges cannot be assigned after that."
+            "Das legt eine Challenge aus diesem Termin an und öffnet sie zum Einstellen von Coins, Kategorie und Streak. Eine Wiederholung verknüpft die Serie. Danach lassen sich keine vorhandenen Challenges mehr zuweisen.",
+            "This creates a challenge from this event and opens it to set coins, category, and streak. A repeat links the series. Existing challenges cannot be assigned after that."
         )
     }
 
@@ -730,6 +733,7 @@ private struct ChallengeEventForm: View {
         } else {
             statusMessage = L("Wiederkehrende Challenge angelegt.", "Recurring challenge created.")
         }
+        adoptedForEditing = challenge
     }
 
     /// Deletes the event here and in the system calendar.

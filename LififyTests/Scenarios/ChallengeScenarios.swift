@@ -691,8 +691,9 @@ enum ChallengeScenarios {
             && StreakFreeze.countsDay(followsNutrition: false, confirmedMeals: 0)
             && quiet.freezeKeys.isEmpty
             && leftQuiet == 2
-            && attempted.freezeKeys.count == 2
-            && leftAttempted == 0
+            // Missed days at streak 0 protect nothing, so no freeze is spent either way.
+            && attempted.freezeKeys.isEmpty
+            && leftAttempted == 2
         let reading = "ohne \(leftQuiet), mit \(leftAttempted)"
         return result("Ein Tag ohne Mahlzeiten lässt die zwei Freezes", .streak, .unit, passed, reading)
     }

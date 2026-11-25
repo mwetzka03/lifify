@@ -70,7 +70,12 @@
 
 - Each check pays the challenge's coins. A running streak raises a coin
   multiplier. A challenge starts with two freezes; a freeze covers a missed
-  day so the streak survives.
+  day so the streak survives. At streak 0 with nothing done in the period, a
+  missed day spends no freeze, because there is nothing to protect.
+- A suggestion can be dismissed with "Dismiss"; it then stays hidden. The
+  dismissal is part of the challenge backup.
+- Adopting a calendar series as a challenge opens the full challenge form, so
+  coins, symbol, and duration can be set right away.
 - Coins are pure gamification. The wallet may go below zero; the shop is then
   locked until the balance is back at zero or above. The automatic fast-food
   purchase books even while the shop is locked.
@@ -146,7 +151,13 @@
 
 - Jeder Haken zahlt die Coins der Challenge. Ein laufender Streak erhöht einen
   Coin-Multiplikator. Eine Challenge startet mit zwei Freezes; ein Freeze deckt
-  einen verpassten Tag, damit der Streak hält.
+  einen verpassten Tag, damit der Streak hält. Bei Streak 0 ohne Fortschritt
+  im Zeitraum verbraucht ein verpasster Tag keinen Freeze, weil nichts zu
+  schützen ist.
+- Ein Vorschlag lässt sich mit „Ablehnen“ ausblenden und bleibt ausgeblendet.
+  Die Ablehnung gehört zum Challenge-Backup.
+- Wird eine Kalenderserie als Challenge übernommen, öffnet sich das volle
+  Challenge-Formular, damit Coins, Symbol und Dauer gleich gesetzt werden.
 - Coins sind reine Gamification. Das Wallet darf ins Minus; dann ist der Shop
   gesperrt, bis es wieder bei null oder darüber liegt. Der automatische
   Fast-Food-Kauf bucht auch bei gesperrtem Shop.

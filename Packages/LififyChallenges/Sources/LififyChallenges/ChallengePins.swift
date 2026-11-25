@@ -31,6 +31,15 @@ public enum ChallengePinStore {
         save(next)
     }
 
+    /// Drops pins of challenges that no longer exist or are archived, so they do not block the limit.
+    ///
+    /// - Parameter existing: The identifiers of the active challenges.
+    public static func prune(keeping existing: Set<UUID>) {
+        let next = ids().filter(existing.contains)
+        guard next != ids() else { return }
+        save(next)
+    }
+
     /// Toggles the pin.
     public static func toggle(_ id: UUID) {
         if contains(id) {

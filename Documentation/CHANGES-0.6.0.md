@@ -381,6 +381,15 @@ of the method splitting are still open (see the last section).
 - **Variable costs:** An icon can be chosen and shows in the list.
 - **Plan names:** Savings plans that only carried an ISIN get the fund's name from Yahoo Finance; a later Trade Republic sync no longer overwrites a real name with the ISIN.
 
+### Owner feedback: Depot details and challenge fixes
+
+- **Depot lots:** Each purchase lot in a holding's details shows its gain or loss at today's price, green or red. Gifts and cashback count from a cost of zero; sales show none. Logic: `HoldingLotGain` in LififyFinance. Test: `LotGainTests`.
+- **Deep analysis:** A spinner shows while the analysis is computed, and a capsule while fund compositions load, so the screen no longer looks frozen.
+- **Challenge from a calendar series:** After adopting, the full challenge form opens, so coins and the other fields can be set.
+- **Freezes at streak 0:** A missed period at streak 0 without any progress spends no freeze. A started period still uses one. Why: the owner saw freezes vanish without a streak to protect. Tests: `aZeroStreakSpendsNoFreeze`, nutrition scenario updated.
+- **Pinning:** Pins of deleted challenges filled the limit, so sport and automatic challenges could not be pinned. Stale pins are now pruned before pinning (`ChallengePinStore.prune`). Test: `ChallengePinPruneTests`.
+- **Dismissing suggestions:** Challenge suggestions get "Dismiss", like fixed-cost suggestions. Storage: new link kind `recommendationRejection` in the existing link table, no schema change; it is part of the challenge backup scope, and old backups simply have none. Test: `RecommendationRejectionTests`.
+
 ## Deutsch
 
 ### Überblick
@@ -779,3 +788,12 @@ Screens und ein Teil der Methoden-Zerlegung noch offen (siehe letzter Abschnitt)
 - **Fixkosten:** Sparplan-Karte und Kosten bilden eine abgerundete Karte; die Zeitraumzeile ist ihre Überschrift.
 - **Variable Kosten:** Ein Symbol ist wählbar und erscheint in der Liste.
 - **Plan-Namen:** Sparpläne, die nur eine ISIN trugen, bekommen den Fondsnamen von Yahoo Finance; ein späterer Trade-Republic-Abgleich überschreibt einen echten Namen nicht mehr mit der ISIN.
+
+### Rückmeldung des Eigentümers: Depotdetails und Challenge-Korrekturen
+
+- **Depot-Einzelkäufe:** Jeder Kauf in der Detailansicht einer Position zeigt Gewinn oder Verlust zum heutigen Kurs, grün oder rot. Geschenke und Cashback zählen ab Einstand null; Verkäufe zeigen nichts. Logik: `HoldingLotGain` in LififyFinance. Test: `LotGainTests`.
+- **Tiefenanalyse:** Während der Berechnung dreht ein Ladezeichen, beim Laden der Fondszusammensetzungen eine Kapsel, damit die Ansicht nicht eingefroren wirkt.
+- **Challenge aus einer Kalenderserie:** Nach dem Übernehmen öffnet sich das volle Challenge-Formular, damit Coins und die übrigen Felder gesetzt werden.
+- **Freezes bei Streak 0:** Ein verpasster Zeitraum bei Streak 0 ohne Fortschritt verbraucht keinen Freeze. Ein angefangener Zeitraum nutzt weiter einen. Warum: Der Eigentümer sah Freezes verschwinden, ohne dass ein Streak zu schützen war. Tests: `aZeroStreakSpendsNoFreeze`, Ernährungs-Szenario angepasst.
+- **Anpinnen:** Pins gelöschter Challenges füllten das Limit, daher ließen sich Sport- und automatische Challenges nicht anpinnen. Veraltete Pins werden vor dem Anpinnen entfernt (`ChallengePinStore.prune`). Test: `ChallengePinPruneTests`.
+- **Vorschläge ablehnen:** Challenge-Vorschläge bekommen „Ablehnen“ wie die Fixkosten-Vorschläge. Speicher: neue Verknüpfungsart `recommendationRejection` in der bestehenden Verknüpfungstabelle, keine Schemaänderung; sie gehört zum Challenge-Backup, alte Backups haben einfach keine. Test: `RecommendationRejectionTests`.

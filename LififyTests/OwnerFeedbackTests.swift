@@ -72,3 +72,19 @@ extension LififyRuleTests {
         }
     }
 }
+
+extension LififyRuleTests {
+    /// Each lot in a position's details shows its own gain.
+    @Suite("Lot gain")
+    struct LotGainTests {
+        @Test func aBoughtLotGainsAgainstItsCostAndAGiftCountsFully() {
+            let bought = HoldingLot(date: .now, quantity: 2, unitPriceCents: 1_000, amountCents: 2_000, isSale: false, isSavingsPlan: false)
+            #expect(HoldingLotGain.cents(of: bought, priceCents: 1_100) == 200)
+            #expect(HoldingLotGain.cents(of: bought, priceCents: 900) == -200)
+            let cashback = HoldingLot(date: .now, quantity: 0.1, unitPriceCents: 15_000, amountCents: 1_500, isSale: false, isSavingsPlan: false, source: "cashback")
+            #expect(HoldingLotGain.cents(of: cashback, priceCents: 15_100) == 1_510)
+            let sale = HoldingLot(date: .now, quantity: 1, unitPriceCents: 1_000, amountCents: 1_000, isSale: true, isSavingsPlan: false)
+            #expect(HoldingLotGain.cents(of: sale, priceCents: 1_100) == nil)
+        }
+    }
+}

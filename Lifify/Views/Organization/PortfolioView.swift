@@ -852,9 +852,16 @@ private struct HoldingDetailView: View {
                                     Text(AppDate.numeric(lot.date))
                                         .foregroundStyle(.secondary)
                                 }
-                                Text("\(lot.quantity.formatted()) × \(Money.string(cents: lot.unitPriceCents)) · \(Money.string(cents: abs(lot.amountCents)))")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
+                                HStack {
+                                    Text("\(lot.quantity.formatted()) × \(Money.string(cents: lot.unitPriceCents)) · \(Money.string(cents: abs(lot.amountCents)))")
+                                        .foregroundStyle(.secondary)
+                                    Spacer()
+                                    if let gain = lotGain(lot, priceCents: shownPriceCents(value: value, quantity: quantity)) {
+                                        Text(Money.signed(cents: gain))
+                                            .foregroundStyle(gain < 0 ? .red : (gain > 0 ? .green : .secondary))
+                                    }
+                                }
+                                .font(.caption)
                             }
                             .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                                 Button(role: .destructive) {
@@ -914,6 +921,16 @@ private struct HoldingDetailView: View {
                 }
             }
         }
+    }
+
+    /// The price the details show: today's, or the forecast price of the selected day.
+    private func shownPriceCents(value: Int, quantity: Double) -> Int {
+        timing.isToday || quantity <= 0 ? holding.currentPriceCents : Int((Double(value) / quantity).rounded())
+    }
+
+    /// The gain of a bought lot at a price; cashback and gifts count their whole value.
+    private func lotGain(_ lot: HoldingLot, priceCents: Int) -> Int? {
+        HoldingLotGain.cents(of: lot, priceCents: priceCents)
     }
 
     /// A forecast savings plan purchase. It cannot be edited because it has not happened.
