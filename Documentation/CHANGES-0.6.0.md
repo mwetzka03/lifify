@@ -390,6 +390,13 @@ of the method splitting are still open (see the last section).
 - **Pinning:** Pins of deleted challenges filled the limit, so sport and automatic challenges could not be pinned. Stale pins are now pruned before pinning (`ChallengePinStore.prune`). Test: `ChallengePinPruneTests`.
 - **Dismissing suggestions:** Challenge suggestions get "Dismiss", like fixed-cost suggestions. Storage: new link kind `recommendationRejection` in the existing link table, no schema change; it is part of the challenge backup scope, and old backups simply have none. Test: `RecommendationRejectionTests`.
 
+### Owner feedback: Training plans and weekly rotation
+
+- **Copy:** A plan's context menu has "Duplicate". The copy gets new IDs for plan, exercises, and sets, so calendar links and history stay with the original; the editor opens on the copy. Test: `aCopySharesNoIDsButKeepsTheContent`.
+- **Order:** Plans are sorted by name (number-aware) instead of by last change. Only the shown order changes; the stored file is unchanged. Test: `plansSortByNameNumberAware`.
+- **Tiles:** A tile shows every exercise icon that fits its width and a "+n" badge for the rest, instead of always three (`OverlapStrip`). Test: `theIconStripShowsAllWhenThereIsRoomAndABadgeOtherwise`.
+- **Home and widget:** With several plans on the same recurring events, each plan is due once per week. Each event now shows one plan, finished plans on their day first, then the open ones, instead of every plan at every event. A single day still sees its whole week. The widget's next training follows the same rule. Test: `threePlansOnThreeWeeklyEventsShowEachPlanOnce`.
+
 ## Deutsch
 
 ### Überblick
@@ -797,3 +804,10 @@ Screens und ein Teil der Methoden-Zerlegung noch offen (siehe letzter Abschnitt)
 - **Freezes bei Streak 0:** Ein verpasster Zeitraum bei Streak 0 ohne Fortschritt verbraucht keinen Freeze. Ein angefangener Zeitraum nutzt weiter einen. Warum: Der Eigentümer sah Freezes verschwinden, ohne dass ein Streak zu schützen war. Tests: `aZeroStreakSpendsNoFreeze`, Ernährungs-Szenario angepasst.
 - **Anpinnen:** Pins gelöschter Challenges füllten das Limit, daher ließen sich Sport- und automatische Challenges nicht anpinnen. Veraltete Pins werden vor dem Anpinnen entfernt (`ChallengePinStore.prune`). Test: `ChallengePinPruneTests`.
 - **Vorschläge ablehnen:** Challenge-Vorschläge bekommen „Ablehnen“ wie die Fixkosten-Vorschläge. Speicher: neue Verknüpfungsart `recommendationRejection` in der bestehenden Verknüpfungstabelle, keine Schemaänderung; sie gehört zum Challenge-Backup, alte Backups haben einfach keine. Test: `RecommendationRejectionTests`.
+
+### Rückmeldung des Eigentümers: Trainingspläne und Wochenrotation
+
+- **Kopieren:** Das Kontextmenü eines Plans hat „Kopieren“. Die Kopie bekommt neue IDs für Plan, Übungen und Sätze, Kalenderverknüpfungen und Verlauf bleiben am Original; der Editor öffnet die Kopie. Test: `aCopySharesNoIDsButKeepsTheContent`.
+- **Reihenfolge:** Pläne sind nach Namen sortiert (mit Zahlen in natürlicher Reihenfolge) statt nach letzter Änderung. Nur die Anzeige ändert sich, die gespeicherte Datei nicht. Test: `plansSortByNameNumberAware`.
+- **Kacheln:** Eine Kachel zeigt alle Übungssymbole, die in ihre Breite passen, und für den Rest ein „+n“, statt immer drei (`OverlapStrip`). Test: `theIconStripShowsAllWhenThereIsRoomAndABadgeOtherwise`.
+- **Home und Widget:** Hängen mehrere Pläne an denselben wiederkehrenden Terminen, ist jeder Plan einmal pro Woche fällig. Jeder Termin zeigt jetzt einen Plan, erledigte an ihrem Tag zuerst, dann die offenen, statt aller Pläne an jedem Termin. Auch ein einzelner Tag kennt seine ganze Woche. Das nächste Training im Widget folgt derselben Regel. Test: `threePlansOnThreeWeeklyEventsShowEachPlanOnce`.

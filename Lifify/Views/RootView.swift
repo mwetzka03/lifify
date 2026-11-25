@@ -74,7 +74,7 @@ struct RootView: View {
             SavingsPlanRunner.bookDue(context: context)
             SavingsPlanFixedCosts.sync(context: context)
             NutritionLedger.settle(context: context, sessions: workouts.sessions)
-            WidgetPublisher.refresh(context: context, plans: workouts.plans)
+            WidgetPublisher.refresh(context: context, plans: workouts.plans, sessions: workouts.sessions)
             await MarketDataService.refresh(holdings: holdings, context: context)
         }
         .onAppear {
@@ -92,7 +92,7 @@ struct RootView: View {
                 await BudgetAlertService.check(context: context)
                 await DailyBriefingService.scheduleFollowUps(context: context, sessions: workouts.sessions)
             }
-            WidgetPublisher.refresh(context: context, plans: workouts.plans)
+            WidgetPublisher.refresh(context: context, plans: workouts.plans, sessions: workouts.sessions)
         }
         .onChange(of: developerMode) { BirthdayBonusService.settle(context: context) }
         .onChange(of: developerDay) { BirthdayBonusService.settle(context: context) }
@@ -187,7 +187,7 @@ struct RootView: View {
         if StepChallenge.goal > 0, let steps = await AppleHealthSync.summary() {
             StepChallenge.settle(days: steps.steps, context: context)
         }
-        WidgetPublisher.refresh(context: context, plans: workouts.plans)
+        WidgetPublisher.refresh(context: context, plans: workouts.plans, sessions: workouts.sessions)
         await announcePeriodReview()
         await EventKitSyncService().sync(
             context: context,

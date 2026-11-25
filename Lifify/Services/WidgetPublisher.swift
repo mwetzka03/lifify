@@ -11,10 +11,10 @@ import WidgetKit
 @MainActor
 enum WidgetPublisher {
     /// Books waiting check-offs, writes a new snapshot, and reloads the widgets.
-    static func refresh(context: ModelContext, plans: [WorkoutPlan]) {
+    static func refresh(context: ModelContext, plans: [WorkoutPlan], sessions: [WorkoutSession] = []) {
         guard let folder = WidgetStore.directory else { return }
         applyPending(context: context, folder: folder)
-        WidgetStore.write(snapshot(context: context, plans: plans), in: folder)
+        WidgetStore.write(snapshot(context: context, plans: plans, sessions: sessions), in: folder)
         WidgetCenter.shared.reloadAllTimelines()
     }
 
@@ -58,7 +58,7 @@ enum WidgetPublisher {
     ///   - plans: The training plans.
     ///   - now: The current time.
     /// - Returns: The data for all widgets.
-    static func snapshot(context: ModelContext, plans: [WorkoutPlan], now: Date = .now) -> WidgetSnapshot {
+    static func snapshot(context: ModelContext, plans: [WorkoutPlan], sessions: [WorkoutSession] = [], now: Date = .now) -> WidgetSnapshot {
         let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: now) ?? now
         let events = ((try? context.fetch(FetchDescriptor<ChallengeCalendarEvent>())) ?? [])
             .filter { !$0.isReminderSuggestion && $0.endDate > now }
@@ -75,7 +75,7 @@ enum WidgetPublisher {
             ],
             nextSlot: events.first { Calendar.current.isDate($0.startDate, inSameDayAs: now) }
                 .map { WidgetAppointment(title: $0.title, date: $0.startDate) },
-            nextTraining: nextTraining(events: events, plans: plans),
+            nextTraining: nextTraining(context: context, plans: plans, sessions: sessions, now: now),
             coins: ChallengeService.walletBalance(transactions: (try? context.fetch(FetchDescriptor<CoinTransaction>())) ?? []),
             longestStreak: longestStreak(context: context, now: now),
             steps: AppleHealthSync.cachedTodaySteps(now: now).map { WidgetSteps(count: $0.count, readAt: $0.readAt) }
@@ -110,15 +110,13 @@ enum WidgetPublisher {
             }
     }
 
-    /// The next calendar slot with a linked plan.
-    private static func nextTraining(events: [ChallengeCalendarEvent], plans: [WorkoutPlan]) -> WidgetAppointment? {
-        for event in events {
-            let linked = TrainingAgenda.planIDs(for: event)
-            if let plan = plans.first(where: { linked.contains($0.id) }) {
-                return WidgetAppointment(title: plan.name, date: event.startDate, planID: plan.id)
-            }
-        }
-        return nil
+    /// The next open training from the calendar, following the weekly rotation of shared plans like Home does.
+    private static func nextTraining(context: ModelContext, plans: [WorkoutPlan], sessions: [WorkoutSession], now: Date) -> WidgetAppointment? {
+        let events = (try? context.fetch(FetchDescriptor<ChallengeCalendarEvent>())) ?? []
+        let horizon = Calendar.current.date(byAdding: .day, value: 28, to: now) ?? now
+        return TrainingAgenda.items(events: events, plans: plans, sessions: sessions, from: now, to: horizon)
+            .first { !$0.isDone }
+            .map { WidgetAppointment(title: $0.planName, date: $0.date, planID: $0.planID) }
     }
 
     /// The longest streak that is running.

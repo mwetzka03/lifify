@@ -197,11 +197,8 @@ struct HealthView: View {
                 Text(planSummary(plan))
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                HStack(spacing: -8) {
-                    ForEach(plan.exercises.prefix(3)) { exercise in
-                        ExerciseArtwork(code: exercise.code, name: exercise.name, side: 28, playsVideo: false)
-                    }
-                }
+                Spacer(minLength: 0)
+                ExerciseIconStrip(exercises: plan.exercises)
             }
             .padding(12)
             .frame(maxWidth: .infinity, minHeight: 120, alignment: .topLeading)
@@ -213,6 +210,11 @@ struct HealthView: View {
                 editorPlan = plan
             } label: {
                 Label(L("Bearbeiten", "Edit"), systemImage: "pencil")
+            }
+            Button {
+                editorPlan = store.duplicatePlan(id: plan.id)
+            } label: {
+                Label(L("Kopieren", "Duplicate"), systemImage: "plus.square.on.square")
             }
             Button(role: .destructive) {
                 WorkoutLinkStore.removePlan(plan.id)
@@ -481,6 +483,31 @@ struct WorkoutHistoryListView: View {
         .appGlassList()
         .navigationTitle(L("Trainingsverlauf", "Workout history"))
         .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+/// The exercise icons of a plan tile: all of them when they fit, otherwise as many as fit plus a "+n" badge.
+private struct ExerciseIconStrip: View {
+    let exercises: [WorkoutPlanExercise]
+    private let side: CGFloat = 30
+    private let step: CGFloat = 22
+
+    var body: some View {
+        GeometryReader { proxy in
+            let split = OverlapStrip.split(total: exercises.count, width: proxy.size.width, side: side, step: step)
+            HStack(spacing: step - side) {
+                ForEach(exercises.prefix(split.shown)) { exercise in
+                    ExerciseArtwork(code: exercise.code, name: exercise.name, side: side, playsVideo: false)
+                }
+                if split.hidden > 0 {
+                    Text("+\(split.hidden)")
+                        .font(.caption2.weight(.bold))
+                        .frame(width: side, height: side)
+                        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: side * 0.25, style: .continuous))
+                }
+            }
+        }
+        .frame(height: side)
     }
 }
 

@@ -202,6 +202,27 @@ extension LififyRuleTests {
             }
         }
 
+        @Test func threePlansOnThreeWeeklyEventsShowEachPlanOnce() async throws {
+            try await withTestStore { _ in
+                let plans = ["Beine", "Pull", "Push"].map { WorkoutPlan(name: $0) }
+                let challenge = UUID()
+                plans.forEach { WorkoutLinkStore.link(planID: $0.id, challengeID: challenge) }
+                let events = [16, 18, 20].map { day in
+                    let event = ChallengeCalendarEvent(title: "Sport", startDate: date(2026, 3, day, 18), endDate: date(2026, 3, day, 19))
+                    event.linkedChallengeID = challenge
+                    return event
+                }
+                var push = WorkoutSession(plan: plans[2], now: date(2026, 3, 16, 18))
+                push.finishedAt = date(2026, 3, 16, 19)
+                let week = TrainingAgenda.items(events: events, plans: plans, sessions: [push], from: date(2026, 3, 16), to: date(2026, 3, 23))
+                #expect(week.map(\.planName) == ["Push", "Beine", "Pull"])
+                #expect(week.map(\.isDone) == [true, false, false])
+                // A single day still knows the rest of its week.
+                let wednesday = TrainingAgenda.items(events: events, plans: plans, sessions: [push], from: date(2026, 3, 18), to: date(2026, 3, 19))
+                #expect(wednesday.map(\.planName) == ["Beine"])
+            }
+        }
+
         @Test func aRangeSumsStepsAndAveragesFinishedDays() {
             let values = [
                 HealthDayValue(date: date(2026, 3, 16), value: 4_000),

@@ -32,6 +32,37 @@ public struct WorkoutPlan: Codable, Identifiable, Hashable {
     }
 }
 
+extension WorkoutPlan {
+    /// Orders plans by name, case- and number-aware, so the list reads like an index.
+    public static func alphabetical(_ plans: [WorkoutPlan]) -> [WorkoutPlan] {
+        plans.sorted { lhs, rhs in
+            let order = lhs.name.localizedStandardCompare(rhs.name)
+            return order == .orderedSame ? lhs.id.uuidString < rhs.id.uuidString : order == .orderedAscending
+        }
+    }
+
+    /// Returns an independent copy with new IDs for the plan, its exercises, and their sets.
+    ///
+    /// - Parameter name: The name of the copy.
+    /// - Returns: A plan that shares no IDs with the original, so links and history stay with the original.
+    public func copy(named name: String) -> WorkoutPlan {
+        let exercises = exercises.map { exercise in
+            WorkoutPlanExercise(
+                code: exercise.code,
+                name: exercise.name,
+                restSeconds: exercise.restSeconds,
+                sets: exercise.sets.map { WorkoutPlanSet(weightKg: $0.weightKg, reps: $0.reps) }
+            )
+        }
+        return WorkoutPlan(name: name, exercises: exercises)
+    }
+
+    /// The default name of a copy, such as "Push (Kopie)".
+    public var copyName: String {
+        L("\(name) (Kopie)", "\(name) (copy)")
+    }
+}
+
 /// An exercise inside a plan.
 public struct WorkoutPlanExercise: Codable, Identifiable, Hashable {
     public var id: UUID
@@ -215,5 +246,24 @@ public enum WorkoutFormat {
     /// Formats the previous weight and repetitions.
     public static func previous(weight weightKg: Double, reps: Int) -> String {
         "\(weight(weightKg)) kg × \(reps)"
+    }
+}
+
+/// Decides how many overlapping icons fit in a row, so a plan tile shows every exercise when there is room.
+public enum OverlapStrip {
+    /// Splits the icons into the ones shown and the count behind a "+n" badge.
+    ///
+    /// - Parameters:
+    ///   - total: The number of icons.
+    ///   - width: The available width in points.
+    ///   - side: The side length of one icon.
+    ///   - step: The horizontal distance between the starts of two icons.
+    /// - Returns: The icons to draw and how many are summarized; the badge takes one icon's slot.
+    public static func split(total: Int, width: Double, side: Double, step: Double) -> (shown: Int, hidden: Int) {
+        guard total > 0, width >= side, step > 0 else { return (0, total) }
+        let fitting = Int((width - side) / step) + 1
+        if fitting >= total { return (total, 0) }
+        let shown = max(fitting - 1, 0)
+        return (shown, total - shown)
     }
 }

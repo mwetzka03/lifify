@@ -12,6 +12,12 @@ Health has two parts: training with steps and Apple Health, and nutrition.
   exercises. A session runs a timer with sets and rest. A weight suggestion
   rises by a set step after all target reps were reached. History, records, and
   volume per exercise.
+- **Plan list:** plans are sorted by name. A plan can be copied from its
+  context menu; the copy gets new IDs, so links and history stay with the
+  original. A tile shows every exercise icon that fits, the rest as "+n".
+- **Weekly rotation:** when several plans are linked to the same recurring
+  events, each plan is due once per week. Home and the widget show one plan per
+  event: finished plans on their day, then the open ones in name order.
 - **Live Activity:** the running workout on the Lock Screen and in the Dynamic
   Island, with exercise, set, time, and rest.
 - **Steps:** a chart of 7 or 30 days that pages back by swipe, today, averages,
@@ -167,6 +173,13 @@ Gesundheit hat zwei Teile: Training mit Schritten und Apple Health, und Ernähru
   Eine Session läuft mit Timer, Sätzen und Pausen. Ein Gewichtsvorschlag steigt
   um eine eingestellte Stufe, wenn alle Zielwiederholungen geschafft wurden.
   Verlauf, Bestleistungen und Volumen je Übung.
+- **Planliste:** Pläne sind nach Namen sortiert. Ein Plan lässt sich über das
+  Kontextmenü kopieren; die Kopie bekommt neue IDs, Verknüpfungen und Verlauf
+  bleiben am Original. Eine Kachel zeigt alle Übungssymbole, die passen, den
+  Rest als „+n“.
+- **Wochenrotation:** Hängen mehrere Pläne an denselben wiederkehrenden
+  Terminen, ist jeder Plan einmal pro Woche fällig. Home und das Widget zeigen
+  je Termin einen Plan: erledigte an ihrem Tag, danach die offenen nach Namen.
 - **Live Activity:** das laufende Training auf Sperrbildschirm und Dynamic
   Island, mit Übung, Satz, Zeit und Pause.
 - **Schritte:** ein Diagramm über 7 oder 30 Tage, per Wisch zurückblätterbar,

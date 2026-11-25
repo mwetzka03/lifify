@@ -87,4 +87,34 @@ extension LififyRuleTests {
             #expect(HoldingLotGain.cents(of: sale, priceCents: 1_100) == nil)
         }
     }
+
+    /// Training plans can be copied, are sorted by name, and their tiles show as many exercise icons as fit.
+    @Suite("Training plan list")
+    struct TrainingPlanListTests {
+        @Test func plansSortByNameNumberAware() {
+            let plans = ["Push 10", "beine", "Push 2", "Arme"].map { WorkoutPlan(name: $0) }
+            #expect(WorkoutPlan.alphabetical(plans).map(\.name) == ["Arme", "beine", "Push 2", "Push 10"])
+        }
+
+        @Test func aCopySharesNoIDsButKeepsTheContent() async throws {
+            try await withTestStore { _ in
+                let set = WorkoutPlanSet(weightKg: 40, reps: 10)
+                let original = WorkoutPlan(name: "Push", exercises: [WorkoutPlanExercise(code: "bench", name: "Bankdrücken", restSeconds: 120, sets: [set])])
+                let copy = original.copy(named: original.copyName)
+                #expect(copy.id != original.id)
+                #expect(copy.exercises.first?.id != original.exercises.first?.id)
+                #expect(copy.exercises.first?.sets.first?.id != set.id)
+                #expect(copy.exercises.first?.sets.first?.weightKg == 40)
+                #expect(copy.exercises.first?.restSeconds == 120)
+                #expect(copy.name == "Push (Kopie)")
+            }
+        }
+
+        @Test func theIconStripShowsAllWhenThereIsRoomAndABadgeOtherwise() {
+            #expect(OverlapStrip.split(total: 5, width: 200, side: 30, step: 22) == (5, 0))
+            // 100 pt fit four icons: three are drawn, the badge takes the fourth slot.
+            #expect(OverlapStrip.split(total: 6, width: 100, side: 30, step: 22) == (3, 3))
+            #expect(OverlapStrip.split(total: 3, width: 10, side: 30, step: 22) == (0, 3))
+        }
+    }
 }

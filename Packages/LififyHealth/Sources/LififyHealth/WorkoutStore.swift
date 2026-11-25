@@ -90,8 +90,17 @@ public final class WorkoutStore: ObservableObject {
         } else {
             plans.insert(stored, at: 0)
         }
-        plans.sort { $0.updatedAt > $1.updatedAt }
+        plans = WorkoutPlan.alphabetical(plans)
         persist()
+    }
+
+    /// Saves an independent copy of a plan and returns it.
+    @discardableResult
+    public func duplicatePlan(id: UUID) -> WorkoutPlan? {
+        guard let original = plan(id: id) else { return nil }
+        let copy = original.copy(named: original.copyName)
+        save(plan: copy)
+        return copy
     }
 
     /// Deletes a plan.
@@ -212,7 +221,7 @@ public final class WorkoutStore: ObservableObject {
         do {
             let data = try Data(contentsOf: fileURL)
             let snapshot = try decoder.decode(Snapshot.self, from: data)
-            plans = snapshot.plans.sorted { $0.updatedAt > $1.updatedAt }
+            plans = WorkoutPlan.alphabetical(snapshot.plans)
             sessions = snapshot.sessions.sorted { $0.finishedAt > $1.finishedAt }
             meals = snapshot.meals.sorted { $0.date > $1.date }
         } catch {
