@@ -163,7 +163,7 @@ struct IncomeForecastForm: View {
 
     var body: some View {
         NavigationStack {
-            Form {
+            AppForm {
                 TextField(L("Name", "Name"), text: $name)
                 TextField(L("Betrag", "Amount"), text: $amount).keyboardType(.decimalPad)
                 Picker(L("Konto", "Account"), selection: $accountID) {

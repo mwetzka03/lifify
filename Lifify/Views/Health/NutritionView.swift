@@ -593,7 +593,7 @@ private struct MealEditor: View {
 
     var body: some View {
         NavigationStack {
-            Form {
+            AppForm {
                 Section {
                     TextField(L("Name", "Name"), text: $meal.title)
                     Picker(L("Art", "Kind"), selection: Binding(

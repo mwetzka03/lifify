@@ -256,7 +256,7 @@ struct TransactionDetailView: View {
     }
 
     private var formContent: some View {
-        Form {
+        AppForm {
                 Section {
                     LabeledContent(L("Kategorie", "Category"), value: category.label)
                     HStack {
@@ -592,7 +592,7 @@ struct TransactionFormView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
+            AppForm {
                 Section {
                     if viewModel.allowsCategoryChange {
                         Picker(L("Kategorie", "Category"), selection: $viewModel.category) {

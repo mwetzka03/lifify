@@ -22,7 +22,7 @@ struct ForecastDetailView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
+            AppForm {
                 Section {
                     LabeledContent(L("Art", "Type"), value: kindTitle)
                     LabeledContent(L("Datum", "Date"), value: AppDate.numeric(item.date))

@@ -152,7 +152,7 @@ private struct ExpenseGroupForm: View {
 
     var body: some View {
         NavigationStack {
-            Form {
+            AppForm {
                 TextField(L("Name", "Name"), text: $name)
                 AppDateField(title: L("Datum", "Date"), selection: $date)
                 TextField(L("Notiz", "Note"), text: $notes, axis: .vertical)

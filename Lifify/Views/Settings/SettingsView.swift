@@ -167,7 +167,7 @@ private struct GeneralSettingsView: View {
     }
 
     var body: some View {
-        Form {
+        AppForm {
             Section {
                 Picker(L("Sprache", "Language"), selection: $language) {
                     Text("Deutsch").tag("de")
@@ -263,7 +263,7 @@ private struct UserSettingsView: View {
 
     var body: some View {
         let _ = photoRevision
-        Form {
+        AppForm {
             Section {
                 VStack(spacing: 10) {
                     ProfileAvatar(side: 88)
@@ -440,7 +440,7 @@ private struct FinanceSettingsView: View {
     @AppStorage(CashInterest.rateKey) private var interestPercent = CashInterest.standardPercent
 
     var body: some View {
-        Form {
+        AppForm {
             FinanceLockSection()
             BudgetAlertSection()
             Section {
@@ -566,7 +566,7 @@ private struct ChallengeSettingsView: View {
 
     var body: some View {
         let _ = categoryRevision
-        Form {
+        AppForm {
             Section {
                 ForEach(ChallengeCategoryStore.all()) { category in
                     Button {
@@ -794,7 +794,7 @@ private struct HealthSettingsView: View {
     @State private var geminiKey = ""
 
     var body: some View {
-        Form {
+        AppForm {
             Section {
                 Toggle(L("Aufnahmen in der Galerie sichern", "Save new photos to the library"), isOn: $saveMealPhotos)
                 SecureField(L("Gemini-Schlüssel", "Gemini key"), text: $geminiKey)

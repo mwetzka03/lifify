@@ -21,7 +21,7 @@ struct CustomCategoryEditor: View {
 
     var body: some View {
         NavigationStack {
-            Form {
+            AppForm {
                 Section {
                     TextField(L("Name", "Name"), text: $name)
                     Toggle(L("Separat anzeigen", "Show separately"), isOn: $separate)

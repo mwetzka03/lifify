@@ -13,10 +13,9 @@
   for variable costs and budget pools.
 - **Period filter:** calendar month or salary period, for all accounts, one
   account, or the portfolio. The same filter applies everywhere in Finance.
-- **Income:** income forecasts and the real income of the period. Below the
-  forecasts, folded: dividends received, the next twelve months, and the
-  positions that still pay. With a switch, expected dividends count as planned
-  income.
+- **Income:** income forecasts and the real income of the period. Expected
+  dividends and forecast interest of the period appear as their own entries
+  among the forecasts; a dividend that does not count in the total says so.
 - **Expenses:** forecast expenses and the real expenses of the period.
 - **Fixed costs** with weekly, biweekly, monthly, or yearly repeats, due on a
   calendar day or the first or last bank working day (Rhineland-Palatinate,
@@ -723,8 +722,8 @@ full to be right, the statement has to be imported again after a rule change.
   year later: payment ÷ shares held then × shares held on the new date.
 - Shares on the new date include future savings plan executions.
 - A position that is no longer held has no forecast.
-- The dividends sit folded under the income forecasts in Income. The list
-  shows only positions that still pay.
+- Expected dividends of the selected period appear as entries among the income
+  forecasts.
 - With the switch "Dividends in income forecast" (Settings, Finance, Portfolio;
   off by default) each expected payment after today counts as planned income:
   in the period's income, the projected balance, and the period's events.
@@ -795,10 +794,10 @@ full to be right, the statement has to be imported again after a rule change.
   Kosten und Budgetpools.
 - **Zeitraumfilter:** Kalendermonat oder Gehaltszeitraum, für alle Konten, ein
   Konto oder das Depot. Derselbe Filter gilt überall in Finanzen.
-- **Einnahmen:** Einnahmeprognosen und die echten Einnahmen des Zeitraums. Unter
-  den Prognosen, eingeklappt: erhaltene Dividenden, die nächsten zwölf Monate
-  und die Positionen, die noch zahlen. Mit einem Schalter zählen erwartete
-  Dividenden als geplante Einnahme.
+- **Einnahmen:** Einnahmeprognosen und die echten Einnahmen des Zeitraums.
+  Erwartete Dividenden und Prognosezinsen des Zeitraums stehen als eigene
+  Einträge bei den Prognosen; eine Dividende, die nicht in die Summe zählt, sagt
+  das.
 - **Ausgaben:** Prognoseausgaben und die echten Ausgaben des Zeitraums.
 - **Fixkosten** mit wöchentlicher, zweiwöchentlicher, monatlicher oder
   jährlicher Wiederholung, fällig am Kalendertag oder am ersten oder letzten
@@ -1530,8 +1529,8 @@ Auszug nach einer Regeländerung neu importiert werden.
   Zahlung ÷ damaliger Bestand × Bestand am neuen Datum.
 - Der Bestand am neuen Datum enthält künftige Sparplan-Ausführungen.
 - Eine nicht mehr gehaltene Position hat keine Prognose.
-- Die Dividenden stehen eingeklappt unter den Einnahmeprognosen in Einnahmen.
-  Die Liste zeigt nur Positionen, die noch zahlen.
+- Erwartete Dividenden des gewählten Zeitraums stehen als Einträge bei den
+  Einnahmeprognosen.
 - Mit dem Schalter „Dividenden in Einnahmeprognose“ (Einstellungen, Finanzen,
   Depot; standardmäßig aus) zählt jede erwartete Zahlung nach heute als
   geplante Einnahme: in den Einnahmen des Zeitraums, im prognostizierten Saldo

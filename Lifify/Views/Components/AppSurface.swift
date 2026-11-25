@@ -560,3 +560,19 @@ private struct EqualPairCardModifier: ViewModifier {
             .appGlassCard(radius: radius)
     }
 }
+
+/// A form whose rows use the card color of the chosen style, never the plain system color.
+///
+/// The row style sits on a group around the content, so it reaches every section; a row that sets
+/// its own background keeps it.
+struct AppForm<Content: View>: View {
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        Form {
+            Group { content }
+                .appGlassRow()
+        }
+        .appGlassList()
+    }
+}

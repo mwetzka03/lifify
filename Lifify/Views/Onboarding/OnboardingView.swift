@@ -130,7 +130,7 @@ struct OnboardingView: View {
             VStack(spacing: 0) {
                 ProgressView(value: Double(step + 1), total: Double(OnboardingSteps.count))
                     .padding()
-                Form {
+                AppForm {
                     switch step {
                     case 0: languageStep
                     case 1: startStep

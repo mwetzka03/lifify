@@ -164,6 +164,11 @@ extension LififyRuleTests {
                 #expect(income(april) == 0)
                 store.defaults.set(true, forKey: CashInterest.enabledKey)
                 #expect(income(april) == 2_083)
+                let aprilInterest = FinanceService.periodForecast(
+                    period: april, periods: [april, may], accounts: [trade], entries: entries, holdings: [],
+                    fixedCosts: [], variableBudgets: [], splits: [], forecasts: [], shopping: [], now: now
+                ).interest
+                #expect(aprilInterest.map(\.cents) == [2_083])
                 #expect(income(may) == CashInterest.monthlyCents(on: 1_002_083, percent: 2.5))
                 #expect(income(may) == 2_088)
                 store.defaults.set(3.0, forKey: CashInterest.rateKey)

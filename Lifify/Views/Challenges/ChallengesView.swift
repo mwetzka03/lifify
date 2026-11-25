@@ -1126,7 +1126,7 @@ struct ChallengeForm: View {
 
     var body: some View {
         NavigationStack {
-            Form {
+            AppForm {
                 Section {
                 if existing?.isReadOnly == true {
                     Text(L("Diese Challenge stammt aus Erinnerungen.", "This challenge comes from Reminders."))
@@ -1543,7 +1543,7 @@ private struct ChallengeGroupForm: View {
 
     var body: some View {
         NavigationStack {
-            Form {
+            AppForm {
                 Section {
                     TextField(L("Titel", "Title"), text: $title)
                     TextField(L("Beschreibung", "Description"), text: $details, axis: .vertical)

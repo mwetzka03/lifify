@@ -613,7 +613,7 @@ private struct SavingsPlanEditor: View {
 
     var body: some View {
         NavigationStack {
-            Form {
+            AppForm {
                 TextField(L("Name", "Name"), text: $name)
                 TextField(L("Betrag", "Amount"), text: $amount)
                     .keyboardType(.decimalPad)
@@ -701,7 +701,7 @@ private struct LotEditor: View {
 
     var body: some View {
         NavigationStack {
-            Form {
+            AppForm {
                 DatePicker(L("Datum", "Date"), selection: $date, displayedComponents: .date)
                 TextField(L("Stückzahl", "Quantity"), text: $quantity)
                     .keyboardType(.decimalPad)
@@ -802,7 +802,7 @@ private struct HoldingDetailView: View {
         let quantity = HoldingMaintenance.quantity(of: holding, through: day, holdings: holdings)
         let value = timing.isToday ? performance.value : HoldingMaintenance.marketValue(of: holding, through: day, holdings: holdings)
         NavigationStack {
-            Form {
+            AppForm {
                 Section {
                     VStack(alignment: .leading, spacing: 2) {
                         if !timing.isToday {
@@ -1021,7 +1021,7 @@ private struct HoldingForm: View {
 
     var body: some View {
         NavigationStack {
-            Form {
+            AppForm {
                 if portfolioAccounts.isEmpty {
                     Text(L(
                         "Für eine Aktie brauchst du ein Depotkonto. Es wird als nicht liquide angelegt und mit einem Girokonto verknüpft.",
@@ -1321,7 +1321,7 @@ private struct HoldingTradeSheet: View {
 
     var body: some View {
         NavigationStack {
-            Form {
+            AppForm {
                 if !isSale {
                     Picker(L("Art", "Type"), selection: $isTransfer) {
                         Text(L("Kauf", "Purchase")).tag(false)

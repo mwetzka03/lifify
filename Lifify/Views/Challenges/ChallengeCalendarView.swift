@@ -392,7 +392,7 @@ private struct ChallengeEventForm: View {
 
     var body: some View {
         NavigationStack {
-            Form {
+            AppForm {
                 Section {
                     Text(L(
                         "Änderungen und neue Termine werden in den Systemkalender geschrieben.",

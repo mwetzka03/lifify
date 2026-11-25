@@ -28,7 +28,7 @@ struct DataManagementView: View {
     @AppStorage(TradeAccountPreference.storageKey) private var defaultCheckingAccountID = ""
 
     var body: some View {
-        Form {
+        AppForm {
             Section(L("JSON-Sicherung", "JSON backup")) {
                 Button {
                     createBackup(.all)

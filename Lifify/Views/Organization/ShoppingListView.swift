@@ -175,7 +175,7 @@ struct ShoppingItemDetailView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
+            AppForm {
                 Section {
                     LabeledContent(L("Artikel", "Item"), value: item.name)
                     LabeledContent(L("Geplanter Betrag", "Planned amount"), value: Money.string(cents: item.amountCents))
@@ -256,7 +256,7 @@ struct ShoppingItemForm: View {
 
     var body: some View {
         NavigationStack {
-            Form {
+            AppForm {
                 TextField(L("Artikel", "Item"), text: $name)
                 TextField(L("Geplanter Betrag", "Planned amount"), text: $amount).keyboardType(.decimalPad)
                 TextField(L("Gruppe", "Group"), text: $group)

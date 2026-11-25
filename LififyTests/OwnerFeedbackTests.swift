@@ -35,14 +35,12 @@ extension LififyRuleTests {
             #expect(DepotLookThrough.chartLines(Array(lines.prefix(1)), otherTitle: "Sonstige").count == 1)
         }
 
-        @Test func soldPositionsLeaveTheDividendList() {
-            var report = DividendReport()
-            report.positions = [
-                DividendPosition(id: "a", name: "Held", totalCents: 500, lastYearCents: 300, forecastCents: 320),
-                DividendPosition(id: "b", name: "Sold", totalCents: 200, lastYearCents: 0, forecastCents: 0)
-            ]
-            #expect(report.payingPositions.map(\.name) == ["Held"])
-            #expect(report.totalCents == 700)
+        @MainActor @Test func anISINPlanNameGivesWayToARealName() {
+            #expect(SavingsPlanNames.isPlaceholder("IE0007Y8Y157", isin: "IE0007Y8Y157"))
+            #expect(SavingsPlanNames.isPlaceholder(" ", isin: "IE0007Y8Y157"))
+            #expect(!SavingsPlanNames.isPlaceholder("VanEck Quantum Computing", isin: "IE0007Y8Y157"))
+            #expect(SavingsPlanNames.keep("VanEck Quantum Computing", over: "IE0007Y8Y157", isin: "IE0007Y8Y157") == "VanEck Quantum Computing")
+            #expect(SavingsPlanNames.keep("IE0007Y8Y157", over: "Quantum", isin: "IE0007Y8Y157") == "Quantum")
         }
 
         @Test func theCalorieNoteFollowsTheGoal() throws {

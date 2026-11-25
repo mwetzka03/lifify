@@ -58,6 +58,8 @@ struct VariableBudgetsView: View {
                 } label: {
                     VStack(alignment: .leading, spacing: 6) {
                         HStack {
+                            AppSymbolImage(name: IconPreferenceStore.icon(for: budget.id, fallback: VariableBudgetIcon.fallback))
+                                .frame(width: 28)
                             Text(budget.name)
                             Spacer()
                             Text("\(Money.string(cents: spent)) / \(Money.string(cents: planned))")
@@ -155,6 +157,7 @@ struct VariableBudgetsView: View {
     /// Deletes a budget.
     private func delete(_ budget: VariableBudget) {
         VariableBudgetAccounts.remove(for: budget.id)
+        IconPreferenceStore.remove(for: budget.id)
         context.delete(budget)
         try? context.save()
     }
@@ -243,6 +246,7 @@ struct VariableBudgetForm: View {
     @State private var amount: String
     @State private var notes: String
     @State private var selectedIDs: Set<UUID>
+    @State private var icon: String
     private let existing: VariableBudget?
 
     init(budget: VariableBudget?) {
@@ -250,6 +254,7 @@ struct VariableBudgetForm: View {
         _name = State(initialValue: budget?.name ?? "")
         _amount = State(initialValue: budget.map { String(format: "%.2f", Double($0.monthlyAmountCents) / 100) } ?? "")
         _notes = State(initialValue: budget?.notes ?? "")
+        _icon = State(initialValue: budget.map { IconPreferenceStore.icon(for: $0.id, fallback: VariableBudgetIcon.fallback) } ?? VariableBudgetIcon.fallback)
         if let budget, let stored = VariableBudgetAccounts.storedIDs(for: budget.id) {
             _selectedIDs = State(initialValue: Set(stored))
         } else if let id = budget?.accountID {
@@ -265,9 +270,10 @@ struct VariableBudgetForm: View {
 
     var body: some View {
         NavigationStack {
-            Form {
+            AppForm {
                 TextField(L("Name", "Name"), text: $name)
                 TextField(L("Monatsbetrag", "Monthly amount"), text: $amount).keyboardType(.decimalPad)
+                SymbolPicker(title: L("Symbol", "Icon"), selection: $icon)
                 Section {
                     ForEach(cashAccounts) { account in
                         Button {
@@ -333,7 +339,13 @@ struct VariableBudgetForm: View {
             context.insert(budget)
         }
         VariableBudgetAccounts.set(ordered, for: budget.id)
+        IconPreferenceStore.set(icon, for: budget.id)
         try? context.save()
         dismiss()
     }
+}
+
+/// The icon a variable cost shows until one is chosen.
+enum VariableBudgetIcon {
+    static let fallback = "cart"
 }

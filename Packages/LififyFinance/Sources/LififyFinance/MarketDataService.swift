@@ -285,6 +285,21 @@ public enum MarketDataService {
         }
         if changed { try? context.save() }
         await refreshScenarioRates(holdings: holdings)
+        await refreshPlanNames()
+    }
+
+    /// Gives savings plans that only carry an ISIN the fund's name from Yahoo Finance.
+    ///
+    /// Trade Republic leaves the name out for plans whose fund is not held yet.
+    public static func refreshPlanNames() async {
+        guard refreshesPrices else { return }
+        for plan in SavingsPlanStore.all() where SavingsPlanNames.isPlaceholder(plan.name, isin: plan.isin) {
+            guard let name = try? await suggestions(for: plan.isin).first?.name,
+                  !SavingsPlanNames.isPlaceholder(name, isin: plan.isin) else { continue }
+            var named = plan
+            named.name = name
+            SavingsPlanStore.upsert(named)
+        }
     }
 
     /// Loads ten years of monthly prices and stores each position's type and yearly return.
@@ -771,4 +786,19 @@ private enum MarketDataError: Error {
     case priceUnavailable
     case currencyConversionUnavailable
     case requestFailed
+}
+
+/// Keeps a savings plan's readable name when a source only knows its ISIN.
+@MainActor
+public enum SavingsPlanNames {
+    /// Says whether a name is only the ISIN or empty.
+    public static func isPlaceholder(_ name: String, isin: String) -> Bool {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty || trimmed.caseInsensitiveCompare(isin) == .orderedSame || MarketDataService.isValidISIN(trimmed)
+    }
+
+    /// The name to store: the new one, unless it is a placeholder and a real one exists.
+    public static func keep(_ current: String, over incoming: String, isin: String) -> String {
+        isPlaceholder(incoming, isin: isin) && !isPlaceholder(current, isin: isin) ? current : incoming
+    }
 }

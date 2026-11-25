@@ -96,7 +96,7 @@ private struct AccountForm: View {
 
     var body: some View {
         NavigationStack {
-            Form {
+            AppForm {
                 Section {
                 TextField(L("Name", "Name"), text: $name)
                 Picker(L("Kontotyp", "Account type"), selection: $kind) {

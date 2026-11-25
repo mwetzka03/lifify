@@ -166,7 +166,7 @@ private struct NoticeTemplateForm: View {
 
     var body: some View {
         NavigationStack {
-            Form {
+            AppForm {
                 Section {
                     TextField(L("Name", "Name"), text: $template.name)
                     Picker(L("Konto", "Account"), selection: $template.accountID) {

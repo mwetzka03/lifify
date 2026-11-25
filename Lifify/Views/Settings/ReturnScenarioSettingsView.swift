@@ -13,7 +13,7 @@ struct ReturnScenarioSettingsView: View {
 
     var body: some View {
         let _ = revision
-        Form {
+        AppForm {
             Section {
                 Toggle(L("Renditeszenario", "Return scenario"), isOn: $isEnabled)
             } footer: {

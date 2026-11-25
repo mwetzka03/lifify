@@ -65,9 +65,6 @@ public struct DividendReport: Equatable {
     public var totalCents: Int { positions.reduce(0) { $0 + $1.totalCents } }
     /// The expected dividends of the next twelve months.
     public var forecastCents: Int { forecastMonths.reduce(0) { $0 + $1.cents } }
-
-    /// The positions that still pay, so sold funds do not crowd the list.
-    public var payingPositions: [DividendPosition] { positions.filter { $0.forecastCents > 0 } }
 }
 
 /// Builds the dividend overview from the existing income bookings.

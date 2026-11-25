@@ -22,7 +22,7 @@ struct SystemCalendarSyncView: View {
     }
 
     var body: some View {
-        Form {
+        AppForm {
             Section {
                 Text(L(
                     "Sobald der Zugriff da ist, gleicht Lifify den Kalender beim Öffnen ab. Hier kannst du denselben Abgleich von Hand starten.",

@@ -64,7 +64,7 @@ private struct DebtForm: View {
 
     var body: some View {
         NavigationStack {
-            Form {
+            AppForm {
                 TextField(L("Kontakt", "Contact"), text: $contact)
                 TextField(L("Beschreibung", "Description"), text: $title)
                 TextField(L("Betrag", "Amount"), text: $amount).keyboardType(.decimalPad)

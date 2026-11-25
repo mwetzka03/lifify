@@ -190,7 +190,7 @@ private struct BudgetPoolForm: View {
 
     var body: some View {
         NavigationStack {
-            Form {
+            AppForm {
                 TextField(L("Name", "Name"), text: $name)
                 TextField(L("Budget", "Budget"), text: $amount).keyboardType(.decimalPad)
                 Picker(L("Zeitraum", "Period"), selection: $mode) {

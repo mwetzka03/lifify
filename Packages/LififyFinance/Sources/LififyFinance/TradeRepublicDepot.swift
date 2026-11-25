@@ -1132,7 +1132,7 @@ public enum TradeRepublicDepotApplier {
                 existing.lastExecution = plan.lastExecution
                 existing.historyThrough = plan.historyThrough
                 existing.active = plan.active
-                existing.name = plan.name
+                existing.name = SavingsPlanNames.keep(existing.name, over: plan.name, isin: plan.isin)
                 existing.holdingID = plan.holdingID
                 existing.checkingAccountID = checking.id
                 SavingsPlanStore.upsert(existing)

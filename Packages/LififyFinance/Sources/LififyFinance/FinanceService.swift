@@ -313,7 +313,8 @@ public enum FinanceService {
                 now: now
             )
         )
-        scope.dividends += interestIncome(scope)
+        let interest = interestIncome(scope)
+        scope.dividends += interest
         let income = incomeFigures(scope, predicate: incomePredicate)
         let bookedExpenses = signedSum(entries: entries, kind: .expense, from: period.start, through: period.end)
         let fixedDates = fixedOccurrences(costs: activeFixed, from: period.start, through: period.end)
@@ -329,7 +330,7 @@ public enum FinanceService {
         let bias = shoppingBias(shopping: shopping, entries: entries, period: period)
         let balances = periodBalances(scope)
         let isPast = period.end < scope.today
-        return PeriodForecast(
+        var result = PeriodForecast(
             netWorth: netWorth(scope, balances: balances),
             income: income.total,
             expenses: bookedExpenses,
@@ -355,6 +356,8 @@ public enum FinanceService {
                 dividends: scope.dividends
             )
         )
+        result.interest = interest.filter { period.contains(Calendar.current.startOfDay(for: $0.date)) }
+        return result
     }
 
     /// The prepared inputs of one period's calculation.
@@ -1363,6 +1366,8 @@ public struct PeriodForecast {
     public var openIncome: Int
     public var openExpenses: Int
     public var events: [ForecastLine]
+    /// The forecast interest payouts inside the period, empty while the switch is off.
+    public var interest: [DividendForecastPayment] = []
     public var realDifference: Int { bookedIncome - bookedExpenses }
     public var balanceChange: Int { endBalance - startBalance }
 

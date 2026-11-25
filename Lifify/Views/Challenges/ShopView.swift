@@ -385,7 +385,7 @@ private struct RewardForm: View {
 
     var body: some View {
         NavigationStack {
-            Form {
+            AppForm {
                 TextField(L("Titel", "Title"), text: $title)
                 TextField(L("Beschreibung", "Description"), text: $details, axis: .vertical)
                 LabeledContent(L("Preis", "Price")) {

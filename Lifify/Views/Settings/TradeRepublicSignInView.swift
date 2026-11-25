@@ -564,7 +564,7 @@ struct TradeRepublicSampleView: View {
 
     var body: some View {
         let _ = sampleRevision
-        Form {
+        AppForm {
             Section {
                 Button {
                     guard !exporting, !importing else { return }

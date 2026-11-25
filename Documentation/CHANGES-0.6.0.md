@@ -373,6 +373,14 @@ of the method splitting are still open (see the last section).
 - **Why:** Challenges landed in the shopping list, the system default on the owner's devices.
 - **Effect:** With a To-Do list present, nothing needs to be set. Test: `ReminderListChoiceTests`.
 
+### Owner feedback: Finance polish
+
+- **Income forecasts:** Expected dividends and forecast interest of the selected period are entries among the income forecasts. The folded twelve-month dividend block is gone.
+- **Forms:** All 38 forms use the shared `AppForm`, so their rows take the style's card color instead of the system gray.
+- **Fixed costs:** The savings plan card and the costs form one rounded card; the period line is its header.
+- **Variable costs:** An icon can be chosen and shows in the list.
+- **Plan names:** Savings plans that only carried an ISIN get the fund's name from Yahoo Finance; a later Trade Republic sync no longer overwrites a real name with the ISIN.
+
 ## Deutsch
 
 ### Überblick
@@ -763,3 +771,11 @@ Screens und ein Teil der Methoden-Zerlegung noch offen (siehe letzter Abschnitt)
 - **Was:** Neue Challenges entstehen als Erinnerung in der Liste, die unter Einstellungen, Kalender-Sync gewählt ist. Automatisch nimmt eine Liste namens To-Do, sonst die Standardliste. Bestehende Erinnerungen bleiben in ihrer Liste. Die Wahl ist im Gesamt-Backup.
 - **Warum:** Challenges landeten in der Einkaufsliste, der Standardliste auf den Geräten des Eigentümers.
 - **Auswirkung:** Gibt es eine To-Do-Liste, muss nichts eingestellt werden. Test: `ReminderListChoiceTests`.
+
+### Rückmeldung des Eigentümers: Feinschliff Finanzen
+
+- **Einnahmeprognosen:** Erwartete Dividenden und Prognosezinsen des gewählten Zeitraums stehen als Einträge bei den Einnahmeprognosen. Der eingeklappte Zwölf-Monats-Block entfällt.
+- **Formulare:** Alle 38 Formulare nutzen das gemeinsame `AppForm`, ihre Zeilen haben die Kartenfarbe des Stils statt Systemgrau.
+- **Fixkosten:** Sparplan-Karte und Kosten bilden eine abgerundete Karte; die Zeitraumzeile ist ihre Überschrift.
+- **Variable Kosten:** Ein Symbol ist wählbar und erscheint in der Liste.
+- **Plan-Namen:** Sparpläne, die nur eine ISIN trugen, bekommen den Fondsnamen von Yahoo Finance; ein späterer Trade-Republic-Abgleich überschreibt einen echten Namen nicht mehr mit der ISIN.

@@ -28,7 +28,7 @@ struct ActualDurationSheet: View {
 
     var body: some View {
         NavigationStack {
-            Form {
+            AppForm {
                 Section {
                     LabeledContent(L("Minuten", "Minutes")) {
                         TextField("30", text: $text)

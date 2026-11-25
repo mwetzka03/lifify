@@ -29,6 +29,8 @@ struct FilteredLedgerView: View {
     @AppStorage(ForecastPeriodLinkStore.revisionKey) private var forecastLinkRevision = 0
     @AppStorage(ForecastMatchRejectionStore.revisionKey) private var forecastRejectionRevision = 0
     @State private var preparedRows: [FlowRow] = []
+    /// Expected dividends and interest of the period, shown with the income forecasts.
+    @State private var plannedExtras: [PlannedExtra] = []
     @State private var rowsToken: Int?
 
     private var filterAccounts: [Account] {
@@ -140,18 +142,18 @@ struct FilteredLedgerView: View {
             List {
                 if kind == .income {
                     Section {
-                        if incomeForecastItems.isEmpty {
+                        if incomeForecastItems.isEmpty && plannedExtras.isEmpty {
                             Text(L("Keine offenen Prognosen.", "No open forecasts."))
                                 .foregroundStyle(.secondary)
                         }
                         ForEach(incomeForecastItems) { item in
                             forecastPlanButton(item)
                         }
+                        ForEach(plannedExtras) { extraRow($0) }
                     } header: {
                         Text(L("Einnahmeprognosen", "Income forecasts"))
                     }
                     .appGlassRow()
-                    DividendSection(entries: entries, holdings: holdings)
                 }
                 if kind == .expense && !filters.showsDepot {
                     Section {
@@ -429,7 +431,48 @@ struct FilteredLedgerView: View {
         let rows = flowRows
         guard !Task.isCancelled else { return }
         preparedRows = rows
+        plannedExtras = kind == .income ? makePlannedExtras() : []
         rowsToken = token
+    }
+
+    /// The expected dividends and forecast interest of the selected period and account.
+    private func makePlannedExtras() -> [PlannedExtra] {
+        guard let period = selectedPeriod else { return [] }
+        let now = FinanceClock.now
+        let scope = selectedAccount.map { [$0] } ?? accounts
+        let ids = Set(scope.map(\.id))
+        let dividends = DividendReportBuilder.make(entries: entries, holdings: holdings, now: now).forecastPayments
+            .filter { $0.date > now && period.contains(Calendar.current.startOfDay(for: $0.date)) }
+            .filter { selectedAccount == nil || $0.accountID.map(ids.contains) == true }
+            .map { PlannedExtra(payment: $0, isInterest: false, counts: DividendReportBuilder.countsAsIncome) }
+        guard CashInterest.isEnabled else { return dividends }
+        let interest = FinanceService.periodForecast(
+            period: period, periods: periods, accounts: scope, entries: entries, holdings: holdings,
+            fixedCosts: fixedCosts, variableBudgets: variableBudgets, splits: splits,
+            forecasts: selectedAccount == nil ? forecasts : forecasts.filter { $0.accountID == selectedAccount?.id },
+            shopping: []
+        ).interest
+        return (dividends + interest.map { PlannedExtra(payment: $0, isInterest: true, counts: true) })
+            .sorted { $0.payment.date < $1.payment.date }
+    }
+
+    /// One expected dividend or interest payout. It is not edited here; its rules are in the settings.
+    private func extraRow(_ extra: PlannedExtra) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: extra.isInterest ? "percent" : "banknote")
+                .frame(width: 28)
+                .foregroundStyle(.green)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(extra.isInterest ? extra.payment.name : L("Dividende \(extra.payment.name)", "Dividend \(extra.payment.name)"))
+                    .lineLimit(1)
+                Text("\(AppDate.numeric(extra.payment.date)) · \(L("Prognose", "Forecast"))\(extra.counts ? "" : " · " + L("nicht in der Summe", "not in the total"))")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            Text(Money.signed(cents: extra.payment.cents))
+                .foregroundStyle(.green)
+        }
     }
 
     private var emptyText: String {
@@ -451,4 +494,14 @@ private struct FlowRow: Identifiable {
     var caption: String? = nil
     var realCents: Int? = nil
     var countedCents: Int? = nil
+}
+
+/// An expected dividend or interest payout in the income forecasts.
+private struct PlannedExtra: Identifiable {
+    let payment: DividendForecastPayment
+    let isInterest: Bool
+    /// Whether it counts in the forecast total.
+    let counts: Bool
+
+    var id: String { "\(payment.key)-\(payment.date.timeIntervalSince1970)-\(isInterest)" }
 }

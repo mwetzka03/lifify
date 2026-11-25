@@ -23,7 +23,7 @@ struct SavingsPlanCreateForm: View {
 
     var body: some View {
         NavigationStack {
-            Form {
+            AppForm {
                 Section {
                 if holdings.isEmpty {
                     Text(L(

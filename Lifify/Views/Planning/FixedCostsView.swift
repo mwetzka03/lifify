@@ -50,25 +50,24 @@ struct FixedCostsView: View {
     var body: some View {
         List {
             SubscriptionSuggestionSection(entries: entries, costs: costs)
-            if let period = filters.period(in: periods) {
-                Text("\(L("Offen im Zeitraum", "Open in")) \(AppDate.range(from: period.start, to: period.end))")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .listRowBackground(Color.clear)
-            }
-            if !activeSavingsPlans.isEmpty || !savingsCosts.isEmpty {
-                NavigationLink(value: FinanceRoute.savingsPlans) {
-                    savingsSummaryRow
+            Section {
+                if !activeSavingsPlans.isEmpty || !savingsCosts.isEmpty {
+                    NavigationLink(value: FinanceRoute.savingsPlans) {
+                        savingsSummaryRow
+                    }
                 }
-                .appGlassRow()
+                ForEach(regularCosts) { cost in
+                    costRow(cost)
+                }
+                .onDelete { offsets in
+                    offsets.map { regularCosts[$0] }.forEach(delete)
+                }
+            } header: {
+                if let period = filters.period(in: periods) {
+                    Text("\(L("Offen im Zeitraum", "Open in")) \(AppDate.range(from: period.start, to: period.end))")
+                }
             }
-            ForEach(regularCosts) { cost in
-                costRow(cost)
-                    .appGlassRow()
-            }
-            .onDelete { offsets in
-                offsets.map { regularCosts[$0] }.forEach(delete)
-            }
+            .appGlassRow()
         }
         .overlay {
             if regularCosts.isEmpty && savingsCosts.isEmpty && activeSavingsPlans.isEmpty {
@@ -225,7 +224,7 @@ struct FixedCostForm: View {
 
     var body: some View {
         NavigationStack {
-            Form {
+            AppForm {
                 TextField(L("Name", "Name"), text: $name)
                 TextField(L("Betrag", "Amount"), text: $amount).keyboardType(.decimalPad)
                 SymbolPicker(title: L("Symbol", "Icon"), selection: $icon)
