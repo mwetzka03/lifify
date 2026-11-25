@@ -397,6 +397,10 @@ of the method splitting are still open (see the last section).
 - **Tiles:** A tile shows every exercise icon that fits its width and a "+n" badge for the rest, instead of always three (`OverlapStrip`). Test: `theIconStripShowsAllWhenThereIsRoomAndABadgeOtherwise`.
 - **Home and widget:** With several plans on the same recurring events, each plan is due once per week. Each event now shows one plan, finished plans on their day first, then the open ones, instead of every plan at every event. A single day still sees its whole week. The widget's next training follows the same rule. Test: `threePlansOnThreeWeeklyEventsShowEachPlanOnce`.
 
+### Owner feedback: Steps by hour
+
+- **Day view:** The step chart has a third range, "Day", with one bar per hour and the day's total. Arrows and swipes page through earlier days. Why: the owner wanted to see when in the day the steps came. Effect: Apple Health is asked for hourly sums of the shown day only; nothing is stored. Tests: `theDayViewFillsAllHoursAndStaysSilentUntilAllowed` (24 hours, the 23-hour clock-change day, silent until allowed).
+
 ## Deutsch
 
 ### Überblick
@@ -811,3 +815,7 @@ Screens und ein Teil der Methoden-Zerlegung noch offen (siehe letzter Abschnitt)
 - **Reihenfolge:** Pläne sind nach Namen sortiert (mit Zahlen in natürlicher Reihenfolge) statt nach letzter Änderung. Nur die Anzeige ändert sich, die gespeicherte Datei nicht. Test: `plansSortByNameNumberAware`.
 - **Kacheln:** Eine Kachel zeigt alle Übungssymbole, die in ihre Breite passen, und für den Rest ein „+n“, statt immer drei (`OverlapStrip`). Test: `theIconStripShowsAllWhenThereIsRoomAndABadgeOtherwise`.
 - **Home und Widget:** Hängen mehrere Pläne an denselben wiederkehrenden Terminen, ist jeder Plan einmal pro Woche fällig. Jeder Termin zeigt jetzt einen Plan, erledigte an ihrem Tag zuerst, dann die offenen, statt aller Pläne an jedem Termin. Auch ein einzelner Tag kennt seine ganze Woche. Das nächste Training im Widget folgt derselben Regel. Test: `threePlansOnThreeWeeklyEventsShowEachPlanOnce`.
+
+### Rückmeldung des Eigentümers: Schritte nach Stunden
+
+- **Tagesansicht:** Das Schrittdiagramm hat einen dritten Zeitraum „Tag“ mit einem Balken je Stunde und der Tagessumme. Pfeile und Wischen blättern zu früheren Tagen. Warum: Der Eigentümer wollte sehen, wann am Tag die Schritte anfielen. Auswirkung: Apple Health wird nur nach den Stundensummen des gezeigten Tages gefragt; gespeichert wird nichts. Tests: `theDayViewFillsAllHoursAndStaysSilentUntilAllowed` (24 Stunden, der 23-Stunden-Tag der Zeitumstellung, still bis zur Freigabe).

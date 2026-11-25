@@ -23,6 +23,8 @@ private final class FakeHealthSource: HealthDataSource {
     }
     var stepHandler: (@MainActor @Sendable () async -> Void)?
     func observeSteps(onChange: @escaping @MainActor @Sendable () async -> Void) { stepHandler = onChange }
+    var hourValues: [HealthDayValue] = []
+    func hourlySteps(on day: Date) async -> [HealthDayValue] { hourValues }
 }
 
 extension LififyRuleTests {
@@ -221,6 +223,32 @@ extension LififyRuleTests {
                 let wednesday = TrainingAgenda.items(events: events, plans: plans, sessions: [push], from: date(2026, 3, 18), to: date(2026, 3, 19))
                 #expect(wednesday.map(\.planName) == ["Beine"])
             }
+        }
+
+        @Test func theDayViewFillsAllHoursAndStaysSilentUntilAllowed() async throws {
+            let day = StepStats.hourly([HealthDayValue(date: date(2026, 3, 18, 9), value: 1_200)], on: date(2026, 3, 18, 15))
+            #expect(day.count == 24)
+            #expect(day[9].value == 1_200)
+            #expect(day.reduce(0) { $0 + $1.value } == 1_200)
+            // The clock change in Germany makes 29 March 2026 a 23-hour day.
+            #expect(StepStats.hourly([], on: date(2026, 3, 29), calendar: berlin).count == 23)
+            try await withTestStore { _ in
+                let previous = AppleHealthSync.source
+                let fake = FakeHealthSource()
+                fake.hourValues = [HealthDayValue(date: date(2026, 3, 18, 9), value: 500)]
+                AppleHealthSync.source = fake
+                defer { AppleHealthSync.source = previous }
+                #expect(await AppleHealthSync.hourlySteps(on: date(2026, 3, 18)).isEmpty)
+                AppDefaults.store.set(true, forKey: AppleHealthSync.enabledKey)
+                #expect(await AppleHealthSync.hourlySteps(on: date(2026, 3, 18)).count == 1)
+            }
+        }
+
+        /// A calendar in Berlin time, for the clock change.
+        private var berlin: Calendar {
+            var calendar = Calendar(identifier: .gregorian)
+            calendar.timeZone = TimeZone(identifier: "Europe/Berlin")!
+            return calendar
         }
 
         @Test func aRangeSumsStepsAndAveragesFinishedDays() {

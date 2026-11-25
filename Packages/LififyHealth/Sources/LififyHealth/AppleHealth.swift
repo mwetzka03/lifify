@@ -87,6 +87,27 @@ public struct StepStats: Equatable, Sendable {
         }
     }
 
+    /// The 24 hours of a day for the hour chart, with zero for hours without steps.
+    ///
+    /// - Parameters:
+    ///   - hours: The hourly values Apple Health returned.
+    ///   - day: Any moment of the shown day.
+    ///   - calendar: The calendar of the day.
+    /// - Returns: One value per hour, from midnight on; a short or long day on a clock change keeps its real hours.
+    public static func hourly(_ hours: [HealthDayValue], on day: Date, calendar: Calendar = .current) -> [HealthDayValue] {
+        let start = calendar.startOfDay(for: day)
+        guard let end = calendar.date(byAdding: .day, value: 1, to: start) else { return [] }
+        var slots: [HealthDayValue] = []
+        var hour = start
+        while hour < end {
+            let value = hours.first { calendar.isDate($0.date, equalTo: hour, toGranularity: .hour) }?.value ?? 0
+            slots.append(HealthDayValue(date: hour, value: value))
+            guard let next = calendar.date(byAdding: .hour, value: 1, to: hour) else { break }
+            hour = next
+        }
+        return slots
+    }
+
     /// The average of a chart page, leaving out today and days without data.
     ///
     /// - Parameters:
@@ -150,6 +171,13 @@ public protocol HealthDataSource: AnyObject {
     func saveWorkout(start: Date, end: Date) async -> Bool
     /// Calls back when new steps arrive, also by waking the app in the background.
     func observeSteps(onChange: @escaping @MainActor @Sendable () async -> Void)
+    /// Returns the steps of one day, one value per hour with data.
+    func hourlySteps(on day: Date) async -> [HealthDayValue]
+}
+
+extension HealthDataSource {
+    /// Sources without an hour breakdown show an empty day.
+    public func hourlySteps(on day: Date) async -> [HealthDayValue] { [] }
 }
 
 /// The real connection to Apple Health.
@@ -228,6 +256,14 @@ public final class AppleHealthSource: HealthDataSource {
         }
     }
 
+    /// Returns the steps of one day, one value per hour with data.
+    public func hourlySteps(on day: Date) async -> [HealthDayValue] {
+        let calendar = Calendar.current
+        let start = calendar.startOfDay(for: day)
+        guard let end = calendar.date(byAdding: .day, value: 1, to: start) else { return [] }
+        return await collect(.stepCount, unit: .count(), options: .cumulativeSum, from: start, to: min(end, .now), interval: DateComponents(hour: 1))
+    }
+
     /// Reads one value per day.
     ///
     /// - Parameters:
@@ -245,20 +281,41 @@ public final class AppleHealthSource: HealthDataSource {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: .now)
         guard let start = calendar.date(byAdding: .day, value: 1 - days, to: today) else { return [] }
-        let range = HKQuery.predicateForSamples(withStart: start, end: nil)
+        return await collect(identifier, unit: unit, options: options, from: start, to: .now, interval: DateComponents(day: 1)).reversed()
+    }
+
+    /// Reads one value per interval between two moments.
+    ///
+    /// - Parameters:
+    ///   - identifier: The kind of value.
+    ///   - unit: The unit of the result.
+    ///   - options: Sum or average.
+    ///   - start: The first moment, also the anchor of the intervals.
+    ///   - end: The last moment read.
+    ///   - interval: The length of one bucket, such as a day or an hour.
+    /// - Returns: The buckets with data, oldest first.
+    private func collect(
+        _ identifier: HKQuantityTypeIdentifier,
+        unit: HKUnit,
+        options: HKStatisticsOptions,
+        from start: Date,
+        to end: Date,
+        interval: DateComponents
+    ) async -> [HealthDayValue] {
+        let range = HKQuery.predicateForSamples(withStart: start, end: end)
         let descriptor = HKStatisticsCollectionQueryDescriptor(
             predicate: .quantitySample(type: HKQuantityType(identifier), predicate: range),
             options: options,
-            anchorDate: today,
-            intervalComponents: DateComponents(day: 1)
+            anchorDate: start,
+            intervalComponents: interval
         )
         guard let collection = try? await descriptor.result(for: store) else { return [] }
         var values: [HealthDayValue] = []
-        collection.enumerateStatistics(from: start, to: .now) { statistics, _ in
+        collection.enumerateStatistics(from: start, to: end) { statistics, _ in
             let quantity = options == .cumulativeSum ? statistics.sumQuantity() : statistics.averageQuantity()
             if let quantity { values.append(HealthDayValue(date: statistics.startDate, value: quantity.doubleValue(for: unit))) }
         }
-        return values.reversed()
+        return values
     }
 }
 
@@ -316,6 +373,12 @@ public enum AppleHealthSync {
     public static func summary(days: Int = summaryDays) async -> HealthSummary? {
         guard isEnabled else { return nil }
         return await source.summary(days: days)
+    }
+
+    /// Reads the hours of one day for the step chart's day view.
+    public static func hourlySteps(on day: Date) async -> [HealthDayValue] {
+        guard isEnabled else { return [] }
+        return await source.hourlySteps(on: day)
     }
 
     /// The key of today's last read step count.

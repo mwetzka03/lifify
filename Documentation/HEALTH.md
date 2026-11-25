@@ -20,8 +20,9 @@ Health has two parts: training with steps and Apple Health, and nutrition.
   event: finished plans on their day, then the open ones in name order.
 - **Live Activity:** the running workout on the Lock Screen and in the Dynamic
   Island, with exercise, set, time, and rest.
-- **Steps:** a chart of 7 or 30 days that pages back by swipe, today, averages,
-  and the best day. A daily step goal becomes a challenge with coins, streak,
+- **Steps:** a chart of one day by hour, or of 7 or 30 days, that pages back
+  by swipe, with today, averages, and the best day. The day view reads the
+  hours from Apple Health only while it is shown. A daily step goal becomes a challenge with coins, streak,
   freezes, and an evening note.
 - **Nutrition:** a day board of meals with calories and nutrients, favorites,
   and "recently eaten". A photo can be read by Gemini with your own key. The
@@ -182,8 +183,10 @@ Gesundheit hat zwei Teile: Training mit Schritten und Apple Health, und Ernähru
   je Termin einen Plan: erledigte an ihrem Tag, danach die offenen nach Namen.
 - **Live Activity:** das laufende Training auf Sperrbildschirm und Dynamic
   Island, mit Übung, Satz, Zeit und Pause.
-- **Schritte:** ein Diagramm über 7 oder 30 Tage, per Wisch zurückblätterbar,
-  heute, Durchschnitte und bester Tag. Ein tägliches Schrittziel wird zur
+- **Schritte:** ein Diagramm eines Tages nach Stunden oder über 7 oder 30
+  Tage, per Wisch zurückblätterbar, mit heute, Durchschnitten und bestem Tag.
+  Die Tagesansicht liest die Stunden nur aus Apple Health, solange sie offen
+  ist. Ein tägliches Schrittziel wird zur
   Challenge mit Coins, Streak, Freezes und Abendmitteilung.
 - **Ernährung:** eine Tagesansicht der Mahlzeiten mit Kalorien und Nährwerten,
   Favoriten und „zuletzt gegessen“. Ein Foto kann mit eigenem Schlüssel von

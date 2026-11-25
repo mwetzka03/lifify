@@ -3,14 +3,15 @@ import LififyCore
 import LififyHealth
 import SwiftUI
 
-/// The steps from Apple Health under Training: a bar per day with the week and month averages.
+/// The steps from Apple Health under Training: bars per hour of a day, or per day of a week or month, with averages.
 struct StepsCard: View {
     @AppStorage(AppleHealthSync.enabledKey) private var isEnabled = false
     @AppStorage(AppPalette.storageKey) private var paletteRaw = AppPalette.green.rawValue
     @Environment(\.colorScheme) private var scheme
     @State private var summary = HealthSummary()
-    @State private var showsMonth = false
+    @State private var range = StepChartRange.week
     @State private var page = 0
+    @State private var hours: [HealthDayValue] = []
 
     var body: some View {
         Group {
@@ -19,15 +20,18 @@ struct StepsCard: View {
                     Label(L("Schritte", "Steps"), systemImage: "figure.walk")
                         .font(.headline)
                     figures
-                    Picker(L("Zeitraum", "Range"), selection: $showsMonth) {
-                        Text(L("7 Tage", "7 days")).tag(false)
-                        Text(L("30 Tage", "30 days")).tag(true)
+                    Picker(L("Zeitraum", "Range"), selection: $range) {
+                        Text(L("Tag", "Day")).tag(StepChartRange.day)
+                        Text(L("7 Tage", "7 days")).tag(StepChartRange.week)
+                        Text(L("30 Tage", "30 days")).tag(StepChartRange.month)
                     }
                     .pickerStyle(.segmented)
                     .labelsHidden()
-                    .onChange(of: showsMonth) { page = 0 }
+                    .onChange(of: range) { page = 0 }
                     pageHeader
-                    chart
+                    Group {
+                        if range == .day { hourChart } else { chart }
+                    }
                         .contentShape(Rectangle())
                         .gesture(DragGesture(minimumDistance: 24).onEnded(swiped))
                     Text(L("Wischen zeigt frühere Zeiträume. Durchschnitte ohne heute und ohne Tage ohne Daten.", "Swipe for earlier ranges. Averages leave out today and days without data."))
@@ -40,6 +44,10 @@ struct StepsCard: View {
             }
         }
         .loadsSteps(into: $summary)
+        .task(id: range == .day ? page : -1) {
+            guard range == .day else { return }
+            hours = await AppleHealthSync.hourlySteps(on: shownDay)
+        }
         .task { await AppleHealthSync.refreshWeight() }
     }
 
@@ -79,7 +87,14 @@ struct StepsCard: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private var pageLength: Int { showsMonth ? 30 : 7 }
+    private var showsMonth: Bool { range == .month }
+
+    private var pageLength: Int { range == .day ? 1 : (showsMonth ? 30 : 7) }
+
+    /// The day of the day view.
+    private var shownDay: Date {
+        Calendar.current.date(byAdding: .day, value: -page, to: Calendar.current.startOfDay(for: .now)) ?? .now
+    }
 
     private var pageDays: [HealthDayValue] {
         StepStats.chartDays(summary.steps, count: pageLength, page: page, now: .now)
@@ -92,7 +107,7 @@ struct StepsCard: View {
             Button { page += 1 } label: { Image(systemName: "chevron.left") }
                 .disabled(!StepStats.hasData(summary.steps, count: pageLength, page: page + 1, now: .now))
             Spacer()
-            Text("\(AppDate.dayMonth(days.first?.date ?? .now)) – \(AppDate.dayMonth(days.last?.date ?? .now))")
+            Text(pageTitle(days))
                 .font(.caption.weight(.semibold))
                 .monospacedDigit()
             Spacer()
@@ -101,6 +116,35 @@ struct StepsCard: View {
         }
         .buttonStyle(.borderless)
         .appAccentTint()
+    }
+
+    /// The dates of the page, or for one day its date and total.
+    private func pageTitle(_ days: [HealthDayValue]) -> String {
+        guard range == .day else {
+            return "\(AppDate.dayMonth(days.first?.date ?? .now)) – \(AppDate.dayMonth(days.last?.date ?? .now))"
+        }
+        let total = Int(hours.reduce(0) { $0 + $1.value }.rounded())
+        return "\(AppDate.weekdayShort(shownDay)) \(AppDate.dayMonth(shownDay)) · \(total.formatted()) \(L("Schritte", "steps"))"
+    }
+
+    /// The bars of the hours of the shown day.
+    private var hourChart: some View {
+        Chart {
+            ForEach(StepStats.hourly(hours, on: shownDay)) { hour in
+                BarMark(x: .value(L("Stunde", "Hour"), hour.date, unit: .hour), y: .value(L("Schritte", "Steps"), hour.value))
+                    .foregroundStyle(accent.gradient)
+                    .cornerRadius(2)
+            }
+        }
+        .chartXAxis {
+            AxisMarks(values: .stride(by: .hour, count: 6)) { value in
+                AxisGridLine()
+                AxisValueLabel {
+                    if let date = value.as(Date.self) { Text(AppDate.time(date)) }
+                }
+            }
+        }
+        .frame(height: 160)
     }
 
     /// A swipe to the right shows older days, to the left newer ones.
@@ -198,4 +242,9 @@ struct StepGoalField: View {
                 .foregroundStyle(.secondary)
         }
     }
+}
+
+/// The ranges of the step chart.
+enum StepChartRange: Hashable {
+    case day, week, month
 }
