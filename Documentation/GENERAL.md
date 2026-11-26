@@ -24,6 +24,11 @@ Lifify 0.6.0 is a local iPhone app for money, challenges, and health. It needs n
   widget), coins and streak, portfolio, next workout, an overview with steps,
   and three Lock Screen widgets. Finance amounts stay hidden while the Finance
   lock is on, unless you allow them.
+  The widgets carry a soft wash of the chosen style and fill their room: the
+  portfolio widget shows the budget ring in the medium size, the workout widget
+  today's steps, and the Today and overview widgets coins and streak.
+- **Loading:** a short start screen with the app name, and one loading
+  animation in the style color without a box on every screen that loads.
 - **Siri and Shortcuts:** check off a challenge, log a meal, ask for the
   remaining budget, and book a bank notice in the background. Triggers such as
   Wallet transactions, messages, or emails can run these.
@@ -78,6 +83,12 @@ Lifify 0.6.0 ist eine lokale iPhone-App für Geld, Challenges und Gesundheit. Si
   Coins und Streak, Depot, nächstes Training, ein Überblick mit Schritten und
   drei Widgets für den Sperrbildschirm. Finanzbeträge bleiben bei aktiver
   Finanzsperre verborgen, außer du erlaubst sie.
+  Die Widgets tragen einen leichten Verlauf im gewählten Stil und nutzen ihren
+  Platz: das Depot-Widget zeigt in mittlerer Größe den Budgetring, das
+  Trainings-Widget die Schritte von heute, die Widgets Heute und Überblick
+  Coins und Streak.
+- **Laden:** ein kurzer Startbildschirm mit dem App-Namen und eine
+  Ladeanimation in der Stilfarbe ohne Box auf jedem Bildschirm, der lädt.
 - **Siri und Kurzbefehle:** Challenge abhaken, Mahlzeit eintragen, Restbudget
   abfragen und eine Bankmitteilung im Hintergrund buchen. Auslöser wie
   Wallet-Zahlungen, Nachrichten oder E-Mails können das starten.

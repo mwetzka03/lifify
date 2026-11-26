@@ -130,11 +130,7 @@ struct FilteredLedgerView: View {
             if rowsToken != ledgerToken {
                 VStack {
                     Spacer(minLength: 48)
-                    ProgressView()
-                        .controlSize(.large)
-                    Text(L("Wird geladen", "Loading"))
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                    LififyLoader()
                     Spacer(minLength: 48)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)

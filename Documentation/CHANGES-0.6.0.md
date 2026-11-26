@@ -408,6 +408,13 @@ of the method splitting are still open (see the last section).
 - **Link an income as refund:** An income's detail offers "Link as refund" with a list of expenses of the past year, same payee first; the link can be removed on the refund. Test: `anIncomeLinksToAnExpenseAndBookingsShowTheFixedCostIcon`.
 - **Re-imports keep user changes:** A repeated Trade Republic statement used to delete and rebuild its bookings with new IDs, which dropped refund links, assignments, splits, and icons. `ImportCarryOver` now captures them by import fingerprint and moves them to the rebuilt bookings; splits of bookings that vanished are removed. Rebuilt bookings are not touched by the payee rules. Test: `aRepeatedStatementKeepsRefundLinksAssignmentsAndSplits`. Side effect: a title the person renamed on such a booking still comes back from the statement.
 
+### Owner feedback: Loading, start, widgets, and chip contrast
+
+- **Loading animation:** One shared `LififyLoader` (a turning arc in the style color around a pulsing dot, still under Reduce Motion) replaces the system spinners on Home, the ledger lists, the deep analysis, and the resume overlay. The card around the Home loader is gone. Small spinners inside buttons stay.
+- **Start:** While the app checks its data, a start screen shows the name "Lifify" in the style color with the loader, instead of a lone spinner.
+- **Widgets:** A soft gradient of the chosen style as background, headers with a colored symbol, larger figures, and less empty room: the portfolio widget adds the day's budget ring in the medium size, the workout widget shows today's steps, Today and Overview show coins and streak. No new data; everything comes from the existing snapshot.
+- **Selected chips:** The chosen account chip used a full accent fill with white or black text, which the owner found hard to read in Violet. It now shows the style color as text on a light tint with an outline, the same pattern as the Health filter.
+
 ## Deutsch
 
 ### Überblick
@@ -833,3 +840,10 @@ Screens und ein Teil der Methoden-Zerlegung noch offen (siehe letzter Abschnitt)
 - **Buchungssymbole:** Buchungszeilen in den Listen und auf Home zeigen das Symbol ihrer Fixkosten oder variablen Kosten statt des Kategoriesymbols (`BookingSymbol`).
 - **Einnahme als Rückerstattung verknüpfen:** Die Detailansicht einer Einnahme bietet „Als Rückerstattung verknüpfen“ mit den Ausgaben des letzten Jahres, derselbe Empfänger zuerst; an der Rückerstattung lässt sich die Verknüpfung wieder lösen. Test: `anIncomeLinksToAnExpenseAndBookingsShowTheFixedCostIcon`.
 - **Reimporte behalten Änderungen:** Ein erneut importierter Trade-Republic-Auszug löschte seine Buchungen und legte sie mit neuen IDs neu an. Dabei gingen Rückerstattungen, Zuordnungen, Splits und Symbole verloren. `ImportCarryOver` merkt sie sich jetzt über den Import-Fingerabdruck und überträgt sie auf die neuen Buchungen; Splits verschwundener Buchungen werden entfernt. Die Empfängerregeln fassen neu angelegte Buchungen nicht an. Test: `aRepeatedStatementKeepsRefundLinksAssignmentsAndSplits`. Nebenwirkung: Ein Titel, den die Person an so einer Buchung geändert hat, kommt weiterhin aus dem Auszug.
+
+### Rückmeldung des Eigentümers: Laden, Start, Widgets und Chip-Kontrast
+
+- **Ladeanimation:** Ein gemeinsamer `LififyLoader` (ein drehender Bogen in der Stilfarbe um einen pulsierenden Punkt, bei „Bewegung reduzieren“ ruhend) ersetzt die System-Spinner auf Home, in den Buchungslisten, in der Tiefenanalyse und beim Fortsetzen. Die Karte um die Ladeanzeige auf Home entfällt. Kleine Spinner in Buttons bleiben.
+- **Start:** Während die App ihre Daten prüft, zeigt ein Startbildschirm den Namen „Lifify“ in der Stilfarbe mit der Ladeanimation statt eines einzelnen Spinners.
+- **Widgets:** Ein leichter Verlauf im gewählten Stil als Hintergrund, Überschriften mit farbigem Symbol, größere Zahlen und weniger leerer Platz: Das Depot-Widget zeigt in mittlerer Größe zusätzlich den Budgetring des Tages, das Trainings-Widget die Schritte von heute, Heute und Überblick zeigen Coins und Streak. Keine neuen Daten; alles kommt aus dem bestehenden Schnappschuss.
+- **Gewählte Chips:** Der gewählte Konto-Chip hatte eine volle Akzentfläche mit weißer oder schwarzer Schrift, die der Eigentümer bei Violett schlecht lesen konnte. Jetzt steht die Stilfarbe als Schrift auf einer hellen Tönung mit Rand, wie beim Filter in Gesundheit.

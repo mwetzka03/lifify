@@ -170,7 +170,7 @@ private struct ChallengeList: View {
     var body: some View {
         let items = entry.snapshot?.challenges(on: entry.date) ?? []
         VStack(alignment: .leading, spacing: 5) {
-            Text(text(entry.snapshot, "Heute", "Today")).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+            WidgetHeader(title: text(entry.snapshot, "Heute", "Today"), symbol: "checklist", snapshot: entry.snapshot)
             if items.isEmpty {
                 Text(text(entry.snapshot, "Alles erledigt", "All done")).font(.caption)
             }
@@ -181,9 +181,51 @@ private struct ChallengeList: View {
 
 /// Applies the widget background.
 private extension View {
-    /// The system's container background.
-    func widgetSurface() -> some View {
-        containerBackground(.fill.tertiary, for: .widget)
+    /// The system background with a soft wash of the style color from the top corner.
+    func widgetSurface(_ snapshot: WidgetSnapshot?) -> some View {
+        containerBackground(for: .widget) {
+            ZStack {
+                Color(uiColor: .secondarySystemBackground)
+                LinearGradient(
+                    colors: [accent(snapshot).opacity(0.28), accent(snapshot).opacity(0.04)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            }
+        }
+    }
+}
+
+/// A small heading with a symbol in the style color.
+private struct WidgetHeader: View {
+    let title: String
+    let symbol: String
+    let snapshot: WidgetSnapshot?
+
+    var body: some View {
+        Label {
+            Text(title).foregroundStyle(.secondary)
+        } icon: {
+            Image(systemName: symbol).foregroundStyle(accent(snapshot))
+        }
+        .font(.caption.weight(.semibold))
+        .lineLimit(1)
+    }
+}
+
+/// The coins and the longest streak in one line, for the larger widgets' spare room.
+private struct CoinsStreakLine: View {
+    let snapshot: WidgetSnapshot?
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Label("\(snapshot?.coins ?? 0)", systemImage: "bitcoinsign.circle.fill")
+                .foregroundStyle(snapshot?.isShopLocked == true ? .red : .primary)
+            Label("\(snapshot?.longestStreak ?? 0)", systemImage: "flame.fill")
+                .foregroundStyle(.orange)
+        }
+        .font(.caption.weight(.semibold))
+        .monospacedDigit()
     }
 }
 
@@ -206,7 +248,7 @@ struct BudgetWidget: Widget {
                     LockedAmounts(snapshot: entry.snapshot)
                 }
             }
-            .widgetSurface()
+            .widgetSurface(entry.snapshot)
         }
         .configurationDisplayName("Tagesbudget")
         .description("Restbudget und Betrag pro Tag.")
@@ -221,15 +263,19 @@ struct TodayWidget: Widget {
             VStack(alignment: .leading, spacing: 6) {
                 ChallengeList(entry: entry, limit: 4)
                 Spacer(minLength: 0)
-                if let slot = entry.snapshot?.nextSlot {
-                    Label("\(slot.date.formatted(date: .omitted, time: .shortened)) \(slot.title)", systemImage: "calendar")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
+                HStack {
+                    if let slot = entry.snapshot?.nextSlot {
+                        Label("\(slot.date.formatted(date: .omitted, time: .shortened)) \(slot.title)", systemImage: "calendar")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                    Spacer(minLength: 8)
+                    CoinsStreakLine(snapshot: entry.snapshot)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .widgetSurface()
+            .widgetSurface(entry.snapshot)
         }
         .configurationDisplayName("Heute")
         .description("Offene Challenges zum Abhaken und der nächste Termin.")
@@ -242,9 +288,11 @@ struct CoinsWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: "LififyCoins", provider: LififyProvider()) { entry in
             VStack(alignment: .leading, spacing: 6) {
-                Label("Coins", systemImage: "bitcoinsign.circle").font(.caption).foregroundStyle(.secondary)
+                WidgetHeader(title: "Coins", symbol: "bitcoinsign.circle.fill", snapshot: entry.snapshot)
+                Spacer(minLength: 0)
                 Text("\(entry.snapshot?.coins ?? 0)")
-                    .font(.title.bold())
+                    .font(.system(size: 40, weight: .bold, design: .rounded))
+                    .monospacedDigit()
                     .foregroundStyle(entry.snapshot?.isShopLocked == true ? .red : .primary)
                     .minimumScaleFactor(0.5)
                     .lineLimit(1)
@@ -252,10 +300,15 @@ struct CoinsWidget: Widget {
                     Text(text(entry.snapshot, "Shop gesperrt", "Shop locked")).font(.caption2.bold()).foregroundStyle(.red)
                 }
                 Spacer(minLength: 0)
-                Label("\(entry.snapshot?.longestStreak ?? 0)", systemImage: "flame.fill").font(.caption).foregroundStyle(.orange)
+                Label("\(entry.snapshot?.longestStreak ?? 0) \(text(entry.snapshot, "Streak", "streak"))", systemImage: "flame.fill")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.orange)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color.orange.opacity(0.15), in: Capsule())
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .widgetSurface()
+            .widgetSurface(entry.snapshot)
         }
         .configurationDisplayName("Coins & Streak")
         .description("Wallet und längster laufender Streak.")
@@ -269,26 +322,60 @@ struct DepotWidget: Widget {
         StaticConfiguration(kind: "LififyDepot", provider: LififyProvider()) { entry in
             Group {
                 if let finance = entry.snapshot?.finance {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(text(entry.snapshot, "Depot", "Portfolio")).font(.caption).foregroundStyle(.secondary)
-                        Text(euros(finance.depotCents)).font(.title3.bold()).minimumScaleFactor(0.5).lineLimit(1)
-                        if let change = finance.depotChangeCents {
-                            Text("\(change > 0 ? "+" : "")\(euros(change))")
-                                .font(.caption.bold())
-                                .foregroundStyle(change < 0 ? .red : (change > 0 ? .green : .secondary))
-                        }
-                        Spacer(minLength: 0)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    DepotContent(finance: finance, entry: entry)
                 } else {
                     LockedAmounts(snapshot: entry.snapshot)
                 }
             }
-            .widgetSurface()
+            .widgetSurface(entry.snapshot)
         }
         .configurationDisplayName("Depot")
         .description("Depotwert und Veränderung zum Vortag.")
         .supportedFamilies([.systemSmall, .systemMedium])
+    }
+}
+
+/// The depot value with today's change; the medium size adds the day's budget ring beside it.
+private struct DepotContent: View {
+    let finance: WidgetFinance
+    let entry: LififyEntry
+    @Environment(\.widgetFamily) private var family
+
+    var body: some View {
+        HStack(spacing: 16) {
+            VStack(alignment: .leading, spacing: 4) {
+                WidgetHeader(title: text(entry.snapshot, "Depot", "Portfolio"), symbol: "chart.line.uptrend.xyaxis", snapshot: entry.snapshot)
+                Spacer(minLength: 0)
+                Text(euros(finance.depotCents))
+                    .font(.system(size: 26, weight: .bold, design: .rounded))
+                    .minimumScaleFactor(0.5)
+                    .lineLimit(1)
+                if let change = finance.depotChangeCents {
+                    changePill(change)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            if family == .systemMedium {
+                VStack(spacing: 4) {
+                    BudgetRing(finance: finance, tint: accent(entry.snapshot))
+                    Text(text(entry.snapshot, "Budget heute", "Budget today"))
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                .frame(width: 110)
+            }
+        }
+    }
+
+    /// The change against the day before, colored and in a capsule.
+    private func changePill(_ change: Int) -> some View {
+        let color: Color = change < 0 ? .red : (change > 0 ? .green : .secondary)
+        return Text("\(change > 0 ? "+" : "")\(euros(change))")
+            .font(.caption.bold())
+            .foregroundStyle(color)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 3)
+            .background(color.opacity(0.15), in: Capsule())
     }
 }
 
@@ -298,10 +385,7 @@ private struct TrainingBlock: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Label(text(snapshot, "Nächstes Training", "Next workout"), systemImage: "figure.strengthtraining.traditional")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
+            WidgetHeader(title: text(snapshot, "Nächstes Training", "Next workout"), symbol: "figure.strengthtraining.traditional", snapshot: snapshot)
             if let training = snapshot?.nextTraining {
                 Text(training.title).font(.headline).lineLimit(2)
                 Text(training.date.formatted(date: .abbreviated, time: .shortened)).font(.caption2).foregroundStyle(.secondary)
@@ -333,10 +417,16 @@ private struct StepsLine: View {
 struct TrainingWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: "LififyTraining", provider: LififyProvider()) { entry in
-            TrainingBlock(snapshot: entry.snapshot)
+            VStack(alignment: .leading, spacing: 6) {
+                TrainingBlock(snapshot: entry.snapshot)
+                Spacer(minLength: 0)
+                if let steps = entry.snapshot?.steps, Calendar.current.isDate(steps.readAt, inSameDayAs: entry.date) {
+                    StepsLine(steps: steps, snapshot: entry.snapshot)
+                }
+            }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 .widgetURL(entry.snapshot?.nextTraining?.planID.flatMap(WidgetRoute.url(plan:)))
-                .widgetSurface()
+                .widgetSurface(entry.snapshot)
         }
         .configurationDisplayName("Nächstes Training")
         .description("Plan und Termin. Ein Tipp öffnet das Training.")
@@ -368,8 +458,9 @@ struct OverviewWidget: Widget {
                 }
                 ChallengeList(entry: entry, limit: 7)
                 Spacer(minLength: 0)
+                CoinsStreakLine(snapshot: entry.snapshot)
             }
-            .widgetSurface()
+            .widgetSurface(entry.snapshot)
         }
         .configurationDisplayName("Überblick")
         .description("Budgetring, Challenges von heute und nächstes Training.")
@@ -393,7 +484,7 @@ struct BudgetRingLockWidget: Widget {
                     Image(systemName: "lock.fill")
                 }
             }
-            .widgetSurface()
+            .widgetSurface(entry.snapshot)
         }
         .configurationDisplayName("Budget")
         .description("Verbrauchtes Budget in Prozent.")
@@ -413,7 +504,7 @@ struct NextChallengeLockWidget: Widget {
                     .lineLimit(2)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .widgetSurface()
+            .widgetSurface(entry.snapshot)
         }
         .configurationDisplayName("Nächste Challenge")
         .description("Die nächste offene Challenge.")
@@ -426,7 +517,7 @@ struct CoinsLockWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: "LififyCoinsLock", provider: LififyProvider()) { entry in
             Text("\(entry.snapshot?.coins ?? 0) Coins")
-                .widgetSurface()
+                .widgetSurface(entry.snapshot)
         }
         .configurationDisplayName("Coins")
         .description("Der Stand des Wallets.")

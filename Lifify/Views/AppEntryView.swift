@@ -18,7 +18,7 @@ struct AppEntryView: View {
     var body: some View {
         Group {
             if !didCheckExistingInstallation {
-                ProgressView()
+                LaunchScreen()
             } else if hasCompletedOnboarding {
                 RootView()
             } else {

@@ -150,13 +150,7 @@ struct PortfolioShareChartView: View {
     /// Shown while the deep analysis prepares, so the screen never looks frozen.
     private var loadingSection: some View {
         Section {
-            VStack(spacing: 12) {
-                ProgressView()
-                    .controlSize(.large)
-                Text(L("Tiefenanalyse wird berechnet", "Calculating the deep analysis"))
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
+            LififyLoader(text: L("Tiefenanalyse wird berechnet", "Calculating the deep analysis"))
             .frame(maxWidth: .infinity, minHeight: 220)
         }
         .listRowBackground(Color.clear)

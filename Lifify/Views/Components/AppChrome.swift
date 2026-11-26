@@ -156,7 +156,8 @@ enum FactorBoard {
     }
 }
 
-/// A selectable bubble.
+/// A selectable bubble. The chosen one shows the style color as text on a light tint of it with an
+/// outline, which stays readable in every style and appearance (a full accent fill did not in Violet).
 struct ChoiceBubble: View {
     let title: String
     let selected: Bool
@@ -172,8 +173,15 @@ struct ChoiceBubble: View {
             .lineLimit(1)
             .padding(.horizontal, 14)
             .padding(.vertical, 8)
-            .foregroundStyle(selected ? (scheme == .dark ? Color.black : Color.white) : Color.primary)
-            .background(selected ? accent : fill, in: Capsule())
+            .foregroundStyle(selected ? accent : Color.primary)
+            .background {
+                // The tint lies over the card fill, so it shows the same on every canvas.
+                ZStack {
+                    Capsule().fill(fill)
+                    Capsule().fill(selected ? accent.opacity(0.22) : Color.clear)
+                }
+            }
+            .overlay(Capsule().strokeBorder(selected ? accent.opacity(0.8) : Color.clear, lineWidth: 1.5))
     }
 }
 

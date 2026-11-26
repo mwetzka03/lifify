@@ -110,13 +110,7 @@ struct RootView: View {
                     Rectangle()
                         .fill(.ultraThinMaterial)
                         .ignoresSafeArea()
-                    VStack(spacing: 12) {
-                        ProgressView()
-                            .controlSize(.large)
-                        Text(L("Wird geladen", "Loading"))
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                    }
+                    LififyLoader()
                 }
                 .contentShape(Rectangle())
                 .allowsHitTesting(true)

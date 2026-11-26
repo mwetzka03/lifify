@@ -599,16 +599,9 @@ struct DashboardView: View {
     }
 
     private var summaryLoading: some View {
-        VStack(spacing: 10) {
-            ProgressView()
-                .controlSize(.large)
-            Text(L("Wird geladen", "Loading"))
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 36)
-        .financeCard()
+        LififyLoader()
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 36)
     }
 
     private var pageLoading: some View {
