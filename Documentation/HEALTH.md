@@ -14,7 +14,8 @@ Health has two parts: training with steps and Apple Health, and nutrition.
   volume per exercise.
 - **Plan list:** plans are sorted by name. A plan can be copied from its
   context menu; the copy gets new IDs, so links and history stay with the
-  original. A tile shows every exercise icon that fits, the rest as "+n".
+  original. A tile shows when the plan was last trained and every exercise
+  icon that fits side by side, the rest as "+n".
 - **Weekly rotation:** when several plans are linked to the same recurring
   events, each plan is due once per week. Home and the widget show one plan per
   event: finished plans on their day, then the open ones in name order.
@@ -176,8 +177,8 @@ Gesundheit hat zwei Teile: Training mit Schritten und Apple Health, und Ernähru
   Verlauf, Bestleistungen und Volumen je Übung.
 - **Planliste:** Pläne sind nach Namen sortiert. Ein Plan lässt sich über das
   Kontextmenü kopieren; die Kopie bekommt neue IDs, Verknüpfungen und Verlauf
-  bleiben am Original. Eine Kachel zeigt alle Übungssymbole, die passen, den
-  Rest als „+n“.
+  bleiben am Original. Eine Kachel zeigt, wann der Plan zuletzt trainiert
+  wurde, und alle Übungssymbole nebeneinander, die passen, den Rest als „+n“.
 - **Wochenrotation:** Hängen mehrere Pläne an denselben wiederkehrenden
   Terminen, ist jeder Plan einmal pro Woche fällig. Home und das Widget zeigen
   je Termin einen Plan: erledigte an ihrem Tag, danach die offenen nach Namen.

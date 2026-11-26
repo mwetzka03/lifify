@@ -306,6 +306,20 @@ public enum HoldingLotGain {
         let paid = free ? 0 : (lot.amountCents != 0 ? abs(lot.amountCents) : Int((lot.quantity * Double(lot.unitPriceCents)).rounded()))
         return value - paid
     }
+
+    /// The gain of a forecast savings plan purchase at the price of the shown day.
+    ///
+    /// Without the return scenario the price does not move, so the gain stays at zero; with it,
+    /// each purchase gains from its own day's price up to the shown day.
+    ///
+    /// - Parameters:
+    ///   - purchase: The planned purchase.
+    ///   - priceCents: The forecast price per share on the shown day.
+    /// - Returns: The gain in cents, or `nil` without a price.
+    public static func cents(of purchase: PlannedPurchase, priceCents: Int) -> Int? {
+        guard priceCents > 0 else { return nil }
+        return Int((purchase.quantity * Double(priceCents)).rounded()) - abs(purchase.amountCents)
+    }
 }
 
 /// One savings plan execution the forecast expects.
@@ -315,6 +329,14 @@ public struct PlannedPurchase: Equatable, Sendable {
     /// The price expected on that day, with the return scenario when it applies.
     public let unitPriceCents: Int
     public let amountCents: Int
+
+    /// Creates a planned purchase.
+    public init(date: Date, quantity: Double, unitPriceCents: Int, amountCents: Int) {
+        self.date = date
+        self.quantity = quantity
+        self.unitPriceCents = unitPriceCents
+        self.amountCents = amountCents
+    }
 }
 
 @MainActor

@@ -877,8 +877,9 @@ private struct HoldingDetailView: View {
                                 .appAccentTint()
                             }
                         }
+                        let price = shownPriceCents(value: value, quantity: quantity)
                         ForEach(Array(plannedPurchases.enumerated()), id: \.offset) { _, purchase in
-                            plannedRow(purchase)
+                            plannedRow(purchase, gain: HoldingLotGain.cents(of: purchase, priceCents: price))
                         }
                     }
                     .appGlassRow()
@@ -933,20 +934,27 @@ private struct HoldingDetailView: View {
         HoldingLotGain.cents(of: lot, priceCents: priceCents)
     }
 
-    /// A forecast savings plan purchase. It cannot be edited because it has not happened.
-    private func plannedRow(_ purchase: PlannedPurchase) -> some View {
+    /// A forecast savings plan purchase with its forecast gain. It cannot be edited because it has not happened.
+    private func plannedRow(_ purchase: PlannedPurchase, gain: Int?) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             HStack {
                 Text("\(L("Sparplan", "Savings plan")) (\(L("Prognose", "forecast")))")
+                    .foregroundStyle(.secondary)
                 Spacer()
                 Text(AppDate.numeric(purchase.date))
                     .foregroundStyle(.secondary)
             }
-            Text("\(purchase.quantity.formatted(.number.precision(.fractionLength(0...4)))) × \(Money.string(cents: purchase.unitPriceCents)) · \(Money.string(cents: purchase.amountCents))")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            HStack {
+                Text("\(purchase.quantity.formatted(.number.precision(.fractionLength(0...4)))) × \(Money.string(cents: purchase.unitPriceCents)) · \(Money.string(cents: purchase.amountCents))")
+                    .foregroundStyle(.secondary)
+                Spacer()
+                if let gain {
+                    Text(Money.signed(cents: gain))
+                        .foregroundStyle(gain < 0 ? .red : (gain > 0 ? .green : .secondary))
+                }
+            }
+            .font(.caption)
         }
-        .foregroundStyle(.secondary)
     }
 
     /// Deletes a lot and its booking.

@@ -86,6 +86,13 @@ extension LififyRuleTests {
             let sale = HoldingLot(date: .now, quantity: 1, unitPriceCents: 1_000, amountCents: 1_000, isSale: true, isSavingsPlan: false)
             #expect(HoldingLotGain.cents(of: sale, priceCents: 1_100) == nil)
         }
+
+        @Test func aForecastPurchaseGainsOnlyWhenThePriceMoves() {
+            let planned = PlannedPurchase(date: .now, quantity: 0.5, unitPriceCents: 10_000, amountCents: 5_000)
+            #expect(HoldingLotGain.cents(of: planned, priceCents: 10_000) == 0)
+            #expect(HoldingLotGain.cents(of: planned, priceCents: 11_000) == 500)
+            #expect(HoldingLotGain.cents(of: planned, priceCents: 0) == nil)
+        }
     }
 
     /// Training plans can be copied, are sorted by name, and their tiles show as many exercise icons as fit.

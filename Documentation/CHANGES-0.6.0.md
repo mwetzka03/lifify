@@ -415,6 +415,12 @@ of the method splitting are still open (see the last section).
 - **Widgets:** A soft gradient of the chosen style as background, headers with a colored symbol, larger figures, and less empty room: the portfolio widget adds the day's budget ring in the medium size, the workout widget shows today's steps, Today and Overview show coins and streak. No new data; everything comes from the existing snapshot.
 - **Selected chips:** The chosen account chip used a full accent fill with white or black text, which the owner found hard to read in Violet. It now shows the style color as text on a light tint with an outline, the same pattern as the Health filter.
 
+### Owner feedback: Plan tiles, forecast gains, smooth loader
+
+- **Plan tiles:** Two tiles side by side grew very tall. Cause: a spacer inside the tile fed the measured height back into the equal-height pair, which grew it on every layout pass. The spacer is gone. Icons now sit side by side without overlap, and the tile shows when the plan was last trained instead of empty room.
+- **Forecast gains:** In a holding's details on a future day, each forecast savings plan purchase now shows its gain at that day's forecast price, like the real purchases. With the return scenario this is the expected growth; without it the price is fixed, so it shows ±0. Test: `aForecastPurchaseGainsOnlyWhenThePriceMoves`.
+- **Loader:** The loading ring stuttered because SwiftUI drew each frame on the main thread, which is busy exactly while loading. The ring and dot now run as Core Animation on the render server, like the system spinner, and stay smooth.
+
 ## Deutsch
 
 ### Überblick
@@ -847,3 +853,9 @@ Screens und ein Teil der Methoden-Zerlegung noch offen (siehe letzter Abschnitt)
 - **Start:** Während die App ihre Daten prüft, zeigt ein Startbildschirm den Namen „Lifify“ in der Stilfarbe mit der Ladeanimation statt eines einzelnen Spinners.
 - **Widgets:** Ein leichter Verlauf im gewählten Stil als Hintergrund, Überschriften mit farbigem Symbol, größere Zahlen und weniger leerer Platz: Das Depot-Widget zeigt in mittlerer Größe zusätzlich den Budgetring des Tages, das Trainings-Widget die Schritte von heute, Heute und Überblick zeigen Coins und Streak. Keine neuen Daten; alles kommt aus dem bestehenden Schnappschuss.
 - **Gewählte Chips:** Der gewählte Konto-Chip hatte eine volle Akzentfläche mit weißer oder schwarzer Schrift, die der Eigentümer bei Violett schlecht lesen konnte. Jetzt steht die Stilfarbe als Schrift auf einer hellen Tönung mit Rand, wie beim Filter in Gesundheit.
+
+### Rückmeldung des Eigentümers: Plan-Kacheln, Prognose-Gewinne, flüssige Ladeanimation
+
+- **Plan-Kacheln:** Zwei Kacheln nebeneinander wurden sehr hoch. Ursache: Ein Abstandhalter in der Kachel gab die gemessene Höhe an das gleich hohe Paar zurück, das dadurch bei jedem Layout-Durchlauf wuchs. Der Abstandhalter ist entfernt. Die Symbole stehen jetzt nebeneinander statt überlappend, und die Kachel zeigt statt leerem Platz, wann der Plan zuletzt trainiert wurde.
+- **Prognose-Gewinne:** In der Detailansicht einer Position an einem künftigen Tag zeigt jetzt auch jeder prognostizierte Sparplankauf seinen Gewinn zum Prognosekurs des Tages, wie die echten Käufe. Mit Renditeszenario ist das der erwartete Zuwachs; ohne bleibt der Kurs fest, daher ±0. Test: `aForecastPurchaseGainsOnlyWhenThePriceMoves`.
+- **Ladeanimation:** Der Ring ruckelte, weil SwiftUI jedes Bild auf dem Hauptthread zeichnete, der genau beim Laden ausgelastet ist. Ring und Punkt laufen jetzt als Core Animation auf dem Render-Server wie der System-Spinner und bleiben flüssig.

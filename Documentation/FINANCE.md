@@ -260,6 +260,9 @@ another checking account do not appear.
 - In the holding's details each buy shows its gain: shares × today's price
   minus what was paid, in whole cents. Gifts and cashback count from zero;
   sales show no gain (`HoldingLotGain`).
+- On a future day each forecast savings plan purchase shows its gain too:
+  shares × the day's forecast price minus the plan amount. Without the return
+  scenario the price does not move, so it shows ±0.
 - The cost basis is the sum of the payments divided by the remaining shares,
   rounded once.
 - The unit price of an imported buy is the payment amount divided by the
@@ -1077,6 +1080,9 @@ anderen Girokontos erscheinen nicht.
 - In der Detailansicht der Position zeigt jeder Kauf seinen Gewinn: Stücke ×
   heutiger Kurs minus gezahlter Betrag, in ganzen Cent. Geschenke und Cashback
   zählen ab null; Verkäufe zeigen keinen Gewinn (`HoldingLotGain`).
+- An einem künftigen Tag zeigt auch jeder prognostizierte Sparplankauf seinen
+  Gewinn: Stücke × Prognosekurs des Tages minus Sparrate. Ohne Renditeszenario
+  bewegt sich der Kurs nicht, daher steht dort ±0.
 - Der Einstand ist die Summe der Zahlungen geteilt durch die verbleibenden
   Stücke, einmal gerundet.
 - Der Stückpreis eines importierten Kaufs ist der Zahlungsbetrag geteilt durch

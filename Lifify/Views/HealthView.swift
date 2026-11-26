@@ -189,19 +189,24 @@ struct HealthView: View {
     /// One plan card.
     private func planCard(_ plan: WorkoutPlan, sharesRow: Bool) -> some View {
         NavigationLink(value: HealthRoute.plan(plan.id)) {
-            VStack(alignment: .leading, spacing: 8) {
+            // No spacer here: inside an equal-height pair it would feed the measured height back and grow.
+            VStack(alignment: .leading, spacing: 6) {
                 Text(plan.name)
-                    .font(.body.weight(.semibold))
+                    .font(.headline)
                     .foregroundStyle(.primary)
                     .lineLimit(2)
                 Text(planSummary(plan))
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                Spacer(minLength: 0)
+                Label(lastDoneText(plan), systemImage: "clock.arrow.circlepath")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
                 ExerciseIconStrip(exercises: plan.exercises)
+                    .padding(.top, 2)
             }
             .padding(12)
-            .frame(maxWidth: .infinity, minHeight: 120, alignment: .topLeading)
+            .frame(maxWidth: .infinity, alignment: .topLeading)
             .modifier(PlanCardChrome(sharesRow: sharesRow))
         }
         .buttonStyle(.plain)
@@ -223,6 +228,14 @@ struct HealthView: View {
                 Label(L("Löschen", "Delete"), systemImage: "trash")
             }
         }
+    }
+
+    /// When a session of the plan last finished, or that it never ran.
+    private func lastDoneText(_ plan: WorkoutPlan) -> String {
+        guard let last = store.sessions.filter({ $0.planID == plan.id }).map(\.finishedAt).max() else {
+            return L("Noch nicht trainiert", "Not trained yet")
+        }
+        return "\(L("Zuletzt", "Last")) \(AppDate.weekdayShort(last)) \(AppDate.dayMonth(last))"
     }
 
     /// Describes a plan.
@@ -486,16 +499,16 @@ struct WorkoutHistoryListView: View {
     }
 }
 
-/// The exercise icons of a plan tile: all of them when they fit, otherwise as many as fit plus a "+n" badge.
+/// The exercise icons of a plan tile side by side: all of them when they fit, otherwise as many as fit plus a "+n" badge.
 private struct ExerciseIconStrip: View {
     let exercises: [WorkoutPlanExercise]
-    private let side: CGFloat = 30
-    private let step: CGFloat = 22
+    private let side: CGFloat = 28
+    private let gap: CGFloat = 4
 
     var body: some View {
         GeometryReader { proxy in
-            let split = OverlapStrip.split(total: exercises.count, width: proxy.size.width, side: side, step: step)
-            HStack(spacing: step - side) {
+            let split = OverlapStrip.split(total: exercises.count, width: proxy.size.width, side: side, step: side + gap)
+            HStack(spacing: gap) {
                 ForEach(exercises.prefix(split.shown)) { exercise in
                     ExerciseArtwork(code: exercise.code, name: exercise.name, side: side, playsVideo: false)
                 }

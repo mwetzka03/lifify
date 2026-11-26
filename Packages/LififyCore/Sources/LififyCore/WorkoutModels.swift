@@ -249,7 +249,7 @@ public enum WorkoutFormat {
     }
 }
 
-/// Decides how many overlapping icons fit in a row, so a plan tile shows every exercise when there is room.
+/// Decides how many icons fit in a row, so a plan tile shows every exercise when there is room.
 public enum OverlapStrip {
     /// Splits the icons into the ones shown and the count behind a "+n" badge.
     ///
