@@ -559,14 +559,19 @@ public enum BankNoticeIntake {
     }
 
     /// Saves a booking and returns the result text.
+    ///
+    /// The payee rules assign the booking at once, and it waits in the inbox, so the app asks the
+    /// person about it the next time it opens.
     private static func save(_ entry: LedgerEntry, context: ModelContext, onBooked: ((LedgerEntry) -> Void)?) -> String {
         context.insert(entry)
+        BookingAutoAssign.apply(to: [entry], context: context)
         do {
             try context.save()
         } catch {
             context.delete(entry)
             return BankNoticeCopy.unavailable
         }
+        AssignmentInbox.add([entry.id], source: .notice)
         onBooked?(entry)
         return BankNoticeCopy.booked
     }

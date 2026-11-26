@@ -13,8 +13,10 @@ public struct BankImportResult {
     public var selectableRows: [ImportedTransaction]
     public var skippedBeforeStart: Int = 0
     public var review: ImportReview = ImportReview()
+    /// New bookings the payee rules gave a fixed cost or a variable cost, for the person to check.
+    public var autoAssignedIDs: [UUID] = []
 
-    public init(importedCount: Int, holdingCount: Int, accountName: String, checkingAccountID: UUID, createdSeparateChecking: Bool, entryIDs: [String: UUID], selectableRows: [ImportedTransaction], skippedBeforeStart: Int = 0, review: ImportReview = ImportReview()) {
+    public init(importedCount: Int, holdingCount: Int, accountName: String, checkingAccountID: UUID, createdSeparateChecking: Bool, entryIDs: [String: UUID], selectableRows: [ImportedTransaction], skippedBeforeStart: Int = 0, review: ImportReview = ImportReview(), autoAssignedIDs: [UUID] = []) {
         self.importedCount = importedCount
         self.holdingCount = holdingCount
         self.accountName = accountName
@@ -24,6 +26,7 @@ public struct BankImportResult {
         self.selectableRows = selectableRows
         self.skippedBeforeStart = skippedBeforeStart
         self.review = review
+        self.autoAssignedIDs = autoAssignedIDs
     }
 }
 
@@ -561,7 +564,9 @@ public enum BankImportApplier {
         ImportCarryOver.restore(carried, into: run.entries + run.insertedEntries, context: context)
         try? context.save()
         // Rebuilt bookings keep the person's choice, so only truly new ones follow the payee rules.
-        assignFixedCosts(run.insertedEntries.filter { carried[$0.importFingerprint ?? ""] == nil }, context: context)
+        let assigned = BookingAutoAssign.apply(to: run.insertedEntries.filter { carried[$0.importFingerprint ?? ""] == nil }, context: context)
+        if !assigned.isEmpty { try? context.save() }
+        AssignmentInbox.add(assigned.map(\.id), source: .bankImport)
         return BankImportResult(
             importedCount: run.imported,
             holdingCount: holdingCount,
@@ -571,16 +576,9 @@ public enum BankImportApplier {
             entryIDs: run.entryIDs,
             selectableRows: run.selectable,
             skippedBeforeStart: 0,
-            review: run.review
+            review: run.review,
+            autoAssignedIDs: assigned.map(\.id)
         )
-    }
-
-    /// Gives new bookings the fixed cost whose payee they pay, without touching older bookings.
-    private static func assignFixedCosts(_ inserted: [LedgerEntry], context: ModelContext) {
-        let costs = (try? context.fetch(FetchDescriptor<FixedCost>())) ?? []
-        if FixedCostFromBooking.assign(newEntries: inserted, costs: costs) > 0 {
-            try? context.save()
-        }
     }
 
     /// The working state of one import.

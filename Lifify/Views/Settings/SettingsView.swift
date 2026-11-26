@@ -431,6 +431,7 @@ private struct FinanceSettingsView: View {
     @AppStorage(TradeFeePreference.storageKey) private var defaultTradeFeeCents = TradeFeePreference.defaultCents
     @State private var feeText = ""
     @StateObject private var importModel = DataImportViewModel()
+    @State private var showingImportAssignments = false
     @State private var importingBank = false
     @State private var importingTradeRepublic = false
     @AppStorage(PeriodReviewNotifier.enabledKey) private var reviewNotice = false
@@ -536,9 +537,16 @@ private struct FinanceSettingsView: View {
             get: { importModel.message != nil && importModel.review == nil },
             set: { if !$0 { importModel.message = nil } }
         )) {
-            Button("OK") { importModel.message = nil }
+            Button("OK") {
+                importModel.message = nil
+                // After an import, its automatic assignments come up for a check.
+                showingImportAssignments = AssignmentInbox.waitingSources(context: context).contains(.bankImport)
+            }
         } message: {
             Text(importModel.message ?? "")
+        }
+        .sheet(isPresented: $showingImportAssignments) {
+            AssignmentReviewView(sources: [.bankImport])
         }
         .onAppear {
             if feeText.isEmpty {

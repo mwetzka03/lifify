@@ -582,6 +582,18 @@ buy, portfolio sale, and savings plan use it, and only on the portfolio side.
 
 ### Variable costs
 
+- **Automatic assignment:** a variable cost can list IBANs and payee names. A
+  new expense from a bank import or a notice goes to it when its recipient IBAN
+  is one of them or its payee name contains one ("rewe" fits "REWE Markt
+  GmbH"), and when it is on one of the cost's accounts. A fixed cost's payee
+  rule comes first. Only bookings without an assignment are touched; single
+  bookings can always be moved or removed by hand (`BudgetPayeeRules`,
+  `BookingAutoAssign`).
+- **Checking assignments:** after a bank import, a sheet lists the bookings the
+  rules assigned; each can keep its assignment or get another fixed cost,
+  variable cost, or none. Bookings from notices are listed the next time the
+  app opens, assigned or not. "Done" clears the list, "Later" keeps it
+  (`AssignmentInbox`, not part of a backup).
 - Swiping right edits a variable cost, swiping left deletes it.
 - A tap opens the transactions assigned to it in the selected period. When an
   account is selected, only that account’s transactions. The period is the
@@ -1413,6 +1425,20 @@ Depotkauf, Depotverkauf und Sparplan nutzen es, und dort nur auf der Depotseite.
 
 ### Variable Kosten
 
+- **Automatische Zuordnung:** Eine variable Kosten kann IBANs und
+  Empfängernamen führen. Eine neue Ausgabe aus Bankimport oder Mitteilung
+  kommt zu ihr, wenn ihre Empfänger-IBAN dabei ist oder ihr Empfängername
+  einen der Namen enthält („rewe“ passt zu „REWE Markt GmbH“), und wenn sie auf
+  einem ihrer Konten liegt. Die Empfängerregel einer Fixkosten geht vor. Nur
+  Buchungen ohne Zuordnung werden angefasst; einzelne Buchungen lassen sich
+  jederzeit von Hand umhängen oder lösen (`BudgetPayeeRules`,
+  `BookingAutoAssign`).
+- **Zuordnungen prüfen:** Nach einem Bankimport listet ein Blatt die
+  Buchungen, die die Regeln zugeordnet haben; jede kann ihre Zuordnung
+  behalten oder andere Fixkosten, variable Kosten oder keine bekommen.
+  Buchungen aus Mitteilungen erscheinen beim nächsten Öffnen der App,
+  zugeordnet oder nicht. „Fertig“ leert die Liste, „Später“ behält sie
+  (`AssignmentInbox`, nicht Teil eines Backups).
 - Rechtswischen bearbeitet eine variable Kosten, Linkswischen löscht sie.
 - Ein Tipp öffnet die Buchungen, die ihr im gewählten Zeitraum zugeordnet sind.
   Ist ein Konto gewählt, nur die Buchungen dieses Kontos. Der Zeitraum ist

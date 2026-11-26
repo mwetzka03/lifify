@@ -25,6 +25,7 @@ struct RootView: View {
     @State private var financeLock = FinanceLock()
     @State private var resumeLocked = false
     @State private var leftForeground = false
+    @State private var reviewSources: [AssignmentInbox.Source] = []
 
     /// The root screen of a tab.
     @ViewBuilder
@@ -116,6 +117,9 @@ struct RootView: View {
                 .allowsHitTesting(true)
             }
         }
+        .sheet(isPresented: Binding(get: { !reviewSources.isEmpty }, set: { if !$0 { reviewSources = [] } })) {
+            AssignmentReviewView(sources: reviewSources)
+        }
         .task(id: scenePhase) {
             switch scenePhase {
             case .background, .inactive:
@@ -136,10 +140,17 @@ struct RootView: View {
                 } else {
                     await resumeForegroundWork()
                 }
+                showWaitingAssignments()
             @unknown default:
                 break
             }
         }
+    }
+
+    /// Asks about bookings from notices, or an earlier import, the person has not looked at yet.
+    private func showWaitingAssignments() {
+        guard reviewSources.isEmpty else { return }
+        reviewSources = AssignmentInbox.waitingSources(context: context)
     }
 
     /// Opens the screen of a tapped notification. Finance stays behind its lock.

@@ -431,6 +431,13 @@ of the method splitting are still open (see the last section).
 - **Refund link:** The expense list is split into two boxes, "Suggestions" (same payee name, or paid to the IBAN the income came from) and "All expenses", so it is clear why an expense stands on top. Matching by IBAN is new. Test: `anIncomeLinksToAnExpenseAndBookingsShowTheFixedCostIcon` (name and IBAN cases).
 - **Fixed cost from a booking:** The sheet now shows every field of the normal fixed-cost form on top (name, amount, icon, account, rhythm, first due date, due rule, day, active), prefilled from the payments; the related payments sit at the bottom. The fields and the saving live once in `FixedCostDraft` (LififyFinance) and `FixedCostFields`, used by both forms, so the normal form behaves as before. Test: `aFixedCostFromABookingTakesTheSamePayeeAndAssignsNewImports` checks the prefilled values.
 
+### Owner feedback: Assignment rules for variable costs and a check after import and notices
+
+- **Rules:** A variable cost can list IBANs and payee names in its form ("Assign automatically"). New expenses from a bank import or a bank notice are assigned when the recipient IBAN fits or the payee name contains a rule, on the cost's accounts only. Fixed-cost payee rules come first; bookings that already have an assignment are never changed. Storage: new link kind `variableBudgetPayees` in the existing link table, part of the finance backup; no schema change, old backups have none. Deleting the variable cost removes its rules.
+- **Import check:** After a bank import, a sheet lists the automatically assigned bookings with a picker per booking (none, a fixed cost, or a variable cost). The import result carries `autoAssignedIDs`.
+- **Notice check:** Every booking from a notice waits in a list; when the app opens next, a sheet shows them with their assignment and the same picker. "Done" clears the list, "Later" keeps it. Storage: link kind `assignmentInbox`, deliberately not backed up, because it is a to-do list, not data.
+- Tests: `BookingRuleTests` (IBAN and name rules, account limits, fixed cost first, no overwrite, notice waits in the list, import reports its assignments, backup coverage).
+
 ## Deutsch
 
 ### Überblick
@@ -879,3 +886,10 @@ Screens und ein Teil der Methoden-Zerlegung noch offen (siehe letzter Abschnitt)
 
 - **Rückerstattung verknüpfen:** Die Ausgabenliste ist in zwei Boxen geteilt, „Vorschläge“ (gleicher Empfängername oder an die IBAN, von der die Einnahme kam) und „Alle Ausgaben“, damit klar ist, warum eine Ausgabe oben steht. Der Abgleich über die IBAN ist neu. Test: `anIncomeLinksToAnExpenseAndBookingsShowTheFixedCostIcon` (Name und IBAN).
 - **Fixkosten aus einer Buchung:** Das Blatt zeigt oben jetzt alle Felder des normalen Fixkosten-Formulars (Name, Betrag, Symbol, Konto, Rhythmus, erste Fälligkeit, Fälligkeitsregel, Tag, aktiv), vorausgefüllt aus den Zahlungen; die zugehörigen Zahlungen stehen ganz unten. Felder und Speichern gibt es nur einmal in `FixedCostDraft` (LififyFinance) und `FixedCostFields`, die beide Formulare nutzen; das normale Formular verhält sich wie bisher. Test: `aFixedCostFromABookingTakesTheSamePayeeAndAssignsNewImports` prüft die vorausgefüllten Werte.
+
+### Rückmeldung des Eigentümers: Zuordnungsregeln für variable Kosten und Prüfung nach Import und Mitteilungen
+
+- **Regeln:** Eine variable Kosten kann im Formular IBANs und Empfängernamen führen („Automatisch zuordnen“). Neue Ausgaben aus Bankimport oder Bankmitteilung werden zugeordnet, wenn die Empfänger-IBAN passt oder der Empfängername eine Regel enthält, nur auf den Konten der variablen Kosten. Empfängerregeln von Fixkosten gehen vor; Buchungen mit Zuordnung werden nie geändert. Speicher: neue Verknüpfungsart `variableBudgetPayees` in der bestehenden Verknüpfungstabelle, Teil des Finanz-Backups; keine Schemaänderung, alte Backups haben keine. Wer die variablen Kosten löscht, löscht auch ihre Regeln.
+- **Import-Prüfung:** Nach einem Bankimport listet ein Blatt die automatisch zugeordneten Buchungen mit einer Auswahl je Buchung (keine, eine Fixkosten oder eine variable Kosten). Das Importergebnis trägt `autoAssignedIDs`.
+- **Mitteilungs-Prüfung:** Jede Buchung aus einer Mitteilung wartet in einer Liste; beim nächsten Öffnen der App zeigt ein Blatt sie mit ihrer Zuordnung und derselben Auswahl. „Fertig“ leert die Liste, „Später“ behält sie. Speicher: Verknüpfungsart `assignmentInbox`, bewusst nicht im Backup, weil sie eine Aufgabenliste ist, keine Daten.
+- Tests: `BookingRuleTests` (IBAN- und Namensregeln, Kontengrenzen, Fixkosten zuerst, kein Überschreiben, Mitteilung wartet in der Liste, Import meldet seine Zuordnungen, Backup-Abdeckung).

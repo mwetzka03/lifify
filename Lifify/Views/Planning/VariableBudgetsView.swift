@@ -158,6 +158,7 @@ struct VariableBudgetsView: View {
     private func delete(_ budget: VariableBudget) {
         VariableBudgetAccounts.remove(for: budget.id)
         IconPreferenceStore.remove(for: budget.id)
+        BudgetPayeeRules.remove(for: budget.id)
         context.delete(budget)
         try? context.save()
     }
@@ -247,6 +248,8 @@ struct VariableBudgetForm: View {
     @State private var notes: String
     @State private var selectedIDs: Set<UUID>
     @State private var icon: String
+    @State private var rules: [String]
+    @State private var newRule = ""
     private let existing: VariableBudget?
 
     init(budget: VariableBudget?) {
@@ -255,6 +258,7 @@ struct VariableBudgetForm: View {
         _amount = State(initialValue: budget.map { String(format: "%.2f", Double($0.monthlyAmountCents) / 100) } ?? "")
         _notes = State(initialValue: budget?.notes ?? "")
         _icon = State(initialValue: budget.map { IconPreferenceStore.icon(for: $0.id, fallback: VariableBudgetIcon.fallback) } ?? VariableBudgetIcon.fallback)
+        _rules = State(initialValue: budget.map { BudgetPayeeRules.rules(for: $0.id) } ?? [])
         if let budget, let stored = VariableBudgetAccounts.storedIDs(for: budget.id) {
             _selectedIDs = State(initialValue: Set(stored))
         } else if let id = budget?.accountID {
@@ -304,6 +308,7 @@ struct VariableBudgetForm: View {
                     ))
                 }
                 .appGlassRow()
+                rulesSection
                 TextField(L("Notiz", "Note"), text: $notes, axis: .vertical)
             }
             .appGlassList()
@@ -315,6 +320,40 @@ struct VariableBudgetForm: View {
                 }
             }
         }
+    }
+
+    /// The IBANs and payee names whose new bookings this variable cost takes on its own.
+    private var rulesSection: some View {
+        Section {
+            ForEach(rules, id: \.self) { rule in
+                Label(rule, systemImage: BudgetPayeeRules.isIBAN(rule) ? "building.columns" : "textformat")
+            }
+            .onDelete { rules.remove(atOffsets: $0) }
+            HStack {
+                TextField(L("IBAN oder Name, z. B. REWE", "IBAN or name, e.g. REWE"), text: $newRule)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .onSubmit(addRule)
+                Button(L("Hinzufügen", "Add"), action: addRule)
+                    .disabled(newRule.trimmingCharacters(in: .whitespaces).isEmpty)
+            }
+        } header: {
+            Text(L("Automatisch zuordnen", "Assign automatically"))
+        } footer: {
+            Text(L(
+                "Neue Ausgaben aus Bankimport und Mitteilungen, deren Empfänger-IBAN passt oder deren Name den Text enthält, kommen hierher. Einzelne Buchungen lassen sich jederzeit anders zuordnen.",
+                "New expenses from bank imports and notices whose recipient IBAN fits or whose name contains the text land here. Single bookings can always be assigned differently."
+            ))
+        }
+        .appGlassRow()
+    }
+
+    /// Adds the typed rule to the list.
+    private func addRule() {
+        let rule = newRule.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !rule.isEmpty, !rules.contains(where: { $0.caseInsensitiveCompare(rule) == .orderedSame }) else { return }
+        rules.append(rule)
+        newRule = ""
     }
 
     /// Saves the budget.
@@ -340,6 +379,8 @@ struct VariableBudgetForm: View {
         }
         VariableBudgetAccounts.set(ordered, for: budget.id)
         IconPreferenceStore.set(icon, for: budget.id)
+        // A rule still typed in the field counts too, so it is not lost by tapping Save first.
+        BudgetPayeeRules.set(rules + [newRule], for: budget.id)
         try? context.save()
         dismiss()
     }

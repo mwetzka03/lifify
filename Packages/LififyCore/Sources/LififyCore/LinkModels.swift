@@ -64,6 +64,10 @@ public enum LinkKind: String, CaseIterable, Codable, Sendable {
     case recommendationRejection
     /// The payee or IBAN whose new bookings belong to a fixed cost.
     case fixedCostPayee
+    /// The IBANs and payee names whose bookings belong to a variable cost.
+    case variableBudgetPayees
+    /// Bookings from an import or a notice the person has not looked at yet.
+    case assignmentInbox
     /// Changes made on a simulated day. Never part of a backup.
     case simulatedEffects
     case fastFoodReward
@@ -71,11 +75,11 @@ public enum LinkKind: String, CaseIterable, Codable, Sendable {
     public static let financeRecords: [LinkKind] = [
         .refund, .transferAssignment, .forecastSkip, .forecastPeriod, .matchRejection,
         .budgetAccounts, .bankCursor, .bankCurrent, .dismissedNoticeTemplates, .subscriptionRejection, .etfOverride,
-        .fixedCostPayee
+        .fixedCostPayee, .variableBudgetPayees
     ]
     public static let challengeRecords: [LinkKind] = [.pinnedChallenges, .pinnedGroups, .eventOffer, .fastFoodReward, .recommendationRejection]
     /// Temporary developer data that a backup must never carry.
-    public static let neverBackedUp: Set<LinkKind> = [.simulatedEffects, .etfReturn]
+    public static let neverBackedUp: Set<LinkKind> = [.simulatedEffects, .etfReturn, .assignmentInbox]
 }
 
 /// Reads and writes the finance relations. Reads come from memory after the first load.
