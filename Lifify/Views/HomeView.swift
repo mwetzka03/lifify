@@ -920,7 +920,7 @@ private struct HomeTransactionRow: View {
             differenceCents: difference
         )
         HStack(spacing: 10) {
-            Image(systemName: category.systemImage)
+            AppSymbolImage(name: BookingSymbol.name(for: entry, category: category))
                 .frame(width: 22)
                 .foregroundStyle(paint.iconColor)
             VStack(alignment: .leading, spacing: 2) {

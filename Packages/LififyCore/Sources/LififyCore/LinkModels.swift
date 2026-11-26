@@ -62,13 +62,16 @@ public enum LinkKind: String, CaseIterable, Codable, Sendable {
     case mealFavorites
     /// Reminders whose challenge suggestion was dismissed.
     case recommendationRejection
+    /// The payee or IBAN whose new bookings belong to a fixed cost.
+    case fixedCostPayee
     /// Changes made on a simulated day. Never part of a backup.
     case simulatedEffects
     case fastFoodReward
 
     public static let financeRecords: [LinkKind] = [
         .refund, .transferAssignment, .forecastSkip, .forecastPeriod, .matchRejection,
-        .budgetAccounts, .bankCursor, .bankCurrent, .dismissedNoticeTemplates, .subscriptionRejection, .etfOverride
+        .budgetAccounts, .bankCursor, .bankCurrent, .dismissedNoticeTemplates, .subscriptionRejection, .etfOverride,
+        .fixedCostPayee
     ]
     public static let challengeRecords: [LinkKind] = [.pinnedChallenges, .pinnedGroups, .eventOffer, .fastFoodReward, .recommendationRejection]
     /// Temporary developer data that a backup must never carry.

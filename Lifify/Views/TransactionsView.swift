@@ -146,7 +146,7 @@ struct TransactionRow: View {
         let amount = displayAmount(for: category)
         let paint = paint(category: category, amount: amount)
         return HStack(spacing: 12) {
-            Image(systemName: category.systemImage)
+            AppSymbolImage(name: BookingSymbol.name(for: entry, category: category))
                 .frame(width: 28)
                 .foregroundStyle(paint.iconColor)
             VStack(alignment: .leading, spacing: 3) {
@@ -244,6 +244,8 @@ struct TransactionDetailView: View {
     @Query(sort: \IncomeForecast.name) private var incomeForecasts: [IncomeForecast]
     @AppStorage(ExpenseGroupAssignmentStore.revisionKey) private var expenseGroupRevision = 0
     @State private var showingRefund = false
+    @State private var showingFixedCost = false
+    @State private var showingRefundLink = false
 
     var body: some View {
         Group {
@@ -286,6 +288,23 @@ struct TransactionDetailView: View {
                         } label: {
                             Label(L("Rückerstattung anlegen", "Add refund"), systemImage: "arrow.uturn.backward.circle")
                         }
+                        if entry.fixedCostID == nil {
+                            Button {
+                                showingFixedCost = true
+                            } label: {
+                                Label(L("Als Fixkosten anlegen", "Add as fixed cost"), systemImage: "repeat")
+                            }
+                        }
+                    }
+                    .appGlassRow()
+                }
+                if category == .income {
+                    Section {
+                        Button {
+                            showingRefundLink = true
+                        } label: {
+                            Label(L("Als Rückerstattung verknüpfen", "Link as refund"), systemImage: "arrow.uturn.backward.circle")
+                        }
                     }
                     .appGlassRow()
                 }
@@ -300,6 +319,13 @@ struct TransactionDetailView: View {
                         } else {
                             Text(L("Die ursprüngliche Buchung fehlt.", "The original transaction is missing."))
                                 .foregroundStyle(.secondary)
+                        }
+                        if entry.kind == .income {
+                            Button(L("Verknüpfung lösen", "Remove link"), role: .destructive) {
+                                RefundLinkStore.unlink(refundID: entry.id)
+                                // The category depends on the link, so the screen closes instead of showing stale data.
+                                dismiss()
+                            }
                         }
                     }
                     .appGlassRow()
@@ -391,6 +417,12 @@ struct TransactionDetailView: View {
             }
             .sheet(isPresented: $showingRefund) {
                 TransactionFormView(entry: nil, splits: splits, refundOriginal: entry)
+            }
+            .sheet(isPresented: $showingFixedCost) {
+                FixedCostFromBookingView(source: entry)
+            }
+            .sheet(isPresented: $showingRefundLink) {
+                RefundLinkPicker(income: entry)
             }
     }
 

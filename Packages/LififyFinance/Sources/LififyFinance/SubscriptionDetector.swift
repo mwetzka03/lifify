@@ -106,8 +106,8 @@ public enum SubscriptionDetector {
         )
     }
 
-    /// Returns the rhythm that fits every gap between the payments.
-    private static func cadence(of dates: [Date]) -> Cadence? {
+    /// Returns the rhythm that fits every gap between the payments, dates in ascending order.
+    static func cadence(of dates: [Date]) -> Cadence? {
         let calendar = Calendar.current
         let gaps = zip(dates, dates.dropFirst()).compactMap { pair in
             calendar.dateComponents([.day], from: calendar.startOfDay(for: pair.0), to: calendar.startOfDay(for: pair.1)).day

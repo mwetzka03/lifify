@@ -488,8 +488,9 @@ public enum BankImportApplier {
         )
         let checking = try checkingAccount(for: document, destination: destination, accounts: accounts, context: context)
         let portfolio = portfolioAccount(for: checking.account, document: document, context: context)
+        var carried: [String: ImportCarryOver.Kept] = [:]
         if document.tradeRepublic != nil {
-            replacePreviousStatement(
+            carried = replacePreviousStatement(
                 on: checking.account.id,
                 portfolioID: portfolio?.account.id,
                 entries: &run.entries,
@@ -557,6 +558,10 @@ public enum BankImportApplier {
             throw error
         }
         relinkOwnAccounts(context: context)
+        ImportCarryOver.restore(carried, into: run.entries + run.insertedEntries, context: context)
+        try? context.save()
+        // Rebuilt bookings keep the person's choice, so only truly new ones follow the payee rules.
+        assignFixedCosts(run.insertedEntries.filter { carried[$0.importFingerprint ?? ""] == nil }, context: context)
         return BankImportResult(
             importedCount: run.imported,
             holdingCount: holdingCount,
@@ -568,6 +573,14 @@ public enum BankImportApplier {
             skippedBeforeStart: 0,
             review: run.review
         )
+    }
+
+    /// Gives new bookings the fixed cost whose payee they pay, without touching older bookings.
+    private static func assignFixedCosts(_ inserted: [LedgerEntry], context: ModelContext) {
+        let costs = (try? context.fetch(FetchDescriptor<FixedCost>())) ?? []
+        if FixedCostFromBooking.assign(newEntries: inserted, costs: costs) > 0 {
+            try? context.save()
+        }
     }
 
     /// The working state of one import.
@@ -825,29 +838,28 @@ public enum BankImportApplier {
     }
 
     /// Removes bookings of an earlier import of the same statement.
+    ///
+    /// - Returns: The person's assignments of the removed bookings, by fingerprint, for the rebuilt ones.
     private static func replacePreviousStatement(
         on checkingID: UUID,
         portfolioID: UUID?,
         entries: inout [LedgerEntry],
         holdings: inout [PortfolioHolding],
         context: ModelContext
-    ) {
+    ) -> [String: ImportCarryOver.Kept] {
         let doomed = entries.filter { entry in
             entry.importFingerprint != nil
                 && entryTouches(entry, accountID: checkingID)
                 && (entry.notes.localizedCaseInsensitiveContains("Typ: ")
                     || entry.notes.localizedCaseInsensitiveContains("Type: "))
         }
-        guard !doomed.isEmpty else { return }
+        guard !doomed.isEmpty else { return [:] }
         let doomedIDs = Set(doomed.map(\.id))
-        if let splits = try? context.fetch(FetchDescriptor<TransactionSplit>()) {
-            for split in splits where doomedIDs.contains(split.transactionID) {
-                context.delete(split)
-            }
-        }
+        // Splits and links stay until the rebuilt bookings take them over (ImportCarryOver.restore).
+        let kept = ImportCarryOver.capture(doomed)
         doomed.forEach(context.delete)
         entries.removeAll { doomedIDs.contains($0.id) }
-        guard let portfolioID else { return }
+        guard let portfolioID else { return kept }
         let reset = holdings.filter { $0.accountID == portfolioID }
         for holding in reset {
             ClosedPositionStore.remove(isin: holding.symbol)
@@ -860,6 +872,7 @@ public enum BankImportApplier {
         let resetIDs = Set(reset.map(\.id))
         holdings.removeAll { resetIDs.contains($0.id) }
         SavingsPlanStore.removeAll(portfolioID: portfolioID)
+        return kept
     }
 
     /// Finds the person's own account on the other side of a row.

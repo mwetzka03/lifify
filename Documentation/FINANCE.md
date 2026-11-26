@@ -513,6 +513,21 @@ buy, portfolio sale, and savings plan use it, and only on the portfolio side.
   - Further refunds of the same expense remain possible.
   - A transfer that looks like an expense on a single account does not get this
     button.
+- An imported income can be linked to an earlier expense as its refund
+  ("Link as refund"). Expenses of the same payee come first, then the newest of
+  the past year. The link can be removed again on the refund's detail.
+- A booking from a bank import keeps everything the person set on it, even
+  when the same statement is imported again: refund links, fixed-cost, budget,
+  and shopping assignments, splits, and picked icons move to the rebuilt
+  booking through its import fingerprint (`ImportCarryOver`).
+- **Fixed cost from a booking:** on an expense without a fixed cost, "Add as
+  fixed cost" lists the payments to the same payee on the same account: the
+  same recipient IBAN when the notes carry one, otherwise the same payee name.
+  Amounts may differ. The chosen payments are linked; amount and day follow the
+  newest, the rhythm follows the gaps (monthly when unclear). The payee is
+  stored, so later imports assign its new bookings to the fixed cost, only
+  while they have none (`FixedCostFromBooking`). Booking rows show the icon of
+  their fixed cost or variable cost.
 
 ### Transfer forecasts
 
@@ -1315,6 +1330,24 @@ Depotkauf, Depotverkauf und Sparplan nutzen es, und dort nur auf der Depotseite.
   - Weitere Rückerstattungen derselben Ausgabe bleiben möglich.
   - Eine Umbuchung, die auf einem einzelnen Konto wie eine Ausgabe aussieht,
     bekommt diesen Button nicht.
+- Eine importierte Einnahme lässt sich als Rückerstattung mit einer früheren
+  Ausgabe verknüpfen („Als Rückerstattung verknüpfen“). Ausgaben desselben
+  Empfängers stehen oben, danach die neuesten des letzten Jahres. In der
+  Detailansicht der Rückerstattung lässt sich die Verknüpfung wieder lösen.
+- Eine Buchung aus einem Bankimport behält alles, was die Person an ihr
+  eingestellt hat, auch wenn derselbe Auszug erneut importiert wird:
+  Rückerstattungen, Zuordnungen zu Fixkosten, Budgets und Einkaufszettel,
+  Splits und gewählte Symbole wandern über den Import-Fingerabdruck auf die neu
+  angelegte Buchung (`ImportCarryOver`).
+- **Fixkosten aus einer Buchung:** Bei einer Ausgabe ohne Fixkosten listet „Als
+  Fixkosten anlegen“ die Zahlungen an denselben Empfänger auf demselben Konto:
+  dieselbe Empfänger-IBAN, wenn die Notizen eine tragen, sonst derselbe
+  Empfängername. Beträge dürfen abweichen. Die gewählten Zahlungen werden
+  verknüpft; Betrag und Tag folgen der neuesten, der Rhythmus den Abständen
+  (monatlich, wenn unklar). Der Empfänger wird gespeichert, so dass spätere
+  Importe seine neuen Buchungen den Fixkosten zuordnen, nur solange sie keine
+  haben (`FixedCostFromBooking`). Buchungszeilen zeigen das Symbol ihrer
+  Fixkosten oder variablen Kosten.
 
 ### Umbuchungsprognosen
 

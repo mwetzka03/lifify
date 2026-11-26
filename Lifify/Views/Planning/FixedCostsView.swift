@@ -186,6 +186,7 @@ struct FixedCostsView: View {
     private func delete(_ cost: FixedCost) {
         SavingsPlanFixedCosts.removePlan(for: cost)
         IconPreferenceStore.remove(for: cost.id)
+        FixedCostFromBooking.forget(costID: cost.id)
         context.delete(cost)
         try? context.save()
     }
