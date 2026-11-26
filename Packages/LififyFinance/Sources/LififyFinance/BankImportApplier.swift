@@ -994,7 +994,7 @@ public enum BankImportApplier {
         }
         return LedgerEntry(
             date: row.date,
-            title: row.title,
+            title: PayPalBookings.title(for: row.title, notes: row.notes),
             notes: row.notes,
             amountCents: row.amountCents,
             kind: row.amountCents < 0 ? .expense : .income,
@@ -1102,6 +1102,12 @@ public enum BankImportApplier {
         }
         if let other = counterpartyAccount(for: row, checking: checking, accounts: accounts) {
             return ingestOwnTransfer(row, checking: checking, other: other, entries: &entries, known: &known, context: context)
+        }
+        // A booking from a notice is filled in, not booked twice; its assignments stay with its ID.
+        if let notice = NoticeBookings.match(row, accountID: checking.id, in: entries) {
+            NoticeBookings.fill(notice, with: row)
+            known.insert(row.fingerprint)
+            return nil
         }
         if detectDuplicates,
            holdsBack(row, accountID: checking.id, duplicates: duplicates, entries: entries, review: &review) {

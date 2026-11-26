@@ -268,7 +268,8 @@ public final class EventKitSyncService: ObservableObject {
         start: Date,
         end: Date,
         isAllDay: Bool,
-        occurrenceOnly: Bool = false
+        occurrenceOnly: Bool = false,
+        calendarOfEvent: String? = nil
     ) async -> String? {
         await CalendarBridge.current.saveEvent(CalendarEventDraft(
             externalIdentifier: externalIdentifier,
@@ -278,7 +279,8 @@ public final class EventKitSyncService: ObservableObject {
             start: start,
             end: end,
             isAllDay: isAllDay,
-            occurrenceOnly: occurrenceOnly
+            occurrenceOnly: occurrenceOnly,
+            calendarOfEvent: calendarOfEvent
         ))
     }
 

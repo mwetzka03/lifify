@@ -152,6 +152,28 @@ extension LififyRuleTests {
             }
         }
 
+        @Test func aTrainingWithoutAnySlotGetsItsOwnEventInTheTrainingCalendar() async throws {
+            try await withTestStore { store in
+                store.calendar.grantsAccess = true
+                let session = finishedSession()
+                let earlier = ChallengeCalendarEvent(
+                    title: "Push", startDate: days(-7, after: today(9)), endDate: days(-7, after: today(10)), externalIdentifier: "ios-train"
+                )
+                store.context.insert(earlier)
+                WorkoutLinkStore.link(planID: session.planID, eventID: earlier.id, managed: false)
+
+                await WorkoutCalendarSync.apply(session: session, context: store.context, sessions: [session])
+
+                let created = try #require(try store.all(ChallengeCalendarEvent.self).first { $0.id != earlier.id })
+                #expect(created.title == session.planName)
+                #expect(created.startDate == today(10))
+                #expect(created.linkedChallengeID == nil)
+                #expect(WorkoutLinkStore.eventIDs(for: session.planID).contains(created.id))
+                let saved = try #require(store.calendar.savedEvents.last)
+                #expect(saved.calendarOfEvent == "ios-train")
+            }
+        }
+
         @Test func cleanupDeletesAMissedPastOccurrence() async throws {
             try await withTestStore { store in
                 store.calendar.grantsAccess = true

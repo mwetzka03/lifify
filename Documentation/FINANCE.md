@@ -520,6 +520,16 @@ buy, portfolio sale, and savings plan use it, and only on the portfolio side.
   ("Link as refund"). A "Suggestions" box lists expenses of the same payee name
   or paid to the IBAN the income came from; "All expenses" below lists the
   others of the past year, newest first. The link can be removed again on the refund's detail.
+- A booking from a bank notice waits for its bank import: a row on the same
+  account with the same amount, on the same day, and with the same name or IBAN
+  fills in the notice booking (title, notes, date) instead of booking twice.
+  The booking keeps its ID, so every assignment, split, pool, and refund link
+  stays (`NoticeBookings`).
+- **PayPal:** bookings with PayPal as counterparty are named after the real
+  payee from the reference ("… Ihr Einkauf bei Netflix.com" gives
+  "Netflix.com (PayPal)"), on import and once for older bookings; without a
+  named payee the title is "PayPal". Rules and fixed costs use that payee, not
+  PayPal's shared IBAN (`PayPalBookings`).
 - A booking from a bank import keeps everything the person set on it, even
   when the same statement is imported again: refund links, fixed-cost, budget,
   and shopping assignments, splits, and picked icons move to the rebuilt
@@ -1383,6 +1393,16 @@ Depotkauf, Depotverkauf und Sparplan nutzen es, und dort nur auf der Depotseite.
   Einnahme kam; darunter stehen in „Alle Ausgaben“ die übrigen des letzten
   Jahres, die neuesten zuerst. In der
   Detailansicht der Rückerstattung lässt sich die Verknüpfung wieder lösen.
+- Eine Buchung aus einer Bankmitteilung wartet auf ihren Bankimport: Eine
+  Zeile auf demselben Konto mit demselben Betrag, am selben Tag und mit
+  demselben Namen oder derselben IBAN füllt die Mitteilungsbuchung (Titel,
+  Notizen, Datum), statt doppelt zu buchen. Die Buchung behält ihre ID, damit
+  bleiben alle Zuordnungen, Splits, Pools und Rückerstattungen (`NoticeBookings`).
+- **PayPal:** Buchungen mit PayPal als Gegenpartei heißen nach dem echten
+  Empfänger aus dem Verwendungszweck („… Ihr Einkauf bei Netflix.com“ ergibt
+  „Netflix.com (PayPal)“), beim Import und einmalig für ältere Buchungen; ohne
+  genannten Empfänger heißt sie „PayPal“. Regeln und Fixkosten nutzen diesen
+  Empfänger, nicht die gemeinsame PayPal-IBAN (`PayPalBookings`).
 - Eine Buchung aus einem Bankimport behält alles, was die Person an ihr
   eingestellt hat, auch wenn derselbe Auszug erneut importiert wird:
   Rückerstattungen, Zuordnungen zu Fixkosten, Budgets und Einkaufszettel,

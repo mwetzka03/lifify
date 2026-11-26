@@ -73,6 +73,10 @@ public enum BudgetPayeeRules {
     /// - Parameter entry: A booking the person picked.
     /// - Returns: The rule, or `nil` when the name is too short to match safely.
     public static func rule(from entry: LedgerEntry) -> String? {
+        // PayPal's IBAN would catch every PayPal payment, so its payee becomes the rule.
+        if PayPalBookings.isPayPal(title: entry.title, notes: entry.notes) {
+            return PayPalBookings.payee(in: entry.notes)
+        }
         let iban = BankImportService.ibans(from: entry.notes, amountCents: entry.amountCents).recipient
         if isIBAN(iban) { return iban }
         let head = entry.title.split(whereSeparator: { $0 == "/" || $0 == "|" }).first.map(String.init) ?? entry.title

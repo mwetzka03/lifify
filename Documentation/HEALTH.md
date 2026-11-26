@@ -16,6 +16,12 @@ Health has two parts: training with steps and Apple Health, and nutrition.
   context menu; the copy gets new IDs, so links and history stay with the
   original. A tile shows when the plan was last trained and every exercise
   icon that fits side by side, the rest as "+n".
+- **Calendar after a training:** a training on a day without its slot gets its
+  own event at the real time, titled after the plan and linked to it, in the
+  calendar of the earlier training events (otherwise the iOS default).
+- **No loading screen in a training:** coming back from the Lock Screen or
+  another app never shows the loading overlay while a session is open;
+  elsewhere it only appears when catching up takes longer than half a second.
 - **Weekly rotation:** when several plans are linked to the same recurring
   events, each plan is due once per week. Home and the widget show one plan per
   event: finished plans on their day, then the open ones in name order.
@@ -179,6 +185,13 @@ Gesundheit hat zwei Teile: Training mit Schritten und Apple Health, und Ernähru
   Kontextmenü kopieren; die Kopie bekommt neue IDs, Verknüpfungen und Verlauf
   bleiben am Original. Eine Kachel zeigt, wann der Plan zuletzt trainiert
   wurde, und alle Übungssymbole nebeneinander, die passen, den Rest als „+n“.
+- **Kalender nach dem Training:** Ein Training an einem Tag ohne seinen Termin
+  bekommt einen eigenen Termin zur echten Zeit, nach dem Plan benannt und mit
+  ihm verknüpft, im Kalender der früheren Trainingstermine (sonst im
+  iOS-Standardkalender).
+- **Kein Ladebildschirm im Training:** Die Rückkehr vom Sperrbildschirm oder
+  aus einer anderen App zeigt bei offenem Training nie die Ladeansicht; sonst
+  erscheint sie nur, wenn das Nachladen länger als eine halbe Sekunde dauert.
 - **Wochenrotation:** Hängen mehrere Pläne an denselben wiederkehrenden
   Terminen, ist jeder Plan einmal pro Woche fällig. Home und das Widget zeigen
   je Termin einen Plan: erledigte an ihrem Tag, danach die offenen nach Namen.

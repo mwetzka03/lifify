@@ -47,7 +47,10 @@ public final class EventKitCalendarGateway: CalendarGateway {
                 identifier: draft.externalIdentifier,
                 originalStart: draft.originalStart
             ) ?? EKEvent(eventStore: store)
-            if event.calendar == nil { event.calendar = store.defaultCalendarForNewEvents }
+            if event.calendar == nil {
+                let sibling = draft.calendarOfEvent.flatMap { store.event(withIdentifier: $0) }
+                event.calendar = sibling?.calendar ?? store.defaultCalendarForNewEvents
+            }
             guard event.calendar != nil else { return nil }
             Self.apply(draft, to: event)
             let span: EKSpan = draft.occurrenceOnly || !event.hasRecurrenceRules ? .thisEvent : .futureEvents

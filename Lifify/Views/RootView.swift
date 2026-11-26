@@ -74,6 +74,7 @@ struct RootView: View {
         .task {
             SavingsPlanRunner.bookDue(context: context)
             SavingsPlanFixedCosts.sync(context: context)
+            renamePayPalBookings()
             NutritionLedger.settle(context: context, sessions: workouts.sessions)
             WidgetPublisher.refresh(context: context, plans: workouts.plans, sessions: workouts.sessions)
             await MarketDataService.refresh(holdings: holdings, context: context)
@@ -127,14 +128,17 @@ struct RootView: View {
                 // The Face ID prompt makes the app inactive. That is not leaving the app.
                 guard scenePhase == .background || !financeLock.isAuthenticating else { break }
                 leftForeground = true
-                resumeLocked = true
             case .active:
                 if leftForeground {
-                    resumeLocked = true
-                    await Task.yield()
+                    // The overlay appears only when catching up is slow, and never during a training.
+                    let overlay = Task { @MainActor in
+                        try? await Task.sleep(for: WorkoutRunState.resumeOverlayDelay)
+                        if !Task.isCancelled, WorkoutRunState.showsResumeOverlay(after: WorkoutRunState.resumeOverlayDelay) {
+                            resumeLocked = true
+                        }
+                    }
                     await resumeForegroundWork()
-                    await Task.yield()
-                    try? await Task.sleep(for: .milliseconds(250))
+                    overlay.cancel()
                     leftForeground = false
                     resumeLocked = false
                 } else {
@@ -145,6 +149,12 @@ struct RootView: View {
                 break
             }
         }
+    }
+
+    /// Names older PayPal bookings after their real payee, once per launch and only where needed.
+    private func renamePayPalBookings() {
+        let entries = (try? context.fetch(FetchDescriptor<LedgerEntry>())) ?? []
+        if PayPalBookings.rename(entries) > 0 { try? context.save() }
     }
 
     /// Asks about bookings from notices, or an earlier import, the person has not looked at yet.

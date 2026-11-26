@@ -37,12 +37,14 @@ public enum WorkoutCalendarSync {
         let linkedIDs = Set(WorkoutLinkStore.challengeIDs(for: session.planID))
         let explicitEventIDs = Set(WorkoutLinkStore.eventIDs(for: session.planID))
         var challengeByID: [UUID: ChallengeItem] = [:]
+        var placed = false
         for challenge in challenges where linkedIDs.contains(challenge.id) && !challenge.isArchived {
             challengeByID[challenge.id] = challenge
         }
 
         for event in events where !event.isReminderSuggestion && explicitEventIDs.contains(event.id) && onFinishDay(event, session: session) {
             await updateOccurrence(event, start: start, end: end)
+            placed = true
             if let id = event.linkedChallengeID,
                let challenge = challenges.first(where: { $0.id == id && !$0.isArchived }) {
                 challengeByID[id] = challenge
@@ -59,11 +61,13 @@ public enum WorkoutCalendarSync {
                 if ChallengeService.isDue(challenge, on: session.finishedAt),
                    !ChallengeTimeRules.isAdopted(challenge.externalIdentifier) {
                     await createOccurrence(for: challenge, session: session, start: start, end: end, context: context)
+                    placed = true
                 }
             } else {
                 for event in occurrences {
                     await updateOccurrence(event, start: start, end: end)
                 }
+                placed = true
             }
             if ChallengeService.isDue(challenge, on: session.finishedAt) || !occurrences.isEmpty {
                 ChallengeService.markCompletedIfNeeded(
@@ -74,6 +78,10 @@ public enum WorkoutCalendarSync {
                     context: context
                 )
             }
+        }
+        if !placed {
+            // A training on a day without its slot still lands in the calendar, at its real time.
+            await createStandalone(session: session, start: start, end: end, events: events, context: context)
         }
         try? context.save()
         let stored = (try? context.fetch(FetchDescriptor<ChallengeCalendarEvent>())) ?? []
@@ -147,6 +155,56 @@ public enum WorkoutCalendarSync {
     }
 
     /// Creates an event for a due challenge without one.
+    /// Creates an event for a training that had no slot that day, in the calendar of the other
+    /// training events, and links it to the plan.
+    ///
+    /// - Parameters:
+    ///   - session: The finished training.
+    ///   - start: The rounded start.
+    ///   - end: The rounded end.
+    ///   - events: All calendar events, to find the calendar of earlier trainings.
+    ///   - context: The database context.
+    private static func createStandalone(
+        session: WorkoutSession,
+        start: Date,
+        end: Date,
+        events: [ChallengeCalendarEvent],
+        context: ModelContext
+    ) async {
+        let notes = "\(noteMarker)\n\(session.planName)"
+        let identifier = await EventKitSyncService.saveCalendarEvent(
+            externalIdentifier: nil,
+            originalStart: nil,
+            title: session.planName,
+            notes: notes,
+            start: start,
+            end: end,
+            isAllDay: false,
+            occurrenceOnly: true,
+            calendarOfEvent: trainingCalendarSample(session: session, events: events)
+        )
+        let event = ChallengeCalendarEvent(
+            title: session.planName,
+            details: notes,
+            startDate: start,
+            endDate: end,
+            isAllDay: false,
+            colorHex: "#2F9E7A",
+            icon: "figure.strengthtraining.traditional",
+            externalIdentifier: identifier,
+            isReadOnly: false
+        )
+        context.insert(event)
+        WorkoutLinkStore.link(planID: session.planID, eventID: event.id, managed: true)
+    }
+
+    /// A system event of an earlier training, preferring this plan, whose calendar new trainings join.
+    static func trainingCalendarSample(session: WorkoutSession, events: [ChallengeCalendarEvent]) -> String? {
+        let own = Set(WorkoutLinkStore.eventIDs(for: session.planID))
+        let linked = events.filter { $0.externalIdentifier != nil && !$0.isReminderSuggestion && !TrainingAgenda.planIDs(for: $0).isEmpty }
+        return (linked.first { own.contains($0.id) } ?? linked.first)?.externalIdentifier
+    }
+
     private static func createOccurrence(
         for challenge: ChallengeItem,
         session: WorkoutSession,

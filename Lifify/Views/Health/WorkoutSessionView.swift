@@ -117,6 +117,7 @@ struct WorkoutSessionView: View {
                 .accessibilityHidden(true)
         }
         .onAppear {
+            WorkoutRunState.isRunning = true
             UIApplication.shared.isIdleTimerDisabled = true
             liveActivity.start(planName: plan.name, startedAt: draft.startedAt, state: activityState)
             guard !didApplyFrequent else { return }
@@ -124,6 +125,7 @@ struct WorkoutSessionView: View {
             applyFrequentWeights()
         }
         .onDisappear {
+            WorkoutRunState.isRunning = false
             UIApplication.shared.isIdleTimerDisabled = false
             if finishSummary == nil { liveActivity.end() }
         }

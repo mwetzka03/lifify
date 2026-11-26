@@ -74,6 +74,8 @@ public struct CalendarEventDraft: Sendable, Equatable {
     public var end: Date
     public var isAllDay: Bool
     public var occurrenceOnly: Bool
+    /// A system event whose calendar a new event joins, such as an earlier training.
+    public var calendarOfEvent: String?
 
     /// Creates a draft for one calendar write.
     public init(
@@ -84,7 +86,8 @@ public struct CalendarEventDraft: Sendable, Equatable {
         start: Date,
         end: Date,
         isAllDay: Bool,
-        occurrenceOnly: Bool = false
+        occurrenceOnly: Bool = false,
+        calendarOfEvent: String? = nil
     ) {
         self.externalIdentifier = externalIdentifier
         self.originalStart = originalStart
@@ -94,6 +97,7 @@ public struct CalendarEventDraft: Sendable, Equatable {
         self.end = end
         self.isAllDay = isAllDay
         self.occurrenceOnly = occurrenceOnly
+        self.calendarOfEvent = calendarOfEvent
     }
 }
 

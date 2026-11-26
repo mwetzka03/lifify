@@ -572,6 +572,7 @@ public enum BankNoticeIntake {
             return BankNoticeCopy.unavailable
         }
         AssignmentInbox.add([entry.id], source: .notice)
+        NoticeBookings.mark(entry.id)
         onBooked?(entry)
         return BankNoticeCopy.booked
     }

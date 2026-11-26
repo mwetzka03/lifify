@@ -472,6 +472,13 @@ of the method splitting are still open (see the last section).
 - **Period review:** "Monatsrückblick" is renamed "Zeitraumsrückblick" (screen, notice switch) and moved below Debts in More.
 - Tests: `aRuleBelongsToOneVariableCostButPoolsMayShare`, `oneCostTakesTheWholeAmountDirectlyAndSeveralAreSplits`, `rulesMatchByIBANOrNameOnAnyAccount`; the navigation scenario checks the new order.
 
+### Owner feedback: Notice bookings filled in by the import, PayPal payees, training calendar, no loader in training
+
+- **Notice and import:** A bank import no longer books a second time what a notice already booked. A row on the same account, same amount, same day, and with the same name or IBAN fills in the notice booking in place (title, notes, date, fingerprint), so its ID and all assignments, splits, pools, and refund links stay. Storage: new link kind `noticeBooking` marks notice bookings until their import, part of the finance backup; no schema change. Bookings from notices before this change carry no mark and still go through the existing duplicate check. Test: `anImportFillsInTheNoticeBookingAndKeepsItsAssignments`.
+- **PayPal:** Bookings with PayPal as counterparty are named after the real payee from the reference ("Netflix.com (PayPal)"), on import and once at launch for older ones; titles changed by hand stay. Rules, payee groups, and fixed costs use the payee instead of PayPal's shared IBAN. Test: `payPalBookingsTakeTheRealPayee`.
+- **Training calendar:** A finished training that updated or created no event (no slot that day) now gets its own event at the real time, linked to the plan, in the calendar of earlier training events. Test: `aTrainingWithoutAnySlotGetsItsOwnEventInTheTrainingCalendar`.
+- **Loading screen:** Returning to the app never shows the loading overlay while a training is open; elsewhere it appears only after half a second of catching up (`WorkoutRunState`).
+
 ## Deutsch
 
 ### Überblick
@@ -961,3 +968,10 @@ Screens und ein Teil der Methoden-Zerlegung noch offen (siehe letzter Abschnitt)
 - **Kontenunabhängig:** Regeln greifen auf jedem Konto. Nimmt eine auf einige Konten begrenzte variable Kosten eine Buchung eines anderen Kontos, kommt dieses Konto zu ihren Konten (`VariableBudgetAccounts.include`).
 - **Zeitraumsrückblick:** „Monatsrückblick“ heißt jetzt „Zeitraumsrückblick“ (Ansicht und Mitteilungs-Schalter) und steht unter Schulden in Weitere Bereiche.
 - Tests: `aRuleBelongsToOneVariableCostButPoolsMayShare`, `oneCostTakesTheWholeAmountDirectlyAndSeveralAreSplits`, `rulesMatchByIBANOrNameOnAnyAccount`; das Navigations-Szenario prüft die neue Reihenfolge.
+
+### Rückmeldung des Eigentümers: Mitteilungsbuchungen vom Import gefüllt, PayPal-Empfänger, Trainingskalender, kein Ladebildschirm im Training
+
+- **Mitteilung und Import:** Ein Bankimport bucht nicht mehr ein zweites Mal, was eine Mitteilung schon gebucht hat. Eine Zeile auf demselben Konto, mit demselben Betrag, am selben Tag und mit demselben Namen oder derselben IBAN füllt die Mitteilungsbuchung an Ort und Stelle (Titel, Notizen, Datum, Fingerabdruck); ihre ID und alle Zuordnungen, Splits, Pools und Rückerstattungen bleiben. Speicher: neue Verknüpfungsart `noticeBooking` markiert Mitteilungsbuchungen bis zu ihrem Import, Teil des Finanz-Backups; keine Schemaänderung. Mitteilungsbuchungen von vor dieser Änderung tragen keine Markierung und laufen weiter durch die bestehende Dublettenprüfung. Test: `anImportFillsInTheNoticeBookingAndKeepsItsAssignments`.
+- **PayPal:** Buchungen mit PayPal als Gegenpartei heißen nach dem echten Empfänger aus dem Verwendungszweck („Netflix.com (PayPal)“), beim Import und einmalig beim Start für ältere; von Hand geänderte Titel bleiben. Regeln, Abbucher-Gruppen und Fixkosten nutzen den Empfänger statt der gemeinsamen PayPal-IBAN. Test: `payPalBookingsTakeTheRealPayee`.
+- **Trainingskalender:** Ein beendetes Training, das keinen Termin angepasst oder angelegt hat (kein Termin an dem Tag), bekommt jetzt einen eigenen Termin zur echten Zeit, mit dem Plan verknüpft, im Kalender der früheren Trainingstermine. Test: `aTrainingWithoutAnySlotGetsItsOwnEventInTheTrainingCalendar`.
+- **Ladebildschirm:** Die Rückkehr in die App zeigt bei offenem Training nie die Ladeansicht; sonst erst nach einer halben Sekunde Nachladen (`WorkoutRunState`).

@@ -10,6 +10,11 @@ public enum FixedCostFromBooking {
     ///
     /// Amounts are left out on purpose, so a payee whose price changes stays one fixed cost.
     public static func payeeKey(of entry: LedgerEntry) -> String {
+        // All PayPal payments share PayPal's IBAN, so the real payee decides.
+        if PayPalBookings.isPayPal(title: entry.title, notes: entry.notes) {
+            let name = SubscriptionDetector.payeeKey(PayPalBookings.payee(in: entry.notes) ?? entry.title)
+            return name.isEmpty ? "" : "payee:" + name
+        }
         let iban = BankImportService.ibans(from: entry.notes, amountCents: entry.amountCents).recipient
         if !iban.isEmpty { return "iban:" + iban }
         let name = SubscriptionDetector.payeeKey(entry.title)
