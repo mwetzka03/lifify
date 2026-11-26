@@ -75,6 +75,7 @@ struct RootView: View {
             SavingsPlanRunner.bookDue(context: context)
             SavingsPlanFixedCosts.sync(context: context)
             renamePayPalBookings()
+            await backfillTrainingEvents()
             NutritionLedger.settle(context: context, sessions: workouts.sessions)
             WidgetPublisher.refresh(context: context, plans: workouts.plans, sessions: workouts.sessions)
             // Plans for a fund not held yet get an empty position, priced by the refresh below.
@@ -151,6 +152,15 @@ struct RootView: View {
                 break
             }
         }
+    }
+
+    /// Gives the trainings of the last week that ended without a calendar event their event, once
+    /// after the update that added this.
+    private func backfillTrainingEvents() async {
+        let key = "lifify.trainingEventBackfill.v1"
+        guard !AppDefaults.store.bool(forKey: key) else { return }
+        await WorkoutCalendarSync.backfillMissingEvents(sessions: workouts.sessions, context: context)
+        AppDefaults.store.set(true, forKey: key)
     }
 
     /// Names older PayPal bookings after their real payee, once per launch and only where needed.

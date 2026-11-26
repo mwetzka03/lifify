@@ -174,6 +174,33 @@ extension LififyRuleTests {
             }
         }
 
+        @Test func aTrainingOffItsDayCopiesTheLinkedSeriesAndChecksItsChallenge() async throws {
+            try await withTestStore { store in
+                store.calendar.grantsAccess = true
+                let session = finishedSession()
+                let challenge = ChallengeItem(title: "Sport", category: .sport, recurrence: .weekly, startDate: days(-14, after: today(9)))
+                let series = ChallengeCalendarEvent(
+                    title: "Gym", startDate: days(-2, after: today(18)), endDate: days(-2, after: today(19)),
+                    colorHex: "#AA3355", icon: "dumbbell", linkedChallengeID: challenge.id, externalIdentifier: "ios-series"
+                )
+                store.context.insert(challenge)
+                store.context.insert(series)
+                WorkoutLinkStore.link(planID: session.planID, challengeID: challenge.id)
+
+                await WorkoutCalendarSync.backfillMissingEvents(sessions: [session], context: store.context)
+
+                let copy = try #require(try store.all(ChallengeCalendarEvent.self).first { $0.id != series.id && $0.startDate == today(10) })
+                #expect(copy.title == "Gym")
+                #expect(copy.colorHex == "#AA3355")
+                #expect(copy.linkedChallengeID == challenge.id)
+                #expect(store.calendar.savedEvents.last?.calendarOfEvent == "ios-series")
+                try #expect(store.all(ChallengeCompletion.self).map(\.challengeID) == [challenge.id])
+                // A second run finds the event and adds nothing.
+                await WorkoutCalendarSync.backfillMissingEvents(sessions: [session], context: store.context)
+                try #expect(store.all(ChallengeCalendarEvent.self).count == 2)
+            }
+        }
+
         @Test func cleanupDeletesAMissedPastOccurrence() async throws {
             try await withTestStore { store in
                 store.calendar.grantsAccess = true

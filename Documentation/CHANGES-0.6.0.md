@@ -484,6 +484,12 @@ of the method splitting are still open (see the last section).
 - **New savings plans:** A plan for an ETF or share not held yet used to count only as money without a position, so the depot forecast did not show it. Each active plan now gets an empty position (no shares) at launch, priced by the usual Yahoo Finance refresh; today's depot hides it, future periods show it from the first planned execution. Storage: an ordinary position with zero shares, no new field. A Trade Republic import that drops the position recreates it at the next launch. Test: `aNewPlanGetsAnEmptyPositionThatTheForecastFills`.
 - **Live Activity picture:** The Lock Screen activity shows the current exercise's picture on the right. The app writes a small picture (first frame, 120 px, white removed) into the App Group folder, which the widget extension reads; the activity state carries the exercise code (`WorkoutActivityImages`, `ExerciseActivityImage`). Test: `theStateNamesTheOpenExerciseAndItsPictureFile`.
 
+### Owner feedback: Training off its day copies the linked series
+
+- **Copy of the series:** The event for a training on a day without its slot is now a copy of the plan's linked recurring event (title, calendar, color, symbol, and challenge) at the real training time, instead of a plain event; the linked challenge is checked as on its normal day. Without any linked event it stays a plain event named after the plan.
+- **Backfill:** Once after this update, trainings of the last seven days that ended without an event get theirs (`WorkoutCalendarSync.backfillMissingEvents`, marked done in a UserDefaults flag that needs no backup, since a repeat only checks again).
+- Test: `aTrainingOffItsDayCopiesTheLinkedSeriesAndChecksItsChallenge`.
+
 ## Deutsch
 
 ### Überblick
@@ -985,3 +991,9 @@ Screens und ein Teil der Methoden-Zerlegung noch offen (siehe letzter Abschnitt)
 
 - **Neue Sparpläne:** Ein Plan für einen ETF oder eine Aktie, die noch nicht im Depot ist, zählte bisher nur als Geld ohne Position, daher zeigte die Depotprognose ihn nicht. Jeder aktive Plan bekommt jetzt beim Start eine leere Position (keine Stücke), die der übliche Yahoo-Finance-Abgleich bepreist; das heutige Depot blendet sie aus, künftige Zeiträume zeigen sie ab der ersten geplanten Ausführung. Speicher: eine gewöhnliche Position mit null Stücken, kein neues Feld. Entfernt ein Trade-Republic-Import die Position, entsteht sie beim nächsten Start neu. Test: `aNewPlanGetsAnEmptyPositionThatTheForecastFills`.
 - **Bild in der Live Activity:** Die Aktivität auf dem Sperrbildschirm zeigt rechts das Bild der aktuellen Übung. Die App legt ein kleines Bild (erstes Bild, 120 px, ohne Weiß) in den App-Group-Ordner, den die Widget-Erweiterung liest; der Zustand der Aktivität trägt den Übungscode (`WorkoutActivityImages`, `ExerciseActivityImage`). Test: `theStateNamesTheOpenExerciseAndItsPictureFile`.
+
+### Rückmeldung des Eigentümers: Training außerhalb des Termins kopiert die verknüpfte Serie
+
+- **Kopie der Serie:** Der Termin für ein Training an einem Tag ohne seinen Termin ist jetzt eine Kopie des verknüpften Serientermins des Plans (Titel, Kalender, Farbe, Symbol und Challenge) zur echten Trainingszeit statt eines einfachen Termins; die verknüpfte Challenge wird wie am normalen Tag abgehakt. Ohne verknüpften Termin bleibt es ein einfacher Termin mit dem Plannamen.
+- **Nachtragen:** Einmal nach diesem Update bekommen Trainings der letzten sieben Tage ohne Termin ihren Termin (`WorkoutCalendarSync.backfillMissingEvents`, als erledigt markiert in einem UserDefaults-Schalter, der kein Backup braucht, weil eine Wiederholung nur erneut prüft).
+- Test: `aTrainingOffItsDayCopiesTheLinkedSeriesAndChecksItsChallenge`.
