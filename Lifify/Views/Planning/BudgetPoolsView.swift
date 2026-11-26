@@ -41,6 +41,7 @@ struct BudgetPoolsView: View {
                 }
                 .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                     Button(role: .destructive) {
+                        BudgetPayeeRules.remove(for: pool.id, owner: .budgetPool)
                         context.delete(pool)
                         try? context.save()
                     } label: {
@@ -119,15 +120,9 @@ private struct BudgetPoolDetailView: View {
                         }
                     }
                 }
-                Button {
-                    showingBooking = true
-                } label: {
-                    Label(L("Buchung zuordnen", "Assign transaction"), systemImage: "plus")
-                }
-                .buttonStyle(.borderless)
                 Text(L(
-                    "Eine bestehende Buchung wird verknüpft. Es entsteht keine neue Buchung.",
-                    "An existing transaction is linked. No new booking is created."
+                    "Plus oben rechts verknüpft eine bestehende Buchung. Es entsteht keine neue Buchung.",
+                    "The plus at the top right links an existing transaction. No new booking is created."
                 ))
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -137,6 +132,12 @@ private struct BudgetPoolDetailView: View {
         .appGlassList()
         .navigationTitle(pool.name)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button { showingBooking = true } label: { Image(systemName: "plus") }
+                    .accessibilityLabel(L("Buchung zuordnen", "Assign transaction"))
+            }
+        }
         .sheet(isPresented: $showingBooking) {
             PoolBookingPicker(pool: pool)
         }
@@ -179,6 +180,8 @@ private struct BudgetPoolForm: View {
     @State private var amount: String
     @State private var mode: BudgetPeriodMode
     @State private var scalable: Bool
+    @State private var rules: [String]
+    @State private var newRule = ""
 
     init(pool: BudgetPool?) {
         existing = pool
@@ -186,6 +189,7 @@ private struct BudgetPoolForm: View {
         _amount = State(initialValue: pool.map { String(format: "%.2f", Double($0.amountCents) / 100) } ?? "")
         _mode = State(initialValue: pool?.periodMode ?? .salaryPeriod)
         _scalable = State(initialValue: pool?.isScalable ?? false)
+        _rules = State(initialValue: pool.map { BudgetPayeeRules.rules(for: $0.id, owner: .budgetPool) } ?? [])
     }
 
     var body: some View {
@@ -203,6 +207,7 @@ private struct BudgetPoolForm: View {
                 ))
                 .font(.caption)
                 .foregroundStyle(.secondary)
+                PayeeRulesSection(rules: $rules, newRule: $newRule)
             }
             .appGlassList()
             .navigationTitle(existing == nil ? L("Neuer Pool", "New pool") : L("Pool bearbeiten", "Edit pool"))
@@ -218,22 +223,29 @@ private struct BudgetPoolForm: View {
     /// Saves the pool.
     private func save() {
         guard let cents = Money.cents(from: amount), !name.isEmpty else { return }
+        let pool: BudgetPool
         if let existing {
             existing.name = name
             existing.amountCents = abs(cents)
             existing.accountID = nil
             existing.periodMode = mode
             existing.isScalable = scalable
+            pool = existing
         } else {
-            context.insert(BudgetPool(
+            pool = BudgetPool(
                 name: name,
                 amountCents: abs(cents),
                 accountID: nil,
                 periodMode: mode,
                 salaryStartDay: 1,
                 isScalable: scalable
-            ))
+            )
+            context.insert(pool)
         }
+        // A rule still typed in the field counts too, and rules cover the past as well.
+        BudgetPayeeRules.set(rules + [newRule], for: pool.id, owner: .budgetPool)
+        let entries = (try? context.fetch(FetchDescriptor<LedgerEntry>())) ?? []
+        PoolPayeeRules.applyToExisting(pool, entries: entries, context: context)
         try? context.save()
         dismiss()
     }

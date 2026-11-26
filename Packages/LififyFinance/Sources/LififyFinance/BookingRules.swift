@@ -8,25 +8,43 @@ import SwiftData
 /// matches when the booking's payee name contains it ("rewe" fits "REWE Markt GmbH").
 @MainActor
 public enum BudgetPayeeRules {
-    /// The rules of a variable cost, in the order the person entered them.
-    public static func rules(for budgetID: UUID) -> [String] {
-        (LinkTable.map(.variableBudgetPayees)[budgetID.uuidString] ?? "")
+    /// What a rule list belongs to; each has its own stored list.
+    public enum Owner: Sendable {
+        case variableBudget
+        case budgetPool
+
+        var kind: LinkKind {
+            switch self {
+            case .variableBudget: .variableBudgetPayees
+            case .budgetPool: .budgetPoolPayees
+            }
+        }
+    }
+
+    /// The rules of a variable cost or a pool, in the order the person entered them.
+    public static func rules(for ownerID: UUID, owner: Owner = .variableBudget) -> [String] {
+        (LinkTable.map(owner.kind)[ownerID.uuidString] ?? "")
             .split(separator: "\n")
             .map(String.init)
     }
 
-    /// Stores the rules of a variable cost; empty or repeated rules are dropped.
-    public static func set(_ rules: [String], for budgetID: UUID) {
+    /// Stores the rules of a variable cost or a pool; empty or repeated rules are dropped.
+    public static func set(_ rules: [String], for ownerID: UUID, owner: Owner = .variableBudget) {
         var seen = Set<String>()
         let cleaned = rules
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty && seen.insert($0.lowercased()).inserted }
-        LinkTable.set(.variableBudgetPayees, key: budgetID.uuidString, value: cleaned.isEmpty ? nil : cleaned.joined(separator: "\n"))
+        LinkTable.set(owner.kind, key: ownerID.uuidString, value: cleaned.isEmpty ? nil : cleaned.joined(separator: "\n"))
     }
 
-    /// Forgets the rules of a deleted variable cost.
-    public static func remove(for budgetID: UUID) {
-        LinkTable.set(.variableBudgetPayees, key: budgetID.uuidString, value: nil)
+    /// Forgets the rules of a deleted variable cost or pool.
+    public static func remove(for ownerID: UUID, owner: Owner = .variableBudget) {
+        LinkTable.set(owner.kind, key: ownerID.uuidString, value: nil)
+    }
+
+    /// Says whether a booking fits any rule of a variable cost or pool.
+    public static func fitsAny(of ownerID: UUID, owner: Owner, entry: LedgerEntry) -> Bool {
+        rules(for: ownerID, owner: owner).contains { fits($0, entry: entry) }
     }
 
     /// The rule a booking stands for: its recipient IBAN when the notes carry one, otherwise its
@@ -40,6 +58,39 @@ public enum BudgetPayeeRules {
         let head = entry.title.split(whereSeparator: { $0 == "/" || $0 == "|" }).first.map(String.init) ?? entry.title
         let name = head.trimmingCharacters(in: .whitespacesAndNewlines)
         return SubscriptionDetector.payeeKey(name).count >= 3 ? name : nil
+    }
+
+    /// The distinct payees among the expenses, one per rule, newest payment first.
+    ///
+    /// - Parameter entries: All bookings.
+    /// - Returns: One group per IBAN or payee name with how often and when it was last paid.
+    public static func payeeGroups(in entries: [LedgerEntry]) -> [PayeeGroup] {
+        var groups: [String: PayeeGroup] = [:]
+        for entry in entries where entry.kind == .expense && !RefundLinkStore.isRefund(entry.id) {
+            guard let rule = rule(from: entry) else { continue }
+            let key = rule.lowercased()
+            var group = groups[key] ?? PayeeGroup(rule: rule, sampleTitle: entry.title, count: 0, totalCents: 0, lastDate: entry.date)
+            group.count += 1
+            group.totalCents += abs(entry.amountCents)
+            if entry.date >= group.lastDate {
+                group.lastDate = entry.date
+                group.sampleTitle = entry.title
+            }
+            groups[key] = group
+        }
+        return groups.values.sorted { $0.lastDate > $1.lastDate }
+    }
+
+    /// Gives every existing free expense that fits the variable cost's rules to it, so a new rule
+    /// also covers the past.
+    ///
+    /// - Parameters:
+    ///   - budget: The variable cost with its stored rules.
+    ///   - entries: All bookings.
+    /// - Returns: How many bookings were assigned.
+    @discardableResult
+    public static func applyToExisting(_ budget: VariableBudget, entries: [LedgerEntry]) -> Int {
+        assign(entries.filter { self.budget(for: $0, in: [budget]) != nil }, to: budget.id)
     }
 
     /// Gives picked bookings to a variable cost, leaving every booking that already has an assignment.
@@ -105,6 +156,22 @@ public enum BudgetPayeeRules {
     }
 }
 
+/// One payee among the expenses, as offered when rules are picked from bookings.
+public struct PayeeGroup: Identifiable, Equatable, Sendable {
+    /// The rule the payee gives: its IBAN or its name.
+    public let rule: String
+    /// The title of the newest booking, to recognize the payee.
+    public var sampleTitle: String
+    /// How many expenses went to the payee.
+    public var count: Int
+    /// The sum of those expenses, positive.
+    public var totalCents: Int
+    /// The day of the newest one.
+    public var lastDate: Date
+
+    public var id: String { rule.lowercased() }
+}
+
 /// Where a booking is assigned: nowhere, to a fixed cost, or to a variable cost.
 public enum BookingTarget: Hashable, Sendable {
     case none
@@ -158,7 +225,10 @@ public enum BookingAutoAssign {
         for entry in free where entry.fixedCostID == nil {
             entry.variableBudgetID = BudgetPayeeRules.budget(for: entry, in: budgets)?.id
         }
-        return free.filter { $0.fixedCostID != nil || $0.variableBudgetID != nil }
+        let budgeted = free.filter { $0.fixedCostID != nil || $0.variableBudgetID != nil }
+        // Pools are a separate layer: a booking can count for a pool and a cost at once.
+        let pooled = PoolPayeeRules.assign(entries, context: context)
+        return entries.filter { entry in budgeted.contains { $0.id == entry.id } || pooled.contains { $0.id == entry.id } }
     }
 
     /// An expense without any assignment that is no refund.
@@ -220,3 +290,81 @@ public enum AssignmentInbox {
         LinkTable.replace(.assignmentInbox, with: map)
     }
 }
+
+/// Gives expenses to budget pools by the pools' IBAN and name rules, as a split over the whole amount.
+@MainActor
+public enum PoolPayeeRules {
+    /// The first active pool whose rules fit a booking.
+    public static func pool(for entry: LedgerEntry, in pools: [BudgetPool]) -> BudgetPool? {
+        pools.first { $0.isActive && BudgetPayeeRules.fitsAny(of: $0.id, owner: .budgetPool, entry: entry) }
+    }
+
+    /// Adds a pool split to new expenses that fit a pool and are in no pool yet.
+    ///
+    /// - Parameters:
+    ///   - entries: The new bookings.
+    ///   - context: The database context.
+    /// - Returns: The bookings that got a pool.
+    @discardableResult
+    public static func assign(_ entries: [LedgerEntry], context: ModelContext) -> [LedgerEntry] {
+        let pools = (try? context.fetch(FetchDescriptor<BudgetPool>(sortBy: [SortDescriptor(\.name)]))) ?? []
+        guard pools.contains(where: { !BudgetPayeeRules.rules(for: $0.id, owner: .budgetPool).isEmpty }) else { return [] }
+        let pooled = pooledIDs(context: context)
+        var assigned: [LedgerEntry] = []
+        for entry in entries where isCandidate(entry) && !pooled.contains(entry.id) {
+            guard let pool = pool(for: entry, in: pools) else { continue }
+            add(entry, to: pool, context: context)
+            assigned.append(entry)
+        }
+        return assigned
+    }
+
+    /// Gives every earlier expense that fits the pool's rules and is in no pool yet to it.
+    ///
+    /// - Parameters:
+    ///   - pool: The pool with its stored rules.
+    ///   - entries: All bookings.
+    ///   - context: The database context.
+    /// - Returns: How many bookings were added.
+    @discardableResult
+    public static func applyToExisting(_ pool: BudgetPool, entries: [LedgerEntry], context: ModelContext) -> Int {
+        let pooled = pooledIDs(context: context)
+        let fitting = entries.filter {
+            isCandidate($0) && !pooled.contains($0.id) && BudgetPayeeRules.fitsAny(of: pool.id, owner: .budgetPool, entry: $0)
+        }
+        fitting.forEach { add($0, to: pool, context: context) }
+        return fitting.count
+    }
+
+    /// The pool a booking counts for, if any.
+    public static func poolID(of entry: LedgerEntry, context: ModelContext) -> UUID? {
+        let id = entry.id
+        let pool = SplitKind.budgetPool.rawValue
+        let splits = (try? context.fetch(FetchDescriptor<TransactionSplit>(predicate: #Predicate { $0.transactionID == id && $0.kindRaw == pool }))) ?? []
+        return splits.first?.targetID
+    }
+
+    /// Books the whole amount of an expense into a pool, in the pool's period of the booking.
+    private static func add(_ entry: LedgerEntry, to pool: BudgetPool, context: ModelContext) {
+        context.insert(TransactionSplit(
+            transactionID: entry.id,
+            targetID: pool.id,
+            kind: .budgetPool,
+            periodKey: CalendarService.periodKey(for: entry.date, pool: pool),
+            amountCents: abs(entry.amountCents)
+        ))
+    }
+
+    /// The bookings that already count for a pool.
+    private static func pooledIDs(context: ModelContext) -> Set<UUID> {
+        let pool = SplitKind.budgetPool.rawValue
+        let splits = (try? context.fetch(FetchDescriptor<TransactionSplit>(predicate: #Predicate { $0.kindRaw == pool }))) ?? []
+        return Set(splits.map(\.transactionID))
+    }
+
+    /// An expense with an amount that is no refund.
+    private static func isCandidate(_ entry: LedgerEntry) -> Bool {
+        entry.kind == .expense && entry.amountCents != 0 && !RefundLinkStore.isRefund(entry.id)
+    }
+}
+

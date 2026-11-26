@@ -15,6 +15,7 @@ struct AssignmentReviewView: View {
     @Query(sort: \LedgerEntry.date) private var entries: [LedgerEntry]
     @Query(sort: \FixedCost.name) private var fixedCosts: [FixedCost]
     @Query(sort: \VariableBudget.name) private var budgets: [VariableBudget]
+    @Query(sort: \BudgetPool.name) private var pools: [BudgetPool]
     @State private var shown: [AssignmentInbox.Source: [LedgerEntry]] = [:]
 
     var body: some View {
@@ -65,6 +66,11 @@ struct AssignmentReviewView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(entry.title).lineLimit(2)
                     Text(AppDate.numeric(entry.date)).font(.caption).foregroundStyle(.secondary)
+                    if let pool = poolName(of: entry) {
+                        Label(pool, systemImage: "tray.full")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
                 Spacer()
                 Text(Money.string(cents: entry.amountCents))
@@ -88,6 +94,11 @@ struct AssignmentReviewView: View {
             }
         }
         .padding(.vertical, 2)
+    }
+
+    /// The pool a booking counts for, which the rules may have set beside the cost.
+    private func poolName(of entry: LedgerEntry) -> String? {
+        PoolPayeeRules.poolID(of: entry, context: context).flatMap { id in pools.first { $0.id == id }?.name }
     }
 
     /// Reads and writes the assignment of a booking and saves at once.

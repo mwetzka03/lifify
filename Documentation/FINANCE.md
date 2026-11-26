@@ -589,10 +589,14 @@ buy, portfolio sale, and savings plan use it, and only on the portfolio side.
   rule comes first. Only bookings without an assignment are touched; single
   bookings can always be moved or removed by hand (`BudgetPayeeRules`,
   `BookingAutoAssign`).
-- Rules can also come from earlier bookings: "Pick from bookings" lists the
-  newest expenses with a search; each picked booking adds its recipient IBAN,
-  or else its name without an appended place. On saving, the picked bookings
-  are assigned to the variable cost if they have no assignment yet.
+- Rules also cover the past: on saving, every earlier expense without an
+  assignment that fits a rule is assigned to the variable cost.
+- Rules can come from earlier bookings: "Pick from bookings" lists each payee
+  once (its recipient IBAN, or else its name without an appended place) with
+  how often and when it was last paid, searchable.
+- The plus at the top right of a variable cost's detail adds single bookings
+  by hand from all expenses; a picked booking moves here even if it was
+  assigned elsewhere, and the list shows that current assignment.
 - **Checking assignments:** after a bank import, a sheet lists the bookings the
   rules assigned; each can keep its assignment or get another fixed cost,
   variable cost, or none. Bookings from notices are listed the next time the
@@ -621,6 +625,15 @@ buy, portfolio sale, and savings plan use it, and only on the portfolio side.
   - A deleted date stays hidden.
 
 ### Budget pools
+
+- **Automatic assignment:** a pool has the same IBAN and name rules as a
+  variable cost, typed or picked from the payees of earlier bookings. On
+  saving, every earlier expense that fits and is in no pool yet counts for the
+  pool with its whole amount; after that, every new expense from a bank import
+  or a notice. Pools are a layer of their own: a booking can count for a pool
+  and belong to a fixed or variable cost at once (`PoolPayeeRules`). The check
+  after import and notices names the pool.
+- The plus at the top right of a pool's detail links single bookings by hand.
 
 - A pool is not tied to an account, and the form does not ask for one.
 - A tap opens the pool. Swiping right edits it, swiping left deletes it.
@@ -1437,11 +1450,15 @@ Depotkauf, Depotverkauf und Sparplan nutzen es, und dort nur auf der Depotseite.
   Buchungen ohne Zuordnung werden angefasst; einzelne Buchungen lassen sich
   jederzeit von Hand umhängen oder lösen (`BudgetPayeeRules`,
   `BookingAutoAssign`).
-- Regeln können auch aus alten Buchungen kommen: „Aus Buchungen wählen“ listet
-  die neuesten Ausgaben mit Suche; jede gewählte Buchung bringt ihre
-  Empfänger-IBAN, sonst ihren Namen ohne angehängten Ort. Beim Speichern werden
-  die gewählten Buchungen der variablen Kosten zugeordnet, wenn sie noch keine
-  Zuordnung haben.
+- Regeln gelten auch rückwirkend: Beim Speichern wird jede bisherige Ausgabe
+  ohne Zuordnung, die zu einer Regel passt, der variablen Kosten zugeordnet.
+- Regeln können aus alten Buchungen kommen: „Aus Buchungen wählen“ listet jeden
+  Abbucher einmal (seine Empfänger-IBAN, sonst seinen Namen ohne angehängten
+  Ort) mit Anzahl und letzter Zahlung, durchsuchbar.
+- Das Plus oben rechts in der Detailansicht einer variablen Kosten fügt
+  einzelne Buchungen von Hand aus allen Ausgaben hinzu; eine gewählte Buchung
+  wechselt hierher, auch wenn sie woanders zugeordnet war, und die Liste zeigt
+  diese bisherige Zuordnung.
 - **Zuordnungen prüfen:** Nach einem Bankimport listet ein Blatt die
   Buchungen, die die Regeln zugeordnet haben; jede kann ihre Zuordnung
   behalten oder andere Fixkosten, variable Kosten oder keine bekommen.
@@ -1471,6 +1488,17 @@ Depotkauf, Depotverkauf und Sparplan nutzen es, und dort nur auf der Depotseite.
   - Ein gelöschter Termin bleibt ausgeblendet.
 
 ### Budgetpools
+
+- **Automatische Zuordnung:** Ein Pool hat dieselben IBAN- und Namensregeln wie
+  eine variable Kosten, getippt oder aus den Abbuchern alter Buchungen
+  gewählt. Beim Speichern zählt jede bisherige Ausgabe, die passt und noch in
+  keinem Pool ist, mit ihrem ganzen Betrag für den Pool; danach jede neue aus
+  Bankimport oder Mitteilung. Pools sind eine eigene Ebene: Eine Buchung kann
+  zugleich für einen Pool zählen und zu Fixkosten oder variablen Kosten
+  gehören (`PoolPayeeRules`). Die Prüfung nach Import und Mitteilungen nennt
+  den Pool.
+- Das Plus oben rechts in der Detailansicht eines Pools verknüpft einzelne
+  Buchungen von Hand.
 
 - Ein Pool hängt an keinem Konto, das Formular fragt nicht danach.
 - Ein Tipp öffnet den Pool. Wischen nach rechts bearbeitet ihn, Wischen nach

@@ -442,6 +442,20 @@ of the method splitting are still open (see the last section).
 
 - **Pick from bookings:** The variable cost form can take rules from earlier expenses. A searchable list shows the newest expenses with the rule each would give: the recipient IBAN when the notes carry one, otherwise the payee name without an appended place. Picked bookings add their rules, and on saving they are assigned to the variable cost if they are still free; bookings with another assignment stay as they are. No new storage. Test: `aPickedBookingBecomesARuleAndIsAssignedWhenFree`.
 
+### Owner feedback: Rules cover the past, payees instead of bookings, add bookings by hand
+
+- **Retroactive:** Saving a variable cost now assigns every earlier expense without an assignment that fits one of its rules, not only the bookings picked (`BudgetPayeeRules.applyToExisting`). Bookings with another assignment stay as they are.
+- **Payees:** "Pick from bookings" lists each payee once (IBAN or name) with count, total, and last payment instead of every single booking (`BudgetPayeeRules.payeeGroups`).
+- **Add by hand:** The variable cost's detail has a plus at the top right that lists all expenses to add single ones; a picked booking moves here even from another assignment, which the row shows.
+- No new storage. Test: `payeesAreGroupedAndARuleCoversThePast`.
+
+### Owner feedback: The same rules for budget pools
+
+- **Pool rules:** Budget pools get the same "Assign automatically" section as variable costs (IBAN or name, typed or picked from payees). Saving applies the rules to earlier expenses that are in no pool yet; bank imports and notices apply them to new ones. A pool assignment is a split over the whole amount, as when linking by hand. Pools stay a separate layer beside fixed and variable costs. Storage: new link kind `budgetPoolPayees`, part of the finance backup; no schema change. Deleting a pool removes its rules.
+- **Shared code:** The rule section and the payee picker moved into `PayeeRulesSection`, used by both forms; the rule storage takes an owner (`BudgetPayeeRules.Owner`).
+- **Detail:** The pool detail's "Assign transaction" moved to a plus at the top right, like variable costs. The assignment check shows the pool of a booking.
+- Test: `poolsTakeNewAndEarlierBookingsByRule`.
+
 ## Deutsch
 
 ### Überblick
@@ -901,3 +915,17 @@ Screens und ein Teil der Methoden-Zerlegung noch offen (siehe letzter Abschnitt)
 ### Rückmeldung des Eigentümers: Regeln aus alten Buchungen
 
 - **Aus Buchungen wählen:** Das Formular der variablen Kosten kann Regeln aus alten Ausgaben übernehmen. Eine durchsuchbare Liste zeigt die neuesten Ausgaben mit der Regel, die jede ergibt: die Empfänger-IBAN, wenn die Notizen eine tragen, sonst den Empfängernamen ohne angehängten Ort. Gewählte Buchungen bringen ihre Regeln mit und werden beim Speichern der variablen Kosten zugeordnet, wenn sie noch frei sind; Buchungen mit anderer Zuordnung bleiben, wie sie sind. Kein neuer Speicher. Test: `aPickedBookingBecomesARuleAndIsAssignedWhenFree`.
+
+### Rückmeldung des Eigentümers: Regeln rückwirkend, Abbucher statt Buchungen, Buchungen von Hand
+
+- **Rückwirkend:** Beim Speichern einer variablen Kosten wird jetzt jede bisherige Ausgabe ohne Zuordnung, die zu einer ihrer Regeln passt, zugeordnet, nicht nur die gewählten Buchungen (`BudgetPayeeRules.applyToExisting`). Buchungen mit anderer Zuordnung bleiben, wie sie sind.
+- **Abbucher:** „Aus Buchungen wählen“ listet jeden Abbucher einmal (IBAN oder Name) mit Anzahl, Summe und letzter Zahlung statt jeder einzelnen Buchung (`BudgetPayeeRules.payeeGroups`).
+- **Von Hand hinzufügen:** Die Detailansicht der variablen Kosten hat oben rechts ein Plus, das alle Ausgaben zum Hinzufügen einzelner listet; eine gewählte Buchung wechselt hierher, auch aus einer anderen Zuordnung, die die Zeile anzeigt.
+- Kein neuer Speicher. Test: `payeesAreGroupedAndARuleCoversThePast`.
+
+### Rückmeldung des Eigentümers: Dieselben Regeln für Budgetpools
+
+- **Pool-Regeln:** Budgetpools bekommen denselben Bereich „Automatisch zuordnen“ wie variable Kosten (IBAN oder Name, getippt oder aus Abbuchern gewählt). Beim Speichern greifen die Regeln für bisherige Ausgaben, die in keinem Pool sind; Bankimport und Mitteilungen wenden sie auf neue an. Eine Pool-Zuordnung ist ein Split über den ganzen Betrag, wie beim Verknüpfen von Hand. Pools bleiben eine eigene Ebene neben Fixkosten und variablen Kosten. Speicher: neue Verknüpfungsart `budgetPoolPayees`, Teil des Finanz-Backups; keine Schemaänderung. Wer einen Pool löscht, löscht auch seine Regeln.
+- **Gemeinsamer Code:** Regelbereich und Abbucher-Auswahl liegen in `PayeeRulesSection`, die beide Formulare nutzen; die Regelablage kennt einen Besitzer (`BudgetPayeeRules.Owner`).
+- **Detailansicht:** „Buchung zuordnen“ im Pool ist als Plus oben rechts umgezogen, wie bei den variablen Kosten. Die Zuordnungsprüfung zeigt den Pool einer Buchung.
+- Test: `poolsTakeNewAndEarlierBookingsByRule`.

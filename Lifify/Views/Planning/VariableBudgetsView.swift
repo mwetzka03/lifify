@@ -172,6 +172,7 @@ private struct VariableBudgetDetailView: View {
     @Query private var entries: [LedgerEntry]
     @Query private var splits: [TransactionSplit]
     @Query private var forecasts: [IncomeForecast]
+    @State private var showingAdder = false
 
     private var selectedPeriod: ForecastPeriod? {
         filters.period(in: FinancePeriods.all(entries: entries, forecasts: forecasts, accounts: accounts))
@@ -235,6 +236,13 @@ private struct VariableBudgetDetailView: View {
         .appGlassList()
         .navigationTitle(budget.name)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button { showingAdder = true } label: { Image(systemName: "plus") }
+                    .accessibilityLabel(L("Buchungen hinzufügen", "Add bookings"))
+            }
+        }
+        .sheet(isPresented: $showingAdder) { BudgetBookingAdder(budget: budget) }
     }
 }
 
@@ -250,8 +258,6 @@ struct VariableBudgetForm: View {
     @State private var icon: String
     @State private var rules: [String]
     @State private var newRule = ""
-    @State private var pickedBookings: [LedgerEntry] = []
-    @State private var showingBookingPicker = false
     private let existing: VariableBudget?
 
     init(budget: VariableBudget?) {
@@ -310,19 +316,8 @@ struct VariableBudgetForm: View {
                     ))
                 }
                 .appGlassRow()
-                rulesSection
+                PayeeRulesSection(rules: $rules, newRule: $newRule)
                 TextField(L("Notiz", "Note"), text: $notes, axis: .vertical)
-            }
-            .sheet(isPresented: $showingBookingPicker) {
-                BookingRulePicker { picked in
-                    for entry in picked {
-                        if let rule = BudgetPayeeRules.rule(from: entry),
-                           !rules.contains(where: { $0.caseInsensitiveCompare(rule) == .orderedSame }) {
-                            rules.append(rule)
-                        }
-                    }
-                    pickedBookings += picked.filter { entry in !pickedBookings.contains { $0.id == entry.id } }
-                }
             }
             .appGlassList()
             .navigationTitle(existing == nil ? L("Neue variable Kosten", "New variable cost") : L("Variable Kosten bearbeiten", "Edit variable cost"))
@@ -333,50 +328,6 @@ struct VariableBudgetForm: View {
                 }
             }
         }
-    }
-
-    /// The IBANs and payee names whose new bookings this variable cost takes on its own.
-    private var rulesSection: some View {
-        Section {
-            ForEach(rules, id: \.self) { rule in
-                Label(rule, systemImage: BudgetPayeeRules.isIBAN(rule) ? "building.columns" : "textformat")
-            }
-            .onDelete { rules.remove(atOffsets: $0) }
-            HStack {
-                TextField(L("IBAN oder Name, z. B. REWE", "IBAN or name, e.g. REWE"), text: $newRule)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-                    .onSubmit(addRule)
-                Button(L("Hinzufügen", "Add"), action: addRule)
-                    .disabled(newRule.trimmingCharacters(in: .whitespaces).isEmpty)
-            }
-            Button {
-                showingBookingPicker = true
-            } label: {
-                Label(L("Aus Buchungen wählen", "Pick from bookings"), systemImage: "list.bullet.rectangle")
-            }
-            if !pickedBookings.isEmpty {
-                Text(String(format: L("%d gewählte Buchungen werden beim Speichern zugeordnet, wenn sie noch frei sind.", "%d picked bookings are assigned on saving if they are still free."), pickedBookings.count))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-        } header: {
-            Text(L("Automatisch zuordnen", "Assign automatically"))
-        } footer: {
-            Text(L(
-                "Neue Ausgaben aus Bankimport und Mitteilungen, deren Empfänger-IBAN passt oder deren Name den Text enthält, kommen hierher. Einzelne Buchungen lassen sich jederzeit anders zuordnen.",
-                "New expenses from bank imports and notices whose recipient IBAN fits or whose name contains the text land here. Single bookings can always be assigned differently."
-            ))
-        }
-        .appGlassRow()
-    }
-
-    /// Adds the typed rule to the list.
-    private func addRule() {
-        let rule = newRule.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !rule.isEmpty, !rules.contains(where: { $0.caseInsensitiveCompare(rule) == .orderedSame }) else { return }
-        rules.append(rule)
-        newRule = ""
     }
 
     /// Saves the budget.
@@ -404,7 +355,9 @@ struct VariableBudgetForm: View {
         IconPreferenceStore.set(icon, for: budget.id)
         // A rule still typed in the field counts too, so it is not lost by tapping Save first.
         BudgetPayeeRules.set(rules + [newRule], for: budget.id)
-        BudgetPayeeRules.assign(pickedBookings, to: budget.id)
+        // Rules cover the past too: every earlier free expense that fits is assigned now.
+        let entries = (try? context.fetch(FetchDescriptor<LedgerEntry>())) ?? []
+        BudgetPayeeRules.applyToExisting(budget, entries: entries)
         try? context.save()
         dismiss()
     }
@@ -415,69 +368,88 @@ enum VariableBudgetIcon {
     static let fallback = "cart"
 }
 
-/// Lists earlier expenses to pick from; each picked booking becomes a rule (its IBAN or name).
-private struct BookingRulePicker: View {
-    let onPick: ([LedgerEntry]) -> Void
+/// Lists all expenses to give single ones to a variable cost by hand.
+private struct BudgetBookingAdder: View {
+    let budget: VariableBudget
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var context
     @Query(sort: \LedgerEntry.date, order: .reverse) private var entries: [LedgerEntry]
+    @Query private var costs: [FixedCost]
+    @Query private var budgets: [VariableBudget]
     @State private var query = ""
     @State private var chosen: Set<UUID> = []
 
-    /// The newest expenses, filtered by the search text.
-    private var expenses: [LedgerEntry] {
-        let all = entries.lazy.filter { $0.kind == .expense }
+    /// The expenses not yet in this variable cost, filtered by the search text.
+    private var shown: [LedgerEntry] {
         let text = query.trimmingCharacters(in: .whitespaces)
-        let matching = text.isEmpty ? Array(all.prefix(200)) : Array(all.filter { $0.title.localizedCaseInsensitiveContains(text) }.prefix(200))
-        return matching
+        return Array(entries.lazy.filter { entry in
+            entry.kind == .expense && entry.variableBudgetID != budget.id
+                && (text.isEmpty || entry.title.localizedCaseInsensitiveContains(text))
+        }.prefix(300))
     }
 
     var body: some View {
         NavigationStack {
             AppForm {
                 Section {
-                    ForEach(expenses) { entry in
+                    ForEach(shown) { entry in
                         Button {
                             if chosen.contains(entry.id) { chosen.remove(entry.id) } else { chosen.insert(entry.id) }
                         } label: {
-                            HStack {
-                                Image(systemName: chosen.contains(entry.id) ? "checkmark.circle.fill" : "circle")
-                                    .appAccentForeground()
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(entry.title).foregroundStyle(.primary).lineLimit(1)
-                                    Text("\(AppDate.numeric(entry.date)) · \(BudgetPayeeRules.rule(from: entry) ?? L("Name zu kurz", "Name too short"))")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                        .lineLimit(1)
-                                }
-                                Spacer()
-                                Text(Money.string(cents: entry.amountCents))
-                                    .foregroundStyle(BookingClassification.differenceColor(entry.amountCents))
-                            }
+                            entryRow(entry)
                         }
                         .buttonStyle(.plain)
                     }
                 } footer: {
                     Text(L(
-                        "Unter jeder Buchung steht die Regel, die sie ergibt: die Empfänger-IBAN, sonst der Name.",
-                        "Below each booking is the rule it gives: the recipient IBAN, otherwise the name."
+                        "Gewählte Buchungen gehören danach zu dieser variablen Kosten, auch wenn sie vorher woanders zugeordnet waren.",
+                        "Picked bookings then belong to this variable cost, even if they were assigned elsewhere before."
                     ))
                 }
             }
             .searchable(text: $query, prompt: L("Buchung suchen", "Search bookings"))
-            .navigationTitle(L("Buchungen wählen", "Pick bookings"))
+            .navigationTitle(L("Buchungen hinzufügen", "Add bookings"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(L("Abbrechen", "Cancel")) { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button(L("Übernehmen", "Add")) {
-                        onPick(entries.filter { chosen.contains($0.id) })
+                    Button(L("Hinzufügen", "Add")) {
+                        entries.filter { chosen.contains($0.id) }.forEach(BookingTarget.variableBudget(budget.id).apply)
+                        try? context.save()
                         dismiss()
                     }
                     .disabled(chosen.isEmpty)
                 }
             }
+        }
+    }
+
+    /// One expense with its current assignment, so moving it is a conscious choice.
+    private func entryRow(_ entry: LedgerEntry) -> some View {
+        HStack {
+            Image(systemName: chosen.contains(entry.id) ? "checkmark.circle.fill" : "circle")
+                .appAccentForeground()
+            VStack(alignment: .leading, spacing: 2) {
+                Text(entry.title).foregroundStyle(.primary).lineLimit(1)
+                Text("\(AppDate.numeric(entry.date))\(currentAssignment(entry).map { " · \($0)" } ?? "")")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+            Spacer()
+            Text(Money.string(cents: entry.amountCents))
+                .foregroundStyle(BookingClassification.differenceColor(entry.amountCents))
+        }
+    }
+
+    /// The name of the fixed or variable cost a booking belongs to now, if any.
+    private func currentAssignment(_ entry: LedgerEntry) -> String? {
+        switch BookingTarget(of: entry) {
+        case .none: nil
+        case .fixedCost(let id): costs.first { $0.id == id }?.name
+        case .variableBudget(let id): budgets.first { $0.id == id }?.name
         }
     }
 }

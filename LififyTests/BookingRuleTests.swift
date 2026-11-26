@@ -54,6 +54,57 @@ extension LififyRuleTests {
             }
         }
 
+        @Test func payeesAreGroupedAndARuleCoversThePast() async throws {
+            try await withTestStore { store in
+                let food = VariableBudget(name: "Lebensmittel", monthlyAmountCents: 40_000)
+                store.context.insert(food)
+                let march = LedgerEntry(date: date(2026, 3, 2), title: "REWE Markt/Berlin", amountCents: -2_300, kind: .expense)
+                let april = LedgerEntry(date: date(2026, 4, 2), title: "REWE Markt/Hamburg", amountCents: -1_700, kind: .expense)
+                let fuel = LedgerEntry(date: date(2026, 4, 3), title: "Aral", amountCents: -4_000, kind: .expense)
+                let taken = LedgerEntry(date: date(2026, 4, 4), title: "REWE Markt", amountCents: -500, kind: .expense, fixedCostID: UUID())
+                let all = [march, april, fuel, taken]
+                let groups = BudgetPayeeRules.payeeGroups(in: all)
+                let rewe = try #require(groups.first { $0.rule == "REWE Markt" })
+                #expect(groups.count == 2)
+                #expect(rewe.count == 3)
+                #expect(rewe.totalCents == 4_500)
+                #expect(Calendar.current.isDate(rewe.lastDate, inSameDayAs: date(2026, 4, 4)))
+                BudgetPayeeRules.set([rewe.rule], for: food.id)
+                #expect(BudgetPayeeRules.applyToExisting(food, entries: all) == 2)
+                #expect(march.variableBudgetID == food.id && april.variableBudgetID == food.id)
+                #expect(fuel.variableBudgetID == nil && taken.variableBudgetID == nil)
+            }
+        }
+
+        @Test func poolsTakeNewAndEarlierBookingsByRule() async throws {
+            try await withTestStore { store in
+                let pool = BudgetPool(name: "Freizeit", amountCents: 20_000, accountID: nil, periodMode: .calendarYear, salaryStartDay: 1, isScalable: false)
+                let food = VariableBudget(name: "Lebensmittel", monthlyAmountCents: 40_000)
+                store.context.insert(pool)
+                store.context.insert(food)
+                let earlier = LedgerEntry(date: date(2026, 3, 2), title: "Kino Cinestar", amountCents: -1_500, kind: .expense)
+                let other = LedgerEntry(date: date(2026, 3, 3), title: "Aral", amountCents: -4_000, kind: .expense)
+                [earlier, other].forEach(store.context.insert)
+                try store.context.save()
+                BudgetPayeeRules.set(["kino"], for: pool.id, owner: .budgetPool)
+                #expect(BudgetPayeeRules.rules(for: pool.id).isEmpty)
+                #expect(PoolPayeeRules.applyToExisting(pool, entries: [earlier, other], context: store.context) == 1)
+                #expect(PoolPayeeRules.applyToExisting(pool, entries: [earlier, other], context: store.context) == 0)
+                #expect(PoolPayeeRules.poolID(of: earlier, context: store.context) == pool.id)
+
+                BudgetPayeeRules.set(["kino"], for: food.id)
+                let fresh = LedgerEntry(date: date(2026, 4, 2), title: "KINO Cinestar", amountCents: -1_200, kind: .expense)
+                store.context.insert(fresh)
+                let assigned = BookingAutoAssign.apply(to: [fresh], context: store.context)
+                #expect(assigned.map(\.id) == [fresh.id])
+                #expect(fresh.variableBudgetID == food.id)
+                #expect(PoolPayeeRules.poolID(of: fresh, context: store.context) == pool.id)
+                let split = try #require(try store.context.fetch(FetchDescriptor<TransactionSplit>()).first { $0.transactionID == fresh.id })
+                #expect(split.amountCents == 1_200)
+                #expect(LinkKind.financeRecords.contains(.budgetPoolPayees))
+            }
+        }
+
         @Test func autoAssignPrefersTheFixedCostAndNeverOverwritesAChoice() async throws {
             try await withTestStore { store in
                 let food = VariableBudget(name: "Lebensmittel", monthlyAmountCents: 40_000)
