@@ -78,4 +78,15 @@ extension LififyRuleTests {
             }
         }
     }
+
+    /// Steps and nutrition challenges are switched off in the settings, not deleted by hand.
+    @Suite("Automatic challenge deletion")
+    struct AutomaticChallengeDeletionTests {
+        @Test func onlyManualChallengesCanBeDeleted() {
+            #expect(!ChallengeCheckoff.canDelete("health:steps"))
+            #expect(!ChallengeCheckoff.canDelete("nutrition:calories"))
+            #expect(ChallengeCheckoff.canDelete(nil))
+            #expect(ChallengeCheckoff.canDelete("reminder:abc"))
+        }
+    }
 }

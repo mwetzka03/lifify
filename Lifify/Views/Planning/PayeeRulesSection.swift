@@ -5,10 +5,13 @@ import SwiftUI
 
 /// The IBANs and payee names whose bookings a variable cost or a pool takes on its own, typed or
 /// picked from the payees of earlier bookings.
+///
+/// The picker opens through `payeeRulePicker(isPresented:rules:)` on the form itself: a sheet
+/// attached to a row inside a form dismissed the whole form when it opened.
 struct PayeeRulesSection: View {
     @Binding var rules: [String]
     @Binding var newRule: String
-    @State private var showingPicker = false
+    @Binding var showingPicker: Bool
 
     var body: some View {
         Section {
@@ -38,11 +41,6 @@ struct PayeeRulesSection: View {
             ))
         }
         .appGlassRow()
-        .sheet(isPresented: $showingPicker) {
-            PayeeRulePicker(existing: rules) { picked in
-                picked.forEach(add)
-            }
-        }
     }
 
     /// Adds the typed rule to the list.
@@ -53,9 +51,28 @@ struct PayeeRulesSection: View {
 
     /// Adds a rule unless it is empty or already there.
     private func add(_ rule: String) {
+        PayeeRuleList.add(rule, to: &rules)
+    }
+}
+
+/// Adds rules to a list without empty or repeated ones.
+enum PayeeRuleList {
+    /// Adds a rule unless it is empty or already there, ignoring case.
+    static func add(_ rule: String, to rules: inout [String]) {
         let trimmed = rule.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, !rules.contains(where: { $0.caseInsensitiveCompare(trimmed) == .orderedSame }) else { return }
         rules.append(trimmed)
+    }
+}
+
+extension View {
+    /// Presents the payee picker from the form, adding the picked payees as rules.
+    func payeeRulePicker(isPresented: Binding<Bool>, rules: Binding<[String]>) -> some View {
+        sheet(isPresented: isPresented) {
+            PayeeRulePicker(existing: rules.wrappedValue) { picked in
+                picked.forEach { PayeeRuleList.add($0, to: &rules.wrappedValue) }
+            }
+        }
     }
 }
 

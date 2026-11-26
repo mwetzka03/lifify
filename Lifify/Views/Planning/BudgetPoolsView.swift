@@ -77,6 +77,7 @@ private struct BudgetPoolDetailView: View {
     @Query(sort: \LedgerEntry.date, order: .reverse) private var entries: [LedgerEntry]
     let pool: BudgetPool
     @State private var showingBooking = false
+    @State private var editedEntry: LedgerEntry?
 
     var body: some View {
         let key = CalendarService.periodKey(for: .now, pool: pool)
@@ -112,12 +113,18 @@ private struct BudgetPoolDetailView: View {
                         Spacer()
                         Text(Money.string(cents: assignedAmount(entry)))
                     }
-                    .swipeActions(edge: .trailing) {
+                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                         Button(role: .destructive) {
                             unlink(entry)
                         } label: {
-                            Text(L("Lösen", "Unlink"))
+                            Label(L("Lösen", "Unlink"), systemImage: "link.badge.minus")
                         }
+                    }
+                    .swipeActions(edge: .leading, allowsFullSwipe: false) {
+                        Button { editedEntry = entry } label: {
+                            Label(L("Bearbeiten", "Edit"), systemImage: "pencil")
+                        }
+                        .appAccentTint()
                     }
                 }
                 Text(L(
@@ -141,6 +148,7 @@ private struct BudgetPoolDetailView: View {
         .sheet(isPresented: $showingBooking) {
             PoolBookingPicker(pool: pool)
         }
+        .sheet(item: $editedEntry) { TransactionFormView(entry: $0, splits: splits) }
     }
 
     /// Removes a booking from the pool.
@@ -182,6 +190,7 @@ private struct BudgetPoolForm: View {
     @State private var scalable: Bool
     @State private var rules: [String]
     @State private var newRule = ""
+    @State private var showingPayeePicker = false
 
     init(pool: BudgetPool?) {
         existing = pool
@@ -207,8 +216,9 @@ private struct BudgetPoolForm: View {
                 ))
                 .font(.caption)
                 .foregroundStyle(.secondary)
-                PayeeRulesSection(rules: $rules, newRule: $newRule)
+                PayeeRulesSection(rules: $rules, newRule: $newRule, showingPicker: $showingPayeePicker)
             }
+            .payeeRulePicker(isPresented: $showingPayeePicker, rules: $rules)
             .appGlassList()
             .navigationTitle(existing == nil ? L("Neuer Pool", "New pool") : L("Pool bearbeiten", "Edit pool"))
             .toolbar {

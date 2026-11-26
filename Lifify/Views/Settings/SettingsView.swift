@@ -432,6 +432,8 @@ private struct FinanceSettingsView: View {
     @State private var feeText = ""
     @StateObject private var importModel = DataImportViewModel()
     @State private var showingImportAssignments = false
+    @State private var showingNewAccount = false
+    @State private var editedAccount: Account?
     @State private var importingBank = false
     @State private var importingTradeRepublic = false
     @AppStorage(PeriodReviewNotifier.enabledKey) private var reviewNotice = false
@@ -440,9 +442,24 @@ private struct FinanceSettingsView: View {
     @AppStorage(CashInterest.enabledKey) private var interestEnabled = false
     @AppStorage(CashInterest.rateKey) private var interestPercent = CashInterest.standardPercent
 
+    /// Accounts first, then getting bookings in, the portfolio, budgets and notices, and the lock.
     var body: some View {
         AppForm {
-            FinanceLockSection()
+            AccountsSection(showingNew: $showingNewAccount, edited: $editedAccount)
+            FinanceImportSettings(viewModel: importModel, importingBank: $importingBank)
+            TradeRepublicSignInControls(
+                showsSkip: false,
+                onUploadStatement: { importingTradeRepublic = true }
+            ) {}
+            Section {
+                NavigationLink {
+                    ShortcutsSettingsView()
+                } label: {
+                    Label(L("Kurzbefehle und Mitteilungen", "Shortcuts and notices"), systemImage: "bolt.fill")
+                }
+            }
+            .appGlassRow()
+            portfolioSection
             BudgetAlertSection()
             Section {
                 Toggle(L("Mitteilung zum Monatsrückblick", "Notify about the monthly review"), isOn: $reviewNotice)
@@ -450,69 +467,9 @@ private struct FinanceSettingsView: View {
                 Text(L("Meldet sich einmal, wenn ein Zeitraum abgeschlossen ist.", "Notifies you once when a period has ended."))
             }
             .appGlassRow()
-            Section {
-                NavigationLink {
-                    AccountsSettingsView()
-                } label: {
-                    Label(L("Konten", "Accounts"), systemImage: "building.columns")
-                }
-            }
-            .appGlassRow()
-            FinanceImportSettings(viewModel: importModel, importingBank: $importingBank)
-            Section {
-                NavigationLink {
-                    ShortcutsSettingsView()
-                } label: {
-                    Label(L("Kurzbefehle", "Shortcuts"), systemImage: "bolt.fill")
-                }
-            }
-            .appGlassRow()
-            TradeRepublicSignInControls(
-                showsSkip: false,
-                onUploadStatement: { importingTradeRepublic = true }
-            ) {}
-            Section {
-                HStack {
-                    Text(L("Gebühr pro Buchung", "Fee per booking"))
-                    Spacer()
-                    TextField("1,00", text: $feeText)
-                        .keyboardType(.decimalPad)
-                        .multilineTextAlignment(.trailing)
-                        .frame(maxWidth: 90)
-                    Text("€")
-                        .foregroundStyle(.secondary)
-                }
-                NavigationLink {
-                    ReturnScenarioSettingsView()
-                } label: {
-                    LabeledContent(
-                        L("Renditeszenario", "Return scenario"),
-                        value: scenarioEnabled ? L("An", "On") : L("Aus", "Off")
-                    )
-                }
-                Toggle(L("Dividenden in Einnahmeprognose", "Dividends in income forecast"), isOn: $dividendsAsIncome)
-                Toggle(L("Zinsprognose Verrechnungskonto", "Interest forecast on cash account"), isOn: $interestEnabled)
-                if interestEnabled {
-                    HStack {
-                        Text(L("Zinssatz pro Jahr", "Yearly rate"))
-                        Spacer()
-                        TextField(CashInterest.standardPercent.formatted(), value: $interestPercent, format: .number.precision(.fractionLength(0...2)))
-                            .keyboardType(.decimalPad)
-                            .multilineTextAlignment(.trailing)
-                            .frame(maxWidth: 80)
-                        Text("%").foregroundStyle(.secondary)
-                    }
-                }
-            } header: {
-                Text(L("Depot", "Portfolio"))
-            } footer: {
-                Text(L(
-                    "Jedes Depot hängt an einem Girokonto. Die Gebühr gilt einmal pro Buchung, nicht pro Stück. Erwartete Dividenden zählen nur mit dem Schalter als geplante Einnahme, auf dem Konto der letzten Zahlung. Die Zinsprognose verzinst den prognostizierten Monatsend-Stand des Girokontos für Käufe monatlich, mit Zinseszins.",
-                    "Each portfolio is linked to one checking account. The fee applies once per booking, not per share. Expected dividends count as planned income only with the switch, on the account of the last payment. The interest forecast pays monthly interest on the projected month-end balance of the trade checking account, compounded."
-                ))
-            }
-            .appGlassRow()
+            FinanceLockSection()
         }
+        .accountEditor(showingNew: $showingNewAccount, edited: $editedAccount)
         .appGlassList()
         .scrollDismissesKeyboard(.immediately)
         .navigationTitle(L("Finanzen", "Finance"))
@@ -559,6 +516,50 @@ private struct FinanceSettingsView: View {
         }
     }
 
+    /// Trade fee, return scenario, dividends, and interest of the portfolio.
+    private var portfolioSection: some View {
+        Section {
+            HStack {
+                Text(L("Gebühr pro Buchung", "Fee per booking"))
+                Spacer()
+                TextField("1,00", text: $feeText)
+                    .keyboardType(.decimalPad)
+                    .multilineTextAlignment(.trailing)
+                    .frame(maxWidth: 90)
+                Text("€")
+                    .foregroundStyle(.secondary)
+            }
+            NavigationLink {
+                ReturnScenarioSettingsView()
+            } label: {
+                LabeledContent(
+                    L("Renditeszenario", "Return scenario"),
+                    value: scenarioEnabled ? L("An", "On") : L("Aus", "Off")
+                )
+            }
+            Toggle(L("Dividenden in Einnahmeprognose", "Dividends in income forecast"), isOn: $dividendsAsIncome)
+            Toggle(L("Zinsprognose Verrechnungskonto", "Interest forecast on cash account"), isOn: $interestEnabled)
+            if interestEnabled {
+                HStack {
+                    Text(L("Zinssatz pro Jahr", "Yearly rate"))
+                    Spacer()
+                    TextField(CashInterest.standardPercent.formatted(), value: $interestPercent, format: .number.precision(.fractionLength(0...2)))
+                        .keyboardType(.decimalPad)
+                        .multilineTextAlignment(.trailing)
+                        .frame(maxWidth: 80)
+                    Text("%").foregroundStyle(.secondary)
+                }
+            }
+        } header: {
+            Text(L("Depot", "Portfolio"))
+        } footer: {
+            Text(L(
+                "Jedes Depot hängt an einem Girokonto. Die Gebühr gilt einmal pro Buchung, nicht pro Stück. Erwartete Dividenden zählen nur mit dem Schalter als geplante Einnahme, auf dem Konto der letzten Zahlung. Die Zinsprognose verzinst den prognostizierten Monatsend-Stand des Girokontos für Käufe monatlich, mit Zinseszins.",
+                "Each portfolio is linked to one checking account. The fee applies once per booking, not per share. Expected dividends count as planned income only with the switch, on the account of the last payment. The interest forecast pays monthly interest on the projected month-end balance of the trade checking account, compounded."
+            ))
+        }
+        .appGlassRow()
+    }
 }
 
 /// Challenge settings.

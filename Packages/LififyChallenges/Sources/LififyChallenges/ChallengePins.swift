@@ -162,6 +162,12 @@ public enum ChallengeCheckoff {
         followsNutrition(identifier) || followsSteps(identifier)
     }
 
+    /// Whether the person may delete a challenge by hand. Steps and nutrition challenges belong to
+    /// their switch in the settings: turning it off hides them, so a delete would only bring them back.
+    public static func canDelete(_ identifier: String?) -> Bool {
+        !isAutomatic(identifier)
+    }
+
     /// The note that explains a locked check mark.
     public static func lockCaption(identifier: String?, linkedWorkouts: Int) -> String? {
         if followsSteps(identifier) {

@@ -44,6 +44,9 @@ Lifify 0.6.0 is a local iPhone app for money, challenges, and health. It needs n
   (green, blue, bordeaux, violet).
 - User settings: name, photo, birthday (500 coins once a year), height,
   weight, sex, goal, and step goal.
+- Finance settings, top to bottom: accounts (tap to edit, swipe to delete,
+  "Add account"), bank import, Trade Republic, shortcuts and notices, the
+  portfolio, budget alerts and the monthly review notice, and the finance lock.
 - Backup as JSON for the whole app or one area (finance, challenges, health).
   Photos, exercise pictures, price caches, and keychain items are not included.
 - "Delete all data" keeps accounts and settings; "Reset app" removes them too
@@ -105,6 +108,10 @@ Lifify 0.6.0 ist eine lokale iPhone-App für Geld, Challenges und Gesundheit. Si
   (Grün, Blau, Bordeaux, Violett).
 - Nutzereinstellungen: Name, Foto, Geburtstag (500 Coins einmal im Jahr),
   Größe, Gewicht, Geschlecht, Ziel und Schrittziel.
+- Finanz-Einstellungen von oben nach unten: Konten (Tippen bearbeitet,
+  Wischen löscht, „Konto anlegen“), Bankimport, Trade Republic, Kurzbefehle und
+  Mitteilungen, Depot, Budget-Warnungen und Mitteilung zum Monatsrückblick,
+  Finanzsperre.
 - Sicherung als JSON für die ganze App oder einen Bereich (Finanzen,
   Challenges, Gesundheit). Fotos, Übungsbilder, Kurs-Caches und Einträge im
   Schlüsselbund sind nicht enthalten.

@@ -17,6 +17,8 @@ struct AssignmentReviewView: View {
     @Query(sort: \VariableBudget.name) private var budgets: [VariableBudget]
     @Query(sort: \BudgetPool.name) private var pools: [BudgetPool]
     @State private var shown: [AssignmentInbox.Source: [LedgerEntry]] = [:]
+    /// Changes when a pool changes, because pools live in splits the rows do not observe.
+    @State private var revision = 0
 
     var body: some View {
         NavigationStack {
@@ -61,16 +63,12 @@ struct AssignmentReviewView: View {
 
     /// One booking with its amount and the assignment picker.
     private func row(_ entry: LedgerEntry) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
+        _ = revision
+        return VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .firstTextBaseline) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(entry.title).lineLimit(2)
                     Text(AppDate.numeric(entry.date)).font(.caption).foregroundStyle(.secondary)
-                    if let pool = poolName(of: entry) {
-                        Label(pool, systemImage: "tray.full")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
                 }
                 Spacer()
                 Text(Money.string(cents: entry.amountCents))
@@ -91,14 +89,28 @@ struct AssignmentReviewView: View {
                     }
                 }
                 .pickerStyle(.menu)
+                if !pools.isEmpty {
+                    Picker(L("Pool", "Pool"), selection: pool(of: entry)) {
+                        Text(L("Keiner", "None")).tag(UUID?.none)
+                        ForEach(pools) { Text($0.name).tag(Optional($0.id)) }
+                    }
+                    .pickerStyle(.menu)
+                }
             }
         }
         .padding(.vertical, 2)
     }
 
-    /// The pool a booking counts for, which the rules may have set beside the cost.
-    private func poolName(of entry: LedgerEntry) -> String? {
-        PoolPayeeRules.poolID(of: entry, context: context).flatMap { id in pools.first { $0.id == id }?.name }
+    /// Reads and writes the pool a booking counts for, which is set beside its cost.
+    private func pool(of entry: LedgerEntry) -> Binding<UUID?> {
+        Binding(
+            get: { PoolPayeeRules.poolID(of: entry, context: context) },
+            set: { id in
+                PoolPayeeRules.setPool(pools.first { $0.id == id }, for: entry, context: context)
+                try? context.save()
+                revision += 1
+            }
+        )
     }
 
     /// Reads and writes the assignment of a booking and saves at once.
@@ -122,8 +134,8 @@ struct AssignmentReviewView: View {
     private func footer(of source: AssignmentInbox.Source) -> String {
         switch source {
         case .bankImport:
-            L("Diese Buchungen haben über eine IBAN- oder Namensregel Fixkosten oder variable Kosten bekommen.",
-              "These bookings got a fixed or variable cost through an IBAN or name rule.")
+            L("Diese Buchungen haben über eine IBAN- oder Namensregel Fixkosten, variable Kosten oder einen Pool bekommen.",
+              "These bookings got a fixed cost, a variable cost, or a pool through an IBAN or name rule.")
         case .notice:
             L("Seit dem letzten Öffnen per Mitteilung gebucht. Regeln haben sie, wo möglich, schon zugeordnet.",
               "Booked from notifications since the app was last opened. Rules already assigned them where they fit.")

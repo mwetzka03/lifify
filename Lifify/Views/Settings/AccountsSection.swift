@@ -5,56 +5,69 @@ import LififyHealth
 import SwiftData
 import SwiftUI
 
-/// The accounts.
-struct AccountsSettingsView: View {
+/// The accounts as a section of the finance settings: tap to edit, swipe to delete, a row to add one.
+///
+/// The forms open through `accountEditor(showingNew:edited:)` on the settings screen, because a sheet
+/// attached to a row inside a form can close the form when it opens.
+struct AccountsSection: View {
     @Environment(\.modelContext) private var context
     @Query(sort: \Account.createdAt) private var accounts: [Account]
-    @State private var showingNew = false
-    @State private var edited: Account?
+    @Binding var showingNew: Bool
+    @Binding var edited: Account?
 
     var body: some View {
-        List {
+        Section {
             ForEach(accounts) { account in
                 Button {
                     edited = account
                 } label: {
-                    HStack {
-                        VStack(alignment: .leading) {
-                            Text(account.name).foregroundStyle(.primary)
-                            Text(accountSubtitle(account)).font(.caption).foregroundStyle(.secondary)
-                        }
-                        if account.isMain {
-                            Text(L("Hauptkonto", "Main")).font(.caption).appAccentForeground()
-                        }
-                        Spacer()
-                        Image(systemName: account.isLiquid ? "drop.fill" : "drop")
-                    }
+                    accountRow(account)
                 }
-                .appGlassRow()
                 .deleteDisabled(account.isMain)
             }
-            .onDelete { offsets in
-                offsets.map { accounts[$0] }
-                    .filter { !$0.isMain }
-                    .forEach { account in
-                        if account.kind == .portfolio {
-                            PortfolioLinkStore.unlink(portfolio: account.id)
-                        } else if account.kind == .checking {
-                            PortfolioLinkStore.unlink(checkingID: account.id)
-                        }
-                        context.delete(account)
-                    }
-                try? context.save()
+            .onDelete(perform: delete)
+            Button {
+                showingNew = true
+            } label: {
+                Label(L("Konto anlegen", "Add account"), systemImage: "plus")
             }
+        } header: {
+            Text(L("Konten", "Accounts"))
+        } footer: {
+            Text(L("Tippen bearbeitet ein Konto, Wischen löscht es. Das Hauptkonto bleibt.", "Tap to edit an account, swipe to delete it. The main account stays."))
         }
-        .overlay {
-            if accounts.isEmpty { ContentUnavailableView(L("Keine Konten", "No accounts"), systemImage: "building.columns") }
+        .appGlassRow()
+    }
+
+    /// One account with its kind and whether it counts as cash.
+    private func accountRow(_ account: Account) -> some View {
+        HStack {
+            VStack(alignment: .leading) {
+                Text(account.name).foregroundStyle(.primary)
+                Text(accountSubtitle(account)).font(.caption).foregroundStyle(.secondary)
+            }
+            if account.isMain {
+                Text(L("Hauptkonto", "Main")).font(.caption).appAccentForeground()
+            }
+            Spacer()
+            Image(systemName: account.isLiquid ? "drop.fill" : "drop")
+                .foregroundStyle(.secondary)
         }
-        .appGlassList()
-        .navigationTitle(L("Konten", "Accounts"))
-        .toolbar { Button { showingNew = true } label: { Image(systemName: "plus") } }
-        .sheet(isPresented: $showingNew) { AccountForm(account: nil, allAccounts: accounts) }
-        .sheet(item: $edited) { AccountForm(account: $0, allAccounts: accounts) }
+    }
+
+    /// Deletes the swiped accounts, never the main account, and unlinks portfolios.
+    private func delete(_ offsets: IndexSet) {
+        offsets.map { accounts[$0] }
+            .filter { !$0.isMain }
+            .forEach { account in
+                if account.kind == .portfolio {
+                    PortfolioLinkStore.unlink(portfolio: account.id)
+                } else if account.kind == .checking {
+                    PortfolioLinkStore.unlink(checkingID: account.id)
+                }
+                context.delete(account)
+            }
+        try? context.save()
     }
 
     /// Describes an account.
@@ -64,6 +77,26 @@ struct AccountsSettingsView: View {
               let checking = accounts.first(where: { $0.id == checkingID })
         else { return account.kind.label }
         return "\(account.kind.label) · \(checking.name)"
+    }
+}
+
+/// Presents the account forms of `AccountsSection`.
+private struct AccountEditorModifier: ViewModifier {
+    @Binding var showingNew: Bool
+    @Binding var edited: Account?
+    @Query(sort: \Account.createdAt) private var accounts: [Account]
+
+    func body(content: Content) -> some View {
+        content
+            .sheet(isPresented: $showingNew) { AccountForm(account: nil, allAccounts: accounts) }
+            .sheet(item: $edited) { AccountForm(account: $0, allAccounts: accounts) }
+    }
+}
+
+extension View {
+    /// Opens the form to add or edit an account from the settings screen.
+    func accountEditor(showingNew: Binding<Bool>, edited: Binding<Account?>) -> some View {
+        modifier(AccountEditorModifier(showingNew: showingNew, edited: edited))
     }
 }
 

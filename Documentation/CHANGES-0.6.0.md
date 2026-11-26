@@ -456,6 +456,14 @@ of the method splitting are still open (see the last section).
 - **Detail:** The pool detail's "Assign transaction" moved to a plus at the top right, like variable costs. The assignment check shows the pool of a booking.
 - Test: `poolsTakeNewAndEarlierBookingsByRule`.
 
+### Owner feedback: Picker fix, pools in the check, swipes, automatic challenges, finance settings
+
+- **Pick from bookings closed the form:** The payee picker's sheet hung on a row inside the form; opening it dismissed the whole variable cost or pool form (no crash report). The sheet is presented from the form again (`payeeRulePicker`).
+- **Pools in the check:** The assignment check after import and notices has a pool picker per booking besides fixed and variable cost (`PoolPayeeRules.setPool`).
+- **Swipes in details:** In a pool's and a variable cost's details, swiping left unlinks a booking (the booking stays), swiping right opens the booking's own form.
+- **Automatic challenges:** Steps and nutrition challenges can no longer be deleted by hand; the delete entry points to their switch in the settings, and deleting a group with its challenges keeps them (`ChallengeCheckoff.canDelete`). Test: `onlyManualChallengesCanBeDeleted`.
+- **Finance settings:** New order: accounts, bank import, Trade Republic, shortcuts and notices, portfolio, budget alerts and review notice, finance lock. The separate accounts screen is gone; the accounts are a section with tap to edit, swipe to delete, and "Add account" (`AccountsSection`).
+
 ## Deutsch
 
 ### Überblick
@@ -929,3 +937,11 @@ Screens und ein Teil der Methoden-Zerlegung noch offen (siehe letzter Abschnitt)
 - **Gemeinsamer Code:** Regelbereich und Abbucher-Auswahl liegen in `PayeeRulesSection`, die beide Formulare nutzen; die Regelablage kennt einen Besitzer (`BudgetPayeeRules.Owner`).
 - **Detailansicht:** „Buchung zuordnen“ im Pool ist als Plus oben rechts umgezogen, wie bei den variablen Kosten. Die Zuordnungsprüfung zeigt den Pool einer Buchung.
 - Test: `poolsTakeNewAndEarlierBookingsByRule`.
+
+### Rückmeldung des Eigentümers: Auswahl-Fehler, Pools in der Prüfung, Wischen, automatische Challenges, Finanz-Einstellungen
+
+- **„Aus Buchungen wählen“ schloss das Formular:** Das Blatt der Abbucher-Auswahl hing an einer Zeile im Formular; beim Öffnen schloss sich das ganze Formular der variablen Kosten oder des Pools (kein Absturzbericht). Das Blatt öffnet wieder vom Formular aus (`payeeRulePicker`).
+- **Pools in der Prüfung:** Die Zuordnungsprüfung nach Import und Mitteilungen hat je Buchung eine Pool-Auswahl neben Fixkosten und variablen Kosten (`PoolPayeeRules.setPool`).
+- **Wischen in Details:** In der Detailansicht eines Pools und einer variablen Kosten löst Linkswischen eine Buchung (die Buchung bleibt), Rechtswischen öffnet das Formular der Buchung selbst.
+- **Automatische Challenges:** Schritt- und Ernährungs-Challenges lassen sich nicht mehr von Hand löschen; der Löschen-Eintrag verweist auf ihren Schalter in den Einstellungen, und beim Löschen einer Gruppe mitsamt Challenges bleiben sie (`ChallengeCheckoff.canDelete`). Test: `onlyManualChallengesCanBeDeleted`.
+- **Finanz-Einstellungen:** Neue Reihenfolge: Konten, Bankimport, Trade Republic, Kurzbefehle und Mitteilungen, Depot, Budget-Warnungen und Monatsrückblick, Finanzsperre. Die eigene Kontenansicht entfällt; die Konten sind ein Abschnitt mit Tippen zum Bearbeiten, Wischen zum Löschen und „Konto anlegen“ (`AccountsSection`).

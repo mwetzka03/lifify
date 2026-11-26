@@ -173,6 +173,8 @@ private struct VariableBudgetDetailView: View {
     @Query private var splits: [TransactionSplit]
     @Query private var forecasts: [IncomeForecast]
     @State private var showingAdder = false
+    @State private var editedEntry: LedgerEntry?
+    @Environment(\.modelContext) private var context
 
     private var selectedPeriod: ForecastPeriod? {
         filters.period(in: FinancePeriods.all(entries: entries, forecasts: forecasts, accounts: accounts))
@@ -230,6 +232,19 @@ private struct VariableBudgetDetailView: View {
                         Text(Money.string(cents: -abs(entry.amountCents)))
                             .foregroundStyle(.red)
                     }
+                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                        Button(role: .destructive) {
+                            unassign(entry)
+                        } label: {
+                            Label(L("Lösen", "Unlink"), systemImage: "link.badge.minus")
+                        }
+                    }
+                    .swipeActions(edge: .leading, allowsFullSwipe: false) {
+                        Button { editedEntry = entry } label: {
+                            Label(L("Bearbeiten", "Edit"), systemImage: "pencil")
+                        }
+                        .appAccentTint()
+                    }
                 }
             }
         }
@@ -243,6 +258,16 @@ private struct VariableBudgetDetailView: View {
             }
         }
         .sheet(isPresented: $showingAdder) { BudgetBookingAdder(budget: budget) }
+        .sheet(item: $editedEntry) { TransactionFormView(entry: $0, splits: splits) }
+    }
+
+    /// Takes a booking out of this variable cost; the booking itself stays.
+    private func unassign(_ entry: LedgerEntry) {
+        if entry.variableBudgetID == budget.id { entry.variableBudgetID = nil }
+        splits
+            .filter { $0.transactionID == entry.id && $0.kind == .variableBudget && $0.targetID == budget.id }
+            .forEach { context.delete($0) }
+        try? context.save()
     }
 }
 
@@ -258,6 +283,7 @@ struct VariableBudgetForm: View {
     @State private var icon: String
     @State private var rules: [String]
     @State private var newRule = ""
+    @State private var showingPayeePicker = false
     private let existing: VariableBudget?
 
     init(budget: VariableBudget?) {
@@ -316,9 +342,10 @@ struct VariableBudgetForm: View {
                     ))
                 }
                 .appGlassRow()
-                PayeeRulesSection(rules: $rules, newRule: $newRule)
+                PayeeRulesSection(rules: $rules, newRule: $newRule, showingPicker: $showingPayeePicker)
                 TextField(L("Notiz", "Note"), text: $notes, axis: .vertical)
             }
+            .payeeRulePicker(isPresented: $showingPayeePicker, rules: $rules)
             .appGlassList()
             .navigationTitle(existing == nil ? L("Neue variable Kosten", "New variable cost") : L("Variable Kosten bearbeiten", "Edit variable cost"))
             .toolbar {

@@ -65,6 +65,9 @@
   reached days late if needed.
 - Automatic challenges cannot be checked by hand, by Siri, or in a widget, and
   cannot be placed in a time slot.
+- They cannot be deleted by hand either. Their switch in the settings turns
+  them off and hides them; the delete entry points there instead. Deleting a
+  group with its challenges keeps them and only takes them out of the group.
 
 ### Coins, streaks, and shop
 
@@ -146,6 +149,10 @@
   erreichte Tage bei Bedarf nach.
 - Automatische Challenges lassen sich weder von Hand, per Siri noch im Widget
   abhaken und nicht in einen Termin legen.
+- Von Hand löschen lassen sie sich auch nicht. Ihr Schalter in den
+  Einstellungen schaltet sie aus und blendet sie aus; der Löschen-Eintrag
+  verweist dorthin. Wird eine Gruppe mitsamt Challenges gelöscht, bleiben sie
+  und verlassen nur die Gruppe.
 
 ### Coins, Streaks und Shop
 

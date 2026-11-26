@@ -634,6 +634,8 @@ buy, portfolio sale, and savings plan use it, and only on the portfolio side.
   and belong to a fixed or variable cost at once (`PoolPayeeRules`). The check
   after import and notices names the pool.
 - The plus at the top right of a pool's detail links single bookings by hand.
+- In the details of a pool or a variable cost, swiping left on a booking
+  unlinks it (the booking stays), swiping right edits the booking itself.
 
 - A pool is not tied to an account, and the form does not ask for one.
 - A tap opens the pool. Swiping right edits it, swiping left deletes it.
@@ -1499,6 +1501,9 @@ Depotkauf, Depotverkauf und Sparplan nutzen es, und dort nur auf der Depotseite.
   den Pool.
 - Das Plus oben rechts in der Detailansicht eines Pools verknüpft einzelne
   Buchungen von Hand.
+- In der Detailansicht eines Pools oder einer variablen Kosten löst Linkswischen
+  eine Buchung (die Buchung bleibt), Rechtswischen bearbeitet die Buchung
+  selbst.
 
 - Ein Pool hängt an keinem Konto, das Formular fragt nicht danach.
 - Ein Tipp öffnet den Pool. Wischen nach rechts bearbeitet ihn, Wischen nach

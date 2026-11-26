@@ -344,6 +344,20 @@ public enum PoolPayeeRules {
         return splits.first?.targetID
     }
 
+    /// Moves a booking into another pool or out of every pool, by hand.
+    ///
+    /// - Parameters:
+    ///   - pool: The new pool, or `nil` to take the booking out of its pool.
+    ///   - entry: The booking.
+    ///   - context: The database context.
+    public static func setPool(_ pool: BudgetPool?, for entry: LedgerEntry, context: ModelContext) {
+        let id = entry.id
+        let kind = SplitKind.budgetPool.rawValue
+        let splits = (try? context.fetch(FetchDescriptor<TransactionSplit>(predicate: #Predicate { $0.transactionID == id && $0.kindRaw == kind }))) ?? []
+        splits.forEach(context.delete)
+        if let pool { add(entry, to: pool, context: context) }
+    }
+
     /// Books the whole amount of an expense into a pool, in the pool's period of the booking.
     private static func add(_ entry: LedgerEntry, to pool: BudgetPool, context: ModelContext) {
         context.insert(TransactionSplit(

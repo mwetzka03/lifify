@@ -548,11 +548,7 @@ struct ChallengesView: View {
                 } label: {
                     Label(L("Bearbeiten", "Edit"), systemImage: "pencil")
                 }
-                Button(role: .destructive) {
-                    deleteChallenge(challenge)
-                } label: {
-                    Label(L("Löschen", "Delete"), systemImage: "trash")
-                }
+                deleteButton(challenge)
             }
         } else {
             challengeCard(challenge)
@@ -668,11 +664,7 @@ struct ChallengesView: View {
                 } label: {
                     Label(L("Bearbeiten", "Edit"), systemImage: "pencil")
                 }
-                Button(role: .destructive) {
-                    deleteChallenge(challenge)
-                } label: {
-                    Label(L("Löschen", "Delete"), systemImage: "trash")
-                }
+                deleteButton(challenge)
             }
         }
     }
@@ -706,11 +698,7 @@ struct ChallengesView: View {
                 } label: {
                     Label(L("Bearbeiten", "Edit"), systemImage: "pencil")
                 }
-                Button(role: .destructive) {
-                    deleteChallenge(challenge)
-                } label: {
-                    Label(L("Löschen", "Delete"), systemImage: "trash")
-                }
+                deleteButton(challenge)
             }
         }
     }
@@ -761,11 +749,7 @@ struct ChallengesView: View {
             } label: {
                 Label(L("Bearbeiten", "Edit"), systemImage: "pencil")
             }
-            Button(role: .destructive) {
-                deleteChallenge(challenge)
-            } label: {
-                Label(L("Löschen", "Delete"), systemImage: "trash")
-            }
+            deleteButton(challenge)
             pinButton(challenge)
         }
         .overlay(alignment: .topTrailing) {
@@ -873,16 +857,30 @@ struct ChallengesView: View {
             } label: {
                 Label(L("Bearbeiten", "Edit"), systemImage: "pencil")
             }
-            Button(role: .destructive) {
-                deleteChallenge(challenge)
-            } label: {
-                Label(L("Löschen", "Delete"), systemImage: "trash")
-            }
+            deleteButton(challenge)
             pinButton(challenge)
         }
     }
 
     /// Deletes a challenge with its completions and links.
+    /// Deletes a challenge, or for steps and nutrition points to the switch in the settings, because
+    /// those challenges come and go only with their switch.
+    @ViewBuilder
+    private func deleteButton(_ challenge: ChallengeItem) -> some View {
+        if ChallengeCheckoff.canDelete(challenge.externalIdentifier) {
+            Button(role: .destructive) {
+                deleteChallenge(challenge)
+            } label: {
+                Label(L("Löschen", "Delete"), systemImage: "trash")
+            }
+        } else {
+            Button {} label: {
+                Label(L("Ausschalten in den Einstellungen", "Turn off in Settings"), systemImage: "gearshape")
+            }
+            .disabled(true)
+        }
+    }
+
     private func deleteChallenge(_ challenge: ChallengeItem) {
         for completion in completions.filter({ $0.challengeID == challenge.id }) {
             transactions.filter { $0.referenceID == completion.id }.forEach(context.delete)
@@ -944,7 +942,12 @@ struct ChallengesView: View {
         }
         if challengesToo {
             for member in members {
-                deleteChallenge(member)
+                // Steps and nutrition stay; only their switch in the settings removes them.
+                if ChallengeCheckoff.canDelete(member.externalIdentifier) {
+                    deleteChallenge(member)
+                } else {
+                    member.groupIDs = GroupRemoval.remaining(member.groupIDs, removing: group.id)
+                }
             }
         } else {
             for member in members {
