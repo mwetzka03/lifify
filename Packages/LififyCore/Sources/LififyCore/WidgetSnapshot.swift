@@ -229,13 +229,16 @@ public struct WorkoutActivityAttributes: ActivityAttributes {
         public var setNumber: Int
         public var setCount: Int
         public var restEndsAt: Date?
+        /// The catalog code of the current exercise, whose picture the activity shows.
+        public var exerciseCode: String?
 
         /// Creates a state.
-        public init(exercise: String, setNumber: Int, setCount: Int, restEndsAt: Date?) {
+        public init(exercise: String, setNumber: Int, setCount: Int, restEndsAt: Date?, exerciseCode: String? = nil) {
             self.exercise = exercise
             self.setNumber = setNumber
             self.setCount = setCount
             self.restEndsAt = restEndsAt
+            self.exerciseCode = exerciseCode
         }
     }
 
@@ -265,7 +268,23 @@ public enum WorkoutActivityProgress {
             exercise: exercise?.name ?? session.planName,
             setNumber: min(done + 1, max(sets.count, 1)),
             setCount: sets.count,
-            restEndsAt: restEndsAt
+            restEndsAt: restEndsAt,
+            exerciseCode: exercise?.code
         )
+    }
+}
+
+/// Where the app leaves the small exercise pictures that the Live Activity shows.
+///
+/// The activity runs in the widget extension, which can only read the shared App Group folder.
+public enum WorkoutActivityImages {
+    /// The longest side of a picture, small enough for the Lock Screen.
+    public static let side = 120
+
+    /// The file of an exercise's picture, or `nil` without the App Group or for an odd code.
+    public static func url(for code: String) -> URL? {
+        let safe = code.filter { $0.isLetter || $0.isNumber || $0 == "-" || $0 == "_" }
+        guard !safe.isEmpty, let directory = WidgetStore.directory else { return nil }
+        return directory.appendingPathComponent("ActivityImages", isDirectory: true).appendingPathComponent("\(safe).png")
     }
 }

@@ -529,15 +529,18 @@ struct CoinsLockWidget: Widget {
 struct WorkoutLiveActivity: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: WorkoutActivityAttributes.self) { context in
-            VStack(alignment: .leading, spacing: 6) {
-                HStack {
-                    Text(context.attributes.planName).font(.headline)
-                    Spacer()
-                    Text(context.attributes.startedAt, style: .timer).monospacedDigit()
+            HStack(alignment: .center, spacing: 12) {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Text(context.attributes.planName).font(.headline)
+                        Spacer()
+                        Text(context.attributes.startedAt, style: .timer).monospacedDigit()
+                    }
+                    Text("\(context.state.exercise) · \(context.state.setNumber)/\(context.state.setCount)")
+                        .font(.subheadline)
+                    restLine(context.state)
                 }
-                Text("\(context.state.exercise) · \(context.state.setNumber)/\(context.state.setCount)")
-                    .font(.subheadline)
-                restLine(context.state)
+                exercisePicture(context.state, side: 64)
             }
             .padding()
         } dynamicIsland: { context in
@@ -561,6 +564,21 @@ struct WorkoutLiveActivity: Widget {
             } minimal: {
                 Image(systemName: "figure.strengthtraining.traditional")
             }
+        }
+    }
+
+    /// The picture of the current exercise from the shared folder, if the app left one there.
+    @ViewBuilder
+    private func exercisePicture(_ state: WorkoutActivityAttributes.ContentState, side: CGFloat) -> some View {
+        if let code = state.exerciseCode,
+           let url = WorkoutActivityImages.url(for: code),
+           let image = UIImage(contentsOfFile: url.path) {
+            Image(uiImage: image)
+                .resizable()
+                .scaledToFit()
+                .frame(width: side, height: side)
+                .background(.white.opacity(0.9), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
     }
 

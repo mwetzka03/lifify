@@ -260,6 +260,9 @@ another checking account do not appear.
 - In the holding's details each buy shows its gain: shares × today's price
   minus what was paid, in whole cents. Gifts and cashback count from zero;
   sales show no gain (`HoldingLotGain`).
+- A savings plan for a fund or share not held yet gets an empty position (no
+  shares) at launch, priced by Yahoo Finance. Today's depot hides it; future
+  periods show it from the first planned execution (`SavingsPlanPositions`).
 - On a future day each forecast savings plan purchase shows its gain too:
   shares × the day's forecast price minus the plan amount. Without the return
   scenario the price does not move, so it shows ±0.
@@ -1131,6 +1134,10 @@ anderen Girokontos erscheinen nicht.
 - In der Detailansicht der Position zeigt jeder Kauf seinen Gewinn: Stücke ×
   heutiger Kurs minus gezahlter Betrag, in ganzen Cent. Geschenke und Cashback
   zählen ab null; Verkäufe zeigen keinen Gewinn (`HoldingLotGain`).
+- Ein Sparplan für einen Fonds oder eine Aktie, die noch nicht im Depot ist,
+  bekommt beim Start eine leere Position (keine Stücke), die Yahoo Finance
+  bepreist. Das heutige Depot blendet sie aus; künftige Zeiträume zeigen sie ab
+  der ersten geplanten Ausführung (`SavingsPlanPositions`).
 - An einem künftigen Tag zeigt auch jeder prognostizierte Sparplankauf seinen
   Gewinn: Stücke × Prognosekurs des Tages minus Sparrate. Ohne Renditeszenario
   bewegt sich der Kurs nicht, daher steht dort ±0.

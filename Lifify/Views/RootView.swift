@@ -77,7 +77,9 @@ struct RootView: View {
             renamePayPalBookings()
             NutritionLedger.settle(context: context, sessions: workouts.sessions)
             WidgetPublisher.refresh(context: context, plans: workouts.plans, sessions: workouts.sessions)
-            await MarketDataService.refresh(holdings: holdings, context: context)
+            // Plans for a fund not held yet get an empty position, priced by the refresh below.
+            let added = SavingsPlanPositions.ensure(context: context)
+            await MarketDataService.refresh(holdings: holdings + added, context: context)
         }
         .onAppear {
             BirthdayBonusService.settle(context: context)

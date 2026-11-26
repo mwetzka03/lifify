@@ -479,6 +479,11 @@ of the method splitting are still open (see the last section).
 - **Training calendar:** A finished training that updated or created no event (no slot that day) now gets its own event at the real time, linked to the plan, in the calendar of earlier training events. Test: `aTrainingWithoutAnySlotGetsItsOwnEventInTheTrainingCalendar`.
 - **Loading screen:** Returning to the app never shows the loading overlay while a training is open; elsewhere it appears only after half a second of catching up (`WorkoutRunState`).
 
+### Owner feedback: New savings plan positions and the exercise picture on the Lock Screen
+
+- **New savings plans:** A plan for an ETF or share not held yet used to count only as money without a position, so the depot forecast did not show it. Each active plan now gets an empty position (no shares) at launch, priced by the usual Yahoo Finance refresh; today's depot hides it, future periods show it from the first planned execution. Storage: an ordinary position with zero shares, no new field. A Trade Republic import that drops the position recreates it at the next launch. Test: `aNewPlanGetsAnEmptyPositionThatTheForecastFills`.
+- **Live Activity picture:** The Lock Screen activity shows the current exercise's picture on the right. The app writes a small picture (first frame, 120 px, white removed) into the App Group folder, which the widget extension reads; the activity state carries the exercise code (`WorkoutActivityImages`, `ExerciseActivityImage`). Test: `theStateNamesTheOpenExerciseAndItsPictureFile`.
+
 ## Deutsch
 
 ### Überblick
@@ -975,3 +980,8 @@ Screens und ein Teil der Methoden-Zerlegung noch offen (siehe letzter Abschnitt)
 - **PayPal:** Buchungen mit PayPal als Gegenpartei heißen nach dem echten Empfänger aus dem Verwendungszweck („Netflix.com (PayPal)“), beim Import und einmalig beim Start für ältere; von Hand geänderte Titel bleiben. Regeln, Abbucher-Gruppen und Fixkosten nutzen den Empfänger statt der gemeinsamen PayPal-IBAN. Test: `payPalBookingsTakeTheRealPayee`.
 - **Trainingskalender:** Ein beendetes Training, das keinen Termin angepasst oder angelegt hat (kein Termin an dem Tag), bekommt jetzt einen eigenen Termin zur echten Zeit, mit dem Plan verknüpft, im Kalender der früheren Trainingstermine. Test: `aTrainingWithoutAnySlotGetsItsOwnEventInTheTrainingCalendar`.
 - **Ladebildschirm:** Die Rückkehr in die App zeigt bei offenem Training nie die Ladeansicht; sonst erst nach einer halben Sekunde Nachladen (`WorkoutRunState`).
+
+### Rückmeldung des Eigentümers: Neue Sparplan-Positionen und das Übungsbild auf dem Sperrbildschirm
+
+- **Neue Sparpläne:** Ein Plan für einen ETF oder eine Aktie, die noch nicht im Depot ist, zählte bisher nur als Geld ohne Position, daher zeigte die Depotprognose ihn nicht. Jeder aktive Plan bekommt jetzt beim Start eine leere Position (keine Stücke), die der übliche Yahoo-Finance-Abgleich bepreist; das heutige Depot blendet sie aus, künftige Zeiträume zeigen sie ab der ersten geplanten Ausführung. Speicher: eine gewöhnliche Position mit null Stücken, kein neues Feld. Entfernt ein Trade-Republic-Import die Position, entsteht sie beim nächsten Start neu. Test: `aNewPlanGetsAnEmptyPositionThatTheForecastFills`.
+- **Bild in der Live Activity:** Die Aktivität auf dem Sperrbildschirm zeigt rechts das Bild der aktuellen Übung. Die App legt ein kleines Bild (erstes Bild, 120 px, ohne Weiß) in den App-Group-Ordner, den die Widget-Erweiterung liest; der Zustand der Aktivität trägt den Übungscode (`WorkoutActivityImages`, `ExerciseActivityImage`). Test: `theStateNamesTheOpenExerciseAndItsPictureFile`.

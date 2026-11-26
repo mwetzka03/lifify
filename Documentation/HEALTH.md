@@ -26,7 +26,8 @@ Health has two parts: training with steps and Apple Health, and nutrition.
   events, each plan is due once per week. Home and the widget show one plan per
   event: finished plans on their day, then the open ones in name order.
 - **Live Activity:** the running workout on the Lock Screen and in the Dynamic
-  Island, with exercise, set, time, and rest.
+  Island, with exercise, set, time, and rest, and on the Lock Screen the
+  picture of the current exercise on the right.
 - **Steps:** a chart of one day by hour, or of 7 or 30 days, that pages back
   by swipe, with today, averages, and the best day. The day view reads the
   hours from Apple Health only while it is shown. A daily step goal becomes a challenge with coins, streak,
@@ -196,7 +197,8 @@ Gesundheit hat zwei Teile: Training mit Schritten und Apple Health, und Ernähru
   Terminen, ist jeder Plan einmal pro Woche fällig. Home und das Widget zeigen
   je Termin einen Plan: erledigte an ihrem Tag, danach die offenen nach Namen.
 - **Live Activity:** das laufende Training auf Sperrbildschirm und Dynamic
-  Island, mit Übung, Satz, Zeit und Pause.
+  Island, mit Übung, Satz, Zeit und Pause, auf dem Sperrbildschirm rechts mit
+  dem Bild der aktuellen Übung.
 - **Schritte:** ein Diagramm eines Tages nach Stunden oder über 7 oder 30
   Tage, per Wisch zurückblätterbar, mit heute, Durchschnitten und bestem Tag.
   Die Tagesansicht liest die Stunden nur aus Apple Health, solange sie offen

@@ -124,4 +124,54 @@ extension LififyRuleTests {
             #expect(OverlapStrip.split(total: 3, width: 10, side: 30, step: 22) == (0, 3))
         }
     }
+
+    /// A savings plan for a fund not held yet shows in the depot forecast from its first execution.
+    @Suite("Savings plan positions")
+    @MainActor
+    struct SavingsPlanPositionTests {
+        @Test func aNewPlanGetsAnEmptyPositionThatTheForecastFills() async throws {
+            try await withTestStore { store in
+                FinanceClock.fix(date(2026, 3, 18, 12))
+                defer { FinanceClock.fix(nil) }
+                let depot = UUID()
+                SavingsPlanStore.upsert(SavingsPlanRecord(
+                    id: UUID(), isin: "IE00BK5BQT80", name: "All-World", amountCents: 5_000, cadenceRaw: Cadence.monthly.rawValue,
+                    checkingAccountID: UUID(), portfolioAccountID: depot, holdingID: nil,
+                    lastExecution: date(2026, 3, 2), historyThrough: date(2026, 3, 2), active: true
+                ))
+                let added = SavingsPlanPositions.ensure(context: store.context)
+                let position = try #require(added.first)
+                #expect(added.count == 1)
+                #expect(position.quantity == 0)
+                #expect(position.symbol == "IE00BK5BQT80")
+                #expect(position.name == "All-World")
+                #expect(SavingsPlanPositions.ensure(context: store.context).isEmpty)
+
+                position.currentPriceCents = 10_000
+                #expect(HoldingMaintenance.quantity(of: position, through: date(2026, 3, 20), holdings: [position]) == 0)
+                // April, May, and June each buy 50 euros at 100 euros a share.
+                #expect(abs(HoldingMaintenance.quantity(of: position, through: date(2026, 6, 20), holdings: [position]) - 1.5) < 0.000001)
+            }
+        }
+    }
+
+    /// The Live Activity knows the current exercise's picture.
+    @Suite("Live Activity picture")
+    struct LiveActivityPictureTests {
+        @Test func theStateNamesTheOpenExerciseAndItsPictureFile() {
+            let plan = WorkoutPlan(name: "Push", exercises: [
+                WorkoutPlanExercise(code: "0025", name: "Bankdrücken", sets: [WorkoutPlanSet()]),
+                WorkoutPlanExercise(code: "0047", name: "Dips", sets: [WorkoutPlanSet()])
+            ])
+            var session = WorkoutSession(plan: plan)
+            session.exercises[0].sets[0].completed = true
+            let state = WorkoutActivityProgress.state(of: session, restEndsAt: nil)
+            #expect(state.exerciseCode == "0047")
+            #expect(state.exercise == "Dips")
+            if let url = WorkoutActivityImages.url(for: "../0047") {
+                #expect(url.lastPathComponent == "0047.png")
+            }
+        }
+    }
 }
+

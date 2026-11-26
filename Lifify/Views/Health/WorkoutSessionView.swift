@@ -119,6 +119,7 @@ struct WorkoutSessionView: View {
         .onAppear {
             WorkoutRunState.isRunning = true
             UIApplication.shared.isIdleTimerDisabled = true
+            ExerciseActivityImage.prepare(code: activityState.exerciseCode)
             liveActivity.start(planName: plan.name, startedAt: draft.startedAt, state: activityState)
             guard !didApplyFrequent else { return }
             didApplyFrequent = true
@@ -129,7 +130,10 @@ struct WorkoutSessionView: View {
             UIApplication.shared.isIdleTimerDisabled = false
             if finishSummary == nil { liveActivity.end() }
         }
-        .onChange(of: activityState) { liveActivity.update(activityState) }
+        .onChange(of: activityState) {
+            ExerciseActivityImage.prepare(code: activityState.exerciseCode)
+            liveActivity.update(activityState)
+        }
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
                 Button { requestClose() } label: { Image(systemName: "xmark") }
