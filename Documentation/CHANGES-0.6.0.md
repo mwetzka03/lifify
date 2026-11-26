@@ -421,6 +421,11 @@ of the method splitting are still open (see the last section).
 - **Forecast gains:** In a holding's details on a future day, each forecast savings plan purchase now shows its gain at that day's forecast price, like the real purchases. With the return scenario this is the expected growth; without it the price is fixed, so it shows ±0. Test: `aForecastPurchaseGainsOnlyWhenThePriceMoves`.
 - **Loader:** The loading ring stuttered because SwiftUI drew each frame on the main thread, which is busy exactly while loading. The ring and dot now run as Core Animation on the render server, like the system spinner, and stay smooth.
 
+### Owner feedback: Loader with three rings
+
+- **Jumping loader:** The ring jumped back to its start again and again, because every SwiftUI update and layout pass restarted its rotation. A running rotation is now never restarted; only a missing one is added (after leaving and re-entering the window).
+- **New look:** Following an example the owner chose: three concentric rings, each showing its top quarter in the style color, turning counterclockwise at 0.85, 0.95, and 1.05 seconds per turn. It still runs as Core Animation on the render server and stands still under Reduce Motion.
+
 ## Deutsch
 
 ### Überblick
@@ -859,3 +864,8 @@ Screens und ein Teil der Methoden-Zerlegung noch offen (siehe letzter Abschnitt)
 - **Plan-Kacheln:** Zwei Kacheln nebeneinander wurden sehr hoch. Ursache: Ein Abstandhalter in der Kachel gab die gemessene Höhe an das gleich hohe Paar zurück, das dadurch bei jedem Layout-Durchlauf wuchs. Der Abstandhalter ist entfernt. Die Symbole stehen jetzt nebeneinander statt überlappend, und die Kachel zeigt statt leerem Platz, wann der Plan zuletzt trainiert wurde.
 - **Prognose-Gewinne:** In der Detailansicht einer Position an einem künftigen Tag zeigt jetzt auch jeder prognostizierte Sparplankauf seinen Gewinn zum Prognosekurs des Tages, wie die echten Käufe. Mit Renditeszenario ist das der erwartete Zuwachs; ohne bleibt der Kurs fest, daher ±0. Test: `aForecastPurchaseGainsOnlyWhenThePriceMoves`.
 - **Ladeanimation:** Der Ring ruckelte, weil SwiftUI jedes Bild auf dem Hauptthread zeichnete, der genau beim Laden ausgelastet ist. Ring und Punkt laufen jetzt als Core Animation auf dem Render-Server wie der System-Spinner und bleiben flüssig.
+
+### Rückmeldung des Eigentümers: Ladeanimation mit drei Ringen
+
+- **Springende Animation:** Der Ring sprang immer wieder an seinen Anfang zurück, weil jedes SwiftUI-Update und jeder Layout-Durchlauf die Drehung neu startete. Eine laufende Drehung wird jetzt nie neu gestartet; nur eine fehlende kommt dazu (nach Verlassen und Wiederkehren ins Fenster).
+- **Neues Aussehen:** Nach einem Beispiel des Eigentümers: drei Ringe ineinander, jeder zeigt sein oberes Viertel in der Stilfarbe und dreht sich gegen den Uhrzeigersinn mit 0,85, 0,95 und 1,05 Sekunden pro Umdrehung. Sie läuft weiter als Core Animation auf dem Render-Server und steht bei „Bewegung reduzieren“ still.

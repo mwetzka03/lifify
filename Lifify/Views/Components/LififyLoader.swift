@@ -2,20 +2,21 @@ import LififyCore
 import SwiftUI
 import UIKit
 
-/// The app's loading animation: a turning arc in the style color around a softly pulsing dot, without a box.
+/// The app's loading animation: three rings in the style color, each showing its top quarter and
+/// turning counterclockwise at its own speed, without a box.
 ///
 /// The motion runs as Core Animation on the system's render server, like the system spinner, so it
-/// stays smooth while the main thread is busy loading. With Reduce Motion the arc stands still.
+/// stays smooth while the main thread is busy loading. With Reduce Motion the rings stand still.
 struct LififyLoader: View {
     var text: String? = L("Wird geladen", "Loading")
-    var size: CGFloat = 44
+    var size: CGFloat = 56
     @Environment(\.colorScheme) private var scheme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @AppStorage(AppPalette.storageKey) private var paletteRaw = AppPalette.green.rawValue
 
     var body: some View {
-        VStack(spacing: 12) {
-            LoaderRing(color: UIColor(accent), animates: !reduceMotion)
+        VStack(spacing: 14) {
+            LoaderRings(color: UIColor(accent), animates: !reduceMotion)
                 .frame(width: size, height: size)
             if let text {
                 Text(text)
@@ -32,45 +33,46 @@ struct LififyLoader: View {
     }
 }
 
-/// The ring of the loader as layers whose animations the render server plays without the main thread.
-private struct LoaderRing: UIViewRepresentable {
+/// The rings of the loader as layers whose animations the render server plays without the main thread.
+private struct LoaderRings: UIViewRepresentable {
     let color: UIColor
     let animates: Bool
 
-    func makeUIView(context: Context) -> LoaderRingView {
-        LoaderRingView()
+    func makeUIView(context: Context) -> LoaderRingsView {
+        LoaderRingsView()
     }
 
-    func updateUIView(_ view: LoaderRingView, context: Context) {
+    func updateUIView(_ view: LoaderRingsView, context: Context) {
         view.configure(color: color, animates: animates)
     }
 }
 
-/// Draws the track, the gradient arc, and the dot, and keeps their animations running.
-final class LoaderRingView: UIView {
-    private let track = CAShapeLayer()
-    private let arc = CAShapeLayer()
-    private let arcFade = CAGradientLayer()
-    private let spinner = CALayer()
-    private let dot = CAShapeLayer()
+/// Draws three concentric quarter arcs and keeps each turning.
+///
+/// A running rotation is never restarted: SwiftUI updates and layout passes happen often, and a
+/// restart made the rings jump back to their start.
+final class LoaderRingsView: UIView {
+    /// The relative size and the seconds per turn of each ring, inner to outer.
+    private static let rings: [(scale: CGFloat, seconds: Double)] = [(0.5, 0.85), (0.75, 0.95), (1, 1.05)]
+    private static let spinKey = "spin"
+    private var holders: [CALayer] = []
+    private var arcs: [CAShapeLayer] = []
     private var animates = true
 
     override init(frame: CGRect) {
         super.init(frame: frame)
         isUserInteractionEnabled = false
         backgroundColor = .clear
-        track.fillColor = UIColor.clear.cgColor
-        arc.fillColor = UIColor.clear.cgColor
-        arc.strokeColor = UIColor.black.cgColor
-        arc.lineCap = .round
-        arcFade.type = .conic
-        arcFade.startPoint = CGPoint(x: 0.5, y: 0.5)
-        arcFade.endPoint = CGPoint(x: 0.5, y: 0)
-        arcFade.mask = arc
-        spinner.addSublayer(arcFade)
-        layer.addSublayer(track)
-        layer.addSublayer(spinner)
-        layer.addSublayer(dot)
+        for _ in Self.rings {
+            let holder = CALayer()
+            let arc = CAShapeLayer()
+            arc.fillColor = UIColor.clear.cgColor
+            arc.lineCap = .butt
+            holder.addSublayer(arc)
+            layer.addSublayer(holder)
+            holders.append(holder)
+            arcs.append(arc)
+        }
     }
 
     required init?(coder: NSCoder) {
@@ -79,69 +81,59 @@ final class LoaderRingView: UIView {
 
     /// Sets the color and starts or stops the motion.
     func configure(color: UIColor, animates: Bool) {
-        track.strokeColor = color.withAlphaComponent(0.15).cgColor
-        arcFade.colors = [color.withAlphaComponent(0).cgColor, color.cgColor]
-        arcFade.locations = [0, 0.7]
-        dot.fillColor = color.cgColor
-        self.animates = animates
-        restartAnimations()
+        arcs.forEach { $0.strokeColor = color.cgColor }
+        if self.animates != animates {
+            self.animates = animates
+            holders.forEach { $0.removeAnimation(forKey: Self.spinKey) }
+        }
+        startMissingAnimations()
     }
 
     override func layoutSubviews() {
         super.layoutSubviews()
-        let side = min(bounds.width, bounds.height)
-        let line = max(side * 0.09, 3)
-        let frame = CGRect(x: (bounds.width - side) / 2, y: (bounds.height - side) / 2, width: side, height: side)
-        // The circle starts at the top, where the conic gradient starts, so the arc fades into its tail.
-        let circle = UIBezierPath(
-            arcCenter: CGPoint(x: side / 2, y: side / 2),
-            radius: (side - line) / 2,
-            startAngle: -.pi / 2,
-            endAngle: .pi * 1.5,
-            clockwise: true
-        ).cgPath
-        for shape in [track, arc] {
-            shape.frame = CGRect(origin: .zero, size: frame.size)
-            shape.path = circle
-            shape.lineWidth = line
+        let full = min(bounds.width, bounds.height)
+        let line = max(full * 0.035, 2.5)
+        // Frame changes must not animate implicitly, or the rings slide while the view settles.
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        for (index, ring) in Self.rings.enumerated() {
+            let side = full * ring.scale
+            let frame = CGRect(x: bounds.midX - side / 2, y: bounds.midY - side / 2, width: side, height: side)
+            holders[index].bounds = CGRect(origin: .zero, size: frame.size)
+            holders[index].position = CGPoint(x: frame.midX, y: frame.midY)
+            arcs[index].frame = holders[index].bounds
+            arcs[index].lineWidth = line
+            // The top quarter of the circle, like a border-top on a round box.
+            arcs[index].path = UIBezierPath(
+                arcCenter: CGPoint(x: side / 2, y: side / 2),
+                radius: (side - line) / 2,
+                startAngle: -.pi * 0.75,
+                endAngle: -.pi * 0.25,
+                clockwise: true
+            ).cgPath
         }
-        track.frame = frame
-        arc.strokeEnd = 0.7
-        spinner.frame = frame
-        arcFade.frame = CGRect(origin: .zero, size: frame.size)
-        let dotSide = side * 0.28
-        dot.frame = CGRect(x: frame.midX - dotSide / 2, y: frame.midY - dotSide / 2, width: dotSide, height: dotSide)
-        dot.path = UIBezierPath(ovalIn: CGRect(origin: .zero, size: CGSize(width: dotSide, height: dotSide))).cgPath
-        restartAnimations()
+        CATransaction.commit()
+        startMissingAnimations()
     }
 
     override func didMoveToWindow() {
         super.didMoveToWindow()
-        // Animations stop when a layer leaves the window, so they start again on return.
-        restartAnimations()
+        // Core Animation drops animations when a layer leaves the window; they come back on return.
+        startMissingAnimations()
     }
 
-    /// Adds the endless rotation and pulse, which Core Animation then plays on its own.
-    private func restartAnimations() {
-        spinner.removeAllAnimations()
-        dot.removeAllAnimations()
-        guard window != nil else { return }
-        let pulse = CABasicAnimation(keyPath: "transform.scale")
-        pulse.fromValue = 0.75
-        pulse.toValue = 1
-        pulse.duration = 0.8
-        pulse.autoreverses = true
-        pulse.repeatCount = .infinity
-        pulse.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-        dot.add(pulse, forKey: "pulse")
-        guard animates else { return }
-        let spin = CABasicAnimation(keyPath: "transform.rotation.z")
-        spin.fromValue = 0
-        spin.toValue = Double.pi * 2
-        spin.duration = 1
-        spin.repeatCount = .infinity
-        spin.isRemovedOnCompletion = false
-        spinner.add(spin, forKey: "spin")
+    /// Adds the endless counterclockwise turn to each ring that has none yet.
+    private func startMissingAnimations() {
+        guard animates, window != nil else { return }
+        for (index, ring) in Self.rings.enumerated() where holders[index].animation(forKey: Self.spinKey) == nil {
+            let spin = CABasicAnimation(keyPath: "transform.rotation.z")
+            spin.fromValue = Double.pi * 2
+            spin.toValue = 0
+            spin.duration = ring.seconds
+            spin.repeatCount = .infinity
+            spin.isRemovedOnCompletion = false
+            holders[index].add(spin, forKey: Self.spinKey)
+        }
     }
 }
 
@@ -156,7 +148,7 @@ struct LaunchScreen: View {
                 .appAccentForeground()
                 .scaleEffect(appeared ? 1 : 0.92)
                 .opacity(appeared ? 1 : 0)
-            LififyLoader(text: nil, size: 36)
+            LififyLoader(text: nil, size: 52)
                 .opacity(appeared ? 1 : 0)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
