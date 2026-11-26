@@ -6,11 +6,14 @@ import SwiftData
 public enum BankNoticeBank: String, Equatable {
     case sparkasse
     case tradeRepublic
+    /// PayPal's payment e-mails, booked on the PayPal account.
+    case paypal
 
     public var fallbackTitle: String {
         switch self {
         case .sparkasse: "Sparkasse"
         case .tradeRepublic: "Trade Republic"
+        case .paypal: PayPalAccount.name
         }
     }
 }
@@ -120,7 +123,8 @@ public enum BankNotice {
         guard let accountID = BankNoticeAccounts.resolve(bank, in: accounts) else { return .missingAccount }
         let template = NoticeTemplateStore.matching(text: text, accountID: accountID, in: templates)
         if template?.action == .ignore { return .ignored }
-        let read = template?.format?.parse(text) ?? parse(text, fallbackTitle: bank.fallbackTitle)
+        let read = template?.format?.parse(text)
+            ?? (bank == .paypal ? PayPalMail.parse(text) : parse(text, fallbackTitle: bank.fallbackTitle))
         guard let notice = read else { return .unreadable }
         if let template {
             return planTemplate(
@@ -459,6 +463,8 @@ public enum BankNoticeAccounts {
             return checking.first(where: \.isMain)?.id
         case .tradeRepublic:
             return checking.first(where: { $0.name.caseInsensitiveCompare("Trade Republic") == .orderedSame })?.id
+        case .paypal:
+            return checking.first(where: { $0.name.caseInsensitiveCompare(PayPalAccount.name) == .orderedSame })?.id
         }
     }
 }
@@ -475,6 +481,7 @@ public enum BankNoticeURL {
         switch account {
         case "sparkasse": bank = .sparkasse
         case "traderepublic", "trade-republic", "tr": bank = .tradeRepublic
+        case "paypal": bank = .paypal
         default: bank = nil
         }
         guard let bank else { return nil }
@@ -494,6 +501,8 @@ public enum BankNoticeIntake {
         now: Date = FinanceClock.now,
         onBooked: ((LedgerEntry) -> Void)? = nil
     ) -> String {
+        // The PayPal account comes with the first PayPal e-mail.
+        if bank == .paypal { PayPalAccount.ensure(context: context) }
         let accounts = (try? context.fetch(FetchDescriptor<Account>())) ?? []
         let entries = (try? context.fetch(FetchDescriptor<LedgerEntry>())) ?? []
         let named = accounts.map { NamedAccount(id: $0.id, name: $0.name, kind: $0.kind, isMain: $0.isMain) }
@@ -573,6 +582,7 @@ public enum BankNoticeIntake {
         }
         AssignmentInbox.add([entry.id], source: .notice)
         NoticeBookings.mark(entry.id)
+        PayPalAccount.pairDebits(context: context)
         onBooked?(entry)
         return BankNoticeCopy.booked
     }

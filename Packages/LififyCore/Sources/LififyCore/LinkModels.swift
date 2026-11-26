@@ -70,6 +70,8 @@ public enum LinkKind: String, CaseIterable, Codable, Sendable {
     case budgetPoolPayees
     /// Bookings that came from a bank notice and wait for their bank import to fill them in.
     case noticeBooking
+    /// A checking-account debit that funds a PayPal payment, keyed by debit, valued by payment.
+    case payPalPairing
     /// Bookings from an import or a notice the person has not looked at yet.
     case assignmentInbox
     /// Changes made on a simulated day. Never part of a backup.
@@ -79,7 +81,7 @@ public enum LinkKind: String, CaseIterable, Codable, Sendable {
     public static let financeRecords: [LinkKind] = [
         .refund, .transferAssignment, .forecastSkip, .forecastPeriod, .matchRejection,
         .budgetAccounts, .bankCursor, .bankCurrent, .dismissedNoticeTemplates, .subscriptionRejection, .etfOverride,
-        .fixedCostPayee, .variableBudgetPayees, .budgetPoolPayees, .noticeBooking
+        .fixedCostPayee, .variableBudgetPayees, .budgetPoolPayees, .noticeBooking, .payPalPairing
     ]
     public static let challengeRecords: [LinkKind] = [.pinnedChallenges, .pinnedGroups, .eventOffer, .fastFoodReward, .recommendationRejection]
     /// Temporary developer data that a backup must never carry.

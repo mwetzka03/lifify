@@ -147,6 +147,8 @@ list their parameters and return value. The full rules are in
 
 Apple Health is optional and off by default. After you allow it, Lifify reads weight and steps and writes each finished workout to Apple Health. These values stay on the device.
 
+PayPal data reaches Lifify only through files and e-mails you hand over: the activity export (CSV) opened under bank import, and PayPal's payment e-mails passed in by a Shortcuts automation. Lifify does not sign in to PayPal and sends nothing there.
+
 For the depot's deep analysis, Lifify downloads public holdings files from Xtrackers (DWS), VanEck, and iShares (BlackRock) at most once a week. Those requests contain only fund identifiers, never your holdings or amounts.
 
 The Finance tab is locked with Face ID or the device passcode by default. It stays open until the app goes to the background. The switch is under Settings, Finance. Other tabs and the settings themselves are not locked.
@@ -354,6 +356,8 @@ Parameter und Rückgabewert. Die vollständigen Regeln stehen in
 ### Daten und Import
 
 Apple Health ist optional und standardmäßig aus. Nach deiner Freigabe liest Lifify Gewicht und Schritte und schreibt jedes beendete Training nach Apple Health. Diese Werte bleiben auf dem Gerät.
+
+PayPal-Daten kommen nur über Dateien und E-Mails in Lifify, die du übergibst: den Aktivitäten-Export (CSV), geöffnet unter Bankimport, und die Zahlungs-E-Mails von PayPal, die eine Kurzbefehle-Automation weitergibt. Lifify meldet sich nicht bei PayPal an und schickt nichts dorthin.
 
 Für die Tiefenanalyse des Depots lädt Lifify höchstens einmal pro Woche öffentliche Bestandslisten von Xtrackers (DWS), VanEck und iShares (BlackRock). Diese Abrufe enthalten nur Fonds-Kennungen, nie deine Bestände oder Beträge.
 

@@ -10,6 +10,7 @@ import SwiftData
 enum BankNoticeAccountChoice: String, AppEnum {
     case sparkasse
     case tradeRepublic
+    case paypal
 
     static var typeDisplayRepresentation: TypeDisplayRepresentation {
         TypeDisplayRepresentation(name: "Konto")
@@ -18,7 +19,8 @@ enum BankNoticeAccountChoice: String, AppEnum {
     static var caseDisplayRepresentations: [BankNoticeAccountChoice: DisplayRepresentation] {
         [
             .sparkasse: "Sparkasse",
-            .tradeRepublic: "Trade Republic"
+            .tradeRepublic: "Trade Republic",
+            .paypal: "PayPal"
         ]
     }
 
@@ -26,6 +28,7 @@ enum BankNoticeAccountChoice: String, AppEnum {
         switch self {
         case .sparkasse: .sparkasse
         case .tradeRepublic: .tradeRepublic
+        case .paypal: .paypal
         }
     }
 }

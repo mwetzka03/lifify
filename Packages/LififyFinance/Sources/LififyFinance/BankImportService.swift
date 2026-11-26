@@ -83,10 +83,13 @@ public struct TradeRepublicStatement {
 public struct BankImportDocument {
     public var rows: [ImportedTransaction]
     public var tradeRepublic: TradeRepublicStatement?
+    /// An activity export from PayPal, which always goes to the PayPal account.
+    public var isPayPal: Bool
 
-    public init(rows: [ImportedTransaction], tradeRepublic: TradeRepublicStatement? = nil) {
+    public init(rows: [ImportedTransaction], tradeRepublic: TradeRepublicStatement? = nil, isPayPal: Bool = false) {
         self.rows = rows
         self.tradeRepublic = tradeRepublic
+        self.isPayPal = isPayPal
     }
 }
 
@@ -134,6 +137,9 @@ public enum BankImportService {
         }
         guard let text = String(data: data, encoding: .utf8) ?? String(data: data, encoding: .isoLatin1) else {
             throw BankImportError.unreadableFile
+        }
+        if let payPal = PayPalCSV.parse(text) {
+            return BankImportDocument(rows: payPal, tradeRepublic: nil, isPayPal: true)
         }
         return BankImportDocument(rows: try parseCSV(text), tradeRepublic: nil)
     }
@@ -376,7 +382,7 @@ public enum BankImportService {
     }
 
     /// Parses the date formats banks use.
-    fileprivate static func parseDate(_ value: String) -> Date? {
+    static func parseDate(_ value: String) -> Date? {
         let value = value.trimmingCharacters(in: .whitespacesAndNewlines)
         let formats: [String]
         if value.range(of: #"^\d{2}\.\d{2}\.\d{2}$"#, options: .regularExpression) != nil {
@@ -399,13 +405,13 @@ public enum BankImportService {
     }
 
     /// Reads a CSV field by index.
-    private static func field(at index: Int?, from fields: [String]) -> String {
+    static func field(at index: Int?, from fields: [String]) -> String {
         guard let index, fields.indices.contains(index) else { return "" }
         return fields[index].trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     /// Splits a CSV line and respects quotes.
-    private static func csvFields(_ line: String, delimiter: Character) -> [String] {
+    static func csvFields(_ line: String, delimiter: Character) -> [String] {
         var fields: [String] = []
         var current = ""
         var quoted = false
@@ -433,14 +439,14 @@ public enum BankImportService {
     }
 
     /// Normalizes a column header.
-    private static func normalizeHeader(_ value: String) -> String {
+    static func normalizeHeader(_ value: String) -> String {
         value.lowercased()
             .folding(options: .diacriticInsensitive, locale: .current)
             .filter(\.isLetter)
     }
 
     /// Finds the column for any of the header names.
-    private static func index(of candidates: [String], in headers: [String]) -> Int? {
+    static func index(of candidates: [String], in headers: [String]) -> Int? {
         candidates.lazy.compactMap { headers.firstIndex(of: $0) }.first
     }
 }

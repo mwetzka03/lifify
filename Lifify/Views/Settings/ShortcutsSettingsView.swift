@@ -38,6 +38,19 @@ struct ShortcutsSettingsView: View {
                 .foregroundStyle(.secondary)
             }
             .appGlassRow()
+            Section(L("PayPal", "PayPal")) {
+                Text(L(
+                    "Automation „E-Mail“ in der Kurzbefehle-App: Absender service@paypal.de, Betreff enthält „Zahlung“. Aktion Bankmitteilung buchen, Konto PayPal, Mitteilung der Inhalt der E-Mail. Die Zahlung landet auf dem Konto PayPal; die spätere Lastschrift vom Girokonto wird zur Umbuchung zu PayPal.",
+                    "Automation \"Email\" in the Shortcuts app: sender service@paypal.de, subject contains \"payment\". Run Record bank notice, account PayPal, notification as the email content. The payment lands on the PayPal account; the later direct debit from the checking account becomes a transfer to PayPal."
+                ))
+                Text(L(
+                    "Für ältere Zahlungen: Aktivitäten in PayPal als CSV herunterladen und unter Finanzen › Bankimport öffnen. Lifify erkennt die PayPal-Datei und bucht auf das Konto PayPal.",
+                    "For older payments: download your PayPal activity as CSV and open it under Finance › Bank import. Lifify recognizes the PayPal file and books onto the PayPal account."
+                ))
+            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .appGlassRow()
             if checking.isEmpty {
                 Section {
                     Text(L("Lege zuerst ein Girokonto an.", "Create a checking account first."))

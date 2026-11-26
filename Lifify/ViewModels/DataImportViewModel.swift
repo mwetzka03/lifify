@@ -26,13 +26,19 @@ final class DataImportViewModel: ObservableObject {
         defer { if accessing { url.stopAccessingSecurityScopedResource() } }
         do {
             let data = try Data(contentsOf: url)
-            guard destination != nil else {
-                message = L("Bitte zuerst ein Zielkonto auswählen.", "Select a destination account first.")
-                return
-            }
             let document = try BankImportService.parseDocument(data: data, fileExtension: url.pathExtension)
             guard !document.rows.isEmpty else {
                 message = L("Der Export enthält keine Buchungen.", "The export contains no transactions.")
+                return
+            }
+            // A PayPal export needs no destination and no balance: it books onto the PayPal account.
+            if document.isPayPal {
+                let result = try BankImportApplier.apply(document: document, to: .separateChecking, detectDuplicates: true, context: context)
+                present(result)
+                return
+            }
+            guard destination != nil else {
+                message = L("Bitte zuerst ein Zielkonto auswählen.", "Select a destination account first.")
                 return
             }
             pendingBank = document

@@ -528,6 +528,16 @@ buy, portfolio sale, and savings plan use it, and only on the portfolio side.
   fills in the notice booking (title, notes, date) instead of booking twice.
   The booking keeps its ID, so every assignment, split, pool, and refund link
   stays (`NoticeBookings`).
+- **PayPal account:** the PayPal activity export (CSV, opened under bank
+  import) books completed euro payments and refunds onto an account "PayPal",
+  created on first use; top-ups from and payouts to a bank are left out. A
+  Shortcuts automation on PayPal's payment e-mails books each payment there
+  too (account choice "PayPal"); the export later fills that booking in. A
+  checking-account debit to PayPal becomes a transfer to the PayPal account
+  once a payment of the same amount from up to three days earlier is there;
+  its fixed cost, variable cost, splits, pool, and refund links move to the
+  payment. Debits without a payment stay expenses (`PayPalAccount`,
+  `PayPalCSV`, `PayPalMail`).
 - **PayPal:** bookings with PayPal as counterparty are named after the real
   payee from the reference ("… Ihr Einkauf bei Netflix.com" gives
   "Netflix.com (PayPal)"), on import and once for older bookings; without a
@@ -1405,6 +1415,17 @@ Depotkauf, Depotverkauf und Sparplan nutzen es, und dort nur auf der Depotseite.
   demselben Namen oder derselben IBAN füllt die Mitteilungsbuchung (Titel,
   Notizen, Datum), statt doppelt zu buchen. Die Buchung behält ihre ID, damit
   bleiben alle Zuordnungen, Splits, Pools und Rückerstattungen (`NoticeBookings`).
+- **PayPal-Konto:** Der PayPal-Aktivitäten-Export (CSV, unter Bankimport
+  geöffnet) bucht abgeschlossene Euro-Zahlungen und Erstattungen auf ein Konto
+  „PayPal“, das beim ersten Mal entsteht; Aufladungen von und Auszahlungen an
+  eine Bank bleiben außen vor. Eine Kurzbefehle-Automation auf die
+  Zahlungs-E-Mails von PayPal bucht jede Zahlung ebenfalls dort (Konto
+  „PayPal“); der Export füllt diese Buchung später. Eine Lastschrift vom
+  Girokonto an PayPal wird zur Umbuchung auf das PayPal-Konto, sobald dort eine
+  Zahlung desselben Betrags von bis zu drei Tagen vorher steht; ihre Fixkosten,
+  variablen Kosten, Splits, Pools und Rückerstattungen wandern zur Zahlung.
+  Lastschriften ohne Zahlung bleiben Ausgaben (`PayPalAccount`, `PayPalCSV`,
+  `PayPalMail`).
 - **PayPal:** Buchungen mit PayPal als Gegenpartei heißen nach dem echten
   Empfänger aus dem Verwendungszweck („… Ihr Einkauf bei Netflix.com“ ergibt
   „Netflix.com (PayPal)“), beim Import und einmalig für ältere Buchungen; ohne

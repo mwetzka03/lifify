@@ -490,6 +490,15 @@ of the method splitting are still open (see the last section).
 - **Backfill:** Once after this update, trainings of the last seven days that ended without an event get theirs (`WorkoutCalendarSync.backfillMissingEvents`, marked done in a UserDefaults flag that needs no backup, since a repeat only checks again).
 - Test: `aTrainingOffItsDayCopiesTheLinkedSeriesAndChecksItsChallenge`.
 
+### Owner feedback: PayPal account from export and e-mails
+
+- **PayPal account:** PayPal now has its own account "PayPal", created on first use. The PayPal activity export (CSV) is recognized by its columns under bank import and books completed euro payments and refunds there, without asking for a destination or balance; top-ups and payouts are skipped because the bank account has them. Why: the owner chose a separate PayPal account over only adding payee details.
+- **E-mails:** The Shortcuts action "Record bank notice" has the account "PayPal". An automation on PayPal's payment e-mails books each payment on the PayPal account ("Sie haben eine Zahlung über 10,99 € EUR an Netflix.com gesendet", also received payments and English mails); the export later fills it in through the notice merge. `lifify://notice?account=paypal` works the same.
+- **Debits become transfers:** A checking-account debit to PayPal becomes a transfer to the PayPal account once a PayPal payment of the same amount from up to three days earlier exists. The debit's fixed cost, variable cost, splits, pool, and refund links move to the payment when the payment has none. Debits without a payment stay expenses, so existing data changes only where the export or an e-mail supplies the real payment. Storage: new link kind `payPalPairing` (debit → payment), part of the finance backup; no schema change.
+- **Privacy:** README names PayPal as a data source that only comes in through files and e-mails; Lifify makes no PayPal requests.
+- Side effect: incoming money on PayPal from other people and payouts to the bank are not paired yet; a payout stays an income on the checking account.
+- Tests: `aPayPalExportBooksPaymentsOnlyAndPairsTheBankDebit`, `aPayPalMailBooksOnThePayPalAccount`.
+
 ## Deutsch
 
 ### Überblick
@@ -997,3 +1006,12 @@ Screens und ein Teil der Methoden-Zerlegung noch offen (siehe letzter Abschnitt)
 - **Kopie der Serie:** Der Termin für ein Training an einem Tag ohne seinen Termin ist jetzt eine Kopie des verknüpften Serientermins des Plans (Titel, Kalender, Farbe, Symbol und Challenge) zur echten Trainingszeit statt eines einfachen Termins; die verknüpfte Challenge wird wie am normalen Tag abgehakt. Ohne verknüpften Termin bleibt es ein einfacher Termin mit dem Plannamen.
 - **Nachtragen:** Einmal nach diesem Update bekommen Trainings der letzten sieben Tage ohne Termin ihren Termin (`WorkoutCalendarSync.backfillMissingEvents`, als erledigt markiert in einem UserDefaults-Schalter, der kein Backup braucht, weil eine Wiederholung nur erneut prüft).
 - Test: `aTrainingOffItsDayCopiesTheLinkedSeriesAndChecksItsChallenge`.
+
+### Rückmeldung des Eigentümers: PayPal-Konto aus Export und E-Mails
+
+- **PayPal-Konto:** PayPal hat jetzt ein eigenes Konto „PayPal“, das beim ersten Mal entsteht. Der PayPal-Aktivitäten-Export (CSV) wird unter Bankimport an seinen Spalten erkannt und bucht abgeschlossene Euro-Zahlungen und Erstattungen dorthin, ohne nach Zielkonto oder Saldo zu fragen; Aufladungen und Auszahlungen bleiben außen vor, weil das Bankkonto sie hat. Warum: Der Eigentümer hat ein eigenes PayPal-Konto statt nur ergänzter Empfänger gewählt.
+- **E-Mails:** Die Kurzbefehle-Aktion „Bankmitteilung buchen“ kennt das Konto „PayPal“. Eine Automation auf die Zahlungs-E-Mails von PayPal bucht jede Zahlung auf das PayPal-Konto („Sie haben eine Zahlung über 10,99 € EUR an Netflix.com gesendet“, auch erhaltene Zahlungen und englische Mails); der Export füllt sie später über den Mitteilungsabgleich. `lifify://notice?account=paypal` funktioniert genauso.
+- **Lastschriften werden Umbuchungen:** Eine Lastschrift vom Girokonto an PayPal wird zur Umbuchung auf das PayPal-Konto, sobald eine PayPal-Zahlung desselben Betrags von bis zu drei Tagen vorher existiert. Fixkosten, variable Kosten, Splits, Pool und Rückerstattungen der Lastschrift wandern zur Zahlung, wenn diese keine hat. Lastschriften ohne Zahlung bleiben Ausgaben; bestehende Daten ändern sich also nur, wo Export oder E-Mail die echte Zahlung liefern. Speicher: neue Verknüpfungsart `payPalPairing` (Lastschrift → Zahlung), Teil des Finanz-Backups; keine Schemaänderung.
+- **Datenschutz:** Die README nennt PayPal als Datenquelle, die nur über Dateien und E-Mails kommt; Lifify stellt keine Anfragen an PayPal.
+- Nebenwirkung: Geld, das andere auf PayPal schicken, und Auszahlungen an die Bank werden noch nicht gepaart; eine Auszahlung bleibt eine Einnahme auf dem Girokonto.
+- Tests: `aPayPalExportBooksPaymentsOnlyAndPairsTheBankDebit`, `aPayPalMailBooksOnThePayPalAccount`.

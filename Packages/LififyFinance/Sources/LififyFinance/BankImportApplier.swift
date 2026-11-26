@@ -489,7 +489,9 @@ public enum BankImportApplier {
             entries: try context.fetch(FetchDescriptor<LedgerEntry>()),
             holdings: try context.fetch(FetchDescriptor<PortfolioHolding>())
         )
-        let checking = try checkingAccount(for: document, destination: destination, accounts: accounts, context: context)
+        // A PayPal export always goes to the PayPal account, whatever was picked.
+        let target = document.isPayPal ? .account(PayPalAccount.ensure(context: context).id) : destination
+        let checking = try checkingAccount(for: document, destination: target, accounts: try context.fetch(FetchDescriptor<Account>()), context: context)
         let portfolio = portfolioAccount(for: checking.account, document: document, context: context)
         var carried: [String: ImportCarryOver.Kept] = [:]
         if document.tradeRepublic != nil {
@@ -567,6 +569,7 @@ public enum BankImportApplier {
         let assigned = BookingAutoAssign.apply(to: run.insertedEntries.filter { carried[$0.importFingerprint ?? ""] == nil }, context: context)
         if !assigned.isEmpty { try? context.save() }
         AssignmentInbox.add(assigned.map(\.id), source: .bankImport)
+        PayPalAccount.pairDebits(context: context)
         return BankImportResult(
             importedCount: run.imported,
             holdingCount: holdingCount,
