@@ -689,14 +689,14 @@ struct TransactionFormView: View {
                 }
 
                 if viewModel.category == .expense {
-                    Section(L("Zuordnung", "Assignment")) {
+                    Section(L("Direkte Zuordnung", "Direct assignment")) {
                         optionalPicker(L("Fixkosten", "Fixed cost"), selection: $viewModel.fixedCostID, values: fixedCosts.map { ($0.id, $0.name) })
-                        optionalPicker(L("Variable Kosten", "Variable cost"), selection: $viewModel.variableBudgetID, values: variableBudgets.map { ($0.id, $0.name) })
                         optionalPicker(L("Einkauf", "Shopping"), selection: $viewModel.shoppingItemID, values: shopping.map { ($0.id, $0.name) })
                     }
                     .appGlassRow()
+                    // A variable cost always shows as a split: one with the full amount, or several shares.
                     SplitSection(
-                        title: L("Variable Kosten aufteilen", "Split variable costs"),
+                        title: L("Variable Kosten", "Variable costs"),
                         drafts: $viewModel.variableSplits,
                         values: variableBudgets.map { ($0.id, $0.name) }
                     )

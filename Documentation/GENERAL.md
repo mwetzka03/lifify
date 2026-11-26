@@ -46,7 +46,7 @@ Lifify 0.6.0 is a local iPhone app for money, challenges, and health. It needs n
   weight, sex, goal, and step goal.
 - Finance settings, top to bottom: accounts (tap to edit, swipe to delete,
   "Add account"), bank import, Trade Republic, shortcuts and notices, the
-  portfolio, budget alerts and the monthly review notice, and the finance lock.
+  portfolio, budget alerts and the period review notice, and the finance lock.
 - Backup as JSON for the whole app or one area (finance, challenges, health).
   Photos, exercise pictures, price caches, and keychain items are not included.
 - "Delete all data" keeps accounts and settings; "Reset app" removes them too
@@ -100,7 +100,7 @@ Lifify 0.6.0 ist eine lokale iPhone-App für Geld, Challenges und Gesundheit. Si
 - **Mitteilungen:** ein Tagesbriefing je Wochentag, Challenge-Erinnerungen,
   Streak-Warnungen, Abstinenz-Meilensteine, Budget-Warnungen bei 80 % und 100 %
   und fürs Tagesbudget, die Kalorien- und Schritt-Mitteilungen und optional
-  eine Mitteilung zum Monatsrückblick.
+  eine Mitteilung zum Zeitraumsrückblick.
 
 ### Einstellungen und Daten
 
@@ -110,7 +110,7 @@ Lifify 0.6.0 ist eine lokale iPhone-App für Geld, Challenges und Gesundheit. Si
   Größe, Gewicht, Geschlecht, Ziel und Schrittziel.
 - Finanz-Einstellungen von oben nach unten: Konten (Tippen bearbeitet,
   Wischen löscht, „Konto anlegen“), Bankimport, Trade Republic, Kurzbefehle und
-  Mitteilungen, Depot, Budget-Warnungen und Mitteilung zum Monatsrückblick,
+  Mitteilungen, Depot, Budget-Warnungen und Mitteilung zum Zeitraumsrückblick,
   Finanzsperre.
 - Sicherung als JSON für die ganze App oder einen Bereich (Finanzen,
   Challenges, Gesundheit). Fotos, Übungsbilder, Kurs-Caches und Einträge im

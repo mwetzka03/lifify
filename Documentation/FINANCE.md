@@ -582,11 +582,18 @@ buy, portfolio sale, and savings plan use it, and only on the portfolio side.
 
 ### Variable costs
 
+- **In the booking form** the section "Direct assignment" holds fixed cost and
+  shopping item. Variable costs are always in the split section: one cost
+  shows with the full amount, several share it. One cost with everything is
+  stored directly on the booking, several as splits (`VariableShares`); a
+  single cost follows a changed amount.
 - **Automatic assignment:** a variable cost can list IBANs and payee names. A
   new expense from a bank import or a notice goes to it when its recipient IBAN
   is one of them or its payee name contains one ("rewe" fits "REWE Markt
-  GmbH"), and when it is on one of the cost's accounts. A fixed cost's payee
-  rule comes first. Only bookings without an assignment are touched; single
+  GmbH"), on any account. A rule belongs to exactly one variable cost; saving it
+  in another one moves it there. When a cost limited to some accounts takes a
+  booking from another account, that account is added to the cost's accounts.
+  A fixed cost's payee rule comes first. Only bookings without an assignment are touched; single
   bookings can always be moved or removed by hand (`BudgetPayeeRules`,
   `BookingAutoAssign`).
 - Rules also cover the past: on saving, every earlier expense without an
@@ -751,7 +758,7 @@ full to be right, the statement has to be imported again after a rule change.
 - A refresh runs only from the button in Finance.
 - Other holdings stay when the session does not mention them.
 
-### Monthly review
+### Period review
 
 - The review shows the last finished period of the chosen period mode.
 - Expenses count after refunds. A split counts for its budget or pool.
@@ -880,7 +887,7 @@ full to be right, the statement has to be imported again after a rule change.
 - **Bankimport:** CSV- und CAMT-Dateien. Bekannte Zeilen werden übersprungen,
   der letzte Tag und Tage mit zusätzlichen Zeilen werden geprüft, und ältere
   Monate lassen sich später ergänzen.
-- **Monatsrückblick:** Ausgaben je Kategorie gegen den Durchschnitt früherer
+- **Zeitraumsrückblick:** Ausgaben je Kategorie gegen den Durchschnitt früherer
   Zeiträume, größte Abweichungen zuerst.
 - **Prognosen:** optionale Zinsen auf das Depot-Verrechnungskonto (2,5 % pro
   Jahr, solange nicht geändert), monatlich mit Zinseszins.
@@ -1444,11 +1451,19 @@ Depotkauf, Depotverkauf und Sparplan nutzen es, und dort nur auf der Depotseite.
 
 ### Variable Kosten
 
+- **Im Buchungsformular** hält der Abschnitt „Direkte Zuordnung“ Fixkosten und
+  Einkauf. Variable Kosten stehen immer im Split-Abschnitt: eine mit dem vollen
+  Betrag, mehrere teilen ihn. Eine Kostenstelle mit allem wird direkt an der
+  Buchung gespeichert, mehrere als Splits (`VariableShares`); eine einzelne
+  folgt einem geänderten Betrag.
 - **Automatische Zuordnung:** Eine variable Kosten kann IBANs und
   Empfängernamen führen. Eine neue Ausgabe aus Bankimport oder Mitteilung
   kommt zu ihr, wenn ihre Empfänger-IBAN dabei ist oder ihr Empfängername
-  einen der Namen enthält („rewe“ passt zu „REWE Markt GmbH“), und wenn sie auf
-  einem ihrer Konten liegt. Die Empfängerregel einer Fixkosten geht vor. Nur
+  einen der Namen enthält („rewe“ passt zu „REWE Markt GmbH“), egal auf welchem
+  Konto. Eine Regel gehört zu genau einer variablen Kosten; wird sie bei einer
+  anderen gespeichert, wechselt sie dorthin. Nimmt eine auf einige Konten
+  begrenzte variable Kosten eine Buchung eines anderen Kontos, kommt dieses
+  Konto zu ihren Konten dazu. Die Empfängerregel einer Fixkosten geht vor. Nur
   Buchungen ohne Zuordnung werden angefasst; einzelne Buchungen lassen sich
   jederzeit von Hand umhängen oder lösen (`BudgetPayeeRules`,
   `BookingAutoAssign`).
@@ -1622,7 +1637,7 @@ Auszug nach einer Regeländerung neu importiert werden.
 - Eine Aktualisierung läuft nur über den Knopf unter Finanzen.
 - Andere Positionen bleiben stehen, wenn die Sitzung sie nicht nennt.
 
-### Monatsrückblick
+### Zeitraumsrückblick
 
 - Der Rückblick zeigt den letzten abgeschlossenen Zeitraum des gewählten Modus.
 - Ausgaben zählen nach Erstattungen. Ein Split zählt für sein Budget oder seinen

@@ -118,7 +118,10 @@ struct AssignmentReviewView: View {
         Binding(
             get: { BookingTarget(of: entry) },
             set: { target in
-                target.apply(to: entry)
+                target.apply(to: entry, context: context)
+                if case .variableBudget(let id) = target, let budget = budgets.first(where: { $0.id == id }) {
+                    VariableBudgetAccounts.include(entry.accountID, in: budget)
+                }
                 try? context.save()
             }
         )

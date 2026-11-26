@@ -5,7 +5,8 @@ import SwiftData
 /// The IBANs and payee names whose bookings a variable cost takes on its own.
 ///
 /// A rule that looks like an IBAN matches the recipient IBAN in a booking's notes; any other rule
-/// matches when the booking's payee name contains it ("rewe" fits "REWE Markt GmbH").
+/// matches when the booking's payee name contains it ("rewe" fits "REWE Markt GmbH"). Rules ignore
+/// the account. A rule belongs to one variable cost only; pools may share rules.
 @MainActor
 public enum BudgetPayeeRules {
     /// What a rule list belongs to; each has its own stored list.
@@ -29,12 +30,31 @@ public enum BudgetPayeeRules {
     }
 
     /// Stores the rules of a variable cost or a pool; empty or repeated rules are dropped.
+    ///
+    /// A variable cost takes its rules over from any other variable cost, because one payee can
+    /// only land in one of them. Pools keep shared rules.
     public static func set(_ rules: [String], for ownerID: UUID, owner: Owner = .variableBudget) {
         var seen = Set<String>()
         let cleaned = rules
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty && seen.insert($0.lowercased()).inserted }
-        LinkTable.set(owner.kind, key: ownerID.uuidString, value: cleaned.isEmpty ? nil : cleaned.joined(separator: "\n"))
+        var map = LinkTable.map(owner.kind)
+        if owner == .variableBudget {
+            for (key, value) in map where key != ownerID.uuidString {
+                let kept = value.split(separator: "\n").map(String.init).filter { !seen.contains($0.lowercased()) }
+                map[key] = kept.isEmpty ? nil : kept.joined(separator: "\n")
+            }
+        }
+        map[ownerID.uuidString] = cleaned.isEmpty ? nil : cleaned.joined(separator: "\n")
+        LinkTable.replace(owner.kind, with: map)
+    }
+
+    /// The other variable cost that holds a rule today, if any.
+    public static func otherOwner(of rule: String, besides ownerID: UUID?) -> UUID? {
+        let key = rule.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return LinkTable.map(.variableBudgetPayees).first { id, value in
+            id != ownerID?.uuidString && value.split(separator: "\n").contains { $0.lowercased() == key }
+        }.flatMap { UUID(uuidString: $0.key) }
     }
 
     /// Forgets the rules of a deleted variable cost or pool.
@@ -90,22 +110,26 @@ public enum BudgetPayeeRules {
     /// - Returns: How many bookings were assigned.
     @discardableResult
     public static func applyToExisting(_ budget: VariableBudget, entries: [LedgerEntry]) -> Int {
-        assign(entries.filter { self.budget(for: $0, in: [budget]) != nil }, to: budget.id)
+        assign(entries.filter { self.budget(for: $0, in: [budget]) != nil }, to: budget)
     }
 
-    /// Gives picked bookings to a variable cost, leaving every booking that already has an assignment.
+    /// Gives bookings to a variable cost, leaving every booking that already has an assignment,
+    /// and adds each booking's account to the cost's accounts when it is limited to others.
     ///
     /// - Parameters:
-    ///   - entries: The bookings the person picked.
-    ///   - budgetID: The variable cost.
+    ///   - entries: The bookings.
+    ///   - budget: The variable cost.
     /// - Returns: How many bookings were assigned.
     @discardableResult
-    public static func assign(_ entries: [LedgerEntry], to budgetID: UUID) -> Int {
+    public static func assign(_ entries: [LedgerEntry], to budget: VariableBudget) -> Int {
         let free = entries.filter {
             $0.kind == .expense && $0.fixedCostID == nil && $0.variableBudgetID == nil
                 && $0.shoppingItemID == nil && !RefundLinkStore.isRefund($0.id)
         }
-        free.forEach { $0.variableBudgetID = budgetID }
+        for entry in free {
+            entry.variableBudgetID = budget.id
+            VariableBudgetAccounts.include(entry.accountID, in: budget)
+        }
         return free.count
     }
 
@@ -134,20 +158,14 @@ public enum BudgetPayeeRules {
         return SubscriptionDetector.payeeKey(entry.title).contains(name)
     }
 
-    /// The variable cost whose rules fit a booking, if any.
+    /// The variable cost whose rules fit a booking, on any account.
     ///
     /// - Parameters:
     ///   - entry: The booking.
     ///   - budgets: All variable costs, in the order they are checked.
-    /// - Returns: The first variable cost with a fitting rule that also covers the booking's account.
+    /// - Returns: The first variable cost with a fitting rule.
     public static func budget(for entry: LedgerEntry, in budgets: [VariableBudget]) -> VariableBudget? {
-        budgets.first { budget in
-            if let accounts = VariableBudgetAccounts.storedIDs(for: budget.id), !accounts.isEmpty,
-               let account = entry.accountID, !accounts.contains(account) {
-                return false
-            }
-            return rules(for: budget.id).contains { fits($0, entry: entry) }
-        }
+        budgets.first { budget in rules(for: budget.id).contains { fits($0, entry: entry) } }
     }
 
     /// The IBAN in a comparable form: upper case, without spaces.
@@ -190,7 +208,11 @@ public enum BookingTarget: Hashable, Sendable {
     }
 
     /// Writes the target into a booking; a booking belongs to at most one of them.
-    public func apply(to entry: LedgerEntry) {
+    ///
+    /// Variable cost splits of the booking go away, because the target now holds its whole amount.
+    @MainActor
+    public func apply(to entry: LedgerEntry, context: ModelContext) {
+        VariableShares.removeSplits(of: entry, context: context)
         switch self {
         case .none:
             entry.fixedCostID = nil
@@ -202,6 +224,37 @@ public enum BookingTarget: Hashable, Sendable {
             entry.fixedCostID = nil
             entry.variableBudgetID = id
         }
+    }
+}
+
+/// How a booking's amount is shared among variable costs: one cost with the whole amount is stored
+/// as the booking's direct variable cost, several shares as splits. The booking form always shows
+/// them as splits, so a whole assignment appears there with the full amount.
+@MainActor
+public enum VariableShares {
+    /// The shares of a booking: its splits, or its direct variable cost with the whole amount.
+    public static func shares(of entry: LedgerEntry, splits: [TransactionSplit]) -> [(targetID: UUID, amount: Int)] {
+        let own = splits.filter { $0.transactionID == entry.id && $0.kind == .variableBudget }
+        if !own.isEmpty { return own.map { ($0.targetID, $0.amountCents) } }
+        return entry.variableBudgetID.map { [($0, abs(entry.amountCents))] } ?? []
+    }
+
+    /// Splits how shares are stored.
+    ///
+    /// - Parameter shares: The shares the person entered.
+    /// - Returns: A direct variable cost when one cost takes everything, otherwise the splits to store.
+    public static func storage(_ shares: [(targetID: UUID, amount: Int)]) -> (direct: UUID?, splits: [(targetID: UUID, amount: Int)]) {
+        let targets = Set(shares.map(\.targetID))
+        if targets.count == 1, let only = targets.first { return (only, []) }
+        return (nil, shares)
+    }
+
+    /// Removes the variable cost splits of a booking.
+    public static func removeSplits(of entry: LedgerEntry, context: ModelContext) {
+        let id = entry.id
+        let kind = SplitKind.variableBudget.rawValue
+        let splits = (try? context.fetch(FetchDescriptor<TransactionSplit>(predicate: #Predicate { $0.transactionID == id && $0.kindRaw == kind }))) ?? []
+        splits.forEach(context.delete)
     }
 }
 
@@ -223,7 +276,9 @@ public enum BookingAutoAssign {
         let free = entries.filter(isFree)
         FixedCostFromBooking.assign(newEntries: free, costs: costs)
         for entry in free where entry.fixedCostID == nil {
-            entry.variableBudgetID = BudgetPayeeRules.budget(for: entry, in: budgets)?.id
+            if let budget = BudgetPayeeRules.budget(for: entry, in: budgets) {
+                BudgetPayeeRules.assign([entry], to: budget)
+            }
         }
         let budgeted = free.filter { $0.fixedCostID != nil || $0.variableBudgetID != nil }
         // Pools are a separate layer: a booking can count for a pool and a cost at once.

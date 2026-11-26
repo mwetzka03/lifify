@@ -537,7 +537,7 @@ enum CoverageScenarios {
             && OnboardingResume.launchStep(isComplete: false, savedStep: 8) == 0
             && OnboardingResume.launchStep(isComplete: false, savedStep: 4) == 0
             && OnboardingResume.launchStep(isComplete: true, savedStep: 8) == 0
-            && more.map(\.route) == [.periodReview, .budgetPools, .expenseGroups, .debts]
+            && more.map(\.route) == [.budgetPools, .expenseGroups, .debts, .periodReview]
             && FinanceMoreDirectory.rowFontName == "body"
             && FinanceMoreDirectory.sectionFontName == "headline"
             && FinanceMoreDirectory.rowVerticalPadding == 14

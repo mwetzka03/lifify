@@ -11,7 +11,7 @@ extension LififyRuleTests {
     struct BookingRuleTests {
         private let reweIBAN = "DE44 5001 0517 5407 3249 31"
 
-        @Test func rulesMatchByIBANOrNameAndRespectTheAccounts() async throws {
+        @Test func rulesMatchByIBANOrNameOnAnyAccount() async throws {
             try await withTestStore { store in
                 let giro = Account(name: "Giro", isMain: true)
                 let other = Account(name: "Zweitkonto")
@@ -30,8 +30,11 @@ extension LififyRuleTests {
                 #expect(BudgetPayeeRules.budget(for: byIBAN, in: [food])?.id == food.id)
                 #expect(BudgetPayeeRules.budget(for: none, in: [food]) == nil)
 
+                // Rules ignore the account; the assigned booking's account joins the cost's accounts.
                 VariableBudgetAccounts.set([other.id], for: food.id)
-                #expect(BudgetPayeeRules.budget(for: byName, in: [food]) == nil)
+                #expect(BudgetPayeeRules.budget(for: byName, in: [food])?.id == food.id)
+                BudgetPayeeRules.assign([byName], to: food)
+                #expect(VariableBudgetAccounts.storedIDs(for: food.id) == [other.id, giro.id])
                 #expect(LinkKind.financeRecords.contains(.variableBudgetPayees))
                 #expect(LinkKind.neverBackedUp.contains(.assignmentInbox))
             }
@@ -48,7 +51,7 @@ extension LififyRuleTests {
                 #expect(BudgetPayeeRules.rule(from: byIBAN) == "DE44500105175407324931")
                 #expect(BudgetPayeeRules.rule(from: byName) == "REWE Markt")
                 #expect(BudgetPayeeRules.rule(from: short) == nil)
-                #expect(BudgetPayeeRules.assign([byIBAN, byName, taken], to: food.id) == 2)
+                #expect(BudgetPayeeRules.assign([byIBAN, byName, taken], to: food) == 2)
                 #expect(byName.variableBudgetID == food.id)
                 #expect(taken.variableBudgetID == nil)
             }
@@ -105,6 +108,38 @@ extension LififyRuleTests {
             }
         }
 
+        @Test func aRuleBelongsToOneVariableCostButPoolsMayShare() async throws {
+            try await withTestStore { _ in
+                let food = UUID(), drinks = UUID(), poolA = UUID(), poolB = UUID()
+                BudgetPayeeRules.set(["rewe", "edeka"], for: food)
+                BudgetPayeeRules.set(["REWE"], for: drinks)
+                #expect(BudgetPayeeRules.rules(for: food) == ["edeka"])
+                #expect(BudgetPayeeRules.rules(for: drinks) == ["REWE"])
+                #expect(BudgetPayeeRules.otherOwner(of: "rewe", besides: food) == drinks)
+                BudgetPayeeRules.set(["kino"], for: poolA, owner: .budgetPool)
+                BudgetPayeeRules.set(["kino"], for: poolB, owner: .budgetPool)
+                #expect(BudgetPayeeRules.rules(for: poolA, owner: .budgetPool) == ["kino"])
+            }
+        }
+
+        @Test func oneCostTakesTheWholeAmountDirectlyAndSeveralAreSplits() async throws {
+            try await withTestStore { store in
+                let food = UUID(), drinks = UUID()
+                let direct = VariableShares.storage([(food, 1_000)])
+                #expect(direct.direct == food && direct.splits.isEmpty)
+                let split = VariableShares.storage([(food, 600), (drinks, 400)])
+                #expect(split.direct == nil && split.splits.count == 2)
+                let entry = LedgerEntry(title: "REWE", amountCents: -1_000, kind: .expense, variableBudgetID: food)
+                #expect(VariableShares.shares(of: entry, splits: []).map(\.amount) == [1_000])
+                store.context.insert(entry)
+                store.context.insert(TransactionSplit(transactionID: entry.id, targetID: drinks, kind: .variableBudget, periodKey: "2026-03", amountCents: 400))
+                try store.context.save()
+                BookingTarget.variableBudget(food).apply(to: entry, context: store.context)
+                try store.context.save()
+                #expect(try store.context.fetch(FetchDescriptor<TransactionSplit>()).isEmpty)
+            }
+        }
+
         @Test func autoAssignPrefersTheFixedCostAndNeverOverwritesAChoice() async throws {
             try await withTestStore { store in
                 let food = VariableBudget(name: "Lebensmittel", monthlyAmountCents: 40_000)
@@ -120,10 +155,10 @@ extension LififyRuleTests {
                 #expect(shop.variableBudgetID == food.id)
                 #expect(chosen.variableBudgetID == nil)
 
-                BookingTarget.fixedCost(cost.id).apply(to: shop)
+                BookingTarget.fixedCost(cost.id).apply(to: shop, context: store.context)
                 #expect(shop.fixedCostID == cost.id && shop.variableBudgetID == nil)
                 #expect(BookingTarget(of: shop) == .fixedCost(cost.id))
-                BookingTarget.none.apply(to: shop)
+                BookingTarget.none.apply(to: shop, context: store.context)
                 #expect(BookingTarget(of: shop) == .none)
             }
         }

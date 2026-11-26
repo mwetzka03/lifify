@@ -44,10 +44,10 @@ enum FinanceMoreDirectory {
 
     static var rows: [FinanceMoreLink] {
         [
-            FinanceMoreLink(title: L("Monatsrückblick", "Monthly review"), symbol: "calendar.badge.clock", route: .periodReview),
             FinanceMoreLink(title: L("Budgetpools", "Budget pools"), symbol: "tray.full", route: .budgetPools),
             FinanceMoreLink(title: L("Ausgabengruppen", "Expense groups"), symbol: "square.stack.3d.up", route: .expenseGroups),
-            FinanceMoreLink(title: L("Schulden", "Debts"), symbol: "person.2", route: .debts)
+            FinanceMoreLink(title: L("Schulden", "Debts"), symbol: "person.2", route: .debts),
+            FinanceMoreLink(title: L("Zeitraumsrückblick", "Period review"), symbol: "calendar.badge.clock", route: .periodReview)
         ]
     }
 

@@ -462,7 +462,7 @@ private struct FinanceSettingsView: View {
             portfolioSection
             BudgetAlertSection()
             Section {
-                Toggle(L("Mitteilung zum Monatsrückblick", "Notify about the monthly review"), isOn: $reviewNotice)
+                Toggle(L("Mitteilung zum Zeitraumsrückblick", "Notify about the period review"), isOn: $reviewNotice)
             } footer: {
                 Text(L("Meldet sich einmal, wenn ein Zeitraum abgeschlossen ist.", "Notifies you once when a period has ended."))
             }

@@ -464,6 +464,14 @@ of the method splitting are still open (see the last section).
 - **Automatic challenges:** Steps and nutrition challenges can no longer be deleted by hand; the delete entry points to their switch in the settings, and deleting a group with its challenges keeps them (`ChallengeCheckoff.canDelete`). Test: `onlyManualChallengesCanBeDeleted`.
 - **Finance settings:** New order: accounts, bank import, Trade Republic, shortcuts and notices, portfolio, budget alerts and review notice, finance lock. The separate accounts screen is gone; the accounts are a section with tap to edit, swipe to delete, and "Add account" (`AccountsSection`).
 
+### Owner feedback: Variable costs as splits, one rule per cost, account-free rules, period review
+
+- **Booking form:** "Assignment" is now "Direct assignment" with fixed cost and shopping item only. A variable cost appears in the split section, with the full amount when it is the only one; splitting it into two changes it everywhere, because one cost with the whole amount is stored on the booking and several as splits (`VariableShares`). A single variable cost follows a changed amount. Assigning a variable cost elsewhere (review, detail, forecast) removes earlier variable splits, so nothing counts twice. No storage change: the existing field and splits are used as before.
+- **One cost per rule:** A name or IBAN rule belongs to one variable cost; saving it in another moves it (`BudgetPayeeRules.set`). Pools may still share rules.
+- **Account-free:** Rules match bookings on any account. When a variable cost limited to some accounts takes a booking from another account, that account is added to its accounts (`VariableBudgetAccounts.include`).
+- **Period review:** "Monatsrückblick" is renamed "Zeitraumsrückblick" (screen, notice switch) and moved below Debts in More.
+- Tests: `aRuleBelongsToOneVariableCostButPoolsMayShare`, `oneCostTakesTheWholeAmountDirectlyAndSeveralAreSplits`, `rulesMatchByIBANOrNameOnAnyAccount`; the navigation scenario checks the new order.
+
 ## Deutsch
 
 ### Überblick
@@ -945,3 +953,11 @@ Screens und ein Teil der Methoden-Zerlegung noch offen (siehe letzter Abschnitt)
 - **Wischen in Details:** In der Detailansicht eines Pools und einer variablen Kosten löst Linkswischen eine Buchung (die Buchung bleibt), Rechtswischen öffnet das Formular der Buchung selbst.
 - **Automatische Challenges:** Schritt- und Ernährungs-Challenges lassen sich nicht mehr von Hand löschen; der Löschen-Eintrag verweist auf ihren Schalter in den Einstellungen, und beim Löschen einer Gruppe mitsamt Challenges bleiben sie (`ChallengeCheckoff.canDelete`). Test: `onlyManualChallengesCanBeDeleted`.
 - **Finanz-Einstellungen:** Neue Reihenfolge: Konten, Bankimport, Trade Republic, Kurzbefehle und Mitteilungen, Depot, Budget-Warnungen und Monatsrückblick, Finanzsperre. Die eigene Kontenansicht entfällt; die Konten sind ein Abschnitt mit Tippen zum Bearbeiten, Wischen zum Löschen und „Konto anlegen“ (`AccountsSection`).
+
+### Rückmeldung des Eigentümers: Variable Kosten als Split, eine Regel je Kostenstelle, kontenunabhängige Regeln, Zeitraumsrückblick
+
+- **Buchungsformular:** „Zuordnung“ heißt jetzt „Direkte Zuordnung“ und enthält nur Fixkosten und Einkauf. Eine variable Kosten steht im Split-Abschnitt, mit vollem Betrag, wenn sie die einzige ist; wird sie in zwei geteilt, ändert sich das überall, denn eine Kostenstelle mit dem ganzen Betrag wird an der Buchung gespeichert, mehrere als Splits (`VariableShares`). Eine einzelne variable Kosten folgt einem geänderten Betrag. Wird eine variable Kosten anderswo zugeordnet (Prüfung, Detailansicht, Prognose), entfallen frühere variable Splits, damit nichts doppelt zählt. Keine Speicheränderung: Feld und Splits werden wie bisher genutzt.
+- **Eine Kostenstelle je Regel:** Eine Namens- oder IBAN-Regel gehört zu einer variablen Kosten; wird sie bei einer anderen gespeichert, wechselt sie (`BudgetPayeeRules.set`). Pools dürfen Regeln weiter teilen.
+- **Kontenunabhängig:** Regeln greifen auf jedem Konto. Nimmt eine auf einige Konten begrenzte variable Kosten eine Buchung eines anderen Kontos, kommt dieses Konto zu ihren Konten (`VariableBudgetAccounts.include`).
+- **Zeitraumsrückblick:** „Monatsrückblick“ heißt jetzt „Zeitraumsrückblick“ (Ansicht und Mitteilungs-Schalter) und steht unter Schulden in Weitere Bereiche.
+- Tests: `aRuleBelongsToOneVariableCostButPoolsMayShare`, `oneCostTakesTheWholeAmountDirectlyAndSeveralAreSplits`, `rulesMatchByIBANOrNameOnAnyAccount`; das Navigations-Szenario prüft die neue Reihenfolge.

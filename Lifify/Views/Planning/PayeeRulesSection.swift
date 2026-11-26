@@ -12,6 +12,8 @@ struct PayeeRulesSection: View {
     @Binding var rules: [String]
     @Binding var newRule: String
     @Binding var showingPicker: Bool
+    /// Variable costs own their rules alone; pools may share them.
+    var isExclusive = true
 
     var body: some View {
         Section {
@@ -36,9 +38,12 @@ struct PayeeRulesSection: View {
             Text(L("Automatisch zuordnen", "Assign automatically"))
         } footer: {
             Text(L(
-                "Ausgaben, deren Empfänger-IBAN passt oder deren Name den Text enthält, kommen hierher: beim Speichern alle bisherigen ohne Zuordnung, danach jede neue aus Bankimport und Mitteilungen. Einzelne Buchungen lassen sich jederzeit anders zuordnen.",
-                "Expenses whose recipient IBAN fits or whose name contains the text land here: on saving all earlier ones without an assignment, then every new one from bank imports and notices. Single bookings can always be assigned differently."
-            ))
+                "Ausgaben, deren Empfänger-IBAN passt oder deren Name den Text enthält, kommen hierher, egal auf welchem Konto: beim Speichern alle bisherigen ohne Zuordnung, danach jede neue aus Bankimport und Mitteilungen. Einzelne Buchungen lassen sich jederzeit anders zuordnen.",
+                "Expenses whose recipient IBAN fits or whose name contains the text land here, on any account: on saving all earlier ones without an assignment, then every new one from bank imports and notices. Single bookings can always be assigned differently."
+            ) + (isExclusive ? " " + L(
+                "Eine Regel gehört zu genau einer variablen Kosten; hat eine andere sie schon, wechselt sie beim Speichern hierher.",
+                "A rule belongs to exactly one variable cost; if another one has it, it moves here on saving."
+            ) : ""))
         }
         .appGlassRow()
     }

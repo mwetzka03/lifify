@@ -286,7 +286,8 @@ struct ForecastDetailView: View {
     /// Assigns the booking to a budget.
     private func assignVariable(_ budgetID: UUID) {
         guard let chosen, let entry = entries.first(where: { $0.id == chosen }) else { return }
-        entry.variableBudgetID = budgetID
+        // The whole amount goes to the budget, so earlier variable splits of the booking go away.
+        BookingTarget.variableBudget(budgetID).apply(to: entry, context: context)
         if let link = ForecastPeriodLinkStore.link(for: entry.id), link.kind == .variable {
             ForecastPeriodLinkStore.clear(entryID: entry.id)
         }

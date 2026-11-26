@@ -1852,6 +1852,22 @@ public enum VariableBudgetAccounts {
         save(map)
     }
 
+    /// Adds a booking's account to a variable cost that is limited to other accounts, so an
+    /// assignment by rule, which ignores accounts, also counts in that account's plan.
+    ///
+    /// - Parameters:
+    ///   - accountID: The account of the assigned booking.
+    ///   - budget: The variable cost.
+    public static func include(_ accountID: UUID?, in budget: VariableBudget) {
+        guard let accountID else { return }
+        if let stored = storedIDs(for: budget.id), !stored.isEmpty {
+            if !stored.contains(accountID) { set(stored + [accountID], for: budget.id) }
+        } else if storedIDs(for: budget.id) == nil, let single = budget.accountID, single != accountID {
+            set([single, accountID], for: budget.id)
+            budget.accountID = nil
+        }
+    }
+
     /// Chosen cash accounts. An empty result means every cash account.
     public static func targets(for budget: VariableBudget, cashAccountIDs: [UUID]) -> [UUID] {
         if let stored = storedIDs(for: budget.id) {

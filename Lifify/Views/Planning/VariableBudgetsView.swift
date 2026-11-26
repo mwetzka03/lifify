@@ -443,7 +443,10 @@ private struct BudgetBookingAdder: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(L("Hinzufügen", "Add")) {
-                        entries.filter { chosen.contains($0.id) }.forEach(BookingTarget.variableBudget(budget.id).apply)
+                        for entry in entries where chosen.contains(entry.id) {
+                            BookingTarget.variableBudget(budget.id).apply(to: entry, context: context)
+                            VariableBudgetAccounts.include(entry.accountID, in: budget)
+                        }
                         try? context.save()
                         dismiss()
                     }

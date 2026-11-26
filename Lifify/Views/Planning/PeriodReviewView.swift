@@ -35,7 +35,7 @@ struct PeriodReviewView: View {
             }
         }
         .appGlassList()
-        .navigationTitle(L("Rückblick", "Review"))
+        .navigationTitle(L("Zeitraumsrückblick", "Period review"))
         .navigationBarTitleDisplayMode(.inline)
     }
 

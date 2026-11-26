@@ -34,7 +34,6 @@ final class TransactionFormViewModel: ObservableObject {
     @Published var fromAccountID: UUID?
     @Published var toAccountID: UUID?
     @Published var fixedCostID: UUID?
-    @Published var variableBudgetID: UUID?
     @Published var shoppingItemID: UUID?
     @Published var refundOriginalID: UUID?
     @Published var transferForecastID: UUID?
@@ -58,7 +57,6 @@ final class TransactionFormViewModel: ObservableObject {
         fromAccountID = entry?.fromAccountID
         toAccountID = entry?.toAccountID
         fixedCostID = entry?.fixedCostID
-        variableBudgetID = entry?.variableBudgetID
         shoppingItemID = entry?.shoppingItemID
         refundOriginalID = entry.flatMap { RefundLinkStore.originalID(for: $0.id) }
         if entry == nil, let refundOriginal {
@@ -71,9 +69,10 @@ final class TransactionFormViewModel: ObservableObject {
             date = .now
         }
         transferForecastID = entry.flatMap { TransferForecastAssignmentStore.forecastID(for: $0.id) }
-        variableSplits = splits
-            .filter { $0.transactionID == entry?.id && $0.kind == .variableBudget }
-            .map { SplitDraft(targetID: $0.targetID, amountText: String(format: "%.2f", Double($0.amountCents) / 100)) }
+        variableSplits = entry.map { entry in
+            VariableShares.shares(of: entry, splits: splits)
+                .map { SplitDraft(targetID: $0.targetID, amountText: String(format: "%.2f", Double($0.amount) / 100)) }
+        } ?? []
         poolSplits = splits
             .filter { $0.transactionID == entry?.id && $0.kind == .budgetPool }
             .map { SplitDraft(targetID: $0.targetID, amountText: String(format: "%.2f", Double($0.amountCents) / 100)) }
@@ -220,7 +219,7 @@ final class TransactionFormViewModel: ObservableObject {
                 return false
             }
         }
-        let variableValues: [(targetID: UUID, amount: Int)]?
+        var variableValues: [(targetID: UUID, amount: Int)]?
         let poolValues: [(targetID: UUID, amount: Int)]?
         if category == .expense {
             variableValues = splitValues(variableSplits)
@@ -235,6 +234,10 @@ final class TransactionFormViewModel: ObservableObject {
         }
         let previousShoppingID = existing?.shoppingItemID
         let absolute = abs(rawAmount)
+        // A single variable cost always takes the whole amount, also after the amount changed.
+        if variableSplits.count == 1, let only = variableValues?.first {
+            variableValues = [(only.targetID, absolute)]
+        }
         if let values = variableValues, !values.isEmpty, values.reduce(0, { $0 + $1.amount }) != absolute {
             errorMessage = L("Variable Splits müssen dem Gesamtbetrag entsprechen.", "Variable splits must equal the total.")
             return false
@@ -265,12 +268,13 @@ final class TransactionFormViewModel: ObservableObject {
         entry.fromAccountID = category.usesTwoAccounts ? fromAccountID : nil
         entry.toAccountID = category.usesTwoAccounts ? toAccountID : nil
         entry.fixedCostID = category == .expense ? fixedCostID : nil
-        entry.variableBudgetID = category == .expense && variableValues?.isEmpty != false ? variableBudgetID : nil
+        let shares = VariableShares.storage(variableValues ?? [])
+        entry.variableBudgetID = category == .expense ? shares.direct : nil
         entry.shoppingItemID = category == .expense ? shoppingItemID : nil
         if existing == nil { context.insert(entry) }
 
         allSplits.filter { $0.transactionID == id }.forEach { context.delete($0) }
-        variableValues?.forEach {
+        shares.splits.forEach {
             context.insert(TransactionSplit(transactionID: id, targetID: $0.targetID, kind: .variableBudget, periodKey: date.monthKey, amountCents: $0.amount))
         }
         poolValues?.forEach { value in

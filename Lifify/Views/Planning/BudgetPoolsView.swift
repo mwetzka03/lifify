@@ -216,7 +216,7 @@ private struct BudgetPoolForm: View {
                 ))
                 .font(.caption)
                 .foregroundStyle(.secondary)
-                PayeeRulesSection(rules: $rules, newRule: $newRule, showingPicker: $showingPayeePicker)
+                PayeeRulesSection(rules: $rules, newRule: $newRule, showingPicker: $showingPayeePicker, isExclusive: false)
             }
             .payeeRulePicker(isPresented: $showingPayeePicker, rules: $rules)
             .appGlassList()
