@@ -426,6 +426,11 @@ of the method splitting are still open (see the last section).
 - **Jumping loader:** The ring jumped back to its start again and again, because every SwiftUI update and layout pass restarted its rotation. A running rotation is now never restarted; only a missing one is added (after leaving and re-entering the window).
 - **New look:** Following an example the owner chose: three concentric rings, each showing its top quarter in the style color, turning counterclockwise at 0.85, 0.95, and 1.05 seconds per turn. It still runs as Core Animation on the render server and stands still under Reduce Motion.
 
+### Owner feedback: Refund suggestions and the full fixed-cost form
+
+- **Refund link:** The expense list is split into two boxes, "Suggestions" (same payee name, or paid to the IBAN the income came from) and "All expenses", so it is clear why an expense stands on top. Matching by IBAN is new. Test: `anIncomeLinksToAnExpenseAndBookingsShowTheFixedCostIcon` (name and IBAN cases).
+- **Fixed cost from a booking:** The sheet now shows every field of the normal fixed-cost form on top (name, amount, icon, account, rhythm, first due date, due rule, day, active), prefilled from the payments; the related payments sit at the bottom. The fields and the saving live once in `FixedCostDraft` (LififyFinance) and `FixedCostFields`, used by both forms, so the normal form behaves as before. Test: `aFixedCostFromABookingTakesTheSamePayeeAndAssignsNewImports` checks the prefilled values.
+
 ## Deutsch
 
 ### Überblick
@@ -869,3 +874,8 @@ Screens und ein Teil der Methoden-Zerlegung noch offen (siehe letzter Abschnitt)
 
 - **Springende Animation:** Der Ring sprang immer wieder an seinen Anfang zurück, weil jedes SwiftUI-Update und jeder Layout-Durchlauf die Drehung neu startete. Eine laufende Drehung wird jetzt nie neu gestartet; nur eine fehlende kommt dazu (nach Verlassen und Wiederkehren ins Fenster).
 - **Neues Aussehen:** Nach einem Beispiel des Eigentümers: drei Ringe ineinander, jeder zeigt sein oberes Viertel in der Stilfarbe und dreht sich gegen den Uhrzeigersinn mit 0,85, 0,95 und 1,05 Sekunden pro Umdrehung. Sie läuft weiter als Core Animation auf dem Render-Server und steht bei „Bewegung reduzieren“ still.
+
+### Rückmeldung des Eigentümers: Rückerstattungs-Vorschläge und volles Fixkosten-Formular
+
+- **Rückerstattung verknüpfen:** Die Ausgabenliste ist in zwei Boxen geteilt, „Vorschläge“ (gleicher Empfängername oder an die IBAN, von der die Einnahme kam) und „Alle Ausgaben“, damit klar ist, warum eine Ausgabe oben steht. Der Abgleich über die IBAN ist neu. Test: `anIncomeLinksToAnExpenseAndBookingsShowTheFixedCostIcon` (Name und IBAN).
+- **Fixkosten aus einer Buchung:** Das Blatt zeigt oben jetzt alle Felder des normalen Fixkosten-Formulars (Name, Betrag, Symbol, Konto, Rhythmus, erste Fälligkeit, Fälligkeitsregel, Tag, aktiv), vorausgefüllt aus den Zahlungen; die zugehörigen Zahlungen stehen ganz unten. Felder und Speichern gibt es nur einmal in `FixedCostDraft` (LififyFinance) und `FixedCostFields`, die beide Formulare nutzen; das normale Formular verhält sich wie bisher. Test: `aFixedCostFromABookingTakesTheSamePayeeAndAssignsNewImports` prüft die vorausgefüllten Werte.

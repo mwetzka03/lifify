@@ -12,15 +12,14 @@ struct FixedCostFromBookingView: View {
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
     @Query private var entries: [LedgerEntry]
-    @State private var name: String
-    @State private var icon = "repeat"
+    @State private var draft: FixedCostDraft
     @State private var chosen: Set<UUID>
     @State private var related: [LedgerEntry] = []
 
-    /// Starts with the booking's title as name and only the booking itself chosen until the list loads.
+    /// Starts with the values of the booking itself until the related payments are loaded.
     init(source: LedgerEntry) {
         self.source = source
-        _name = State(initialValue: source.title)
+        _draft = State(initialValue: FixedCostFromBooking.suggestedDraft(name: source.title, source: source, chosen: [source]))
         _chosen = State(initialValue: [source.id])
     }
 
@@ -28,8 +27,7 @@ struct FixedCostFromBookingView: View {
         NavigationStack {
             AppForm {
                 Section {
-                    TextField(L("Name", "Name"), text: $name)
-                    SymbolPicker(title: L("Symbol", "Icon"), selection: $icon)
+                    FixedCostFields(draft: $draft)
                 }
                 Section {
                     ForEach(related) { entry in
@@ -52,12 +50,18 @@ struct FixedCostFromBookingView: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(L("Anlegen", "Create"), action: create)
-                        .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
+                        .disabled(!draft.isComplete)
                 }
             }
             .task {
                 related = FixedCostFromBooking.related(to: source, in: entries)
                 chosen = Set(related.map(\.id))
+                // The other payments refine rhythm and first date; name and icon stay as the person sees them.
+                let suggested = FixedCostFromBooking.suggestedDraft(name: draft.name, source: source, chosen: related)
+                draft.cadence = suggested.cadence
+                draft.firstDate = suggested.firstDate
+                draft.amountText = suggested.amountText
+                draft.day = suggested.day
             }
         }
     }
@@ -85,45 +89,40 @@ struct FixedCostFromBookingView: View {
 
     /// Creates the fixed cost from the chosen bookings and closes the sheet.
     private func create() {
+        guard let cost = draft.save(into: nil, context: context) else { return }
         let picked = related.filter { chosen.contains($0.id) }
-        FixedCostFromBooking.create(
-            name: name.trimmingCharacters(in: .whitespaces),
-            source: source,
-            chosen: picked,
-            icon: icon,
-            context: context
-        )
+        FixedCostFromBooking.link(cost: cost, source: source, chosen: picked, context: context)
         dismiss()
     }
 }
 
 /// Links an income to an earlier expense as its refund.
+///
+/// Expenses of the same payee or IBAN stand in their own box above all others, so the order explains itself.
 struct RefundLinkPicker: View {
     let income: LedgerEntry
     @Environment(\.dismiss) private var dismiss
     @Query(sort: \LedgerEntry.date, order: .reverse) private var entries: [LedgerEntry]
 
     var body: some View {
+        let groups = RefundCandidates.groups(for: income, in: entries)
         NavigationStack {
             AppForm {
                 Section {
-                    ForEach(RefundCandidates.expenses(for: income, in: entries)) { expense in
-                        Button {
-                            RefundLinkStore.link(refundID: income.id, to: expense.id)
-                            dismiss()
-                        } label: {
-                            HStack {
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(expense.title).foregroundStyle(.primary).lineLimit(1)
-                                    Text(AppDate.numeric(expense.date)).font(.caption).foregroundStyle(.secondary)
-                                }
-                                Spacer()
-                                Text(Money.string(cents: expense.amountCents))
-                                    .foregroundStyle(BookingClassification.differenceColor(expense.amountCents))
-                            }
-                        }
-                        .buttonStyle(.plain)
+                    if groups.suggested.isEmpty {
+                        Text(L("Keine Ausgabe mit demselben Namen oder derselben IBAN.", "No expense with the same name or IBAN."))
+                            .foregroundStyle(.secondary)
                     }
+                    ForEach(groups.suggested) { expenseButton($0) }
+                } header: {
+                    Text(L("Vorschläge", "Suggestions"))
+                } footer: {
+                    Text(L("Gleicher Name oder gleiche IBAN wie die Einnahme.", "Same name or IBAN as the income."))
+                }
+                Section {
+                    ForEach(groups.others) { expenseButton($0) }
+                } header: {
+                    Text(L("Alle Ausgaben", "All expenses"))
                 } footer: {
                     Text(L(
                         "Die Einnahme zählt danach als Rückerstattung dieser Ausgabe. Ein späterer Import ändert die Verknüpfung nicht.",
@@ -139,5 +138,24 @@ struct RefundLinkPicker: View {
                 }
             }
         }
+    }
+
+    /// One expense that links the income to it when tapped.
+    private func expenseButton(_ expense: LedgerEntry) -> some View {
+        Button {
+            RefundLinkStore.link(refundID: income.id, to: expense.id)
+            dismiss()
+        } label: {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(expense.title).foregroundStyle(.primary).lineLimit(1)
+                    Text(AppDate.numeric(expense.date)).font(.caption).foregroundStyle(.secondary)
+                }
+                Spacer()
+                Text(Money.string(cents: expense.amountCents))
+                    .foregroundStyle(BookingClassification.differenceColor(expense.amountCents))
+            }
+        }
+        .buttonStyle(.plain)
     }
 }

@@ -517,8 +517,9 @@ buy, portfolio sale, and savings plan use it, and only on the portfolio side.
   - A transfer that looks like an expense on a single account does not get this
     button.
 - An imported income can be linked to an earlier expense as its refund
-  ("Link as refund"). Expenses of the same payee come first, then the newest of
-  the past year. The link can be removed again on the refund's detail.
+  ("Link as refund"). A "Suggestions" box lists expenses of the same payee name
+  or paid to the IBAN the income came from; "All expenses" below lists the
+  others of the past year, newest first. The link can be removed again on the refund's detail.
 - A booking from a bank import keeps everything the person set on it, even
   when the same statement is imported again: refund links, fixed-cost, budget,
   and shopping assignments, splits, and picked icons move to the rebuilt
@@ -526,8 +527,10 @@ buy, portfolio sale, and savings plan use it, and only on the portfolio side.
 - **Fixed cost from a booking:** on an expense without a fixed cost, "Add as
   fixed cost" lists the payments to the same payee on the same account: the
   same recipient IBAN when the notes carry one, otherwise the same payee name.
-  Amounts may differ. The chosen payments are linked; amount and day follow the
-  newest, the rhythm follows the gaps (monthly when unclear). The payee is
+  Amounts may differ. The sheet has every field of the normal fixed-cost form
+  on top, prefilled: amount, account, and day from the newest payment, the
+  rhythm from the gaps (monthly when unclear), the first date from the oldest.
+  The payments sit at the bottom; the chosen ones are linked. The payee is
   stored, so later imports assign its new bookings to the fixed cost, only
   while they have none (`FixedCostFromBooking`). Booking rows show the icon of
   their fixed cost or variable cost.
@@ -1337,8 +1340,10 @@ Depotkauf, Depotverkauf und Sparplan nutzen es, und dort nur auf der Depotseite.
   - Eine Umbuchung, die auf einem einzelnen Konto wie eine Ausgabe aussieht,
     bekommt diesen Button nicht.
 - Eine importierte Einnahme lässt sich als Rückerstattung mit einer früheren
-  Ausgabe verknüpfen („Als Rückerstattung verknüpfen“). Ausgaben desselben
-  Empfängers stehen oben, danach die neuesten des letzten Jahres. In der
+  Ausgabe verknüpfen („Als Rückerstattung verknüpfen“). Eine Box „Vorschläge“
+  zeigt Ausgaben mit demselben Empfängernamen oder an die IBAN, von der die
+  Einnahme kam; darunter stehen in „Alle Ausgaben“ die übrigen des letzten
+  Jahres, die neuesten zuerst. In der
   Detailansicht der Rückerstattung lässt sich die Verknüpfung wieder lösen.
 - Eine Buchung aus einem Bankimport behält alles, was die Person an ihr
   eingestellt hat, auch wenn derselbe Auszug erneut importiert wird:
@@ -1348,9 +1353,11 @@ Depotkauf, Depotverkauf und Sparplan nutzen es, und dort nur auf der Depotseite.
 - **Fixkosten aus einer Buchung:** Bei einer Ausgabe ohne Fixkosten listet „Als
   Fixkosten anlegen“ die Zahlungen an denselben Empfänger auf demselben Konto:
   dieselbe Empfänger-IBAN, wenn die Notizen eine tragen, sonst derselbe
-  Empfängername. Beträge dürfen abweichen. Die gewählten Zahlungen werden
-  verknüpft; Betrag und Tag folgen der neuesten, der Rhythmus den Abständen
-  (monatlich, wenn unklar). Der Empfänger wird gespeichert, so dass spätere
+  Empfängername. Beträge dürfen abweichen. Oben stehen alle Felder des
+  normalen Fixkosten-Formulars, vorausgefüllt: Betrag, Konto und Tag aus der
+  neuesten Zahlung, der Rhythmus aus den Abständen (monatlich, wenn unklar),
+  die erste Fälligkeit aus der ältesten. Die Zahlungen stehen ganz unten; die
+  gewählten werden verknüpft. Der Empfänger wird gespeichert, so dass spätere
   Importe seine neuen Buchungen den Fixkosten zuordnen, nur solange sie keine
   haben (`FixedCostFromBooking`). Buchungszeilen zeigen das Symbol ihrer
   Fixkosten oder variablen Kosten.

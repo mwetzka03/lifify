@@ -79,6 +79,10 @@ extension LififyRuleTests {
 
                 let related = FixedCostFromBooking.related(to: gym[2], in: gym + [other])
                 #expect(related.map(\.id) == gym.reversed().map(\.id))
+                let draft = FixedCostFromBooking.suggestedDraft(name: "Fitnessstudio", source: gym[2], chosen: related)
+                #expect(draft.amountCents == 3_499)
+                #expect(draft.day == 3)
+                #expect(Calendar.current.isDate(draft.firstDate, inSameDayAs: date(2026, 1, 3)))
                 let cost = FixedCostFromBooking.create(name: "Fitnessstudio", source: gym[2], chosen: related, icon: "dumbbell", context: store.context)
                 #expect(cost.amountCents == 3_499)
                 #expect(cost.cadence == .monthly)
@@ -102,8 +106,14 @@ extension LififyRuleTests {
                 let later = LedgerEntry(date: date(2026, 3, 20), title: "Zalando", amountCents: -1_000, kind: .expense)
                 let back = LedgerEntry(date: date(2026, 3, 12), title: "Zalando Erstattung", amountCents: 8_000, kind: .income)
                 [shoes, food, later, back].forEach(store.context.insert)
-                let offered = RefundCandidates.expenses(for: back, in: [shoes, food, later, back])
-                #expect(offered.map(\.id) == [shoes.id, food.id])
+                let offered = RefundCandidates.groups(for: back, in: [shoes, food, later, back])
+                #expect(offered.suggested.map(\.id) == [shoes.id])
+                #expect(offered.others.map(\.id) == [food.id])
+                // The same IBAN makes a suggestion even under another name.
+                let iban = "DE89370400440532013000"
+                let shop = LedgerEntry(date: date(2026, 3, 2), title: "AMZN Mktp", notes: "Empfänger-IBAN: \(iban)", amountCents: -4_000, kind: .expense)
+                let credit = LedgerEntry(date: date(2026, 3, 8), title: "Gutschrift", notes: "Sender-IBAN: \(iban)", amountCents: 4_000, kind: .income)
+                #expect(RefundCandidates.groups(for: credit, in: [shop, food, credit]).suggested.map(\.id) == [shop.id])
                 RefundLinkStore.link(refundID: back.id, to: shoes.id)
                 #expect(BookingClassification.category(of: back, accounts: [], viewedAccountID: nil) == .refund)
                 #expect(RefundCandidates.expenses(for: back, in: [shoes, back]).map(\.id) == [shoes.id])

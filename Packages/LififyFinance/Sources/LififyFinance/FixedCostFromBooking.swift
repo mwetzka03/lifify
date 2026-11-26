@@ -36,15 +36,44 @@ public enum FixedCostFromBooking {
         return matches.sorted { $0.date > $1.date }
     }
 
-    /// Creates the fixed cost from the chosen bookings and links them.
+    /// The form values the chosen bookings suggest: name and icon as given, amount and day of the
+    /// newest booking, its account, the rhythm of the gaps (monthly when unclear), and the first date.
     ///
     /// - Parameters:
-    ///   - name: The name of the fixed cost.
+    ///   - name: The name to start with.
+    ///   - source: The booking the person started from.
+    ///   - chosen: The bookings that belong to the fixed cost.
+    /// - Returns: A draft the person can still change before saving.
+    public static func suggestedDraft(name: String, source: LedgerEntry, chosen: [LedgerEntry]) -> FixedCostDraft {
+        let bookings = sortedBookings(source: source, chosen: chosen)
+        let newest = bookings.last ?? source
+        var draft = FixedCostDraft(cost: nil)
+        draft.name = name
+        draft.amountText = FixedCostDraft.amountText(cents: newest.amountCents)
+        draft.accountID = newest.accountID
+        draft.cadence = SubscriptionDetector.cadence(of: bookings.map(\.date)) ?? .monthly
+        draft.firstDate = bookings.first?.date ?? newest.date
+        draft.day = Calendar.current.component(.day, from: newest.date)
+        return draft
+    }
+
+    /// Links the chosen bookings to a saved fixed cost and stores the payee for later imports.
+    ///
+    /// - Parameters:
+    ///   - cost: The fixed cost the person just saved.
     ///   - source: The booking the person started from; its payee becomes the rule for new bookings.
-    ///   - chosen: The bookings that belong to it, the source included.
-    ///   - icon: The symbol picked for the fixed cost, if any.
+    ///   - chosen: The bookings that belong to it; the source always does.
     ///   - context: The database context.
-    /// - Returns: The new fixed cost. Its amount and day follow the newest booking, its rhythm the gaps.
+    public static func link(cost: FixedCost, source: LedgerEntry, chosen: [LedgerEntry], context: ModelContext) {
+        sortedBookings(source: source, chosen: chosen).forEach { $0.fixedCostID = cost.id }
+        let key = payeeKey(of: source)
+        if !key.isEmpty { LinkTable.set(.fixedCostPayee, key: cost.id.uuidString, value: key) }
+        try? context.save()
+    }
+
+    /// Creates the fixed cost with the suggested values and links the bookings in one step.
+    ///
+    /// - Returns: The new fixed cost.
     @discardableResult
     public static func create(
         name: String,
@@ -53,23 +82,17 @@ public enum FixedCostFromBooking {
         icon: String?,
         context: ModelContext
     ) -> FixedCost {
-        let bookings = (chosen.contains { $0.id == source.id } ? chosen : chosen + [source]).sorted { $0.date < $1.date }
-        let newest = bookings.last ?? source
-        let cost = FixedCost(
-            name: name,
-            amountCents: abs(newest.amountCents),
-            accountID: newest.accountID,
-            cadence: SubscriptionDetector.cadence(of: bookings.map(\.date)) ?? .monthly,
-            firstChargeDate: bookings.first?.date ?? newest.date,
-            dayOfMonth: Calendar.current.component(.day, from: newest.date)
-        )
-        context.insert(cost)
-        bookings.forEach { $0.fixedCostID = cost.id }
-        if let icon { IconPreferenceStore.set(icon, for: cost.id) }
-        let key = payeeKey(of: source)
-        if !key.isEmpty { LinkTable.set(.fixedCostPayee, key: cost.id.uuidString, value: key) }
-        try? context.save()
+        var draft = suggestedDraft(name: name, source: source, chosen: chosen)
+        if let icon { draft.icon = icon }
+        let cost = draft.save(into: nil, context: context) ?? FixedCost(name: name, amountCents: abs(source.amountCents))
+        if cost.modelContext == nil { context.insert(cost) }
+        link(cost: cost, source: source, chosen: chosen, context: context)
         return cost
+    }
+
+    /// The chosen bookings with the source, oldest first.
+    private static func sortedBookings(source: LedgerEntry, chosen: [LedgerEntry]) -> [LedgerEntry] {
+        (chosen.contains { $0.id == source.id } ? chosen : chosen + [source]).sorted { $0.date < $1.date }
     }
 
     /// Assigns newly imported bookings to the fixed cost whose payee they pay.

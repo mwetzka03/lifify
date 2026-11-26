@@ -196,62 +196,18 @@ struct FixedCostsView: View {
 struct FixedCostForm: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
-    @Query(sort: \Account.name) private var accounts: [Account]
     private let existing: FixedCost?
-    @State private var name: String
-    @State private var amount = ""
-    @State private var accountID: UUID?
-    @State private var cadence: Cadence
-    @State private var firstDate: Date
-    @State private var dueRule: DueRule
-    @State private var day: Int
-    @State private var active: Bool
-    @State private var icon: String
-    private let managed: Bool
+    @State private var draft: FixedCostDraft
 
     init(cost: FixedCost?) {
         existing = cost
-        _name = State(initialValue: cost?.name ?? "")
-        _amount = State(initialValue: cost.map { String(format: "%.2f", Double($0.amountCents) / 100) } ?? "")
-        _accountID = State(initialValue: cost?.accountID)
-        _cadence = State(initialValue: cost?.cadence ?? .monthly)
-        _firstDate = State(initialValue: cost?.firstChargeDate ?? .now)
-        _dueRule = State(initialValue: cost?.dueRule ?? .calendarDay)
-        _day = State(initialValue: cost?.dayOfMonth ?? 1)
-        _active = State(initialValue: cost?.isActive ?? true)
-        _icon = State(initialValue: cost.map { IconPreferenceStore.icon(for: $0.id, fallback: "repeat") } ?? "repeat")
-        managed = cost.map { SavingsPlanFixedCosts.isManagedName($0.name) } ?? false
+        _draft = State(initialValue: FixedCostDraft(cost: cost))
     }
 
     var body: some View {
         NavigationStack {
             AppForm {
-                TextField(L("Name", "Name"), text: $name)
-                TextField(L("Betrag", "Amount"), text: $amount).keyboardType(.decimalPad)
-                SymbolPicker(title: L("Symbol", "Icon"), selection: $icon)
-                Picker(L("Konto", "Account"), selection: $accountID) {
-                    Text(L("Keins", "None")).tag(Optional<UUID>.none)
-                    ForEach(accounts.filter { $0.kind != .portfolio && $0.kind != .savingsGroup }) {
-                        Text($0.name).tag(Optional($0.id))
-                    }
-                }
-                Picker(L("Rhythmus", "Cadence"), selection: $cadence) {
-                    ForEach(Cadence.allCases) { Text($0.label).tag($0) }
-                }
-                if managed {
-                    Text(CalendarService.savingsPlanScheduleText(cadence: cadence))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                } else {
-                    AppDateField(title: L("Erste Fälligkeit", "First due date"), selection: $firstDate)
-                    Picker(L("Fälligkeitsregel", "Due rule"), selection: $dueRule) {
-                        ForEach(DueRule.allCases) { Text($0.label).tag($0) }
-                    }
-                    if dueRule == .calendarDay {
-                        Stepper("\(L("Tag", "Day")): \(day)", value: $day, in: 1...31)
-                    }
-                }
-                Toggle(L("Aktiv", "Active"), isOn: $active)
+                FixedCostFields(draft: $draft)
             }
             .appGlassList()
             .navigationTitle(existing == nil ? L("Neue Fixkosten", "New fixed cost") : L("Fixkosten bearbeiten", "Edit fixed cost"))
@@ -259,32 +215,46 @@ struct FixedCostForm: View {
                 ToolbarItem(placement: .cancellationAction) { Button(L("Abbrechen", "Cancel")) { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(L("Speichern", "Save")) {
-                        guard let cents = Money.cents(from: amount), !name.isEmpty else { return }
-                        let cost = existing ?? FixedCost(name: name, amountCents: abs(cents))
-                        cost.name = name
-                        cost.amountCents = abs(cents)
-                        cost.accountID = accountID
-                        cost.cadence = cadence
-                        cost.firstChargeDate = firstDate
-                        cost.dueRule = managed ? .calendarDay : dueRule
-                        cost.dayOfMonth = managed ? 2 : day
-                        cost.isActive = active
-                        if managed && !SavingsPlanFixedCosts.isManagedName(cost.name) {
-                            cost.name = "\(SavingsPlanFixedCosts.namePrefix)\(name)"
-                        }
-                        if existing == nil { context.insert(cost) }
-                        IconPreferenceStore.set(icon, for: cost.id)
-                        if managed {
-                            SavingsPlanFixedCosts.adopt(cost)
-                        }
-                        try? context.save()
-                        if managed {
-                            SavingsPlanFixedCosts.sync(context: context)
-                        }
-                        dismiss()
+                        if draft.save(into: existing, context: context) != nil { dismiss() }
                     }
+                    .disabled(!draft.isComplete)
                 }
             }
         }
+    }
+}
+
+/// The input fields of a fixed cost, shared by every form that creates or edits one.
+struct FixedCostFields: View {
+    @Binding var draft: FixedCostDraft
+    @Query(sort: \Account.name) private var accounts: [Account]
+
+    var body: some View {
+        TextField(L("Name", "Name"), text: $draft.name)
+        TextField(L("Betrag", "Amount"), text: $draft.amountText).keyboardType(.decimalPad)
+        SymbolPicker(title: L("Symbol", "Icon"), selection: $draft.icon)
+        Picker(L("Konto", "Account"), selection: $draft.accountID) {
+            Text(L("Keins", "None")).tag(Optional<UUID>.none)
+            ForEach(accounts.filter { $0.kind != .portfolio && $0.kind != .savingsGroup }) {
+                Text($0.name).tag(Optional($0.id))
+            }
+        }
+        Picker(L("Rhythmus", "Cadence"), selection: $draft.cadence) {
+            ForEach(Cadence.allCases) { Text($0.label).tag($0) }
+        }
+        if draft.isManaged {
+            Text(CalendarService.savingsPlanScheduleText(cadence: draft.cadence))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        } else {
+            AppDateField(title: L("Erste Fälligkeit", "First due date"), selection: $draft.firstDate)
+            Picker(L("Fälligkeitsregel", "Due rule"), selection: $draft.dueRule) {
+                ForEach(DueRule.allCases) { Text($0.label).tag($0) }
+            }
+            if draft.dueRule == .calendarDay {
+                Stepper("\(L("Tag", "Day")): \(draft.day)", value: $draft.day, in: 1...31)
+            }
+        }
+        Toggle(L("Aktiv", "Active"), isOn: $draft.isActive)
     }
 }
