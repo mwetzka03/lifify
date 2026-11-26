@@ -250,6 +250,8 @@ struct VariableBudgetForm: View {
     @State private var icon: String
     @State private var rules: [String]
     @State private var newRule = ""
+    @State private var pickedBookings: [LedgerEntry] = []
+    @State private var showingBookingPicker = false
     private let existing: VariableBudget?
 
     init(budget: VariableBudget?) {
@@ -311,6 +313,17 @@ struct VariableBudgetForm: View {
                 rulesSection
                 TextField(L("Notiz", "Note"), text: $notes, axis: .vertical)
             }
+            .sheet(isPresented: $showingBookingPicker) {
+                BookingRulePicker { picked in
+                    for entry in picked {
+                        if let rule = BudgetPayeeRules.rule(from: entry),
+                           !rules.contains(where: { $0.caseInsensitiveCompare(rule) == .orderedSame }) {
+                            rules.append(rule)
+                        }
+                    }
+                    pickedBookings += picked.filter { entry in !pickedBookings.contains { $0.id == entry.id } }
+                }
+            }
             .appGlassList()
             .navigationTitle(existing == nil ? L("Neue variable Kosten", "New variable cost") : L("Variable Kosten bearbeiten", "Edit variable cost"))
             .toolbar {
@@ -336,6 +349,16 @@ struct VariableBudgetForm: View {
                     .onSubmit(addRule)
                 Button(L("Hinzufügen", "Add"), action: addRule)
                     .disabled(newRule.trimmingCharacters(in: .whitespaces).isEmpty)
+            }
+            Button {
+                showingBookingPicker = true
+            } label: {
+                Label(L("Aus Buchungen wählen", "Pick from bookings"), systemImage: "list.bullet.rectangle")
+            }
+            if !pickedBookings.isEmpty {
+                Text(String(format: L("%d gewählte Buchungen werden beim Speichern zugeordnet, wenn sie noch frei sind.", "%d picked bookings are assigned on saving if they are still free."), pickedBookings.count))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
         } header: {
             Text(L("Automatisch zuordnen", "Assign automatically"))
@@ -381,6 +404,7 @@ struct VariableBudgetForm: View {
         IconPreferenceStore.set(icon, for: budget.id)
         // A rule still typed in the field counts too, so it is not lost by tapping Save first.
         BudgetPayeeRules.set(rules + [newRule], for: budget.id)
+        BudgetPayeeRules.assign(pickedBookings, to: budget.id)
         try? context.save()
         dismiss()
     }
@@ -389,4 +413,71 @@ struct VariableBudgetForm: View {
 /// The icon a variable cost shows until one is chosen.
 enum VariableBudgetIcon {
     static let fallback = "cart"
+}
+
+/// Lists earlier expenses to pick from; each picked booking becomes a rule (its IBAN or name).
+private struct BookingRulePicker: View {
+    let onPick: ([LedgerEntry]) -> Void
+    @Environment(\.dismiss) private var dismiss
+    @Query(sort: \LedgerEntry.date, order: .reverse) private var entries: [LedgerEntry]
+    @State private var query = ""
+    @State private var chosen: Set<UUID> = []
+
+    /// The newest expenses, filtered by the search text.
+    private var expenses: [LedgerEntry] {
+        let all = entries.lazy.filter { $0.kind == .expense }
+        let text = query.trimmingCharacters(in: .whitespaces)
+        let matching = text.isEmpty ? Array(all.prefix(200)) : Array(all.filter { $0.title.localizedCaseInsensitiveContains(text) }.prefix(200))
+        return matching
+    }
+
+    var body: some View {
+        NavigationStack {
+            AppForm {
+                Section {
+                    ForEach(expenses) { entry in
+                        Button {
+                            if chosen.contains(entry.id) { chosen.remove(entry.id) } else { chosen.insert(entry.id) }
+                        } label: {
+                            HStack {
+                                Image(systemName: chosen.contains(entry.id) ? "checkmark.circle.fill" : "circle")
+                                    .appAccentForeground()
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(entry.title).foregroundStyle(.primary).lineLimit(1)
+                                    Text("\(AppDate.numeric(entry.date)) · \(BudgetPayeeRules.rule(from: entry) ?? L("Name zu kurz", "Name too short"))")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                        .lineLimit(1)
+                                }
+                                Spacer()
+                                Text(Money.string(cents: entry.amountCents))
+                                    .foregroundStyle(BookingClassification.differenceColor(entry.amountCents))
+                            }
+                        }
+                        .buttonStyle(.plain)
+                    }
+                } footer: {
+                    Text(L(
+                        "Unter jeder Buchung steht die Regel, die sie ergibt: die Empfänger-IBAN, sonst der Name.",
+                        "Below each booking is the rule it gives: the recipient IBAN, otherwise the name."
+                    ))
+                }
+            }
+            .searchable(text: $query, prompt: L("Buchung suchen", "Search bookings"))
+            .navigationTitle(L("Buchungen wählen", "Pick bookings"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(L("Abbrechen", "Cancel")) { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(L("Übernehmen", "Add")) {
+                        onPick(entries.filter { chosen.contains($0.id) })
+                        dismiss()
+                    }
+                    .disabled(chosen.isEmpty)
+                }
+            }
+        }
+    }
 }

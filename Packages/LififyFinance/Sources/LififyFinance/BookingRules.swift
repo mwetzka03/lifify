@@ -29,6 +29,35 @@ public enum BudgetPayeeRules {
         LinkTable.set(.variableBudgetPayees, key: budgetID.uuidString, value: nil)
     }
 
+    /// The rule a booking stands for: its recipient IBAN when the notes carry one, otherwise its
+    /// payee name without an appended place or reference ("REWE Markt/Berlin" gives "REWE Markt").
+    ///
+    /// - Parameter entry: A booking the person picked.
+    /// - Returns: The rule, or `nil` when the name is too short to match safely.
+    public static func rule(from entry: LedgerEntry) -> String? {
+        let iban = BankImportService.ibans(from: entry.notes, amountCents: entry.amountCents).recipient
+        if isIBAN(iban) { return iban }
+        let head = entry.title.split(whereSeparator: { $0 == "/" || $0 == "|" }).first.map(String.init) ?? entry.title
+        let name = head.trimmingCharacters(in: .whitespacesAndNewlines)
+        return SubscriptionDetector.payeeKey(name).count >= 3 ? name : nil
+    }
+
+    /// Gives picked bookings to a variable cost, leaving every booking that already has an assignment.
+    ///
+    /// - Parameters:
+    ///   - entries: The bookings the person picked.
+    ///   - budgetID: The variable cost.
+    /// - Returns: How many bookings were assigned.
+    @discardableResult
+    public static func assign(_ entries: [LedgerEntry], to budgetID: UUID) -> Int {
+        let free = entries.filter {
+            $0.kind == .expense && $0.fixedCostID == nil && $0.variableBudgetID == nil
+                && $0.shoppingItemID == nil && !RefundLinkStore.isRefund($0.id)
+        }
+        free.forEach { $0.variableBudgetID = budgetID }
+        return free.count
+    }
+
     /// Says whether a rule is an IBAN rather than a name.
     public static func isIBAN(_ rule: String) -> Bool {
         let value = normalizedIBAN(rule)

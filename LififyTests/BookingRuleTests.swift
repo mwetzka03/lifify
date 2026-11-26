@@ -37,6 +37,23 @@ extension LififyRuleTests {
             }
         }
 
+        @Test func aPickedBookingBecomesARuleAndIsAssignedWhenFree() async throws {
+            try await withTestStore { store in
+                let food = VariableBudget(name: "Lebensmittel", monthlyAmountCents: 40_000)
+                store.context.insert(food)
+                let byIBAN = LedgerEntry(title: "Kartenzahlung", notes: "Empfänger-IBAN: DE44500105175407324931", amountCents: -900, kind: .expense)
+                let byName = LedgerEntry(title: "REWE Markt/Berlin", amountCents: -2_300, kind: .expense)
+                let short = LedgerEntry(title: "XY", amountCents: -100, kind: .expense)
+                let taken = LedgerEntry(title: "REWE", amountCents: -500, kind: .expense, fixedCostID: UUID())
+                #expect(BudgetPayeeRules.rule(from: byIBAN) == "DE44500105175407324931")
+                #expect(BudgetPayeeRules.rule(from: byName) == "REWE Markt")
+                #expect(BudgetPayeeRules.rule(from: short) == nil)
+                #expect(BudgetPayeeRules.assign([byIBAN, byName, taken], to: food.id) == 2)
+                #expect(byName.variableBudgetID == food.id)
+                #expect(taken.variableBudgetID == nil)
+            }
+        }
+
         @Test func autoAssignPrefersTheFixedCostAndNeverOverwritesAChoice() async throws {
             try await withTestStore { store in
                 let food = VariableBudget(name: "Lebensmittel", monthlyAmountCents: 40_000)

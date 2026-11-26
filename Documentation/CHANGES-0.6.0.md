@@ -438,6 +438,10 @@ of the method splitting are still open (see the last section).
 - **Notice check:** Every booking from a notice waits in a list; when the app opens next, a sheet shows them with their assignment and the same picker. "Done" clears the list, "Later" keeps it. Storage: link kind `assignmentInbox`, deliberately not backed up, because it is a to-do list, not data.
 - Tests: `BookingRuleTests` (IBAN and name rules, account limits, fixed cost first, no overwrite, notice waits in the list, import reports its assignments, backup coverage).
 
+### Owner feedback: Rules from earlier bookings
+
+- **Pick from bookings:** The variable cost form can take rules from earlier expenses. A searchable list shows the newest expenses with the rule each would give: the recipient IBAN when the notes carry one, otherwise the payee name without an appended place. Picked bookings add their rules, and on saving they are assigned to the variable cost if they are still free; bookings with another assignment stay as they are. No new storage. Test: `aPickedBookingBecomesARuleAndIsAssignedWhenFree`.
+
 ## Deutsch
 
 ### Überblick
@@ -893,3 +897,7 @@ Screens und ein Teil der Methoden-Zerlegung noch offen (siehe letzter Abschnitt)
 - **Import-Prüfung:** Nach einem Bankimport listet ein Blatt die automatisch zugeordneten Buchungen mit einer Auswahl je Buchung (keine, eine Fixkosten oder eine variable Kosten). Das Importergebnis trägt `autoAssignedIDs`.
 - **Mitteilungs-Prüfung:** Jede Buchung aus einer Mitteilung wartet in einer Liste; beim nächsten Öffnen der App zeigt ein Blatt sie mit ihrer Zuordnung und derselben Auswahl. „Fertig“ leert die Liste, „Später“ behält sie. Speicher: Verknüpfungsart `assignmentInbox`, bewusst nicht im Backup, weil sie eine Aufgabenliste ist, keine Daten.
 - Tests: `BookingRuleTests` (IBAN- und Namensregeln, Kontengrenzen, Fixkosten zuerst, kein Überschreiben, Mitteilung wartet in der Liste, Import meldet seine Zuordnungen, Backup-Abdeckung).
+
+### Rückmeldung des Eigentümers: Regeln aus alten Buchungen
+
+- **Aus Buchungen wählen:** Das Formular der variablen Kosten kann Regeln aus alten Ausgaben übernehmen. Eine durchsuchbare Liste zeigt die neuesten Ausgaben mit der Regel, die jede ergibt: die Empfänger-IBAN, wenn die Notizen eine tragen, sonst den Empfängernamen ohne angehängten Ort. Gewählte Buchungen bringen ihre Regeln mit und werden beim Speichern der variablen Kosten zugeordnet, wenn sie noch frei sind; Buchungen mit anderer Zuordnung bleiben, wie sie sind. Kein neuer Speicher. Test: `aPickedBookingBecomesARuleAndIsAssignedWhenFree`.

@@ -589,6 +589,10 @@ buy, portfolio sale, and savings plan use it, and only on the portfolio side.
   rule comes first. Only bookings without an assignment are touched; single
   bookings can always be moved or removed by hand (`BudgetPayeeRules`,
   `BookingAutoAssign`).
+- Rules can also come from earlier bookings: "Pick from bookings" lists the
+  newest expenses with a search; each picked booking adds its recipient IBAN,
+  or else its name without an appended place. On saving, the picked bookings
+  are assigned to the variable cost if they have no assignment yet.
 - **Checking assignments:** after a bank import, a sheet lists the bookings the
   rules assigned; each can keep its assignment or get another fixed cost,
   variable cost, or none. Bookings from notices are listed the next time the
@@ -1433,6 +1437,11 @@ Depotkauf, Depotverkauf und Sparplan nutzen es, und dort nur auf der Depotseite.
   Buchungen ohne Zuordnung werden angefasst; einzelne Buchungen lassen sich
   jederzeit von Hand umhängen oder lösen (`BudgetPayeeRules`,
   `BookingAutoAssign`).
+- Regeln können auch aus alten Buchungen kommen: „Aus Buchungen wählen“ listet
+  die neuesten Ausgaben mit Suche; jede gewählte Buchung bringt ihre
+  Empfänger-IBAN, sonst ihren Namen ohne angehängten Ort. Beim Speichern werden
+  die gewählten Buchungen der variablen Kosten zugeordnet, wenn sie noch keine
+  Zuordnung haben.
 - **Zuordnungen prüfen:** Nach einem Bankimport listet ein Blatt die
   Buchungen, die die Regeln zugeordnet haben; jede kann ihre Zuordnung
   behalten oder andere Fixkosten, variable Kosten oder keine bekommen.
