@@ -17,8 +17,10 @@ Health has two parts: training with steps and Apple Health, and nutrition.
   original. A tile shows when the plan was last trained and every exercise
   icon that fits side by side, the rest as "+n".
 - **Calendar after a training:** a training on a day without its slot gets a
-  copy of the plan's linked recurring event (title, calendar, color, symbol,
-  challenge) at the real time; the challenge is checked as on its normal day.
+  copy of the plan's linked recurring event at the real time: same calendar,
+  place, color, symbol, and challenge, titled "Series: Plan" such as
+  "GYM: Unterkörper". The series is the linked event nearest to the training,
+  past or coming. The challenge is checked as on its normal day.
   Without a linked event it is a plain event named after the plan. Trainings of
   the last seven days that ended without an event get theirs once after the
   update.
@@ -190,9 +192,11 @@ Gesundheit hat zwei Teile: Training mit Schritten und Apple Health, und Ernähru
   bleiben am Original. Eine Kachel zeigt, wann der Plan zuletzt trainiert
   wurde, und alle Übungssymbole nebeneinander, die passen, den Rest als „+n“.
 - **Kalender nach dem Training:** Ein Training an einem Tag ohne seinen Termin
-  bekommt eine Kopie des verknüpften Serientermins (Titel, Kalender, Farbe,
-  Symbol, Challenge) zur echten Zeit; die Challenge wird wie am normalen Tag
-  abgehakt. Ohne verknüpften Termin ist es ein einfacher Termin mit dem
+  bekommt eine Kopie des verknüpften Serientermins zur echten Zeit: gleicher
+  Kalender, Ort, Farbe, Symbol und Challenge, mit dem Titel „Serie: Plan“, etwa
+  „GYM: Unterkörper“. Die Serie ist der verknüpfte Termin, der dem Training am
+  nächsten liegt, vergangen oder kommend. Die Challenge wird wie am normalen
+  Tag abgehakt. Ohne verknüpften Termin ist es ein einfacher Termin mit dem
   Plannamen. Trainings der letzten sieben Tage ohne Termin bekommen ihren nach
   dem Update einmalig nachträglich.
 - **Kein Ladebildschirm im Training:** Die Rückkehr vom Sperrbildschirm oder

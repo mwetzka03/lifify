@@ -48,8 +48,13 @@ public final class EventKitCalendarGateway: CalendarGateway {
                 originalStart: draft.originalStart
             ) ?? EKEvent(eventStore: store)
             if event.calendar == nil {
+                // A new event joins the calendar of its sibling and takes over its place.
                 let sibling = draft.calendarOfEvent.flatMap { store.event(withIdentifier: $0) }
                 event.calendar = sibling?.calendar ?? store.defaultCalendarForNewEvents
+                if let sibling {
+                    event.location = sibling.location
+                    event.structuredLocation = sibling.structuredLocation
+                }
             }
             guard event.calendar != nil else { return nil }
             Self.apply(draft, to: event)

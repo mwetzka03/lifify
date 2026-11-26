@@ -190,7 +190,7 @@ extension LififyRuleTests {
                 await WorkoutCalendarSync.backfillMissingEvents(sessions: [session], context: store.context)
 
                 let copy = try #require(try store.all(ChallengeCalendarEvent.self).first { $0.id != series.id && $0.startDate == today(10) })
-                #expect(copy.title == "Gym")
+                #expect(copy.title == "Gym: Push")
                 #expect(copy.colorHex == "#AA3355")
                 #expect(copy.linkedChallengeID == challenge.id)
                 #expect(store.calendar.savedEvents.last?.calendarOfEvent == "ios-series")
@@ -198,6 +198,36 @@ extension LififyRuleTests {
                 // A second run finds the event and adds nothing.
                 await WorkoutCalendarSync.backfillMissingEvents(sessions: [session], context: store.context)
                 try #expect(store.all(ChallengeCalendarEvent.self).count == 2)
+            }
+        }
+
+        @Test func aComingSeriesCountsAndAPlainCopyIsReplacedOnce() async throws {
+            try await withTestStore { store in
+                store.calendar.grantsAccess = true
+                let session = finishedSession()
+                let challenge = ChallengeItem(title: "Sport", category: .sport, recurrence: .weekly, startDate: days(-14, after: today(9)))
+                let coming = ChallengeCalendarEvent(
+                    title: "GYM", startDate: days(1, after: today(19)), endDate: days(1, after: today(21)),
+                    linkedChallengeID: challenge.id, externalIdentifier: "ios-gym"
+                )
+                let plain = ChallengeCalendarEvent(
+                    title: "Push", details: "\(WorkoutCalendarSync.noteMarker)\nPush", startDate: today(10), endDate: today(11, 5),
+                    externalIdentifier: "ios-plain"
+                )
+                [coming, plain].forEach(store.context.insert)
+                store.context.insert(challenge)
+                WorkoutLinkStore.link(planID: session.planID, challengeID: challenge.id)
+                WorkoutLinkStore.link(planID: session.planID, eventID: plain.id, managed: true)
+                #expect(WorkoutCalendarSync.standaloneTitle(series: "GYM", plan: "Unterkörper") == "GYM: Unterkörper")
+                #expect(WorkoutCalendarSync.standaloneTitle(series: "push", plan: "Push") == "Push")
+
+                #expect(await WorkoutCalendarSync.replacePlainCopies(sessions: [session], context: store.context) == 1)
+                let events = try store.all(ChallengeCalendarEvent.self)
+                #expect(!events.contains { $0.id == plain.id })
+                let copy = try #require(events.first { $0.title == "GYM: Push" })
+                #expect(copy.linkedChallengeID == challenge.id)
+                #expect(store.calendar.savedEvents.last?.calendarOfEvent == "ios-gym")
+                #expect(await WorkoutCalendarSync.replacePlainCopies(sessions: [session], context: store.context) == 0)
             }
         }
 

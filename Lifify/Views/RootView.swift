@@ -158,9 +158,16 @@ struct RootView: View {
     /// after the update that added this.
     private func backfillTrainingEvents() async {
         let key = "lifify.trainingEventBackfill.v1"
-        guard !AppDefaults.store.bool(forKey: key) else { return }
-        await WorkoutCalendarSync.backfillMissingEvents(sessions: workouts.sessions, context: context)
-        AppDefaults.store.set(true, forKey: key)
+        if !AppDefaults.store.bool(forKey: key) {
+            await WorkoutCalendarSync.backfillMissingEvents(sessions: workouts.sessions, context: context)
+            AppDefaults.store.set(true, forKey: key)
+        }
+        // The first version named such events after the plan alone; they become series copies once.
+        let repairKey = "lifify.trainingEventSeriesCopy.v1"
+        if !AppDefaults.store.bool(forKey: repairKey) {
+            await WorkoutCalendarSync.replacePlainCopies(sessions: workouts.sessions, context: context)
+            AppDefaults.store.set(true, forKey: repairKey)
+        }
     }
 
     /// Names older PayPal bookings after their real payee, once per launch and only where needed.

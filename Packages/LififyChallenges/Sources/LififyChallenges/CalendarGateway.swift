@@ -74,7 +74,7 @@ public struct CalendarEventDraft: Sendable, Equatable {
     public var end: Date
     public var isAllDay: Bool
     public var occurrenceOnly: Bool
-    /// A system event whose calendar a new event joins, such as an earlier training.
+    /// A system event whose calendar and place a new event takes over, such as the training series.
     public var calendarOfEvent: String?
 
     /// Creates a draft for one calendar write.

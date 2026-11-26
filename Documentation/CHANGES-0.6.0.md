@@ -499,6 +499,13 @@ of the method splitting are still open (see the last section).
 - Side effect: incoming money on PayPal from other people and payouts to the bank are not paired yet; a payout stays an income on the checking account.
 - Tests: `aPayPalExportBooksPaymentsOnlyAndPairsTheBankDebit`, `aPayPalMailBooksOnThePayPalAccount`.
 
+### Owner feedback: Training copy keeps the series name and place
+
+- **Title and place:** The copied event is now titled "Series: Plan" (such as "GYM: Unterkörper") and takes over the series' place (location and map entry) along with its calendar. Why: the first copy was named after the plan only and had no place.
+- **Finding the series:** The series is the linked event nearest to the training, past or coming. Before, only past events counted, and those are often removed by the cleanup of missed training days, so the series was not found and a plain event was made. Events Lifify made itself never count as the series. The challenge path now makes the same copy.
+- **Repair:** Once after the update, plain events made by the first version (named after the plan, without a challenge) in the last seven days are replaced by the series copy, also in the iOS calendar (`WorkoutCalendarSync.replacePlainCopies`).
+- Tests: `aComingSeriesCountsAndAPlainCopyIsReplacedOnce`, updated `aTrainingOffItsDayCopiesTheLinkedSeriesAndChecksItsChallenge`.
+
 ## Deutsch
 
 ### Überblick
@@ -1015,3 +1022,10 @@ Screens und ein Teil der Methoden-Zerlegung noch offen (siehe letzter Abschnitt)
 - **Datenschutz:** Die README nennt PayPal als Datenquelle, die nur über Dateien und E-Mails kommt; Lifify stellt keine Anfragen an PayPal.
 - Nebenwirkung: Geld, das andere auf PayPal schicken, und Auszahlungen an die Bank werden noch nicht gepaart; eine Auszahlung bleibt eine Einnahme auf dem Girokonto.
 - Tests: `aPayPalExportBooksPaymentsOnlyAndPairsTheBankDebit`, `aPayPalMailBooksOnThePayPalAccount`.
+
+### Rückmeldung des Eigentümers: Trainingskopie behält Seriennamen und Ort
+
+- **Titel und Ort:** Der kopierte Termin heißt jetzt „Serie: Plan“ (etwa „GYM: Unterkörper“) und übernimmt neben dem Kalender den Ort der Serie (Adresse und Karteneintrag). Warum: Die erste Kopie hieß nur nach dem Plan und hatte keinen Ort.
+- **Serie finden:** Die Serie ist der verknüpfte Termin, der dem Training am nächsten liegt, vergangen oder kommend. Bisher zählten nur vergangene, und die entfernt das Aufräumen verpasster Trainingstage oft, daher fand sich keine Serie und es entstand ein einfacher Termin. Termine, die Lifify selbst angelegt hat, zählen nie als Serie. Der Weg über die Challenge legt jetzt dieselbe Kopie an.
+- **Reparatur:** Einmal nach dem Update werden einfache Termine der ersten Version (nach dem Plan benannt, ohne Challenge) der letzten sieben Tage durch die Serienkopie ersetzt, auch im iOS-Kalender (`WorkoutCalendarSync.replacePlainCopies`).
+- Tests: `aComingSeriesCountsAndAPlainCopyIsReplacedOnce`, angepasst `aTrainingOffItsDayCopiesTheLinkedSeriesAndChecksItsChallenge`.

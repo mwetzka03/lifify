@@ -60,7 +60,7 @@ public enum WorkoutCalendarSync {
             if occurrences.isEmpty {
                 if ChallengeService.isDue(challenge, on: session.finishedAt),
                    !ChallengeTimeRules.isAdopted(challenge.externalIdentifier) {
-                    await createOccurrence(for: challenge, session: session, start: start, end: end, context: context)
+                    await createStandalone(session: session, start: start, end: end, events: events, completions: completions, challenge: challenge, context: context)
                     placed = true
                 }
             } else {
@@ -156,8 +156,8 @@ public enum WorkoutCalendarSync {
 
     /// Creates an event for a due challenge without one.
     /// Creates an event for a training that had no slot that day: a copy of the plan's linked
-    /// recurring event (title, calendar, color, symbol, challenge) at the real time, or a plain event
-    /// named after the plan when nothing is linked.
+    /// recurring event (calendar, place, color, symbol, challenge) at the real time, titled
+    /// "Series: Plan" such as "GYM: Unterkörper", or a plain event when nothing is linked.
     ///
     /// - Parameters:
     ///   - session: The finished training.
@@ -165,6 +165,7 @@ public enum WorkoutCalendarSync {
     ///   - end: The rounded end.
     ///   - events: All calendar events, to find the linked series.
     ///   - completions: The check-offs, so a linked challenge is checked once.
+    ///   - challenge: The linked challenge when no series event exists.
     ///   - context: The database context.
     private static func createStandalone(
         session: WorkoutSession,
@@ -172,10 +173,11 @@ public enum WorkoutCalendarSync {
         end: Date,
         events: [ChallengeCalendarEvent],
         completions: [ChallengeCompletion],
+        challenge: ChallengeItem? = nil,
         context: ModelContext
     ) async {
         let series = seriesEvent(for: session, in: events)
-        let title = series?.title ?? session.planName
+        let title = standaloneTitle(series: series?.title ?? challenge?.title, plan: session.planName)
         let notes = "\(noteMarker)\n\(session.planName)"
         let identifier = await EventKitSyncService.saveCalendarEvent(
             externalIdentifier: nil,
@@ -196,7 +198,7 @@ public enum WorkoutCalendarSync {
             isAllDay: false,
             colorHex: series?.colorHex ?? "#2F9E7A",
             icon: series?.icon ?? "figure.strengthtraining.traditional",
-            linkedChallengeID: series?.linkedChallengeID,
+            linkedChallengeID: series?.linkedChallengeID ?? challenge?.id,
             externalIdentifier: identifier,
             isReadOnly: false
         )
@@ -212,17 +214,24 @@ public enum WorkoutCalendarSync {
         return (linked.first { own.contains($0.id) } ?? linked.first)?.externalIdentifier
     }
 
-    /// The plan's calendar series: the newest event linked to the plan directly or through its
-    /// challenge, on or before the training.
+    /// The plan's calendar series: an event linked to the plan directly or through its challenge,
+    /// past or coming, the one nearest to the training. Copies made by Lifify do not count.
     static func seriesEvent(for session: WorkoutSession, in events: [ChallengeCalendarEvent]) -> ChallengeCalendarEvent? {
         let own = Set(WorkoutLinkStore.eventIDs(for: session.planID))
         let challenges = Set(WorkoutLinkStore.challengeIDs(for: session.planID))
         return events
             .filter { event in
-                !event.isReminderSuggestion && event.startDate <= session.finishedAt
+                !event.isReminderSuggestion && !event.details.contains(noteMarker)
                     && (own.contains(event.id) || event.linkedChallengeID.map(challenges.contains) == true)
             }
-            .max { $0.startDate < $1.startDate }
+            .min { abs($0.startDate.timeIntervalSince(session.finishedAt)) < abs($1.startDate.timeIntervalSince(session.finishedAt)) }
+    }
+
+    /// "Series: Plan", or the plan alone when there is no series or both are the same.
+    public static func standaloneTitle(series: String?, plan: String) -> String {
+        let name = series?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !name.isEmpty, name.caseInsensitiveCompare(plan) != .orderedSame else { return plan }
+        return "\(name): \(plan)"
     }
 
     /// Checks off the challenge the copied event belongs to, as on its normal day.
@@ -269,39 +278,45 @@ public enum WorkoutCalendarSync {
         }
     }
 
-    private static func createOccurrence(
-        for challenge: ChallengeItem,
-        session: WorkoutSession,
-        start: Date,
-        end: Date,
-        context: ModelContext
-    ) async {
-        let trimmed = challenge.title.trimmingCharacters(in: .whitespacesAndNewlines)
-        let title = trimmed.isEmpty ? session.planName : trimmed
-        let notes = "\(noteMarker)\n\(session.planName)"
-        let identifier = await EventKitSyncService.saveCalendarEvent(
-            externalIdentifier: nil,
-            originalStart: nil,
-            title: title,
-            notes: notes,
-            start: start,
-            end: end,
-            isAllDay: false,
-            occurrenceOnly: true
-        )
-        let event = ChallengeCalendarEvent(
-            title: title,
-            details: notes,
-            startDate: start,
-            endDate: end,
-            isAllDay: false,
-            colorHex: "#2F9E7A",
-            icon: "figure.strengthtraining.traditional",
-            linkedChallengeID: challenge.id,
-            externalIdentifier: identifier,
-            isReadOnly: false
-        )
-        context.insert(event)
-        WorkoutLinkStore.link(planID: session.planID, eventID: event.id, managed: true)
+    /// Replaces plain training events made before the series copy existed with a copy of the series.
+    ///
+    /// Only events Lifify made for a training (its note mark), named just after the plan and without a
+    /// challenge, are replaced, and only when the plan has a series to copy now.
+    ///
+    /// - Parameters:
+    ///   - sessions: The finished trainings.
+    ///   - days: How many days back to look.
+    ///   - context: The database context.
+    /// - Returns: How many events were replaced.
+    @discardableResult
+    public static func replacePlainCopies(sessions: [WorkoutSession], days: Int = 7, context: ModelContext) async -> Int {
+        let calendar = Calendar.current
+        guard let since = calendar.date(byAdding: .day, value: -days, to: calendar.startOfDay(for: .now)) else { return 0 }
+        var replaced = 0
+        for session in sessions where session.finishedAt >= since {
+            let events = (try? context.fetch(FetchDescriptor<ChallengeCalendarEvent>())) ?? []
+            guard seriesEvent(for: session, in: events) != nil else { continue }
+            let own = Set(WorkoutLinkStore.eventIDs(for: session.planID))
+            let plain = events.filter { event in
+                own.contains(event.id) && onFinishDay(event, session: session) && event.details.contains(noteMarker)
+                    && event.linkedChallengeID == nil && event.title == session.planName
+            }
+            guard !plain.isEmpty else { continue }
+            for event in plain {
+                if let identifier = event.externalIdentifier {
+                    await EventKitSyncService.deleteCalendarEvent(externalIdentifier: identifier, occurrenceStart: event.startDate)
+                }
+                context.delete(event)
+            }
+            try? context.save()
+            let remaining = (try? context.fetch(FetchDescriptor<ChallengeCalendarEvent>())) ?? []
+            let completions = (try? context.fetch(FetchDescriptor<ChallengeCompletion>())) ?? []
+            let end = clock(session.finishedAt)
+            let start = end.addingTimeInterval(-TimeInterval(duration(seconds: session.durationSeconds)))
+            await createStandalone(session: session, start: start, end: end, events: remaining, completions: completions, context: context)
+            replaced += 1
+        }
+        try? context.save()
+        return replaced
     }
 }
